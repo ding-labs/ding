@@ -133,7 +133,9 @@ Adding a new exchange means implementing this interface. Binance and Bybit are t
 
 ## Component 2: Ding Trading Rules
 
-No code changes to Ding. Trading strategies are expressed as YAML rules using Ding's existing condition syntax. The Poller pre-computes technical indicators, so Ding rules are simple threshold checks.
+Trading strategies are expressed as YAML rules using Ding's condition syntax. The Poller pre-computes technical indicators, so Ding rules are simple threshold checks.
+
+**Prerequisite Ding change:** Ding's condition parser does not currently support negative number literals (the regex uses `\d+` with no optional minus sign). Rules like `value < -0.5` will fail at config load. This requires a one-line fix to the condition parser regex in `internal/evaluator/condition.go`: change `(\d+(?:\.\d+)?)` to `(-?\d+(?:\.\d+)?)`. This is arguably a Ding bug regardless of this project — negative thresholds are a reasonable use case for any Ding user.
 
 ### Example Configuration
 
