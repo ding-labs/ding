@@ -2036,7 +2036,7 @@ func TestPaperExchange_PlaceOrder(t *testing.T) {
 	}
 }
 
-func TestPaperExchange_TracksBallance(t *testing.T) {
+func TestPaperExchange_TracksBalance(t *testing.T) {
 	pe := NewPaperExchange(1000)
 	pe.PlaceOrder(Order{
 		Pair:     "BTC/USDT",
@@ -2044,8 +2044,9 @@ func TestPaperExchange_TracksBallance(t *testing.T) {
 		Price:    100,
 		Quantity: 2,
 	})
-	if pe.Balance() != 800 {
-		t.Errorf("balance = %f, want 800 after buying 2*100", pe.Balance())
+	// cost=200, fee=200*0.001=0.2, balance=1000-200-0.2=799.8
+	if pe.Balance() != 799.8 {
+		t.Errorf("balance = %f, want 799.8 after buying 2*100 with 0.1%% fee", pe.Balance())
 	}
 
 	pe.PlaceOrder(Order{
@@ -2054,8 +2055,9 @@ func TestPaperExchange_TracksBallance(t *testing.T) {
 		Price:    110,
 		Quantity: 2,
 	})
-	if pe.Balance() != 1020 {
-		t.Errorf("balance = %f, want 1020 after selling 2*110", pe.Balance())
+	// proceeds=220, fee=220*0.001=0.22, balance=799.8+220-0.22=1019.58
+	if pe.Balance() != 1019.58 {
+		t.Errorf("balance = %f, want 1019.58 after selling 2*110 with 0.1%% fee", pe.Balance())
 	}
 }
 
