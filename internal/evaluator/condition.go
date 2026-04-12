@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	reEventCond    = regexp.MustCompile(`^value\s*(>|>=|<|<=|==|!=)\s*(\d+(?:\.\d+)?)$`)
-	reWindowedCond = regexp.MustCompile(`^(avg|max|min|count|sum)\(value\)\s+over\s+(\d+[smh])\s*(>|>=|<|<=|==|!=)\s*(\d+(?:\.\d+)?)$`)
+	reEventCond    = regexp.MustCompile(`^value\s*(>|>=|<|<=|==|!=)\s*(-?\d+(?:\.\d+)?)$`)
+	reWindowedCond = regexp.MustCompile(`^(avg|max|min|count|sum)\(value\)\s+over\s+(\d+[smh])\s*(>|>=|<|<=|==|!=)\s*(-?\d+(?:\.\d+)?)$`)
 )
 
 // Condition is a parsed alert condition.

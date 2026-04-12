@@ -22,6 +22,9 @@ func TestParseCondition_EventPerEvent(t *testing.T) {
 		{"value < 0", "<", 0},
 		{"value == 42", "==", 42},
 		{"value != 0", "!=", 0},
+		{"value > -5", ">", -5},
+		{"value < -0.5", "<", -0.5},
+		{"value >= -100.25", ">=", -100.25},
 	}
 	for _, tc := range cases {
 		c, err := evaluator.ParseCondition(tc.input)
@@ -47,6 +50,19 @@ func TestParseCondition_Windowed(t *testing.T) {
 		t.Fatal("expected windowed condition")
 	}
 	if c.Func != "avg" || c.Window != 5*time.Minute || c.Op != ">" || c.Literal != 80 {
+		t.Errorf("unexpected condition: %+v", c)
+	}
+}
+
+func TestParseCondition_WindowedNegative(t *testing.T) {
+	c, err := evaluator.ParseCondition("avg(value) over 5m > -10.5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.Windowed {
+		t.Fatal("expected windowed condition")
+	}
+	if c.Func != "avg" || c.Window != 5*time.Minute || c.Op != ">" || c.Literal != -10.5 {
 		t.Errorf("unexpected condition: %+v", c)
 	}
 }
