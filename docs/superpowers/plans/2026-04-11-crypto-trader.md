@@ -975,6 +975,9 @@ func TestPoller_EmitsIndicatorsToSink(t *testing.T) {
 	if _, ok := last["value"]; !ok {
 		t.Error("missing 'value' field in payload")
 	}
+	if last["exchange"] != "mock" {
+		t.Errorf("exchange = %v, want mock", last["exchange"])
+	}
 }
 ```
 
@@ -1005,7 +1008,9 @@ type Poller struct {
 	Adapters      []ExchangeAdapter
 	// Indicators keyed by pair: "BTC/USDT" -> [momentum, deviation, ...]
 	Indicators map[string][]Indicator
-	client     *http.Client
+	// PairExchange maps pair -> exchange name for payload metadata
+	PairExchange map[string]string
+	client       *http.Client
 }
 
 // indicatorPayload is the JSON sent to Ding's /ingest.
@@ -1047,6 +1052,13 @@ func (p *Poller) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case tick := <-merged:
+			// Track which exchange provides each pair
+			if _, ok := p.PairExchange[tick.Pair]; !ok {
+				if p.PairExchange == nil {
+					p.PairExchange = make(map[string]string)
+				}
+				p.PairExchange[tick.Pair] = tick.Exchange
+			}
 			// Push to all indicators for this pair
 			if indicators, ok := p.Indicators[tick.Pair]; ok {
 				for _, ind := range indicators {
@@ -1064,9 +1076,10 @@ func (p *Poller) flush() {
 	for pair, indicators := range p.Indicators {
 		for _, ind := range indicators {
 			payload := indicatorPayload{
-				Metric: ind.Name(),
-				Value:  ind.Value(),
-				Pair:   pair,
+				Metric:   ind.Name(),
+				Value:    ind.Value(),
+				Pair:     pair,
+				Exchange: p.PairExchange[pair],
 			}
 			line, _ := json.Marshal(payload)
 			buf.Write(line)
@@ -2676,6 +2689,8 @@ func newTestServer() *Server {
 
 func TestServer_PostSignal_Buy(t *testing.T) {
 	srv := newTestServer()
+	// Seed a price so the exchange has data for BTC/USDT
+	srv.orders.exchange.PlaceOrder(Order{Pair: "BTC/USDT", Side: "buy", Price: 67000, Quantity: 0})
 	body := `{"rule":"momentum_buy","metric":"momentum_score","value":0.7,"pair":"BTC/USDT"}`
 	req := httptest.NewRequest("POST", "/signal", strings.NewReader(body))
 	w := httptest.NewRecorder()
@@ -2828,22 +2843,19 @@ func (s *Server) handleSignal(w http.ResponseWriter, r *http.Request) {
 	action := sig.Action()
 	switch action {
 	case ActionBuy:
-		// Use signal value as a rough price proxy; in production, get from exchange
-		price := sig.Value
-		if ex, ok := s.orders.exchange.(interface{ GetPrice(string) (float64, error) }); ok {
-			if p, err := ex.GetPrice(sig.Pair); err == nil {
-				price = p
-			}
+		price, err := s.orders.exchange.GetPrice(sig.Pair)
+		if err != nil {
+			log.Printf("buy skipped: no price for %s: %v", sig.Pair, err)
+			break
 		}
 		if err := s.orders.HandleBuy(sig, price); err != nil {
 			log.Printf("buy blocked: %v", err)
 		}
 	case ActionSell:
-		price := sig.Value
-		if ex, ok := s.orders.exchange.(interface{ GetPrice(string) (float64, error) }); ok {
-			if p, err := ex.GetPrice(sig.Pair); err == nil {
-				price = p
-			}
+		price, err := s.orders.exchange.GetPrice(sig.Pair)
+		if err != nil {
+			log.Printf("sell skipped: no price for %s: %v", sig.Pair, err)
+			break
 		}
 		if _, err := s.orders.HandleSell(sig, price); err != nil {
 			log.Printf("sell skipped: %v", err)
@@ -2945,12 +2957,13 @@ type ExecutorConfig struct {
 		APISecret string `yaml:"api_secret"`
 	} `yaml:"exchange"`
 	Trading struct {
-		Mode            string  `yaml:"mode"` // "paper" or "live"
-		BaseCurrency    string  `yaml:"base_currency"`
-		PositionSizePct float64 `yaml:"position_size_pct"`
-		MaxOpenPositions int    `yaml:"max_open_positions"`
-		MaxDailyLossPct float64 `yaml:"max_daily_loss_pct"`
-		MaxDailyTrades  int     `yaml:"max_daily_trades"`
+		Mode             string  `yaml:"mode"` // "paper" or "live"
+		BaseCurrency     string  `yaml:"base_currency"`
+		InitialBalance   float64 `yaml:"initial_balance"`
+		PositionSizePct  float64 `yaml:"position_size_pct"`
+		MaxOpenPositions int     `yaml:"max_open_positions"`
+		MaxDailyLossPct  float64 `yaml:"max_daily_loss_pct"`
+		MaxDailyTrades   int     `yaml:"max_daily_trades"`
 	} `yaml:"trading"`
 	Orders struct {
 		Type           string          `yaml:"type"`
@@ -2994,6 +3007,9 @@ func main() {
 	if cfg.TradeLog.Dir == "" {
 		cfg.TradeLog.Dir = "trade-log"
 	}
+	if cfg.Trading.InitialBalance == 0 {
+		cfg.Trading.InitialBalance = 1000
+	}
 
 	// Trade log
 	os.MkdirAll(cfg.TradeLog.Dir, 0755)
@@ -3008,7 +3024,7 @@ func main() {
 	var ex executor.Exchange
 	switch cfg.Trading.Mode {
 	case "paper":
-		ex = executor.NewPaperExchange(1000) // TODO: make initial balance configurable
+		ex = executor.NewPaperExchange(cfg.Trading.InitialBalance)
 		log.Println("PAPER TRADING MODE — no real orders will be placed")
 	default:
 		log.Fatalf("unsupported trading mode: %s (only 'paper' supported in v1)", cfg.Trading.Mode)
@@ -3020,7 +3036,7 @@ func main() {
 		MaxOpenPositions: cfg.Trading.MaxOpenPositions,
 		MaxDailyTrades:   cfg.Trading.MaxDailyTrades,
 		MaxDailyLossPct:  cfg.Trading.MaxDailyLossPct,
-		PortfolioValue:   1000,
+		PortfolioValue:   cfg.Trading.InitialBalance,
 		PositionSizePct:  cfg.Trading.PositionSizePct,
 	})
 	oh := executor.NewOrderHandler(pm, rm, ex, tl, executor.OrderConfig{
@@ -3098,6 +3114,7 @@ exchange:
 trading:
   mode: paper                    # "paper" or "live"
   base_currency: USDT
+  initial_balance: 1000          # starting portfolio value in base currency
   position_size_pct: 5           # risk 5% of portfolio per trade
   max_open_positions: 3
   max_daily_loss_pct: 10         # kill switch threshold
