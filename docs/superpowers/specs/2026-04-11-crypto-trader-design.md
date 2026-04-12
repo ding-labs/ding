@@ -36,18 +36,21 @@ Three Go services communicating over HTTP:
 **Data flow:**
 
 1. Market Poller connects to exchange WebSocket APIs, receives real-time price ticks
-2. Normalizes each tick to Ding's JSON format: `{"metric": "price", "value": 67432.50, "pair": "BTC/USDT", "exchange": "binance", "bid": 67432.00, "ask": 67433.00}`
-3. POSTs to Ding's `/ingest` endpoint
-4. Ding's JQ transform extracts metric/value; labels (pair, exchange) pass through for rule matching
-5. Rules evaluate (e.g., `avg(value) over 2m > avg(value) over 10m * 1.005` detects upward momentum)
-6. When a rule fires, Ding sends a webhook to the Trade Executor
-7. Executor interprets the signal (rule name encodes intent), checks risk limits, places an order
+2. Computes technical indicators (moving averages, momentum scores, deviation percentages) from the raw tick stream
+3. Emits derived metrics as Ding-compatible JSON: `{"metric": "momentum_score", "value": 0.7, "pair": "BTC/USDT", "exchange": "binance"}`
+4. POSTs to Ding's `/ingest` endpoint
+5. Ding's JQ transform extracts metric/value; labels (pair, exchange) pass through for rule matching
+6. Rules evaluate simple thresholds against the pre-computed indicators (e.g., `value > 0.5` on `momentum_score`)
+7. When a rule fires, Ding sends a webhook to the Trade Executor
+8. Executor interprets the signal (rule name encodes intent), checks risk limits, places an order
+
+**Key design decision:** Technical indicator computation (moving averages, cross-overs, deviation from mean) lives in the Poller, not in Ding's rule conditions. This is because Ding's condition parser supports `aggregate(value) over Xm > <number>` but not aggregate-vs-aggregate comparisons or arithmetic expressions. By computing indicators in Go code (testable, debuggable), Ding rules become simple threshold checks — which is exactly what Ding is good at.
 
 **Key property:** Ding doesn't know it's trading. It evaluates rules on streaming numeric data and fires webhooks. Trading semantics live in rule names and the executor's interpretation.
 
 ## Component 1: Market Poller
 
-A small Go service that turns exchange WebSocket feeds into Ding-compatible JSON.
+A Go service that turns exchange WebSocket feeds into Ding-compatible JSON with pre-computed technical indicators.
 
 ### Configuration
 
@@ -64,6 +67,21 @@ exchanges:
   - name: bybit
     pairs: [BTC/USDT, ETH/USDT]
     stream: wss://stream.bybit.com/v5/public/spot
+
+indicators:
+  - name: momentum_score
+    type: sma_crossover        # short SMA vs long SMA, normalized to [-1, 1]
+    short_window: 2m
+    long_window: 10m
+    threshold: 0.005           # 0.5% minimum divergence to register
+
+  - name: mean_dev_pct
+    type: deviation_from_sma   # current price as % deviation from SMA
+    window: 1h
+
+  - name: volatility_pct
+    type: range_over_mean      # (max - min) / avg over window, as percentage
+    window: 5m
 ```
 
 ### Design
@@ -71,8 +89,28 @@ exchanges:
 - Connects to each exchange's public WebSocket API (no API keys needed)
 - Subscribes to trade/ticker streams for configured pairs
 - Normalizes exchange-specific JSON via per-exchange adapters
-- Batches ticks and POSTs to Ding on `flush_interval` (500ms default)
+- **Computes technical indicators** from the raw tick stream using in-memory rolling windows
+- Emits derived metrics to Ding: `{"metric": "momentum_score", "value": 0.7, "pair": "BTC/USDT", "exchange": "binance"}`
+- Batches and POSTs to Ding on `flush_interval` (500ms default)
 - Each exchange gets its own goroutine with reconnection logic
+
+### Technical Indicator Types
+
+| Type | Output | Description |
+|---|---|---|
+| `sma_crossover` | [-1, 1] | Short SMA vs long SMA, normalized. >0 = bullish, <0 = bearish. Magnitude indicates strength. |
+| `deviation_from_sma` | percentage | Current price as % deviation from SMA. -2.1 means 2.1% below average. |
+| `range_over_mean` | percentage | (max - min) / avg over window. Measures volatility as a percentage. |
+
+Additional indicator types can be added as Go functions. Each implements a simple interface:
+
+```go
+type Indicator interface {
+    Name() string
+    Push(price float64, ts time.Time)
+    Value() float64
+}
+```
 
 ### Exchange Adapter Interface
 
@@ -89,13 +127,13 @@ Adding a new exchange means implementing this interface. Binance and Bybit are t
 ### Scope boundaries
 
 - No order placement (executor's job)
-- No strategy logic
-- No state beyond current WebSocket connection
+- No trade decision logic (Ding's job — the poller computes indicators, not signals)
 - No API key management
+- Maintains rolling window state for indicators, but this is ephemeral (rebuilt on restart from the live feed)
 
 ## Component 2: Ding Trading Rules
 
-No code changes to Ding. Trading strategies are expressed as YAML rules.
+No code changes to Ding. Trading strategies are expressed as YAML rules using Ding's existing condition syntax. The Poller pre-computes technical indicators, so Ding rules are simple threshold checks.
 
 ### Example Configuration
 
@@ -103,70 +141,83 @@ No code changes to Ding. Trading strategies are expressed as YAML rules.
 server:
   port: 8080
   format: json
-  jq: '{metric: .metric, value: .value, pair: .pair, exchange: .exchange, volume_24h: .volume_24h}'
+  jq: '{metric: .metric, value: .value, pair: .pair, exchange: .exchange}'
 
 notifiers:
-  - name: executor
+  executor:
     type: webhook
     url: http://localhost:9090/signal
-    max_retries: 1
+    max_attempts: 1
 
 rules:
-  # Momentum strategies
+  # Momentum strategies — poller emits "momentum_score" in range [-1, 1]
+  # positive = short SMA above long SMA (bullish), >0.5 = strong signal
   - name: momentum_buy
     match:
+      metric: momentum_score
       pair: BTC/USDT
-    condition: "avg(value) over 2m > avg(value) over 10m * 1.005"
+    condition: "value > 0.5"
     cooldown: 5m
-    message: "BTC short-term avg crossed above long-term by 0.5%"
-    alert: [executor]
+    message: "BTC momentum score {{ .value }} — bullish crossover"
+    alert:
+      - notifier: executor
 
   - name: momentum_sell
     match:
+      metric: momentum_score
       pair: BTC/USDT
-    condition: "avg(value) over 2m < avg(value) over 10m * 0.995"
+    condition: "value < -0.5"
     cooldown: 5m
-    message: "BTC short-term avg dropped below long-term by 0.5%"
-    alert: [executor]
+    message: "BTC momentum score {{ .value }} — bearish crossover"
+    alert:
+      - notifier: executor
 
-  # Mean reversion
+  # Mean reversion — poller emits "mean_dev_pct" as % deviation from SMA
+  # -2.0 means price is 2% below the 1h average
   - name: mean_reversion_buy
     match:
+      metric: mean_dev_pct
       pair: ETH/USDT
-    condition: "value < avg(value) over 1h * 0.98"
+    condition: "value < -2.0"
     cooldown: 15m
-    message: "ETH dropped 2% below 1h average"
-    alert: [executor]
+    message: "ETH {{ .value }}% below 1h average — buy the dip"
+    alert:
+      - notifier: executor
 
   - name: mean_reversion_sell
     match:
+      metric: mean_dev_pct
       pair: ETH/USDT
-    condition: "value > avg(value) over 1h * 1.02"
+    condition: "value > 2.0"
     cooldown: 15m
-    message: "ETH rose 2% above 1h average"
-    alert: [executor]
+    message: "ETH {{ .value }}% above 1h average — take profit"
+    alert:
+      - notifier: executor
 
-  # Volatility spike detection
+  # Volatility spike — poller emits "volatility_pct" as (max-min)/avg over window
   - name: volatility_alert
     match:
+      metric: volatility_pct
       pair: SOL/USDT
-    condition: "max(value) over 5m - min(value) over 5m > avg(value) over 5m * 0.03"
+    condition: "value > 3.0"
     cooldown: 10m
-    message: "SOL 5m range exceeds 3% of average"
-    alert: [executor]
+    message: "SOL 5m volatility {{ .value }}% — high volatility"
+    alert:
+      - notifier: executor
 ```
 
 ### Design choices
 
 - **Rule names encode intent.** Executor parses rule names: `*_buy` -> buy, `*_sell` -> sell, anything else -> log only.
 - **Cooldowns prevent overtrading.** First line of defense against fee burn.
-- **Thresholds include fee buffer.** The `* 1.005` multiplier means "only signal when the move is at least 0.5%," clearing the ~0.2% round-trip fee.
-- **`max_retries: 1`** on the notifier. Stale trading signals are worse than missed ones.
-- **New strategies** are added by writing a new rule block and hitting `/reload`. No restarts, no code changes.
+- **Indicators pre-computed by Poller.** The Poller computes momentum scores, deviation percentages, and volatility metrics. Ding rules are simple threshold checks (`value > 0.5`), which matches Ding's condition parser exactly.
+- **Thresholds embed fee awareness.** A momentum score of 0.5 corresponds to a ~0.5% SMA divergence, clearing the ~0.2% round-trip fee with margin. The exact mapping between score and price movement is controlled by the Poller's indicator config.
+- **`max_attempts: 1`** on the notifier. Stale trading signals are worse than missed ones.
+- **New strategies** are added by: (1) adding an indicator to the Poller config if needed, (2) adding a rule block to Ding's YAML, (3) hitting `/reload`. No restarts, no code changes to Ding.
 
 ### Limitation
 
-Cross-pair correlations (e.g., "BTC moves but ETH doesn't follow") cannot be expressed as a single Ding rule. This would require future Ding enhancement or executor-side logic. Not needed for v1.
+Cross-pair correlations (e.g., "BTC moves but ETH doesn't follow") cannot be expressed as a single Ding rule. The Poller could potentially compute cross-pair indicators in the future. Not needed for v1.
 
 ## Component 3: Trade Executor
 
@@ -255,7 +306,9 @@ Signal received
 
 ### Position Monitoring
 
-Background goroutine checks all open positions every second:
+The executor maintains its own lightweight price feed for monitoring open positions. Since it already communicates with the exchange API for order placement, it subscribes to the exchange's WebSocket ticker for pairs with open positions. This is independent of the Poller's feed — the Poller feeds Ding for signal detection, while the executor's feed monitors positions for exit conditions.
+
+A background goroutine checks all open positions against current prices every second:
 
 - Price hits `stop_loss_pct` below entry -> close position
 - Price hits `take_profit_pct` above entry -> close position
@@ -341,7 +394,8 @@ crypto-trader/
 │   │   ├── poller.go          # core polling loop
 │   │   ├── adapter.go         # ExchangeAdapter interface
 │   │   ├── binance.go         # Binance WebSocket adapter
-│   │   └── bybit.go           # Bybit WebSocket adapter
+│   │   ├── bybit.go           # Bybit WebSocket adapter
+│   │   └── indicators.go     # technical indicator computation (SMA, crossover, deviation)
 │   ├── executor/
 │   │   ├── server.go          # HTTP server, signal handler
 │   │   ├── position.go        # Position manager
