@@ -1,4 +1,10 @@
-# ding.yaml.example — copy to ding.yaml and customize
+# ding.yaml.example — copy to ding.yaml and customize.
+#
+# Two ways DING uses this config:
+#   ding run -- <cmd>     wraps a command; rules below evaluate against
+#                         events the command emits + the synthetic run.exit
+#   ding serve            long-running HTTP daemon; rules evaluate against
+#                         events POSTed to /ingest or piped via stdin
 
 server:
   port: 8080
@@ -17,31 +23,27 @@ server:
   # max_body_bytes: 1048576
 
 # State persistence (optional — omit entire section to disable)
+# Only meaningful in `ding serve` mode; `ding run` is intrinsically per-run.
 # persistence:
 #   state_file: /var/lib/ding/state.json
 #   flush_interval: 30s
 
 # Alert log (optional — append every fired alert as a JSON line to a file)
 # Useful for debugging: "did DING fire? when? for which rule?"
-# The file is created if it does not exist. The format matches /ingest JSON output.
-# Use GET /metrics to see aggregate counts; this file has per-alert detail.
 # alert_log:
 #   path: /var/log/ding/alerts.jsonl
 
 notifiers:
-  # Define named webhook notifiers here.
+  # Built-in notifiers (no declaration needed): stdout, github_actions.
+  # Define named webhook notifiers here:
   # alert-slack:
   #   type: webhook
   #   url: https://hooks.slack.com/services/T.../...
-  #   max_attempts: 3        # retry up to 3 times on 5xx/connection errors (default)
-  #   initial_backoff: 1s    # backoff before first retry, doubles each attempt (default)
-  #
-  # alert-pagerduty:
-  #   type: webhook
-  #   url: https://your-pd-proxy/...
+  #   max_attempts: 3
+  #   initial_backoff: 1s
 
 rules:
-  # Event-per-event: fires on a single reading above threshold
+  # Event-per-event: fires on a single reading above threshold.
   - name: cpu_spike
     match:
       metric: cpu_usage
@@ -51,7 +53,7 @@ rules:
     alert:
       - notifier: stdout
 
-  # Windowed: fires only on sustained high CPU (avg over 5 minutes)
+  # Windowed: fires on sustained high CPU (avg over 5 minutes).
   - name: cpu_sustained
     match:
       metric: cpu_usage
@@ -60,3 +62,24 @@ rules:
     message: "Sustained high CPU: avg {{ .avg }}% on {{ .host }}"
     alert:
       - notifier: stdout
+
+  # End-of-run: fires once when `ding run` exits, against accumulated state.
+  # Inert in `ding serve` mode (no run boundary). Useful for job summaries.
+  # - name: regression
+  #   match:
+  #     metric: test.duration
+  #   mode: end-of-run
+  #   condition: avg(value) over 1h > 1
+  #   message: "p50 test latency was {{ .avg }}s (count={{ .count }})"
+  #   alert:
+  #     - notifier: github_actions
+
+  # Match the synthetic run.exit event for job-level outcome alerts.
+  # `ding run` emits this event when the wrapped command exits.
+  # - name: nonzero_exit
+  #   match:
+  #     metric: run.exit
+  #   condition: value > 0
+  #   message: "job failed: exit code {{ .value }} after {{ .duration_seconds }}s"
+  #   alert:
+  #     - notifier: github_actions

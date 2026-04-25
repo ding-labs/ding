@@ -51,6 +51,17 @@ type AlertTarget struct {
 	Notifier string `yaml:"notifier"`
 }
 
+// GuardConfig defines a pre-fire HTTP guard check for a rule.
+// Before firing an alert the engine makes a GET request to URL and only
+// fires if the response status matches ExpectStatus. Results are cached
+// for TTL (default 5s) to avoid hammering the guard endpoint.
+type GuardConfig struct {
+	URL          string   `yaml:"url"`
+	ExpectStatus int      `yaml:"expect_status"`
+	TTLRaw       Duration `yaml:"ttl"`
+	TTL          time.Duration `yaml:"-"`
+}
+
 type Rule struct {
 	Name        string            `yaml:"name"`
 	Match       map[string]string `yaml:"match"`
@@ -59,6 +70,12 @@ type Rule struct {
 	CooldownRaw Duration          `yaml:"cooldown"`
 	Message     string            `yaml:"message"`
 	Alert       []AlertTarget     `yaml:"alert"`
+	Guard       *GuardConfig      `yaml:"guard"`
+	// Mode controls when the rule fires. Empty or "during-run" fires alerts
+	// in real-time as events flow through. "end-of-run" populates windowed
+	// aggregates during the run but only fires on run exit (ding run mode).
+	// In ding serve mode, end-of-run rules are inert.
+	Mode string `yaml:"mode"`
 }
 
 type Config struct {
@@ -82,11 +99,25 @@ func Load(path string) (*Config, error) {
 	// Copy parsed duration values
 	for i := range cfg.Rules {
 		cfg.Rules[i].Cooldown = cfg.Rules[i].CooldownRaw.Duration
+		if g := cfg.Rules[i].Guard; g != nil {
+			g.TTL = g.TTLRaw.Duration
+		}
 	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 	return &cfg, nil
+}
+
+// isBuiltinNotifier reports whether name refers to a notifier that is always
+// available without an explicit `notifiers:` block. These are registered by
+// the server at engine-build time.
+func isBuiltinNotifier(name string) bool {
+	switch name {
+	case "stdout", "github_actions":
+		return true
+	}
+	return false
 }
 
 // Validate sets defaults and checks for semantic errors.
@@ -129,21 +160,39 @@ func (cfg *Config) Validate() error {
 		if rule.Condition == "" {
 			return fmt.Errorf("rule %q: condition is required", rule.Name)
 		}
+		switch rule.Mode {
+		case "", "during-run", "end-of-run":
+			// valid
+		default:
+			return fmt.Errorf("rule %q: invalid mode %q (must be empty, \"during-run\", or \"end-of-run\")", rule.Name, rule.Mode)
+		}
 		for _, target := range rule.Alert {
-			if target.Notifier == "stdout" {
+			if isBuiltinNotifier(target.Notifier) {
 				continue
 			}
 			if _, ok := cfg.Notifiers[target.Notifier]; !ok {
 				return fmt.Errorf("rule %q: alert references unknown notifier %q", rule.Name, target.Notifier)
 			}
 		}
+		if g := rule.Guard; g != nil {
+			if g.URL == "" {
+				return fmt.Errorf("rule %q: guard.url is required", rule.Name)
+			}
+			if g.ExpectStatus == 0 {
+				return fmt.Errorf("rule %q: guard.expect_status is required", rule.Name)
+			}
+			if g.TTL == 0 {
+				cfg.Rules[i].Guard.TTL = 5 * time.Second
+			}
+		}
 	}
 
 	for name, nc := range cfg.Notifiers {
-		if nc.Type == "webhook" && nc.URL == "" {
-			return fmt.Errorf("notifier %q: webhook type requires a url", name)
-		}
-		if nc.Type == "webhook" {
+		switch nc.Type {
+		case "webhook":
+			if nc.URL == "" {
+				return fmt.Errorf("notifier %q: webhook type requires a url", name)
+			}
 			if nc.MaxAttempts == 0 {
 				nc.MaxAttempts = 3
 			}
@@ -151,6 +200,12 @@ func (cfg *Config) Validate() error {
 				nc.InitialBackoff.Duration = 1 * time.Second
 			}
 			cfg.Notifiers[name] = nc
+		case "github_actions":
+			// no required fields; auto-detects GITHUB_STEP_SUMMARY at runtime
+		case "":
+			return fmt.Errorf("notifier %q: type is required", name)
+		default:
+			return fmt.Errorf("notifier %q: unknown type %q", name, nc.Type)
 		}
 	}
 

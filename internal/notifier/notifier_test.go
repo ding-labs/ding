@@ -239,6 +239,72 @@ func TestWebhookNotifier_QueueFull_DropsSilently(t *testing.T) {
 	}
 }
 
+// TestBuildPayload_FloatsAreJSONNumbers: alert with Floats produces a payload where
+// the float field is a JSON number, not a quoted string.
+func TestBuildPayload_FloatsAreJSONNumbers(t *testing.T) {
+	delivered := make(chan []byte, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		delivered <- body
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	alert := evaluator.Alert{
+		Rule:    "price_spike",
+		Message: "price alert",
+		Metric:  "price_tick",
+		Value:   1.0,
+		Labels:  map[string]string{"exchange": "kraken"},
+		Floats:  map[string]float64{"price": 77504.37},
+		FiredAt: time.Date(2026, 3, 22, 14, 30, 0, 0, time.UTC),
+	}
+
+	n := notifier.NewWebhookNotifier(srv.URL, 3, 1*time.Millisecond, nil)
+	defer n.Stop()
+	if err := n.Send(alert); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case received := <-delivered:
+		// Unmarshal as raw JSON to inspect the type of "price".
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal(received, &raw); err != nil {
+			t.Fatalf("webhook received invalid JSON: %v\npayload: %s", err, received)
+		}
+		priceRaw, ok := raw["price"]
+		if !ok {
+			t.Fatalf("expected \"price\" key in payload, got: %s", received)
+		}
+		// A JSON number must not start with '"'.
+		if len(priceRaw) > 0 && priceRaw[0] == '"' {
+			t.Errorf("expected \"price\" to be a JSON number, got quoted string: %s", priceRaw)
+		}
+		var priceVal float64
+		if err := json.Unmarshal(priceRaw, &priceVal); err != nil {
+			t.Fatalf("could not unmarshal \"price\" as float64: %v", err)
+		}
+		if priceVal != 77504.37 {
+			t.Errorf("expected price=77504.37, got %v", priceVal)
+		}
+		// String label still present.
+		exchangeRaw, ok := raw["exchange"]
+		if !ok {
+			t.Fatal("expected \"exchange\" key in payload")
+		}
+		var exchangeVal string
+		if err := json.Unmarshal(exchangeRaw, &exchangeVal); err != nil {
+			t.Fatalf("could not unmarshal exchange as string: %v", err)
+		}
+		if exchangeVal != "kraken" {
+			t.Errorf("expected exchange=kraken, got %q", exchangeVal)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("timed out waiting for webhook delivery")
+	}
+}
+
 // TestWebhookNotifier_WorkerExitsOnStop: start a notifier, send an alert, call Stop(),
 // verify the goroutine exits without hanging.
 func TestWebhookNotifier_WorkerExitsOnStop(t *testing.T) {

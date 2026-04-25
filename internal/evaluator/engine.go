@@ -3,7 +3,9 @@ package evaluator
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"sort"
 	"strconv"
 	"strings"
@@ -11,6 +13,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/zuchka/ding/internal/config"
 	"github.com/zuchka/ding/internal/ingester"
 )
 
@@ -21,7 +24,12 @@ type EngineRule struct {
 	Condition string
 	Cooldown  time.Duration
 	Message   string
-	Alerts    []string // notifier names ("stdout" or named webhook)
+	Alerts    []string         // notifier names ("stdout" or named webhook)
+	Guard     *config.GuardConfig // optional HTTP guard; nil means no guard
+	// Mode is "" / "during-run" (default) or "end-of-run". End-of-run rules
+	// populate buffers during Process() but only fire when ProcessEndOfRun()
+	// is invoked at run exit (ding run mode).
+	Mode string
 }
 
 // Alert is a fired alert ready to dispatch.
@@ -31,6 +39,7 @@ type Alert struct {
 	Metric    string
 	Value     float64
 	Labels    map[string]string
+	Floats    map[string]float64 // extra numeric fields from the event
 	FiredAt   time.Time
 	Notifiers []string
 	// Aggregate values for windowed rules (zero if event-per-event)
@@ -41,6 +50,12 @@ type Alert struct {
 	Sum   float64
 }
 
+// guardEntry caches the result of a guard HTTP check.
+type guardEntry struct {
+	allowed   bool
+	expiresAt time.Time
+}
+
 // Engine evaluates events against rules and produces alerts.
 // Thread-safe. Supports atomic hot-swap via Swap().
 //
@@ -49,20 +64,27 @@ type Alert struct {
 //     SwapEngine() holds Lock.
 //   - bufMu (Mutex): protects buffers and seenLabelKeys independently of mu, so
 //     buffer creation never races with concurrent Process() calls.
+//   - guardMu (Mutex): protects guardCache independently of mu.
 type Engine struct {
 	mu            sync.RWMutex
 	bufMu         sync.Mutex
+	guardMu       sync.Mutex
 	rules         []parsedRule
 	buffers       map[string]*RingBuffer // keyed by "ruleName:labelSetKey"
-	seenLabelKeys map[string][]string   // ruleName -> seen label-set keys (for /rules endpoint)
+	seenLabelKeys map[string][]string    // ruleName -> seen label-set keys (for /rules endpoint)
 	cooldown      *CooldownTracker
 	maxBuf        int
+	guardCache    map[string]guardEntry
+	guardHTTP     *http.Client
 }
 
 type parsedRule struct {
 	EngineRule
 	expr ConditionExpr
 }
+
+// IsEndOfRun reports whether this rule fires only on run exit.
+func (r parsedRule) IsEndOfRun() bool { return r.Mode == "end-of-run" }
 
 // NewEngine creates an Engine from a slice of EngineRules.
 func NewEngine(rules []EngineRule, maxBufferSize int) (*Engine, error) {
@@ -80,6 +102,8 @@ func NewEngine(rules []EngineRule, maxBufferSize int) (*Engine, error) {
 		seenLabelKeys: make(map[string][]string),
 		cooldown:      NewCooldownTracker(),
 		maxBuf:        maxBufferSize,
+		guardCache:    make(map[string]guardEntry),
+		guardHTTP:     &http.Client{Timeout: 3 * time.Second},
 	}, nil
 }
 
@@ -130,6 +154,16 @@ func (e *Engine) Process(event ingester.Event, now time.Time) []Alert {
 			}
 		}
 
+		// End-of-run rules populate buffers but never fire during Process().
+		// They only fire via ProcessEndOfRun() when the wrapped command exits.
+		if rule.Mode == "end-of-run" {
+			continue
+		}
+
+		if rule.Guard != nil && !e.checkGuard(rule.Name, rule.Guard, now) {
+			continue
+		}
+
 		if !rule.expr.eval(ctx) {
 			continue
 		}
@@ -146,6 +180,7 @@ func (e *Engine) Process(event ingester.Event, now time.Time) []Alert {
 			Metric:    event.Metric,
 			Value:     event.Value,
 			Labels:    event.Labels,
+			Floats:    event.Floats,
 			FiredAt:   now,
 			Notifiers: rule.Alerts,
 		}
@@ -165,6 +200,115 @@ func (e *Engine) Process(event ingester.Event, now time.Time) []Alert {
 		alerts = append(alerts, alert)
 	}
 	return alerts
+}
+
+// ProcessEndOfRun evaluates all rules with mode "end-of-run" using whatever
+// state was accumulated during the run, and returns alerts to dispatch.
+// Called once when a wrapped subprocess exits (ding run mode). Cooldowns
+// are not consulted — end-of-run rules fire at most once per run anyway.
+func (e *Engine) ProcessEndOfRun(now time.Time) []Alert {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	var alerts []Alert
+	for _, rule := range e.rules {
+		if !rule.IsEndOfRun() {
+			continue
+		}
+
+		// Snapshot label keys seen for this rule. If none were seen, evaluate
+		// once with the empty key so rules that never observed a matching event
+		// can still fail (e.g., "count(value) over 1h > 0" should fire when
+		// no events were seen — though in practice, these rules need at least
+		// one buffer entry to evaluate).
+		e.bufMu.Lock()
+		labelKeys := append([]string{}, e.seenLabelKeys[rule.Name]...)
+		e.bufMu.Unlock()
+		if len(labelKeys) == 0 {
+			labelKeys = []string{""}
+		}
+
+		leaves := rule.expr.collectWindowedLeaves()
+
+		for _, labelKey := range labelKeys {
+			ctx := evalContext{
+				Aggregates: make(map[int]float64, len(leaves)),
+				Available:  make(map[int]bool, len(leaves)),
+			}
+			for _, leaf := range leaves {
+				leafBufKey := rule.Name + ":" + strconv.Itoa(leaf.ID) + ":" + labelKey
+				buf := e.lookupBuffer(leafBufKey)
+				if buf == nil || !buf.HasEntries(now) {
+					continue
+				}
+				ctx.Available[leaf.ID] = true
+				switch leaf.Func {
+				case "avg":
+					ctx.Aggregates[leaf.ID] = buf.Avg(now)
+				case "max":
+					ctx.Aggregates[leaf.ID] = buf.Max(now)
+				case "min":
+					ctx.Aggregates[leaf.ID] = buf.Min(now)
+				case "sum":
+					ctx.Aggregates[leaf.ID] = buf.Sum(now)
+				case "count":
+					ctx.Aggregates[leaf.ID] = buf.Count(now)
+				}
+			}
+
+			if rule.Guard != nil && !e.checkGuard(rule.Name, rule.Guard, now) {
+				continue
+			}
+			if !rule.expr.eval(ctx) {
+				continue
+			}
+
+			alert := Alert{
+				Rule:      rule.Name,
+				Metric:    "run.summary",
+				Labels:    parseLabelKey(labelKey),
+				FiredAt:   now,
+				Notifiers: rule.Alerts,
+			}
+			if len(leaves) == 1 {
+				leaf := leaves[0]
+				leafBufKey := rule.Name + ":" + strconv.Itoa(leaf.ID) + ":" + labelKey
+				if buf := e.lookupBuffer(leafBufKey); buf != nil {
+					alert.Avg = buf.Avg(now)
+					alert.Max = buf.Max(now)
+					alert.Min = buf.Min(now)
+					alert.Count = buf.Count(now)
+					alert.Sum = buf.Sum(now)
+				}
+			}
+			alert.Message = renderMessage(rule.Message, alert)
+			alerts = append(alerts, alert)
+		}
+	}
+	return alerts
+}
+
+// lookupBuffer returns the buffer for key, or nil if it doesn't exist.
+// Unlike getOrCreateBuffer, never creates.
+func (e *Engine) lookupBuffer(key string) *RingBuffer {
+	e.bufMu.Lock()
+	defer e.bufMu.Unlock()
+	return e.buffers[key]
+}
+
+// parseLabelKey reverses LabelSetKey, returning the label map for an
+// already-canonicalized "k1=v1,k2=v2" string. Returns nil for empty input.
+func parseLabelKey(key string) map[string]string {
+	if key == "" {
+		return nil
+	}
+	out := map[string]string{}
+	for _, p := range strings.Split(key, ",") {
+		if eq := strings.IndexByte(p, '='); eq > 0 {
+			out[p[:eq]] = p[eq+1:]
+		}
+	}
+	return out
 }
 
 // RulesStatus returns rule names with their cooldown states.
@@ -280,6 +424,32 @@ func (e *Engine) StartFlusher(path string, interval time.Duration) func() {
 		once.Do(func() { close(stop) })
 		<-done
 	}
+}
+
+// checkGuard performs (or returns a cached result of) an HTTP guard check.
+// Returns true if the alert should be allowed to fire.
+func (e *Engine) checkGuard(ruleName string, g *config.GuardConfig, now time.Time) bool {
+	// Check cache first.
+	e.guardMu.Lock()
+	entry, ok := e.guardCache[ruleName]
+	if ok && now.Before(entry.expiresAt) {
+		e.guardMu.Unlock()
+		return entry.allowed
+	}
+	e.guardMu.Unlock()
+
+	// Cache miss or expired — make the HTTP request.
+	resp, err := e.guardHTTP.Get(g.URL) //nolint:noctx
+	allowed := err == nil && resp != nil && resp.StatusCode == g.ExpectStatus
+	if resp != nil {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+	}
+
+	e.guardMu.Lock()
+	e.guardCache[ruleName] = guardEntry{allowed: allowed, expiresAt: now.Add(g.TTL)}
+	e.guardMu.Unlock()
+	return allowed
 }
 
 func renderMessage(tmpl string, alert Alert) string {

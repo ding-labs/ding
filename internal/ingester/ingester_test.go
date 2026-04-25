@@ -93,6 +93,68 @@ func TestParsePrometheusText_NoLabels(t *testing.T) {
 	}
 }
 
+func TestParseJSONLine_NumericFieldGoesToFloats(t *testing.T) {
+	events, err := ingester.ParseJSONLine([]byte(`{"metric":"price_tick","value":1.0,"price":77504.37,"exchange":"kraken"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := events[0]
+
+	// Numeric field must be in Floats, not Labels.
+	if e.Floats == nil {
+		t.Fatal("expected Floats map to be non-nil")
+	}
+	got, ok := e.Floats["price"]
+	if !ok {
+		t.Fatal("expected Floats[\"price\"] to be set")
+	}
+	if got != 77504.37 {
+		t.Errorf("expected Floats[\"price\"] = 77504.37, got %v", got)
+	}
+	if _, inLabels := e.Labels["price"]; inLabels {
+		t.Error("numeric field \"price\" must not appear in Labels")
+	}
+
+	// String field still goes to Labels.
+	if e.Labels["exchange"] != "kraken" {
+		t.Errorf("expected Labels[\"exchange\"] = \"kraken\", got %q", e.Labels["exchange"])
+	}
+	if _, inFloats := e.Floats["exchange"]; inFloats {
+		t.Error("string field \"exchange\" must not appear in Floats")
+	}
+}
+
+func TestParseJSONLine_NoNumericFields_FloatsNil(t *testing.T) {
+	events, err := ingester.ParseJSONLine([]byte(`{"metric":"cpu_usage","value":92.5,"host":"web-01"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := events[0]
+	if e.Floats != nil {
+		t.Errorf("expected Floats to be nil when no numeric extra fields, got %v", e.Floats)
+	}
+}
+
+func TestParseJSONLine_MultipleNumericFields(t *testing.T) {
+	events, err := ingester.ParseJSONLine([]byte(`{"metric":"m","value":1,"price":100.5,"qty":3.0,"label":"x"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := events[0]
+	if e.Floats["price"] != 100.5 {
+		t.Errorf("expected price=100.5, got %v", e.Floats["price"])
+	}
+	if e.Floats["qty"] != 3.0 {
+		t.Errorf("expected qty=3.0, got %v", e.Floats["qty"])
+	}
+	if e.Labels["label"] != "x" {
+		t.Errorf("expected label=x, got %q", e.Labels["label"])
+	}
+	if len(e.Floats) != 2 {
+		t.Errorf("expected 2 entries in Floats, got %d", len(e.Floats))
+	}
+}
+
 func TestDetectFormat_JSONByContentType(t *testing.T) {
 	format := ingester.DetectFormat(nil, "application/json", "auto")
 	if format != "json" {

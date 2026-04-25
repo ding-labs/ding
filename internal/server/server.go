@@ -115,6 +115,8 @@ func buildFromConfig(path string, collector *metrics.Collector) (*evaluator.Engi
 			Cooldown:  r.Cooldown,
 			Message:   r.Message,
 			Alerts:    alerts,
+			Guard:     r.Guard,
+			Mode:      r.Mode,
 		}
 	}
 	eng, err := evaluator.NewEngine(rules, cfg.Server.MaxBufferSize)
@@ -123,11 +125,15 @@ func buildFromConfig(path string, collector *metrics.Collector) (*evaluator.Engi
 	}
 
 	notifiers := map[string]notifier.Notifier{
-		"stdout": notifier.NewStdoutNotifier(nil),
+		"stdout":         notifier.NewStdoutNotifier(nil),
+		"github_actions": notifier.NewGitHubActionsNotifier(nil),
 	}
 	for name, nc := range cfg.Notifiers {
-		if nc.Type == "webhook" {
+		switch nc.Type {
+		case "webhook":
 			notifiers[name] = notifier.NewWebhookNotifier(nc.URL, nc.MaxAttempts, nc.InitialBackoff.Duration, collector)
+		case "github_actions":
+			notifiers[name] = notifier.NewGitHubActionsNotifier(nil)
 		}
 	}
 

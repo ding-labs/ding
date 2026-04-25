@@ -1,10 +1,14 @@
 package evaluator_test
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/zuchka/ding/internal/config"
 	"github.com/zuchka/ding/internal/evaluator"
 	"github.com/zuchka/ding/internal/ingester"
 )
@@ -441,6 +445,51 @@ func TestEngine_CompoundOR_BothFalse_NoAlert(t *testing.T) {
 	}
 }
 
+func TestEngine_AlertFloats_CopiedFromEvent(t *testing.T) {
+	eng := makeTestEngine(t)
+	now := time.Now()
+	event := ingester.Event{
+		Metric: "cpu_usage",
+		Value:  97,
+		Labels: map[string]string{"host": "web-01"},
+		Floats: map[string]float64{"price": 77504.37, "qty": 2.5},
+		At:     now,
+	}
+	alerts := eng.Process(event, now)
+	if len(alerts) != 1 {
+		t.Fatalf("expected 1 alert, got %d", len(alerts))
+	}
+	a := alerts[0]
+	if a.Floats == nil {
+		t.Fatal("expected Alert.Floats to be non-nil")
+	}
+	if a.Floats["price"] != 77504.37 {
+		t.Errorf("expected Alert.Floats[\"price\"] = 77504.37, got %v", a.Floats["price"])
+	}
+	if a.Floats["qty"] != 2.5 {
+		t.Errorf("expected Alert.Floats[\"qty\"] = 2.5, got %v", a.Floats["qty"])
+	}
+}
+
+func TestEngine_AlertFloats_NilWhenEventHasNone(t *testing.T) {
+	eng := makeTestEngine(t)
+	now := time.Now()
+	event := ingester.Event{
+		Metric: "cpu_usage",
+		Value:  97,
+		Labels: map[string]string{"host": "web-01"},
+		// Floats intentionally nil
+		At: now,
+	}
+	alerts := eng.Process(event, now)
+	if len(alerts) != 1 {
+		t.Fatalf("expected 1 alert, got %d", len(alerts))
+	}
+	if alerts[0].Floats != nil {
+		t.Errorf("expected Alert.Floats to be nil when event has no Floats, got %v", alerts[0].Floats)
+	}
+}
+
 func TestEngine_CompoundWindowed_BothLeavesFed(t *testing.T) {
 	// Both windowed leaves must receive events even when AND short-circuits.
 	// A single event is sufficient since RingBuffer.HasEntries returns true after
@@ -459,5 +508,117 @@ func TestEngine_CompoundWindowed_BothLeavesFed(t *testing.T) {
 	alerts := eng.Process(ingester.Event{Metric: "m", Value: 95, Labels: map[string]string{}, At: now}, now)
 	if len(alerts) != 1 {
 		t.Errorf("expected 1 alert when both windowed leaves satisfied, got %d", len(alerts))
+	}
+}
+
+// ---- Guard ----
+
+// makeGuardEngine builds an engine with a single rule that has the given GuardConfig.
+func makeGuardEngine(t *testing.T, guardURL string, expectStatus int, ttl time.Duration) *evaluator.Engine {
+	t.Helper()
+	rules := []evaluator.EngineRule{
+		{
+			Name:      "guarded_rule",
+			Match:     map[string]string{"metric": "price_tick"},
+			Condition: "value > 0",
+			Cooldown:  0,
+			Alerts:    []string{"stdout"},
+			Guard: &config.GuardConfig{
+				URL:          guardURL,
+				ExpectStatus: expectStatus,
+				TTL:          ttl,
+			},
+		},
+	}
+	eng, err := evaluator.NewEngine(rules, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return eng
+}
+
+func makeGuardEvent(now time.Time) ingester.Event {
+	return ingester.Event{Metric: "price_tick", Value: 1.0, Labels: map[string]string{}, At: now}
+}
+
+// TestGuard_AllowsWhenStatusMatches: guard returns expect_status → alert fires.
+func TestGuard_AllowsWhenStatusMatches(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent) // 204
+	}))
+	defer srv.Close()
+
+	eng := makeGuardEngine(t, srv.URL, http.StatusNoContent, 5*time.Second)
+	now := time.Now()
+	alerts := eng.Process(makeGuardEvent(now), now)
+	if len(alerts) != 1 {
+		t.Errorf("expected 1 alert when guard status matches, got %d", len(alerts))
+	}
+}
+
+// TestGuard_SuppressesWhenStatusDiffers: guard returns unexpected status → alert suppressed.
+func TestGuard_SuppressesWhenStatusDiffers(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusConflict) // 409 — not the expected 204
+	}))
+	defer srv.Close()
+
+	eng := makeGuardEngine(t, srv.URL, http.StatusNoContent, 5*time.Second)
+	now := time.Now()
+	alerts := eng.Process(makeGuardEvent(now), now)
+	if len(alerts) != 0 {
+		t.Errorf("expected 0 alerts when guard status differs, got %d", len(alerts))
+	}
+}
+
+// TestGuard_TTLCaching: guard is called only once within the TTL window,
+// even when two events arrive within TTL.
+func TestGuard_TTLCaching(t *testing.T) {
+	var hitCount atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hitCount.Add(1)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	// Large TTL so both events are within the window.
+	eng := makeGuardEngine(t, srv.URL, http.StatusNoContent, 30*time.Second)
+	now := time.Now()
+
+	// First event — triggers guard HTTP call.
+	alerts1 := eng.Process(makeGuardEvent(now), now)
+	// Second event — still within TTL, should use cached result (no new HTTP call).
+	alerts2 := eng.Process(makeGuardEvent(now), now)
+
+	if len(alerts1) != 1 {
+		t.Errorf("expected 1 alert on first event, got %d", len(alerts1))
+	}
+	// Cooldown is 0 so second alert fires too.
+	if len(alerts2) != 1 {
+		t.Errorf("expected 1 alert on second event (cached guard), got %d", len(alerts2))
+	}
+	if got := hitCount.Load(); got != 1 {
+		t.Errorf("expected guard URL to be hit exactly once (TTL caching), got %d hits", got)
+	}
+}
+
+// TestGuard_ExpiredCacheRefetches: after TTL expires the guard is re-fetched.
+func TestGuard_ExpiredCacheRefetches(t *testing.T) {
+	var hitCount atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hitCount.Add(1)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	// Zero TTL means cache always expires.
+	eng := makeGuardEngine(t, srv.URL, http.StatusNoContent, 0)
+	now := time.Now()
+
+	eng.Process(makeGuardEvent(now), now)
+	eng.Process(makeGuardEvent(now), now)
+
+	if got := hitCount.Load(); got != 2 {
+		t.Errorf("expected 2 guard HTTP calls after TTL expiry, got %d", got)
 	}
 }

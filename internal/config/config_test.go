@@ -194,6 +194,108 @@ func TestValidate_WebhookMissingURL(t *testing.T) {
 	}
 }
 
+func TestValidate_Guard_MissingURL(t *testing.T) {
+	cfg := &config.Config{
+		Rules: []config.Rule{
+			{
+				Name:      "guarded",
+				Condition: "value > 10",
+				Guard: &config.GuardConfig{
+					URL:          "", // missing
+					ExpectStatus: 200,
+				},
+			},
+		},
+	}
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected validation error for guard missing url, got nil")
+	}
+	if !strings.Contains(err.Error(), "guard.url") {
+		t.Errorf("expected error to mention guard.url, got: %v", err)
+	}
+}
+
+func TestValidate_Guard_MissingExpectStatus(t *testing.T) {
+	cfg := &config.Config{
+		Rules: []config.Rule{
+			{
+				Name:      "guarded",
+				Condition: "value > 10",
+				Guard: &config.GuardConfig{
+					URL:          "http://localhost:9000/status",
+					ExpectStatus: 0, // missing
+				},
+			},
+		},
+	}
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected validation error for guard missing expect_status, got nil")
+	}
+	if !strings.Contains(err.Error(), "guard.expect_status") {
+		t.Errorf("expected error to mention guard.expect_status, got: %v", err)
+	}
+}
+
+func TestValidate_Guard_ValidWithTTLDefault(t *testing.T) {
+	cfg := &config.Config{
+		Rules: []config.Rule{
+			{
+				Name:      "guarded",
+				Condition: "value > 10",
+				Alert:     []config.AlertTarget{{Notifier: "stdout"}},
+				Guard: &config.GuardConfig{
+					URL:          "http://localhost:9000/status",
+					ExpectStatus: 204,
+					// TTL intentionally zero — should default to 5s
+				},
+			},
+		},
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+	if cfg.Rules[0].Guard.TTL != 5*time.Second {
+		t.Errorf("expected guard TTL default 5s, got %v", cfg.Rules[0].Guard.TTL)
+	}
+}
+
+func TestValidate_Guard_ValidWithExplicitTTL(t *testing.T) {
+	yaml := `
+rules:
+  - name: guarded
+    condition: "value > 10"
+    alert:
+      - notifier: stdout
+    guard:
+      url: http://localhost:9000/status
+      expect_status: 204
+      ttl: 30s
+`
+	f, err := os.CreateTemp("", "ding-*.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(f.Name())
+	f.WriteString(yaml)
+	f.Close()
+
+	cfg, err := config.Load(f.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Rules[0].Guard == nil {
+		t.Fatal("expected guard to be non-nil")
+	}
+	if cfg.Rules[0].Guard.TTL != 30*time.Second {
+		t.Errorf("expected guard TTL 30s, got %v", cfg.Rules[0].Guard.TTL)
+	}
+	if cfg.Rules[0].Guard.ExpectStatus != 204 {
+		t.Errorf("expected expect_status 204, got %d", cfg.Rules[0].Guard.ExpectStatus)
+	}
+}
+
 func TestLoad_JQField(t *testing.T) {
 	yaml := `
 server:

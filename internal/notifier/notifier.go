@@ -17,6 +17,10 @@ func buildPayload(alert evaluator.Alert) map[string]interface{} {
 	for k, v := range alert.Labels {
 		p[k] = v
 	}
+	// Floats after labels — numeric value wins over string if same key appears in both
+	for k, v := range alert.Floats {
+		p[k] = v
+	}
 	// Reserved keys always win
 	p["rule"] = alert.Rule
 	p["message"] = alert.Message

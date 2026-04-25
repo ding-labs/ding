@@ -42,14 +42,24 @@ func ParseJSONLine(data []byte) ([]Event, error) {
 	}
 
 	labels := make(map[string]string)
+	var floats map[string]float64
 	for k, v := range raw {
 		if k == "metric" || k == "value" || k == "timestamp" {
 			continue
 		}
-		labels[k] = fmt.Sprintf("%v", v)
+		switch tv := v.(type) {
+		case string:
+			labels[k] = tv
+		case float64:
+			if floats == nil {
+				floats = make(map[string]float64)
+			}
+			floats[k] = tv
+		// bool, nil, nested objects/arrays: skip
+		}
 	}
 
-	return []Event{{Metric: metric, Value: value, Labels: labels, At: at}}, nil
+	return []Event{{Metric: metric, Value: value, Labels: labels, Floats: floats, At: at}}, nil
 }
 
 func toFloat64(v interface{}) (float64, bool) {
