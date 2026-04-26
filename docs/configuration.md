@@ -71,6 +71,27 @@ alert_log:
 | `write_timeout` | duration | `10s` | HTTP write timeout |
 | `idle_timeout` | duration | `60s` | HTTP idle connection timeout |
 | `max_body_bytes` | int64 | `1048576` | Maximum request body size in bytes (1MB). Returns 413 on overflow. |
+| `drain_timeout` | duration | `5s` | How long `ding run` waits for notifier delivery queues to flush on exit before force-stopping. See note below. |
+
+#### `drain_timeout` and retry behaviour in `ding run`
+
+`ding run` exits as soon as the wrapped command finishes, so notifier delivery must complete within the drain window. The default `5s` covers a single fast delivery comfortably, but retry attempts eat into that window. With the default `initial_backoff: 1s` and `max_attempts: 3`, a full retry cycle takes at least `1 + 2 + 4 = 7s` — longer than the default drain timeout.
+
+If your notifier is flaky and you want retries to have a real chance:
+
+```yaml
+server:
+  drain_timeout: 10s   # must exceed initial_backoff * 2^max_attempts
+
+notifiers:
+  slack:
+    type: slack
+    url: https://hooks.slack.com/...
+    max_attempts: 3
+    initial_backoff: 1s   # retry window: 1 + 2 = 3s (fits in 10s)
+```
+
+If fast CI exit matters more than retry guarantees, keep `drain_timeout` short and set `max_attempts: 1`.
 
 ---
 

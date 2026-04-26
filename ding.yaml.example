@@ -21,6 +21,10 @@ server:
   # idle_timeout: 60s
   # Max request body size for /ingest (optional, default 1 MB)
   # max_body_bytes: 1048576
+  # How long ding run waits for notifier queues to flush on exit (default 5s).
+  # Must be longer than your total retry window (initial_backoff * 2^max_attempts)
+  # or later retry attempts will be silently truncated.
+  # drain_timeout: 5s
 
 # State persistence (optional — omit entire section to disable)
 # Only meaningful in `ding serve` mode; `ding run` is intrinsically per-run.

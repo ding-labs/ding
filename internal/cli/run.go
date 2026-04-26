@@ -75,8 +75,12 @@ func runRun(configPath, runIDOverride string, args []string) error {
 		return fmt.Errorf("loading config: %w", err)
 	}
 	defer func() {
+		// Drain notifiers before stopping so queued deliveries complete before
+		// the process exits. Falls back to Stop() for notifiers without Drain.
 		for _, n := range notifiers {
-			if stopper, ok := n.(interface{ Stop() }); ok {
+			if drainer, ok := n.(interface{ Drain(time.Duration) }); ok {
+				drainer.Drain(cfg.Server.DrainTimeout.Duration)
+			} else if stopper, ok := n.(interface{ Stop() }); ok {
 				stopper.Stop()
 			}
 		}

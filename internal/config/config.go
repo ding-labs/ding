@@ -29,6 +29,7 @@ type ServerConfig struct {
 	IdleTimeout   Duration `yaml:"idle_timeout"`
 	MaxBodyBytes  int64    `yaml:"max_body_bytes"`
 	JQ            string   `yaml:"jq"`
+	DrainTimeout  Duration `yaml:"drain_timeout"`
 }
 
 type PersistenceConfig struct {
@@ -142,6 +143,9 @@ func (cfg *Config) Validate() error {
 	}
 	if cfg.Server.MaxBodyBytes == 0 {
 		cfg.Server.MaxBodyBytes = 1 << 20
+	}
+	if cfg.Server.DrainTimeout.Duration == 0 {
+		cfg.Server.DrainTimeout.Duration = 5 * time.Second
 	}
 
 	if cfg.Persistence.StateFile != "" && cfg.Persistence.FlushInterval.Duration == 0 {
