@@ -136,6 +136,12 @@ func buildFromConfig(path string, collector *metrics.Collector) (*evaluator.Engi
 			notifiers[name] = notifier.NewSlackNotifier(nc.URL, nc.MaxAttempts, nc.InitialBackoff.Duration, collector)
 		case "discord":
 			notifiers[name] = notifier.NewDiscordNotifier(nc.URL, nc.MaxAttempts, nc.InitialBackoff.Duration, collector)
+		case "telegram":
+			notifiers[name] = notifier.NewTelegramNotifier(nc.Token, nc.ChatID, nc.MaxAttempts, nc.InitialBackoff.Duration, collector)
+		case "pagerduty":
+			notifiers[name] = notifier.NewPagerDutyNotifier(nc.Token, nc.MaxAttempts, nc.InitialBackoff.Duration, collector)
+		case "teams":
+			notifiers[name] = notifier.NewTeamsNotifier(nc.URL, nc.MaxAttempts, nc.InitialBackoff.Duration, collector)
 		case "github_actions":
 			notifiers[name] = notifier.NewGitHubActionsNotifier(nil)
 		}
