@@ -83,6 +83,21 @@ func (n *WebhookNotifier) Stop() {
 	n.stopOnce.Do(func() { close(n.stop) })
 }
 
+// Drain waits up to timeout for all queued alerts to be delivered, then stops
+// the worker. Intended for ding run shutdown so in-flight deliveries complete
+// before the process exits. Falls back to Stop on timeout.
+func (n *WebhookNotifier) Drain(timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if len(n.queue) == 0 {
+			time.Sleep(150 * time.Millisecond)
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	n.Stop()
+}
+
 // QueueDepth returns the current number of items waiting in the retry queue.
 // len() on a buffered channel is safe to call concurrently.
 func (n *WebhookNotifier) QueueDepth() int { return len(n.queue) }
