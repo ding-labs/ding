@@ -24,7 +24,7 @@ server:
 
 notifiers:
   slack:
-    type: webhook
+    type: slack
     url: https://hooks.slack.com/services/T.../B.../...
     max_attempts: 3
     initial_backoff: 1s
@@ -78,14 +78,61 @@ alert_log:
 
 A map of named notifiers. Reference them by name in rule `alert` blocks.
 
+**Built-in notifiers** — always available without declaration:
+
+| Name | Description |
+|------|-------------|
+| `stdout` | Writes every alert as a JSON line to stdout |
+| `github_actions` | Emits `::warning::` annotations and appends a markdown summary to `$GITHUB_STEP_SUMMARY`. Falls back gracefully outside Actions. |
+
+**Configured notifiers:**
+
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `type` | string | — | `webhook` or `stdout` |
-| `url` | string | — | Webhook destination URL (required for `type: webhook`) |
-| `max_attempts` | int | `3` | Total attempts including the initial request (webhooks only) |
-| `initial_backoff` | duration | `1s` | First retry delay; doubles each attempt (webhooks only) |
+| `type` | string | — | `slack`, `webhook`, or `github_actions` |
+| `url` | string | — | Destination URL (required for `slack` and `webhook`) |
+| `max_attempts` | int | `3` | Total delivery attempts including the first (slack/webhook only) |
+| `initial_backoff` | duration | `1s` | First retry delay; doubles each attempt (slack/webhook only) |
 
-`stdout` is always available without declaration. 4xx responses from webhooks are dropped. 5xx responses are retried with exponential backoff.
+### `type: slack`
+
+Posts a [Block Kit](https://api.slack.com/block-kit) message to a Slack incoming webhook URL. Run-context fields are surfaced automatically as structured fields when present — no template work required.
+
+When used with `ding run`, the following fields appear in the Slack message if DING detected them from the CI environment:
+
+| Field | Source | Example |
+|-------|--------|---------|
+| exit code | `run.exit` float | `1` |
+| duration | `run.exit` float | `42.5s` |
+| branch | CI env auto-detect | `main` |
+| commit | CI env auto-detect | `abc1234` (truncated) |
+| repo | CI env auto-detect | `acme/api` |
+| workflow | CI env auto-detect | `CI` |
+| job | CI env auto-detect | `test` |
+| actor | CI env auto-detect | `octocat` |
+| runner | CI env auto-detect | `github-actions` |
+| run id | CI env auto-detect | `12345` |
+
+Up to 10 fields are shown. Exit code and duration are prioritized — they always appear when present, even if many label fields would otherwise fill the limit.
+
+### `type: webhook`
+
+Posts a flat JSON payload to any HTTP endpoint. Useful for generic integrations (PagerDuty, custom receivers, etc.).
+
+Payload shape:
+
+```json
+{
+  "rule": "cpu_spike",
+  "message": "CPU spike on web-01: 97%",
+  "metric": "cpu_usage",
+  "value": 97.0,
+  "fired_at": "2026-04-25T10:00:00Z",
+  "host": "web-01"
+}
+```
+
+All event labels (including run-context labels when using `ding run`) are merged into the top-level payload object. 4xx responses are dropped. 5xx responses are retried with exponential backoff.
 
 ---
 

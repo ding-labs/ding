@@ -7,7 +7,7 @@ Send an alert to Slack when CPU exceeds 95% on any host.
 ```yaml
 notifiers:
   slack:
-    type: webhook
+    type: slack
     url: https://hooks.slack.com/services/T.../B.../...
     max_attempts: 3
     initial_backoff: 1s
@@ -23,18 +23,38 @@ rules:
       - notifier: slack
 ```
 
-DING POSTs this JSON to the Slack webhook:
+DING posts a Block Kit message to Slack with the rule name as a header, the message as body text, and metric/value/labels as structured fields. Use `type: webhook` if you need a raw JSON payload instead.
 
-```json
-{
-  "rule": "cpu_spike",
-  "message": "CPU spike on web-01: 97%",
-  "metric": "cpu_usage",
-  "value": 97.0,
-  "host": "web-01",
-  "fired_at": "2026-04-08T12:00:00Z"
-}
+---
+
+## CI job failure alert to Slack
+
+Alert to Slack when a CI job exits non-zero. Run context (branch, commit, exit code, duration) is surfaced automatically — no template work needed.
+
+```yaml
+notifiers:
+  slack:
+    type: slack
+    url: https://hooks.slack.com/services/T.../B.../...
+
+rules:
+  - name: job_failed
+    match:
+      metric: run.exit
+    condition: value > 0
+    message: "Job failed with exit code {{ .value }}"
+    alert:
+      - notifier: slack
+      - notifier: github_actions
 ```
+
+Run it:
+
+```bash
+ding run --config ding.yaml -- pytest tests/
+```
+
+When the job exits non-zero, Slack receives a Block Kit message with exit code, duration, branch, commit, and run ID fields populated from the CI environment automatically. The `github_actions` notifier simultaneously writes a `::warning::` annotation and a step summary entry.
 
 ---
 
@@ -135,7 +155,7 @@ Fire the same alert to both Slack and PagerDuty simultaneously.
 ```yaml
 notifiers:
   slack:
-    type: webhook
+    type: slack
     url: https://hooks.slack.com/services/...
   pagerduty:
     type: webhook

@@ -132,6 +132,8 @@ func buildFromConfig(path string, collector *metrics.Collector) (*evaluator.Engi
 		switch nc.Type {
 		case "webhook":
 			notifiers[name] = notifier.NewWebhookNotifier(nc.URL, nc.MaxAttempts, nc.InitialBackoff.Duration, collector)
+		case "slack":
+			notifiers[name] = notifier.NewSlackNotifier(nc.URL, nc.MaxAttempts, nc.InitialBackoff.Duration, collector)
 		case "github_actions":
 			notifiers[name] = notifier.NewGitHubActionsNotifier(nil)
 		}

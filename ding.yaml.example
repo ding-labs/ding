@@ -35,8 +35,16 @@ server:
 
 notifiers:
   # Built-in notifiers (no declaration needed): stdout, github_actions.
-  # Define named webhook notifiers here:
+  #
+  # Slack (Block Kit — run-context fields surfaced automatically):
   # alert-slack:
+  #   type: slack
+  #   url: https://hooks.slack.com/services/T.../B.../...
+  #   max_attempts: 3
+  #   initial_backoff: 1s
+  #
+  # Generic webhook (flat JSON payload):
+  # alert-webhook:
   #   type: webhook
   #   url: https://hooks.slack.com/services/T.../...
   #   max_attempts: 3
