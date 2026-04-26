@@ -17,7 +17,7 @@ Five touch points:
 | `internal/notifier/teams_test.go` | New — unit + integration tests |
 | `internal/config/config.go` | Add `"teams"` case to `Validate()` |
 | `internal/server/server.go` | Add `"teams"` case to `buildFromConfig()` |
-| `ding.yaml.example` | Add Teams example block |
+| `ding.yaml.example` | Add Teams example comment block (see Config Surface below) |
 
 No new config fields. The existing `NotifierConfig` struct (`type`, `url`, `max_attempts`, `initial_backoff`) covers everything Teams needs.
 
@@ -33,6 +33,19 @@ notifiers:
 ```
 
 `Validate()` enforces that `url` is non-empty for type `teams`, sets `max_attempts` default of 3 and `initial_backoff` default of 1s — identical to the `slack` and `discord` cases.
+
+The exact comment block to add to `ding.yaml.example` (after the Discord block):
+
+```
+  # Microsoft Teams (Adaptive Card via Workflows incoming webhook):
+  # Get the webhook URL from Teams: channel > Workflows app >
+  # "Post to a channel when a webhook request is received".
+  # alert-teams:
+  #   type: teams
+  #   url: https://prod-XX.westus.logic.azure.com:443/workflows/...
+  #   max_attempts: 3
+  #   initial_backoff: 1s
+```
 
 ## TeamsNotifier Struct
 
@@ -74,8 +87,8 @@ teamsMessage
       type:     "AdaptiveCard"
       version:  "1.5"
       body: []interface{}
-        teamsTextBlock  — alert.Rule (Weight: "Bolder", Size: "Medium")
-        teamsTextBlock  — alert.Message, omitted when empty (Wrap: true)
+        teamsTextBlock  — alert.Rule (Weight: "Bolder", Size: "Medium"; Wrap NOT set — avoids truncation of long rule names)
+        teamsTextBlock  — alert.Message, omitted when empty (Wrap: true — only this TextBlock sets Wrap)
         teamsFactSet    — structured fields (see below)
         teamsTextBlock  — "Fired at <RFC3339>" (IsSubtle: true, Size: "Small")
 ```
@@ -154,6 +167,7 @@ Tests in `internal/notifier/teams_test.go` using `httptest.NewServer`:
 - `exit_code` and `duration_seconds` from `alert.Floats` when present
 - Run-context labels when present; commit truncated to 7 chars
 - Fired-at footer present
+- No-context variant: empty `Labels` and `Floats` — only Metric and Value facts in FactSet; no exit_code, duration, or run-context entries; footer still present
 
 **`TeamsNotifier` integration tests:**
 - 2xx → `collector.IncrWebhookSuccess()`
