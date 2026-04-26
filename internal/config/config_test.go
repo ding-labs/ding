@@ -296,6 +296,45 @@ rules:
 	}
 }
 
+func TestValidate_TeamsRetryDefaults(t *testing.T) {
+	cfg := &config.Config{
+		Notifiers: map[string]config.NotifierConfig{
+			"my-teams": {
+				Type: "teams",
+				URL:  "https://prod-01.westus.logic.azure.com/workflows/test",
+			},
+		},
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	nc := cfg.Notifiers["my-teams"]
+	if nc.MaxAttempts != 3 {
+		t.Errorf("expected MaxAttempts 3, got %d", nc.MaxAttempts)
+	}
+	if nc.InitialBackoff.Duration != 1*time.Second {
+		t.Errorf("expected InitialBackoff 1s, got %v", nc.InitialBackoff.Duration)
+	}
+}
+
+func TestValidate_TeamsMissingURL(t *testing.T) {
+	cfg := &config.Config{
+		Notifiers: map[string]config.NotifierConfig{
+			"my-teams": {
+				Type: "teams",
+				URL:  "",
+			},
+		},
+	}
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected validation error for teams missing url, got nil")
+	}
+	if !strings.Contains(err.Error(), "requires a url") {
+		t.Errorf("expected error to contain \"requires a url\", got: %v", err)
+	}
+}
+
 func TestLoad_JQField(t *testing.T) {
 	yaml := `
 server:

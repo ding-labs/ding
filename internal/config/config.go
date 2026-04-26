@@ -44,6 +44,8 @@ type AlertLogConfig struct {
 type NotifierConfig struct {
 	Type           string   `yaml:"type"`
 	URL            string   `yaml:"url"`
+	Token          string   `yaml:"token,omitempty"`
+	ChatID         string   `yaml:"chat_id,omitempty"`
 	MaxAttempts    int      `yaml:"max_attempts"`
 	InitialBackoff Duration `yaml:"initial_backoff"`
 }
@@ -218,6 +220,42 @@ func (cfg *Config) Validate() error {
 		case "discord":
 			if nc.URL == "" {
 				return fmt.Errorf("notifier %q: discord type requires a url", name)
+			}
+			if nc.MaxAttempts == 0 {
+				nc.MaxAttempts = 3
+			}
+			if nc.InitialBackoff.Duration == 0 {
+				nc.InitialBackoff.Duration = 1 * time.Second
+			}
+			cfg.Notifiers[name] = nc
+		case "telegram":
+			if nc.Token == "" {
+				return fmt.Errorf("notifier %q: telegram type requires a token", name)
+			}
+			if nc.ChatID == "" {
+				return fmt.Errorf("notifier %q: telegram type requires a chat_id", name)
+			}
+			if nc.MaxAttempts == 0 {
+				nc.MaxAttempts = 3
+			}
+			if nc.InitialBackoff.Duration == 0 {
+				nc.InitialBackoff.Duration = 1 * time.Second
+			}
+			cfg.Notifiers[name] = nc
+		case "pagerduty":
+			if nc.Token == "" {
+				return fmt.Errorf("notifier %q: pagerduty type requires a token (routing key)", name)
+			}
+			if nc.MaxAttempts == 0 {
+				nc.MaxAttempts = 3
+			}
+			if nc.InitialBackoff.Duration == 0 {
+				nc.InitialBackoff.Duration = 1 * time.Second
+			}
+			cfg.Notifiers[name] = nc
+		case "teams":
+			if nc.URL == "" {
+				return fmt.Errorf("notifier %q: teams type requires a url", name)
 			}
 			if nc.MaxAttempts == 0 {
 				nc.MaxAttempts = 3
