@@ -54,6 +54,15 @@ notifiers:
   #   max_attempts: 3
   #   initial_backoff: 1s
   #
+  # Microsoft Teams (Adaptive Card via Workflows incoming webhook):
+  # Get the webhook URL from Teams: channel > Workflows app >
+  # "Post to a channel when a webhook request is received".
+  # alert-teams:
+  #   type: teams
+  #   url: https://prod-XX.westus.logic.azure.com:443/workflows/...
+  #   max_attempts: 3
+  #   initial_backoff: 1s
+  #
   # Generic webhook (flat JSON payload):
   # alert-webhook:
   #   type: webhook
