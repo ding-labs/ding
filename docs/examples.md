@@ -58,6 +58,36 @@ When the job exits non-zero, Slack receives a Block Kit message with exit code, 
 
 ---
 
+## CI job failure alert to Discord
+
+Alert to Discord when a CI job exits non-zero. Run context (branch, commit, exit code, duration) is surfaced automatically as embed fields — no template work needed.
+
+```yaml
+notifiers:
+  discord:
+    type: discord
+    url: https://discord.com/api/webhooks/WEBHOOK_ID/WEBHOOK_TOKEN
+
+rules:
+  - name: job_failed
+    match:
+      metric: run.exit
+    condition: value > 0
+    message: "Job failed with exit code {{ .value }}"
+    alert:
+      - notifier: discord
+```
+
+Run it:
+
+```bash
+ding run --config ding.yaml -- pytest tests/
+```
+
+When the job exits non-zero, Discord receives an embed with the rule name as the title, exit code, duration, branch, commit, and run ID populated from the CI environment automatically.
+
+---
+
 ## Windowed average condition
 
 Fire only when CPU has been high for 5 sustained minutes, not on a single spike.

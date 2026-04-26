@@ -110,7 +110,7 @@ A map of named notifiers. Reference them by name in rule `alert` blocks.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `type` | string | — | `slack`, `webhook`, or `github_actions` |
+| `type` | string | — | `slack`, `discord`, `webhook`, or `github_actions` |
 | `url` | string | — | Destination URL (required for `slack` and `webhook`) |
 | `max_attempts` | int | `3` | Total delivery attempts including the first (slack/webhook only) |
 | `initial_backoff` | duration | `1s` | First retry delay; doubles each attempt (slack/webhook only) |
@@ -135,6 +135,27 @@ When used with `ding run`, the following fields appear in the Slack message if D
 | run id | CI env auto-detect | `12345` |
 
 Up to 10 fields are shown. Exit code and duration are prioritized — they always appear when present, even if many label fields would otherwise fill the limit.
+
+### `type: discord`
+
+Posts a Discord [embed](https://discord.com/developers/docs/resources/message#embed-object) to an incoming webhook URL. Run-context fields are surfaced automatically as embed fields when present — no template work required.
+
+When used with `ding run`, the following fields appear in the Discord embed if DING detected them from the CI environment:
+
+| Field | Source | Example |
+|-------|--------|---------|
+| exit code | `run.exit` float | `1` |
+| duration | `run.exit` float | `42.5s` |
+| branch | CI env auto-detect | `main` |
+| commit | CI env auto-detect | `abc1234` (truncated) |
+| repo | CI env auto-detect | `acme/api` |
+| workflow | CI env auto-detect | `CI` |
+| job | CI env auto-detect | `test` |
+| actor | CI env auto-detect | `octocat` |
+| runner | CI env auto-detect | `github-actions` |
+| run id | CI env auto-detect | `12345` |
+
+All fields are rendered inline. Discord allows up to 25 fields per embed; exit code and duration are prioritized and always appear when present.
 
 ### `type: webhook`
 

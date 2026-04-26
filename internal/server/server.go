@@ -134,6 +134,8 @@ func buildFromConfig(path string, collector *metrics.Collector) (*evaluator.Engi
 			notifiers[name] = notifier.NewWebhookNotifier(nc.URL, nc.MaxAttempts, nc.InitialBackoff.Duration, collector)
 		case "slack":
 			notifiers[name] = notifier.NewSlackNotifier(nc.URL, nc.MaxAttempts, nc.InitialBackoff.Duration, collector)
+		case "discord":
+			notifiers[name] = notifier.NewDiscordNotifier(nc.URL, nc.MaxAttempts, nc.InitialBackoff.Duration, collector)
 		case "github_actions":
 			notifiers[name] = notifier.NewGitHubActionsNotifier(nil)
 		}

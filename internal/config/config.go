@@ -215,6 +215,17 @@ func (cfg *Config) Validate() error {
 				nc.InitialBackoff.Duration = 1 * time.Second
 			}
 			cfg.Notifiers[name] = nc
+		case "discord":
+			if nc.URL == "" {
+				return fmt.Errorf("notifier %q: discord type requires a url", name)
+			}
+			if nc.MaxAttempts == 0 {
+				nc.MaxAttempts = 3
+			}
+			if nc.InitialBackoff.Duration == 0 {
+				nc.InitialBackoff.Duration = 1 * time.Second
+			}
+			cfg.Notifiers[name] = nc
 		case "github_actions":
 			// no required fields; auto-detects GITHUB_STEP_SUMMARY at runtime
 		case "":

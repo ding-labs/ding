@@ -47,6 +47,13 @@ notifiers:
   #   max_attempts: 3
   #   initial_backoff: 1s
   #
+  # Discord (Embeds — run-context fields surfaced automatically):
+  # alert-discord:
+  #   type: discord
+  #   url: https://discord.com/api/webhooks/WEBHOOK_ID/WEBHOOK_TOKEN
+  #   max_attempts: 3
+  #   initial_backoff: 1s
+  #
   # Generic webhook (flat JSON payload):
   # alert-webhook:
   #   type: webhook
