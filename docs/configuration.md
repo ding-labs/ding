@@ -273,3 +273,7 @@ Each line is a JSON object matching the webhook payload format.
 ## Duration format
 
 All duration fields accept Go duration strings: `5s`, `1m`, `2h`, `500ms`.
+
+## Platform-specific examples
+
+See [Recipes](recipes/index.md) for end-to-end configurations on specific CI/CD platforms (GitLab CI, CircleCI, Jenkins, Buildkite). Each recipe shows the auto-captured labels and the minimal `ding.yaml` for that platform.

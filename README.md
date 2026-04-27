@@ -259,6 +259,15 @@ The webhook receives a JSON POST:
 
 ---
 
+## Recipes
+
+Looking for a config that works on your specific platform? See **[docs/recipes/](docs/recipes/index.md)** for platform-specific guides:
+
+- **CI/CD:** [GitHub Actions](https://github.com/zuchka/ding-action) · [GitLab CI](docs/recipes/gitlab-ci.md) · [CircleCI](docs/recipes/circleci.md) · [Jenkins](docs/recipes/jenkins.md) · [Buildkite](docs/recipes/buildkite.md)
+- More platforms (K8s Jobs, MLflow, Ray, Argo Workflows, dbt, Modal, …) coming in subsequent waves.
+
+---
+
 ## Beyond CI — long-running mode
 
 `ding run` is the new wedge. The original mode still exists:
@@ -288,6 +297,8 @@ SIGTERM / SIGINT — drains in-flight requests, flushes state, exits 0.
 ## Why
 
 > **Fires alerts in 4ms.** Prometheus default scrape + eval + Alertmanager dispatch: ~62 seconds minimum. That's not a knock on Prometheus — it's a pull-based system built for persistence and fleet-wide aggregation. DING is push-based and stateless. The architecture is the difference.
+
+DING is **co-mortal alerting**. The observer is born with the workload, dies with the workload, and leaves no infrastructure behind. Every other observability tool you've used is **survivor observability** — agents, daemons, and databases that outlive what they observe. That difference is the entire reason DING exists.
 
 The architecture choices that make `ding run` possible are the same ones that always made DING fast:
 
