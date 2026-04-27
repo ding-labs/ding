@@ -274,6 +274,45 @@ Each line is a JSON object matching the webhook payload format.
 
 All duration fields accept Go duration strings: `5s`, `1m`, `2h`, `500ms`.
 
+## Environment variable substitution
+
+DING expands `${VAR}` references in `ding.yaml` against the process environment when the file is loaded. This lets you keep secrets (Slack URLs, PagerDuty routing keys, API tokens) out of version control.
+
+### Syntax
+
+Reference an environment variable as `${VAR}`. Variable names match `[A-Za-z_][A-Za-z0-9_]*`.
+
+### Behavior at a glance
+
+| In `ding.yaml` | Environment | Result |
+|---|---|---|
+| `url: ${SLACK_URL}` | `SLACK_URL=https://hooks...` | `url: https://hooks...` |
+| `url: https://${HOST}/api` | `HOST=example.com` | `url: https://example.com/api` |
+| `token: ${A}-${B}` | `A=abc`, `B=xyz` | `token: abc-xyz` |
+| `path: /tmp/${X}/${X}` | `X=foo` | `path: /tmp/foo/foo` (repeats fine) |
+| `note: ${A}` | `A=""` | `note: ""` (empty value is allowed) |
+| `url: ${MISSING}` | `MISSING` not set | **load fails:** `unset env vars referenced in config: MISSING` |
+| `url: ${A}; token: ${B}` | neither set | **load fails:** `unset env vars referenced in config: A, B` (both reported, sorted) |
+| `name: $SHELL_STYLE` | `SHELL_STYLE=x` | `name: $SHELL_STYLE` (no expansion — braces are required) |
+| `name: ${WITH-DASH}` | any | `name: ${WITH-DASH}` (`-` not allowed in variable names — passes through) |
+| `name: ${}` | any | `name: ${}` (empty braces — passes through) |
+
+### Footgun: YAML metacharacters
+
+Substitution is a raw-text replace performed *before* YAML parsing. If a variable's value might contain newlines, colons, or quotes, wrap the field in quotes:
+
+```yaml
+url: "${MIGHT_CONTAIN_SPECIAL}"
+```
+
+For typical secrets (Slack URLs, PagerDuty tokens, API keys, opaque ID strings) this is never an issue.
+
+### Out of scope
+
+- Bare `$VAR` (no braces) is not expanded.
+- No `${VAR:-default}` for inline defaults — set the env var to the default before launching DING.
+- No `$${VAR}` escape for writing literal `${VAR}` — the use case is rare; if you hit it, file an issue.
+
 ## Platform-specific examples
 
 See [Recipes](recipes/index.md) for end-to-end configurations on specific CI/CD platforms (GitLab CI, CircleCI, Jenkins, Buildkite). Each recipe shows the auto-captured labels and the minimal `ding.yaml` for that platform.
