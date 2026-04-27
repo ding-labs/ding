@@ -1,20 +1,26 @@
 site_name: DING
 site_description: Stream-based alerting daemon — single binary, zero infrastructure
-site_url: https://zuchka.github.io/ding/
+site_url: https://docs.ding.ing
 repo_url: https://github.com/zuchka/ding
 repo_name: zuchka/ding
 
 theme:
   name: material
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
   palette:
-    scheme: default
+    scheme: slate
     primary: black
-    accent: deep orange
+    accent: green
+  font: false
   features:
     - navigation.instant
     - navigation.sections
     - content.code.copy
     - search.suggest
+
+extra_css:
+  - stylesheets/extra.css
 
 docs_dir: docs
 
@@ -33,6 +39,7 @@ nav:
     - Kubernetes Jobs: recipes/kubernetes-jobs.md
   - CLI Reference:
     - ding: cli/ding.md
+    - run: cli/ding_run.md
     - serve: cli/ding_serve.md
     - validate: cli/ding_validate.md
     - version: cli/ding_version.md

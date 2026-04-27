@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" fill="#0e0e0e"/>
+  <text
+    font-family="'Courier New', Courier, monospace"
+    font-size="22"
+    font-weight="bold"
+    fill="#7ee787"
+    x="5"
+    y="24"
+  >D</text>
+</svg>
