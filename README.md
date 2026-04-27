@@ -264,7 +264,8 @@ The webhook receives a JSON POST:
 Looking for a config that works on your specific platform? See **[docs/recipes/](docs/recipes/index.md)** for platform-specific guides:
 
 - **CI/CD:** [GitHub Actions](https://github.com/zuchka/ding-action) · [GitLab CI](docs/recipes/gitlab-ci.md) · [CircleCI](docs/recipes/circleci.md) · [Jenkins](docs/recipes/jenkins.md) · [Buildkite](docs/recipes/buildkite.md)
-- More platforms (K8s Jobs, MLflow, Ray, Argo Workflows, dbt, Modal, …) coming in subsequent waves.
+- **Orchestration:** [Kubernetes Jobs / CronJobs](docs/recipes/kubernetes-jobs.md)
+- More platforms (MLflow, Ray, Argo Workflows, dbt, Modal, …) coming in subsequent waves.
 
 ---
 

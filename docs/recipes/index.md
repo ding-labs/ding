@@ -19,6 +19,7 @@ Recipes marked **Tier-2 candidate** in the table below have self-evaluated as ex
 | [CircleCI](circleci.md) | CI/CD | Tier 1 | shipped (Tier-2 candidate) |
 | [Jenkins](jenkins.md) | CI/CD | Tier 1 | shipped (Tier-2 candidate) |
 | [Buildkite](buildkite.md) | CI/CD | Tier 1 | shipped (Tier-2 candidate) |
+| [Kubernetes Jobs / CronJobs](kubernetes-jobs.md) | Orchestration | Tier 1 | shipped (Tier-2 candidate) |
 
 ## Template
 

@@ -30,6 +30,7 @@ nav:
     - CircleCI: recipes/circleci.md
     - Jenkins: recipes/jenkins.md
     - Buildkite: recipes/buildkite.md
+    - Kubernetes Jobs: recipes/kubernetes-jobs.md
   - CLI Reference:
     - ding: cli/ding.md
     - serve: cli/ding_serve.md
