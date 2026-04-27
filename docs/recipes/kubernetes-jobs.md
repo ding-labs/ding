@@ -2,6 +2,16 @@
 
 > Kubernetes Jobs and CronJobs are the canonical primitives for ephemeral, run-to-completion workloads. Grafana watches the cluster; DING ships with the work — `ding run` wraps your container's command, evaluates rules in-Pod, and alerts when the Pod exits, automatically tagging each alert with namespace, pod, node, and Job name.
 
+!!! tip "One-line install via Helm"
+    For the common case (Slack alert on Job failure, no per-field K8s tuning), use the [`ding-k8s-job`](https://github.com/zuchka/ding-k8s-job) Helm chart instead of copying the manifest below:
+    ```bash
+    helm install nightly-batch oci://ghcr.io/zuchka/ding-k8s-job \
+      --set image.repository=my-app --set image.tag=v1.2.3 \
+      --set command='{python,train.py}' \
+      --set slack.webhookUrl=$SLACK_WEBHOOK_URL
+    ```
+    The recipe below is the equivalent unrolled manifest, kept for users who need fine-grained control or who prefer not to depend on Helm.
+
 ## Prerequisites
 
 - DING binary `>= v0.5.1` — see [install](../install.md). The recipe pulls the official container image `ghcr.io/zuchka/ding:v0.5.1` (multi-arch, scratch base) into your Pod via an initContainer; no need to bake DING into your workload image.
