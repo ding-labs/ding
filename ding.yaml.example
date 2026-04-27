@@ -38,19 +38,11 @@ server:
 #   path: /var/log/ding/alerts.jsonl
 
 # Environment variable substitution
-# ${VAR} references in this file are expanded against the process environment
-# at startup. Useful for keeping secrets (webhook URLs, tokens) out of source.
-# DING refuses to load if any referenced ${VAR} is unset; empty string is OK.
-# See docs/configuration.md#environment-variable-substitution for full behavior.
-#
-# Example (uncomment and set the matching env vars before running):
-# notifiers:
-#   prod-slack:
-#     type: slack
-#     url: ${SLACK_WEBHOOK_URL}
-#   ops-pd:
-#     type: pagerduty
-#     token: ${PAGERDUTY_ROUTING_KEY}
+# DING expands env-var references in this file at startup, so secrets like
+# webhook URLs and tokens can live in environment variables rather than in
+# source. Hard error if any referenced var is unset; empty string is allowed.
+# See docs/configuration.md#environment-variable-substitution for syntax and
+# the full behavior table.
 
 notifiers:
   # Built-in notifiers (no declaration needed): stdout, github_actions.
