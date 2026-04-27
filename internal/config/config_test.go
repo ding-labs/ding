@@ -363,3 +363,147 @@ rules:
 		t.Errorf("expected JQ %q, got %q", want, cfg.Server.JQ)
 	}
 }
+
+func TestLoad_ExpandsNotifierURL(t *testing.T) {
+	t.Setenv("T2A_INT_SLACK_URL", "https://hooks.slack.com/services/T1/B2/abc")
+	yaml := `
+notifiers:
+  alert-slack:
+    type: slack
+    url: ${T2A_INT_SLACK_URL}
+rules:
+  - name: cpu_spike
+    match: { metric: cpu_usage }
+    condition: "value > 95"
+    alert: [ { notifier: alert-slack } ]
+`
+	f, err := os.CreateTemp("", "ding-*.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(f.Name())
+	f.WriteString(yaml)
+	f.Close()
+
+	cfg, err := config.Load(f.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := cfg.Notifiers["alert-slack"].URL; got != "https://hooks.slack.com/services/T1/B2/abc" {
+		t.Errorf("expected expanded URL, got %q", got)
+	}
+}
+
+func TestLoad_UnsetEnvVarErrors(t *testing.T) {
+	t.Setenv("T2A_INT_MISSING", "sentinel")
+	if err := os.Unsetenv("T2A_INT_MISSING"); err != nil {
+		t.Fatal(err)
+	}
+	yaml := `
+notifiers:
+  s:
+    type: slack
+    url: ${T2A_INT_MISSING}
+rules:
+  - name: r
+    condition: "value > 0"
+    alert: [ { notifier: s } ]
+`
+	f, _ := os.CreateTemp("", "ding-*.yaml")
+	defer os.Remove(f.Name())
+	f.WriteString(yaml)
+	f.Close()
+
+	_, err := config.Load(f.Name())
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "T2A_INT_MISSING") {
+		t.Errorf("err should name the unset var; got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "unset env var") {
+		t.Errorf("err should mention 'unset env var'; got: %v", err)
+	}
+}
+
+func TestLoad_MultipleNotifiersOneEnvUnset(t *testing.T) {
+	t.Setenv("T2A_INT_SLACK_OK", "https://example.com/slack")
+	t.Setenv("T2A_INT_PD_KEY", "sentinel")
+	if err := os.Unsetenv("T2A_INT_PD_KEY"); err != nil {
+		t.Fatal(err)
+	}
+	yaml := `
+notifiers:
+  s:
+    type: slack
+    url: ${T2A_INT_SLACK_OK}
+  pd:
+    type: pagerduty
+    token: ${T2A_INT_PD_KEY}
+rules:
+  - name: r
+    condition: "value > 0"
+    alert: [ { notifier: s } ]
+`
+	f, _ := os.CreateTemp("", "ding-*.yaml")
+	defer os.Remove(f.Name())
+	f.WriteString(yaml)
+	f.Close()
+
+	_, err := config.Load(f.Name())
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "T2A_INT_PD_KEY") {
+		t.Errorf("err should name PD key; got: %v", err)
+	}
+	if strings.Contains(err.Error(), "T2A_INT_SLACK_OK") {
+		t.Errorf("err must not mention SLACK_OK (it was set); got: %v", err)
+	}
+}
+
+func TestLoad_NoEnvVarsInConfig_StillWorks(t *testing.T) {
+	// Backward-compat smoke: existing-style config with no ${VAR} loads exactly
+	// as before. Reuses the validYAML fixture from TestLoad_Valid above.
+	f, _ := os.CreateTemp("", "ding-*.yaml")
+	defer os.Remove(f.Name())
+	f.WriteString(validYAML)
+	f.Close()
+
+	cfg, err := config.Load(f.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Server.Port != 8080 {
+		t.Errorf("expected port 8080, got %d", cfg.Server.Port)
+	}
+}
+
+func TestLoad_EmptyEnvVarSet(t *testing.T) {
+	// Env var explicitly set to empty string is valid; expands to "".
+	// Validate() will then reject the slack notifier (URL required), but
+	// expansion itself must not error.
+	t.Setenv("T2A_INT_EMPTY", "")
+	yaml := `
+notifiers:
+  s:
+    type: webhook
+    url: https://example.com/${T2A_INT_EMPTY}path
+rules:
+  - name: r
+    condition: "value > 0"
+    alert: [ { notifier: s } ]
+`
+	f, _ := os.CreateTemp("", "ding-*.yaml")
+	defer os.Remove(f.Name())
+	f.WriteString(yaml)
+	f.Close()
+
+	cfg, err := config.Load(f.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := cfg.Notifiers["s"].URL; got != "https://example.com/path" {
+		t.Errorf("expected URL with empty expanded, got %q", got)
+	}
+}

@@ -3,10 +3,41 @@ package config
 import (
 	"fmt"
 	"os"
+	"regexp"
+	"sort"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
+
+var envVarRef = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)\}`)
+
+// expandEnvVars replaces every ${VAR} reference in raw with the value of
+// the corresponding environment variable, looked up via os.LookupEnv. If any
+// referenced variable is not set in the process environment, returns an error
+// naming all unset vars (sorted, deduplicated). An env var set to "" is
+// considered set and substitutes to "".
+func expandEnvVars(raw []byte) ([]byte, error) {
+	var unset []string
+	seen := map[string]struct{}{}
+	out := envVarRef.ReplaceAllFunc(raw, func(match []byte) []byte {
+		name := string(envVarRef.FindSubmatch(match)[1])
+		if val, ok := os.LookupEnv(name); ok {
+			return []byte(val)
+		}
+		if _, dup := seen[name]; !dup {
+			seen[name] = struct{}{}
+			unset = append(unset, name)
+		}
+		return match
+	})
+	if len(unset) > 0 {
+		sort.Strings(unset)
+		return nil, fmt.Errorf("unset env vars referenced in config: %s", strings.Join(unset, ", "))
+	}
+	return out, nil
+}
 
 // Duration wraps time.Duration for YAML unmarshaling of strings like "5m".
 type Duration struct{ time.Duration }
@@ -94,6 +125,10 @@ func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading config: %w", err)
+	}
+	data, err = expandEnvVars(data)
+	if err != nil {
+		return nil, fmt.Errorf("parsing config: %w", err)
 	}
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
