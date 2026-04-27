@@ -24,6 +24,12 @@ nav:
   - Configuration: configuration.md
   - HTTP API: api.md
   - Examples: examples.md
+  - Recipes:
+    - Overview: recipes/index.md
+    - GitLab CI: recipes/gitlab-ci.md
+    - CircleCI: recipes/circleci.md
+    - Jenkins: recipes/jenkins.md
+    - Buildkite: recipes/buildkite.md
   - CLI Reference:
     - ding: cli/ding.md
     - serve: cli/ding_serve.md
