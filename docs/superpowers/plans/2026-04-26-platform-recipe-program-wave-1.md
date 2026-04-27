@@ -644,7 +644,7 @@ Write `docs/recipes/buildkite.md` with this exact content:
 ```markdown
 # Using DING with Buildkite
 
-> Buildkite is a hosted CI control plane that runs jobs on your own infrastructure. DING's `ding run` wraps a step, evaluates rules during the step, and fires alerts on exit — and Buildkite's `buildkite-agent annotate` API lets DING surface alerts directly back into the build UI.
+> Buildkite is a hosted CI control plane that runs jobs on your own infrastructure. DING's `ding run` wraps a step, evaluates rules during the step, and fires alerts on exit. Buildkite's `buildkite-agent annotate` API would let DING surface alerts directly into the build UI — see escalation criteria below for the Tier-2 path.
 
 ## Prerequisites
 
