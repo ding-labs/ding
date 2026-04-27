@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- DING binary `>= v0.4.0` — see [install](../install.md). The recipe pulls the official container image `ghcr.io/zuchka/ding:v0.4.0` (multi-arch, scratch base) into your Pod via an initContainer; no need to bake DING into your workload image.
+- DING binary `>= v0.5.0` — see [install](../install.md). The recipe pulls the official container image `ghcr.io/zuchka/ding:v0.5.0` (multi-arch, scratch base) into your Pod via an initContainer; no need to bake DING into your workload image.
 - A Kubernetes cluster `>= 1.21` for the primary wrapper pattern below. The sidecar alternative documented in [Configuration](#sidecar-alternative-k8s-129) requires `>= 1.29` for native sidecar lifecycle.
 - `kubectl` access to a namespace where you can create Jobs, ConfigMaps, and Secrets.
 - A notifier endpoint (Slack webhook URL or custom webhook) you can store in a Kubernetes Secret.
@@ -72,7 +72,7 @@ spec:
             name: ding-config
       initContainers:
         - name: install-ding
-          image: ghcr.io/zuchka/ding:v0.4.0
+          image: ghcr.io/zuchka/ding:v0.5.0
           command: ["/bin/sh", "-c", "cp /ding /shared/ding"]
           volumeMounts:
             - { name: ding-bin, mountPath: /shared }
@@ -180,7 +180,7 @@ spec:
     spec:
       initContainers:
         - name: ding
-          image: ghcr.io/zuchka/ding:v0.4.0
+          image: ghcr.io/zuchka/ding:v0.5.0
           restartPolicy: Always       # native sidecar — K8s 1.29+
           command: ["/ding", "serve", "--config", "/etc/ding/ding.yaml"]
           # ...volumeMounts for config + downward-API env block
