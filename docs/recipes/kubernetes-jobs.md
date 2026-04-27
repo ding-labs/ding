@@ -11,29 +11,32 @@
 
 ## Minimal example
 
-The shortest configuration that produces a working alert when a Job exits non-zero. The pattern: `ding run` wraps your command in the main container; an initContainer copies `/ding` from the published image into a shared `emptyDir`; a second initContainer renders the `ding.yaml` template by substituting environment variables sourced from a Secret.
+The shortest configuration that produces a working alert when a Job exits non-zero. The pattern: `ding run` wraps your command in the main container; an initContainer copies `/ding` from the published image into a shared `emptyDir`; the workload container mounts the `ding.yaml` ConfigMap directly and pulls Secret keys into its env via `envFrom`. DING expands `${SLACK_WEBHOOK_URL}` from the env at startup — no template-rendering step needed.
 
 Save the YAML below as `ding-job.yaml` and apply with `kubectl apply -f ding-job.yaml`:
 
 ```yaml
 ---
 # Notifier credential — replace with your real Slack webhook URL.
+# The Secret key MUST be a valid env var name (uppercase, no dashes) so
+# `envFrom: secretRef:` below can surface it directly into the workload
+# container's environment.
 apiVersion: v1
 kind: Secret
 metadata:
   name: ding-secrets
 type: Opaque
 stringData:
-  slack-webhook: https://hooks.slack.com/services/T.../B.../...
+  SLACK_WEBHOOK_URL: https://hooks.slack.com/services/T.../B.../...
 ---
-# DING config template. ${SLACK_WEBHOOK_URL} is rendered at Pod startup
-# by the render-config initContainer below.
+# DING config. ${SLACK_WEBHOOK_URL} is expanded by DING itself at startup
+# (see docs/configuration.md#environment-variable-substitution).
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ding-config
 data:
-  ding.yaml.tpl: |
+  ding.yaml: |
     server:
       drain_timeout: 30s
     notifiers:
@@ -65,9 +68,7 @@ spec:
       volumes:
         - name: ding-bin
           emptyDir: {}
-        - name: ding-rendered
-          emptyDir: {}
-        - name: ding-tpl
+        - name: ding-config
           configMap:
             name: ding-config
       initContainers:
@@ -76,19 +77,6 @@ spec:
           command: ["/bin/sh", "-c", "cp /ding /shared/ding"]
           volumeMounts:
             - { name: ding-bin, mountPath: /shared }
-        - name: render-config
-          image: alpine:3
-          command:
-            - /bin/sh
-            - -c
-            - apk add --no-cache gettext && envsubst < /tpl/ding.yaml.tpl > /rendered/ding.yaml
-          env:
-            - name: SLACK_WEBHOOK_URL
-              valueFrom:
-                secretKeyRef: { name: ding-secrets, key: slack-webhook }
-          volumeMounts:
-            - { name: ding-tpl, mountPath: /tpl }
-            - { name: ding-rendered, mountPath: /rendered }
       containers:
         - name: workload
           image: alpine:3
@@ -96,11 +84,16 @@ spec:
             - /shared/ding
             - run
             - --config
-            - /rendered/ding.yaml
+            - /config/ding.yaml
             - --
             - /bin/sh
             - -c
             - echo running; sleep 1; exit 1
+          envFrom:
+            # Surfaces every key from ding-secrets as an env var inside the
+            # workload container. DING expands ${SLACK_WEBHOOK_URL} from here.
+            - secretRef:
+                name: ding-secrets
           env:
             # Downward API surfaces Pod metadata as env vars; runctx auto-labels alerts with these.
             - name: POD_UID
@@ -115,7 +108,7 @@ spec:
               valueFrom: { fieldRef: { fieldPath: "metadata.labels['job-name']" } }
           volumeMounts:
             - { name: ding-bin, mountPath: /shared }
-            - { name: ding-rendered, mountPath: /rendered }
+            - { name: ding-config, mountPath: /config, readOnly: true }
 ```
 
 For a CronJob, wrap the same `template:` block in a `jobTemplate:`:
@@ -196,20 +189,19 @@ The sidecar pattern is heavier (separate container, IPC over HTTP, no `ding run`
 
 ## Verification
 
-1. Locally: `ding validate --config <(envsubst < ding.yaml.tpl)` — confirms the rule parses.
+1. Locally (with `SLACK_WEBHOOK_URL` exported in your shell): `ding validate --config ding.yaml` — confirms the rule parses and `${SLACK_WEBHOOK_URL}` resolves.
 2. Apply the manifests: `kubectl apply -f ding-job.yaml`.
 3. Wait for the Job: `kubectl wait --for=condition=failed job/my-job --timeout=60s`. With the example's `exit 1`, the Job should reach `Failed` quickly.
 4. Confirm the alert: a Slack message tagged with `pod`, `namespace`, `node`, `job_name`, and `exit_code`. Check `kubectl logs job/my-job -c workload` for DING's drain output.
 5. Trigger the happy path: change the workload `command:` last line from `exit 1` to `exit 0`, reapply, wait for `Complete`. Confirm no alert fires.
 6. CronJob path: replace `kind: Job` with the CronJob example, wait for the first spawned Job to complete, verify the same alert behavior on a forced failure.
 
-If the alert doesn't fire, common issues: the `render-config` initContainer failed (check `kubectl logs job/my-job -c render-config`), the Secret wasn't readable (RBAC on the default ServiceAccount), or `terminationGracePeriodSeconds` was too tight for the Pod's actual deletion path.
+If the alert doesn't fire, common issues: the Secret wasn't readable (RBAC on the default ServiceAccount), `SLACK_WEBHOOK_URL` was empty/missing in the Secret, or `terminationGracePeriodSeconds` was too tight for the Pod's actual deletion path.
 
 ## Tradeoffs / known limitations
 
 - **Wrapper pattern requires modifying `command`.** If the workload's entrypoint is fixed (third-party image), use the [sidecar alternative](#sidecar-alternative-k8s-129) — but it requires K8s 1.29+ for native sidecar lifecycle.
 - **No K8s API access by default.** DING ships alerts to external notifiers (Slack/Discord/PagerDuty/etc.), not as K8s Events visible to `kubectl describe pod` or `kubectl get events`. A native `type: kubernetes_event` notifier is a flagged Tier-2 candidate.
-- **YAML credentials need an envsubst initContainer.** DING's YAML parser doesn't yet expand `${VAR}` references natively, so the recipe runs an `alpine + envsubst` initContainer to render `ding.yaml` from `ding.yaml.tpl` at Pod startup. A native parser feature is a flagged Tier-2 candidate that would simplify this.
 - **No CronJob-name auto-label.** The Job controller injects `job-name`, but the parent CronJob's name has to be surfaced manually via a label on `jobTemplate.spec.template.metadata.labels` plus an additional `fieldRef`.
 - **Pre-1.29 sidecar pattern needs lifecycle workarounds.** If you must support older clusters, the historical pattern (an emptyDir flag file plus a `pkill` in a lifecycle hook) is documented in upstream K8s docs; it's outside this recipe's scope.
 
@@ -219,7 +211,7 @@ This recipe is **a Tier-2 candidate** by the program's standard rubric:
 
 - **Setup commands required:** 1 (`kubectl apply`) — under threshold of 5
 - **Boilerplate lines:** ~95 (single-document YAML for Secret + ConfigMap + Job) — over threshold of 50 → **Tier-2 candidate**
-- **"Gotcha" callouts:** 4 (envsubst initContainer, drain/terminationGracePeriod pairing, sidecar gates on K8s 1.29+, no CronJob-name auto-label) — over threshold of 2 → **Tier-2 candidate**
+- **"Gotcha" callouts:** 3 (drain/terminationGracePeriod pairing, sidecar gates on K8s 1.29+, no CronJob-name auto-label) — over threshold of 2 → **Tier-2 candidate**
 - **End-to-end runnable:** yes (kind / minikube are free and self-installable in a few minutes)
 
-**Tier-2 candidate.** The boilerplate count is the structural problem — the manifest is mostly mechanical plumbing (volumes, initContainers, downward API env block) that every K8s user will copy verbatim. A `ding-k8s-job` Helm chart (separate repo, mirroring the [`ding-action`](https://github.com/zuchka/ding-action) pattern) that templates the wrapper-pattern manifest behind `helm install ding-k8s-job ... --set image=my-app --set command='python train.py'` would collapse the recipe to a one-line install. Defer until 2+ users ask, OR until the related Tier-2 candidate (`${VAR}` substitution in the YAML parser) ships and changes the cost calculus.
+**Tier-2 candidate.** The boilerplate count is the structural problem — the manifest is mostly mechanical plumbing (volumes, initContainers, downward API env block) that every K8s user will copy verbatim. A `ding-k8s-job` Helm chart (separate repo, mirroring the [`ding-action`](https://github.com/zuchka/ding-action) pattern) that templates the wrapper-pattern manifest behind `helm install ding-k8s-job ... --set image=my-app --set command='python train.py'` would collapse the recipe to a one-line install. `${VAR}` substitution in the YAML parser shipped (the recipe was just simplified above). The remaining boilerplate is structural — pure manifest plumbing every K8s user copies verbatim. Defer the chart until 2+ users ask.

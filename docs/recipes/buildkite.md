@@ -26,7 +26,7 @@ steps:
 notifiers:
   slack:
     type: slack
-    url: $SLACK_WEBHOOK_URL
+    url: ${SLACK_WEBHOOK_URL}
 
 rules:
   - name: ci_step_failed
