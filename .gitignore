@@ -27,3 +27,9 @@ tmp/
 # Docs (generated)
 docs/cli/
 site/
+
+# Claude Code local config (settings, scheduled tasks, etc.)
+.claude/
+
+# Internal planning / brainstorming artifacts (kept local)
+docs/superpowers/
