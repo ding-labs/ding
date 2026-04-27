@@ -298,8 +298,6 @@ SIGTERM / SIGINT — drains in-flight requests, flushes state, exits 0.
 
 > **Fires alerts in 4ms.** Prometheus default scrape + eval + Alertmanager dispatch: ~62 seconds minimum. That's not a knock on Prometheus — it's a pull-based system built for persistence and fleet-wide aggregation. DING is push-based and stateless. The architecture is the difference.
 
-DING is **co-mortal alerting**. The observer is born with the workload, dies with the workload, and leaves no infrastructure behind. Every other observability tool you've used is **survivor observability** — agents, daemons, and databases that outlive what they observe. That difference is the entire reason DING exists.
-
 The architecture choices that make `ding run` possible are the same ones that always made DING fast:
 
 - **Stateless** — nothing to provision, nothing to clean up when the job dies
