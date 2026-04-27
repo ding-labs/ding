@@ -29,6 +29,7 @@ Two modes:
 		newRunCmd(),
 		newValidateCmd(),
 		newVersionCmd(version),
+		newInstallCmd(),
 	)
 	return root
 }
