@@ -58,7 +58,7 @@ Set `SLACK_WEBHOOK_URL` as an [environment variable](https://circleci.com/docs/e
 
 ## What you get
 
-A Slack message when the job exits non-zero, automatically tagged with `repo`, `branch`, `commit`, `job` from CircleCI's environment.
+A Slack message when the job exits non-zero, automatically tagged with `repo`, `branch`, `commit`, `job` from CircleCI's environment. Successful runs produce no notification.
 
 ## Configuration
 
@@ -73,7 +73,7 @@ A Slack message when the job exits non-zero, automatically tagged with `repo`, `
 | `commit` | `CIRCLE_SHA1` |
 | `job` | `CIRCLE_JOB` |
 
-Use these in `match.labels` or `message` templates.
+Use these in `match.labels` or `message` templates. See [Configuration](../configuration.md) for the full notifier reference.
 
 ## Verification
 
@@ -81,19 +81,22 @@ Use these in `match.labels` or `message` templates.
 2. Push a commit. Confirm a successful job produces no alert.
 3. Force a failure (`exit 1` in `run-tests.sh`). Confirm the alert fires in Slack within ~5 seconds of job exit.
 
+If the alert doesn't fire, check the CircleCI job log for `ding` output. Common issues: webhook URL not exposed to the job (project-level vs context-level variable scoping), or `drain_timeout` shorter than the notifier retry window — see [Configuration](../configuration.md).
+
 ## Tradeoffs / known limitations
 
 - **No native annotation surface.** CircleCI doesn't have a step-summary equivalent to GitHub Actions' `$GITHUB_STEP_SUMMARY`. Alerts go to your notifier; CircleCI's UI shows DING's stdout.
 - **Binary download per job.** Bake DING into a [custom Docker image](https://circleci.com/docs/custom-images/) for high-frequency workflows.
 - **Orb not provided.** A CircleCI orb (a packaged config wrapper) would collapse the install step into one line — that's the most likely Tier-2 promotion target.
+- **Recipe assumes `cimg/base:current` includes `curl` and `tar`** (currently true). If you switch to a minimal custom image, add explicit install steps.
 
 ## Escalation criteria
 
 This recipe is **Tier 1** by the program's standard rubric:
 
 - **Setup commands required:** 1 (`curl | tar`) — under threshold of 5
-- **Boilerplate lines:** ~28 across `.circleci/config.yml` and `ding.yaml` — under threshold of 50
-- **"Gotcha" callouts:** 3 (no annotation surface, binary download per job, no orb) — over threshold of 2 → **Tier-2 candidate**
-- **End-to-end runnable:** yes (CircleCI free tier covers ~6,000 build minutes/month for OSS projects)
+- **Boilerplate lines:** ~32 across `.circleci/config.yml` and `ding.yaml` — under threshold of 50
+- **"Gotcha" callouts:** 3 structural (no annotation surface, binary download per job, no orb) — over threshold of 2 → **Tier-2 candidate**
+- **End-to-end runnable:** yes (CircleCI free tier sufficient for evaluation; minutes allotment varies — see [CircleCI pricing](https://circleci.com/pricing/))
 
 **Tier-2 candidate.** Three callouts cross the rubric threshold. The natural Tier-2 abstraction is a CircleCI orb (`zuchka/ding`) that exposes a `ding/run` step — collapsing the install + invoke pattern into one line. Defer until 2+ users ask for it (per spec §"Open Questions" promotion authority).
