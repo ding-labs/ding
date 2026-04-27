@@ -100,6 +100,81 @@ func TestNew_DetectsJenkins(t *testing.T) {
 	}
 }
 
+func TestNew_DetectsKubernetes(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
+	t.Setenv("POD_UID", "abc-def-123")
+	t.Setenv("POD_NAME", "my-job-pod-xyz")
+	t.Setenv("POD_NAMESPACE", "production")
+	t.Setenv("NODE_NAME", "ip-10-0-1-100.ec2.internal")
+	t.Setenv("JOB_NAME", "nightly-batch")
+
+	c := New()
+
+	if c.Runner != "kubernetes" {
+		t.Errorf("Runner = %q, want kubernetes", c.Runner)
+	}
+	if c.RunID != "abc-def-123" {
+		t.Errorf("RunID = %q, want abc-def-123 (POD_UID)", c.RunID)
+	}
+	wantLabels := map[string]string{
+		"namespace": "production",
+		"pod":       "my-job-pod-xyz",
+		"node":      "ip-10-0-1-100.ec2.internal",
+		"job_name":  "nightly-batch",
+	}
+	for k, v := range wantLabels {
+		if got := c.Labels[k]; got != v {
+			t.Errorf("Labels[%q] = %q, want %q", k, got, v)
+		}
+	}
+}
+
+func TestNew_KubernetesFallsBackToPodNameWhenNoUID(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
+	t.Setenv("POD_NAME", "my-job-pod-xyz")
+	// POD_UID intentionally unset — exercise fallback.
+
+	c := New()
+	if c.Runner != "kubernetes" {
+		t.Errorf("Runner = %q, want kubernetes", c.Runner)
+	}
+	if c.RunID != "my-job-pod-xyz" {
+		t.Errorf("RunID = %q, want my-job-pod-xyz (POD_NAME fallback)", c.RunID)
+	}
+}
+
+// TestNew_CIDetectionWinsOverKubernetes locks in the design contract that
+// CI runner detection takes precedence over bare Kubernetes detection. A
+// self-hosted GitHub Actions runner (or Jenkins agent, etc.) deployed on
+// K8s sets BOTH the CI env vars AND KUBERNETES_SERVICE_HOST; CI context is
+// richer for alerting purposes, so it must win. Regression guard.
+func TestNew_CIDetectionWinsOverKubernetes(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
+	t.Setenv("POD_NAME", "k8s-runner-pod")
+	t.Setenv("POD_NAMESPACE", "actions-runner-system")
+	t.Setenv("GITHUB_ACTIONS", "true")
+	t.Setenv("GITHUB_RUN_ID", "555")
+	t.Setenv("GITHUB_REPOSITORY", "zuchka/ding")
+
+	c := New()
+
+	if c.Runner != "github-actions" {
+		t.Errorf("Runner = %q, want github-actions (CI must win over K8s)", c.Runner)
+	}
+	if c.RunID != "555" {
+		t.Errorf("RunID = %q, want 555", c.RunID)
+	}
+	if _, ok := c.Labels["namespace"]; ok {
+		t.Errorf("namespace leaked from K8s detection — CI should win cleanly: %#v", c.Labels)
+	}
+	if _, ok := c.Labels["pod"]; ok {
+		t.Errorf("pod leaked from K8s detection — CI should win cleanly: %#v", c.Labels)
+	}
+}
+
 func TestApply_AddsRunContextLabels(t *testing.T) {
 	clearCIEnv(t)
 	c := &Context{
@@ -202,6 +277,7 @@ func clearCIEnv(t *testing.T) {
 		"JENKINS_URL", "BUILD_TAG", "JOB_NAME", "BUILD_NUMBER",
 		"BUILDKITE", "BUILDKITE_BUILD_ID", "BUILDKITE_PIPELINE_SLUG",
 		"BUILDKITE_BRANCH", "BUILDKITE_COMMIT",
+		"KUBERNETES_SERVICE_HOST", "POD_UID", "POD_NAME", "POD_NAMESPACE", "NODE_NAME",
 	} {
 		t.Setenv(k, "")
 	}
