@@ -298,7 +298,7 @@ If the alert doesn't fire, check the GitLab CI job log for `ding` output. Common
 
 ## Tradeoffs / known limitations
 
-- **No native step-summary surface.** GitHub Actions has `$GITHUB_STEP_SUMMARY`; GitLab does not. Alerts go to your notifier of choice (Slack, webhook, etc.), not into the GitLab UI itself. If you want alerts surfaced in GitLab, use the [GitLab artifact pattern](#) (TODO: link once implemented) — currently a Tier-2 candidate (see below).
+- **No native step-summary surface.** GitHub Actions has `$GITHUB_STEP_SUMMARY`; GitLab does not. Alerts go to your notifier of choice (Slack, webhook, etc.), not into the GitLab UI itself. Surfacing alerts back into GitLab would require a future Tier-2 abstraction (an artifact-writing notifier) — see escalation criteria below.
 - **Binary download per job.** The minimal example downloads DING from GitHub Releases each run (~5MB, ~1s). For high-frequency pipelines, bake DING into your CI image instead.
 
 ## Escalation criteria
@@ -763,17 +763,17 @@ Refs: docs/superpowers/specs/2026-04-26-platform-recipe-program-design.md"
 - Modify: `README.md`
 - Modify: `docs/configuration.md`
 
-- [ ] **Step 1: Read current README to find anchor point**
+- [ ] **Step 1: Read current README to confirm anchor point**
 
 ```bash
 grep -n "## " README.md | head -20
 ```
 
-Use the output to identify the right section. Recipes are most useful linked from a "Documentation" or "Examples" or "Notifiers" section. If none exists, add a "## Recipes" section near the top of the README, just after the existing intro/install copy.
+The expected anchor is just after the existing `## Notifiers` section (currently around line 214). If line numbers have shifted significantly, place the new section adjacent to Notifiers regardless — that's the highest-traffic section for users picking a configuration.
 
 - [ ] **Step 2: Add recipes link to README**
 
-Add a new section to `README.md` (placement: after install instructions, before competitive-landscape or detailed config sections — adjust based on Step 1 findings):
+Insert a new `## Recipes` section in `README.md` immediately after the `## Notifiers` section (and before `## Beyond CI — long-running mode`):
 
 ```markdown
 ## Recipes
@@ -790,7 +790,7 @@ Looking for a config that works on your specific platform? See **[docs/recipes/]
 grep -n "## " docs/configuration.md | head -20
 ```
 
-Find the notifiers section. At the end of the notifiers section, add a paragraph linking to recipes:
+The current top-level section order is: Full example → `server` → `notifiers` → `rules` → `persistence` → `alert_log` → Duration format. Add the new `## Platform-specific examples` section as the **last** top-level section (after `## Duration format`):
 
 ```markdown
 ## Platform-specific examples
@@ -798,7 +798,7 @@ Find the notifiers section. At the end of the notifiers section, add a paragraph
 See [Recipes](recipes/index.md) for end-to-end configurations on specific CI/CD platforms (GitLab CI, CircleCI, Jenkins, Buildkite). Each recipe shows the auto-captured labels and the minimal `ding.yaml` for that platform.
 ```
 
-(Place this section between Notifiers and the next top-level section. Adjust if the doc structure differs.)
+(The reference docs above are field-by-field; the recipes are platform-by-platform — they complement each other and the platform-recipes section reads naturally as the closing material.)
 
 - [ ] **Step 4: Verify mkdocs.yml still parses**
 
