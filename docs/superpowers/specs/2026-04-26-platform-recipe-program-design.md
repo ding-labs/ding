@@ -231,18 +231,32 @@ Higher-substance recipes; likely Tier-2 promotion candidates after self-judging:
 
 ### Wave 3 — Category creation / niche / long tail (~half-day each)
 
-Each is blog-post-length and doubles as DevRel content:
+Each is blog-post-length and doubles as DevRel content. Subdivided into milestones to give the implementation plan natural checkpoints; within a milestone, ordering is at author discretion:
 
-- **Modal**, **RunPod**, **Replicate** (modern serverless GPU)
+**3a. Modern ML / serverless GPU compute**
+- **Modal**, **RunPod**, **Replicate**
+
+**3b. Workflow orchestrators**
 - **Airflow**, **Dagster**, **Prefect**, **Kestra**
-- **dbt Cloud / dbt Core**
-- **Agones**, bare Unreal/Unity dedicated servers
+
+**3c. Cloud batch & remaining CI/CD**
 - **AWS Batch**, **GCP Batch**, **AWS Step Functions**
 - **Tekton**, **Drone CI**, **Bitbucket Pipelines**, **AWS CodeBuild**, **GCP Cloud Build**
-- **GCP Cloud Run Jobs**, **Cloudflare Workers Cron Triggers**, **Fly.io Machines**
-- Test-runner recipes: pytest, Go test, k6, Playwright
 
-**Total scope:** ~30 recipes. At ~2–3 hours average, ~1–2 months of part-time DevRel content production. Each recipe is independently shippable.
+**3d. Data pipelines**
+- **dbt Cloud / dbt Core**
+- (Spark / Beam / Fivetran / Airbyte deferred to a 3e tail unless demand surfaces)
+
+**3e. Game servers & realtime**
+- **Agones**, bare Unreal/Unity dedicated servers
+
+**3f. Serverless ephemeral / per-invocation**
+- **GCP Cloud Run Jobs**, **Cloudflare Workers Cron Triggers**, **Fly.io Machines**
+
+**3g. Test runners**
+- pytest, Go test, k6, Playwright
+
+**Total scope:** ~30 recipes across all three waves. At ~2–3 hours average, ~1–2 months of part-time DevRel content production. Each recipe is independently shippable; milestones exist for planning checkpoints, not gating.
 
 ## File organization
 
@@ -274,7 +288,8 @@ This program is "successfully executed" when:
 2. Wave 1 is shipped end-to-end (4 recipes).
 3. Each shipped recipe has been verified with an actual end-to-end run (or is explicitly flagged as Tier-2 because end-to-end wasn't possible).
 4. The index page accurately tracks Tier-2 candidates.
-5. At least two recipes have been promoted to actual blog posts on `ding.ing/blog` or syndicated externally.
+
+(Earlier draft included "≥2 recipes promoted to blog posts" as criterion 5; reviewer noted that depends on external editorial decisions. Demoted to a stretch goal — see Open Questions on cross-promotion.)
 
 This spec is "executed correctly" — not the program itself — when:
 
