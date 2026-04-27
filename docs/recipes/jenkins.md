@@ -91,7 +91,7 @@ If the alert doesn't fire, check the Jenkins build console for `ding` output. Co
 This recipe is **a Tier-2 candidate** by the program's standard rubric:
 
 - **Setup commands required:** 1 (`curl | tar`) — under threshold of 5
-- **Boilerplate lines:** ~28 — under threshold of 50
+- **Boilerplate lines:** ~33 — under threshold of 50
 - **"Gotcha" callouts:** 3 (no SCM-aware labels, binary download, no plugin) — over threshold of 2 → **Tier-2 candidate**
 - **End-to-end runnable:** yes (Jenkins is free; self-hostable in 5 minutes via Docker)
 
