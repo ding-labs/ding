@@ -210,7 +210,7 @@ If the alert doesn't fire, common issues: the Secret wasn't readable (RBAC on th
 This recipe is **a Tier-2 candidate** by the program's standard rubric:
 
 - **Setup commands required:** 1 (`kubectl apply`) — under threshold of 5
-- **Boilerplate lines:** ~95 (single-document YAML for Secret + ConfigMap + Job) — over threshold of 50 → **Tier-2 candidate**
+- **Boilerplate lines:** ~93 (single-document YAML for Secret + ConfigMap + Job); ~7 lines smaller than pre-T2A after the envsubst initContainer removal — still over threshold of 50 → **Tier-2 candidate**
 - **"Gotcha" callouts:** 3 (drain/terminationGracePeriod pairing, sidecar gates on K8s 1.29+, no CronJob-name auto-label) — over threshold of 2 → **Tier-2 candidate**
 - **End-to-end runnable:** yes (kind / minikube are free and self-installable in a few minutes)
 
