@@ -17,8 +17,7 @@ test_with_ding:
   image: alpine:latest
   before_script:
     - apk add --no-cache curl tar
-    - curl -sSL https://github.com/zuchka/ding/releases/latest/download/ding-linux-amd64.tar.gz | tar -xz
-    - chmod +x ding
+    - curl -sSL https://github.com/zuchka/ding/releases/latest/download/ding_linux_amd64.tar.gz | tar -xz
   script:
     - ./ding run --config ding.yaml -- ./run-tests.sh
 ```
@@ -42,7 +41,7 @@ rules:
       - notifier: slack
 ```
 
-Set `SLACK_WEBHOOK_URL` as a [protected CI/CD variable](https://docs.gitlab.com/ee/ci/variables/) in your project settings.
+Set `SLACK_WEBHOOK_URL` as a [protected CI/CD variable](https://docs.gitlab.com/ci/variables/) in your project settings.
 
 ## What you get
 
@@ -74,15 +73,15 @@ If the alert doesn't fire, check the GitLab CI job log for `ding` output. Common
 ## Tradeoffs / known limitations
 
 - **No native step-summary surface.** GitHub Actions has `$GITHUB_STEP_SUMMARY`; GitLab does not. Alerts go to your notifier of choice (Slack, webhook, etc.), not into the GitLab UI itself. Surfacing alerts back into GitLab would require a future Tier-2 abstraction (an artifact-writing notifier) — see escalation criteria below.
-- **Binary download per job.** The minimal example downloads DING from GitHub Releases each run (~5MB, ~1s). For high-frequency pipelines, bake DING into your CI image instead.
+- **Binary download per job.** The minimal example downloads DING from GitHub Releases each run (~4MB tarball, plus an `apk add curl tar` round-trip on `alpine:latest` — typically 5–10s of preamble cold). For high-frequency pipelines, bake DING and its dependencies into your CI image instead.
 
 ## Escalation criteria
 
 This recipe is **Tier 1** by the program's standard rubric:
 
-- **Setup commands required:** 3 (`apk add`, `curl | tar`, `chmod`) — under threshold of 5
-- **Boilerplate lines:** ~25 across `.gitlab-ci.yml` and `ding.yaml` — under threshold of 50
+- **Setup commands required:** 2 (`apk add`, `curl | tar`) — under threshold of 5
+- **Boilerplate lines:** ~24 across `.gitlab-ci.yml` and `ding.yaml` — under threshold of 50
 - **"Gotcha" callouts:** 2 (no step-summary surface, binary download per job) — at threshold of 2
-- **End-to-end runnable:** yes (gitlab.com has a free tier with 400 CI minutes/month)
+- **End-to-end runnable:** yes (gitlab.com has a free tier sufficient for evaluation; minutes allotment varies — see [GitLab pricing](https://about.gitlab.com/pricing/))
 
 The "no step-summary surface" callout is the only structural friction. If users start asking for GitLab-native alert surfacing, that's the trigger to promote this to Tier 2 with an artifact-writing notifier (`type: gitlab_artifact` or similar).
