@@ -42,13 +42,14 @@ rules:
     alert:
       - notifier: slack
 
-  # End-of-run: fire if the training process exits non-zero.
+  # On exit: fire if the training process exits non-zero.
+  # The synthetic run.exit event is dispatched at end-of-run; a default
+  # (during-run) rule matching it fires once when the wrapped command exits.
   - name: training_failed
     match: { metric: run.exit }
-    condition: value != 0
-    mode: end-of-run
+    condition: value > 0
     message: |
-      MLflow run failed (exit {{ .exit_code }}, {{ .duration_seconds }}s)
+      MLflow run failed (exit {{ .exit_code }})
       <{{ .tracking_uri }}/#/experiments/{{ .experiment_id }}/runs/{{ .run_id }}|View run in MLflow UI>
     alert:
       - notifier: slack
@@ -63,7 +64,11 @@ with mlflow.start_run():
     for epoch in range(epochs):
         loss = train_epoch()
         mlflow.log_metric("val_loss", loss, step=epoch)              # → MLflow tracking server
-        print(json.dumps({"metric": "val_loss", "value": loss, "epoch": epoch}))  # → DING
+        print(json.dumps({                                           # → DING
+            "metric": "val_loss",
+            "value": loss,
+            "epoch": str(epoch),  # cast to string so the template variable resolves
+        }))
 ```
 
 Invoke with:
@@ -82,7 +87,7 @@ A Slack message during training when `val_loss` exceeds threshold:
 …and on training-process exit:
 
 > 🔔 `training_failed`
-> MLflow run failed (exit 1, 247.3s)
+> MLflow run failed (exit 1)
 > [View run in MLflow UI](#)
 
 The deep-link in the second message takes you straight to the MLflow run page. All alerts are auto-tagged with `run_id`, `runner=mlflow`, `experiment_id`, `tracking_uri`.
