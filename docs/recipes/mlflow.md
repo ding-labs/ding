@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- DING binary `>= v0.5.0` — see [install](../install.md)
+- DING binary `>= v0.6.0` — see [install](../install.md)
 - `mlflow >= 2.0` (`pip install mlflow`)
 - An MLflow tracking URI: local SQLite for dev; remote tracking server like Databricks or self-hosted (`mlflow server`) for production deep-links to work
 - A notifier endpoint (Slack webhook URL is the canonical example)
