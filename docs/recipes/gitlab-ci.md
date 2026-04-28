@@ -34,9 +34,8 @@ rules:
   - name: ci_job_failed
     match:
       metric: run.exit
-    condition: value != 0
-    mode: end-of-run
-    message: "Pipeline {{ .branch }} failed (exit {{ .exit_code }}, {{ .duration_seconds }}s)"
+    condition: value > 0
+    message: "Pipeline {{ .branch }} failed (exit {{ .exit_code }})"
     alert:
       - notifier: slack
 ```

@@ -57,8 +57,7 @@ data:
       - name: job_failed
         match:
           metric: run.exit
-        condition: value != 0
-        mode: end-of-run
+        condition: value > 0
         message: "{{ .pod }} (Job {{ .job_name }}) failed with exit {{ .exit_code }}"
         alert:
           - notifier: slack

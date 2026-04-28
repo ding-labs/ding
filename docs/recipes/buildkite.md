@@ -32,9 +32,8 @@ rules:
   - name: ci_step_failed
     match:
       metric: run.exit
-    condition: value != 0
-    mode: end-of-run
-    message: "{{ .repo }}@{{ .branch }} failed (exit {{ .exit_code }}, {{ .duration_seconds }}s)"
+    condition: value > 0
+    message: "{{ .repo }}@{{ .branch }} failed (exit {{ .exit_code }})"
     alert:
       - notifier: slack
 ```

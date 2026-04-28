@@ -46,8 +46,7 @@ rules:
   - name: ci_job_failed
     match:
       metric: run.exit
-    condition: value != 0
-    mode: end-of-run
+    condition: value > 0
     message: "{{ .job }} build {{ .build }} failed (exit {{ .exit_code }})"
     alert:
       - notifier: slack
