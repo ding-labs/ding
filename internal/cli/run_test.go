@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/zuchka/ding/internal/config"
 	"github.com/zuchka/ding/internal/evaluator"
@@ -130,5 +131,78 @@ some random shell output here
 	if !strings.Contains(mirror.String(), "PASSED test_a") {
 		t.Error("mirror missing first line")
 	}
+}
+
+// drainerNotifier records Drain/Stop invocations so tests can assert the
+// drain path. Implements both interfaces so we can verify the helper picks
+// Drain (the graceful path) over Stop when both are available.
+type drainerNotifier struct {
+	mu          sync.Mutex
+	drainedWith []time.Duration
+	stopCount   int
+}
+
+func (d *drainerNotifier) Send(_ evaluator.Alert) error { return nil }
+func (d *drainerNotifier) Drain(timeout time.Duration) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.drainedWith = append(d.drainedWith, timeout)
+}
+func (d *drainerNotifier) Stop() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.stopCount++
+}
+
+// stopOnlyNotifier only implements Stop (no Drain) — verifies the helper
+// falls back to Stop for legacy/simple notifiers.
+type stopOnlyNotifier struct {
+	mu        sync.Mutex
+	stopCount int
+}
+
+func (s *stopOnlyNotifier) Send(_ evaluator.Alert) error { return nil }
+func (s *stopOnlyNotifier) Stop() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.stopCount++
+}
+
+// TestDrainNotifiers_PrefersDrainOverStop locks the contract that notifiers
+// implementing Drain (Slack, webhook, PagerDuty, Telegram, etc.) get the
+// graceful path with the configured timeout. Stop is only used when Drain
+// isn't available. Regression guard for the os.Exit-skips-defers bug
+// discovered 2026-04-27 — async alerts on non-zero exits would silently
+// drop without an explicit drain call before os.Exit.
+func TestDrainNotifiers_PrefersDrainOverStop(t *testing.T) {
+	d := &drainerNotifier{}
+	s := &stopOnlyNotifier{}
+	notifiers := map[string]notifier.Notifier{
+		"async":  d,
+		"legacy": s,
+	}
+
+	timeout := 7 * time.Second
+	drainNotifiers(notifiers, timeout)
+
+	if len(d.drainedWith) != 1 {
+		t.Errorf("expected drainerNotifier to receive 1 Drain call, got %d", len(d.drainedWith))
+	}
+	if len(d.drainedWith) >= 1 && d.drainedWith[0] != timeout {
+		t.Errorf("Drain called with timeout %v, want %v", d.drainedWith[0], timeout)
+	}
+	if d.stopCount != 0 {
+		t.Errorf("Stop should not have been called on a notifier with Drain support, got %d", d.stopCount)
+	}
+	if s.stopCount != 1 {
+		t.Errorf("expected stopOnlyNotifier to receive 1 Stop call, got %d", s.stopCount)
+	}
+}
+
+// TestDrainNotifiers_HandlesEmpty verifies the helper is safe with an
+// empty notifier map (nothing to drain).
+func TestDrainNotifiers_HandlesEmpty(t *testing.T) {
+	drainNotifiers(map[string]notifier.Notifier{}, time.Second)
+	// no panic, no return value to check — the helper just returns
 }
 

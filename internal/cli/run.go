@@ -74,20 +74,23 @@ func runRun(configPath, runIDOverride string, args []string) error {
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
-	defer func() {
-		// Drain notifiers before stopping so queued deliveries complete before
-		// the process exits. Falls back to Stop() for notifiers without Drain.
-		for _, n := range notifiers {
-			if drainer, ok := n.(interface{ Drain(time.Duration) }); ok {
-				drainer.Drain(cfg.Server.DrainTimeout.Duration)
-			} else if stopper, ok := n.(interface{ Stop() }); ok {
-				stopper.Stop()
-			}
+	// Drain handler — runs from both the deferred path (covers early returns
+	// from config errors, command-start failures, etc.) and the explicit path
+	// before os.Exit (covers the non-zero-exit case where defers don't run).
+	// Drain is idempotent on the slack/webhook notifiers, so the duplicate
+	// invocation in the success path is harmless.
+	drained := false
+	drainOnce := func() {
+		if drained {
+			return
 		}
+		drained = true
+		drainNotifiers(notifiers, cfg.Server.DrainTimeout.Duration)
 		if alertLogger != nil {
 			_ = alertLogger.Close()
 		}
-	}()
+	}
+	defer drainOnce()
 
 	rc := runctx.New()
 	if runIDOverride != "" {
@@ -168,12 +171,33 @@ func runRun(configPath, runIDOverride string, args []string) error {
 	log.Printf("ding: run end — run_id=%s exit_code=%d duration=%.1fs",
 		rc.RunID, exitCode, time.Since(rc.StartedAt).Seconds())
 
+	// Drain notifier queues before potentially calling os.Exit. The deferred
+	// drain at the top of this function does NOT run when os.Exit is invoked,
+	// so async notifiers (slack, webhook, etc.) would silently drop alerts
+	// at exactly the moment alerts matter most — when the wrapped command
+	// fails. Drain here while we still have a chance to flush.
+	drainOnce()
+
 	// Mirror the child's exit code so callers (CI runners, parent processes)
 	// see the same status they would have seen running the command directly.
 	if exitCode != 0 {
 		os.Exit(exitCode)
 	}
 	return nil
+}
+
+// drainNotifiers flushes async notifier queues with the configured timeout.
+// Notifiers that implement Drain(timeout) get the graceful path; those that
+// only implement Stop() fall back to that. Idempotent — calling drain on an
+// already-drained notifier is a no-op.
+func drainNotifiers(notifiers map[string]notifier.Notifier, timeout time.Duration) {
+	for _, n := range notifiers {
+		if drainer, ok := n.(interface{ Drain(time.Duration) }); ok {
+			drainer.Drain(timeout)
+		} else if stopper, ok := n.(interface{ Stop() }); ok {
+			stopper.Stop()
+		}
+	}
 }
 
 // ingestStream reads from r line-by-line, mirrors each line to mirror, and
