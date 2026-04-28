@@ -1,6 +1,6 @@
 # Recipes
 
-Concrete configurations for using DING with specific platforms. Every recipe shows the minimal config needed to get an alert firing when a workload exits, then enumerates the auto-captured labels and any platform-specific tradeoffs.
+Concrete configurations for using DING with specific platforms — CI/CD runners, orchestration systems, and ML training platforms. Every recipe shows the minimal config needed to get an alert firing when a workload exits, then enumerates the auto-captured labels and any platform-specific tradeoffs.
 
 Recipes follow a three-tier integration program:
 
@@ -20,6 +20,7 @@ Recipes marked **Tier-2 candidate** in the table below have self-evaluated as ex
 | [Jenkins](jenkins.md) | CI/CD | Tier 1 | shipped (Tier-2 candidate) |
 | [Buildkite](buildkite.md) | CI/CD | Tier 1 | shipped (Tier-2 candidate) |
 | [Kubernetes Jobs / CronJobs](kubernetes-jobs.md) | Orchestration | Tier 1 | shipped (Tier-2 candidate) |
+| [MLflow](mlflow.md) | ML | Tier 1 | shipped |
 
 ## Template
 

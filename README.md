@@ -119,6 +119,7 @@ DING reads the runner's environment variables and attaches labels automatically.
 | CircleCI | `CIRCLECI=true` | `run_id`, `runner`, `repo`, `branch`, `commit`, `job` |
 | Jenkins | `JENKINS_URL` set | `run_id`, `runner`, `job`, `build` |
 | Buildkite | `BUILDKITE=true` | `run_id`, `runner`, `repo`, `branch`, `commit` |
+| MLflow | `MLFLOW_RUN_ID` set | `run_id`, `runner`, `experiment_id`, `tracking_uri` |
 | (anything else) | — | `run_id` (random hex), `runner=local` |
 
 User-supplied event labels always win over auto-detected ones — DING never clobbers your labels.
@@ -265,7 +266,8 @@ Looking for a config that works on your specific platform? See **[docs/recipes/]
 
 - **CI/CD:** [GitHub Actions](https://github.com/zuchka/ding-action) · [GitLab CI](docs/recipes/gitlab-ci.md) · [CircleCI](docs/recipes/circleci.md) · [Jenkins](docs/recipes/jenkins.md) · [Buildkite](docs/recipes/buildkite.md)
 - **Orchestration:** [Kubernetes Jobs / CronJobs](docs/recipes/kubernetes-jobs.md)
-- More platforms (MLflow, Ray, Argo Workflows, dbt, Modal, …) coming in subsequent waves.
+- **ML:** [MLflow](docs/recipes/mlflow.md)
+- More platforms (Ray, Argo Workflows, dbt, Modal, …) coming in subsequent waves.
 
 ---
 
