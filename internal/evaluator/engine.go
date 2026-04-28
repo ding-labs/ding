@@ -474,6 +474,15 @@ func renderMessage(tmpl string, alert Alert) string {
 	for k, v := range alert.Labels {
 		data[k] = v
 	}
+	// Float-typed event fields are accessible too (e.g. duration_seconds
+	// from the synthetic run.exit event, or any user-emitted numeric JSON
+	// field). Skip-if-exists so Labels win when keys collide — matches the
+	// "user-supplied labels are authoritative" principle.
+	for k, v := range alert.Floats {
+		if _, exists := data[k]; !exists {
+			data[k] = v
+		}
+	}
 	var buf bytes.Buffer
 	if err := t.Execute(&buf, data); err != nil {
 		return tmpl
