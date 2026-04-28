@@ -1,7 +1,7 @@
 // Package runctx holds run/job-scoped metadata for `ding run` mode.
 //
 // A Context auto-detects the surrounding CI/job runner (GitHub Actions,
-// GitLab CI, CircleCI, Jenkins, Buildkite, Kubernetes) from environment variables and exposes
+// GitLab CI, CircleCI, Jenkins, Buildkite, MLflow, Kubernetes) from environment variables and exposes
 // helpers that attach run-scoped labels to events flowing through the
 // alerting engine. On run exit, SummaryEvent produces a synthetic
 // "run.exit" event with the exit code and run duration so rules can
@@ -13,6 +13,7 @@ import (
 	"encoding/hex"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/zuchka/ding/internal/ingester"
@@ -86,6 +87,13 @@ func (c *Context) detect() {
 		setIf(c.Labels, "repo", os.Getenv("BUILDKITE_PIPELINE_SLUG"))
 		setIf(c.Labels, "branch", os.Getenv("BUILDKITE_BRANCH"))
 		setIf(c.Labels, "commit", os.Getenv("BUILDKITE_COMMIT"))
+	case os.Getenv("MLFLOW_RUN_ID") != "":
+		c.Runner = "mlflow"
+		c.RunID = os.Getenv("MLFLOW_RUN_ID")
+		setIf(c.Labels, "experiment_id", os.Getenv("MLFLOW_EXPERIMENT_ID"))
+		if uri := os.Getenv("MLFLOW_TRACKING_URI"); strings.HasPrefix(uri, "http://") || strings.HasPrefix(uri, "https://") {
+			c.Labels["tracking_uri"] = uri
+		}
 	case os.Getenv("KUBERNETES_SERVICE_HOST") != "":
 		// Positioned last so a self-hosted CI runner deployed on K8s is
 		// reported as its CI platform (richer context) rather than bare K8s.

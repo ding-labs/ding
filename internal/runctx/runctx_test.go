@@ -216,6 +216,95 @@ func TestApply_NilInput(t *testing.T) {
 	}
 }
 
+func TestNew_DetectsMLflow(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("MLFLOW_RUN_ID", "abc123def456")
+	t.Setenv("MLFLOW_EXPERIMENT_ID", "7")
+	t.Setenv("MLFLOW_TRACKING_URI", "https://mlflow.example.com")
+
+	c := New()
+
+	if c.Runner != "mlflow" {
+		t.Errorf("Runner = %q, want mlflow", c.Runner)
+	}
+	if c.RunID != "abc123def456" {
+		t.Errorf("RunID = %q, want abc123def456", c.RunID)
+	}
+	wantLabels := map[string]string{
+		"experiment_id": "7",
+		"tracking_uri":  "https://mlflow.example.com",
+	}
+	for k, v := range wantLabels {
+		if got := c.Labels[k]; got != v {
+			t.Errorf("Labels[%q] = %q, want %q", k, got, v)
+		}
+	}
+}
+
+func TestNew_MLflowSkipsTrackingUriWhenLocalPath(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("MLFLOW_RUN_ID", "run-99")
+	t.Setenv("MLFLOW_TRACKING_URI", "./mlruns")
+
+	c := New()
+
+	if c.Runner != "mlflow" {
+		t.Errorf("Runner = %q, want mlflow", c.Runner)
+	}
+	if _, ok := c.Labels["tracking_uri"]; ok {
+		t.Errorf("tracking_uri label should be skipped for local-file URI, got %q", c.Labels["tracking_uri"])
+	}
+}
+
+func TestNew_MLflowWinsOverKubernetes(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
+	t.Setenv("POD_NAME", "training-job-pod")
+	t.Setenv("POD_NAMESPACE", "ml-experiments")
+	t.Setenv("MLFLOW_RUN_ID", "abc123")
+	t.Setenv("MLFLOW_EXPERIMENT_ID", "7")
+
+	c := New()
+
+	if c.Runner != "mlflow" {
+		t.Errorf("Runner = %q, want mlflow (MLflow must win over K8s)", c.Runner)
+	}
+	if c.RunID != "abc123" {
+		t.Errorf("RunID = %q, want abc123", c.RunID)
+	}
+	if _, ok := c.Labels["namespace"]; ok {
+		t.Errorf("namespace leaked from K8s detection — MLflow should win cleanly: %#v", c.Labels)
+	}
+	if _, ok := c.Labels["pod"]; ok {
+		t.Errorf("pod leaked from K8s detection — MLflow should win cleanly: %#v", c.Labels)
+	}
+}
+
+func TestNew_CIDetectionWinsOverMLflow(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("MLFLOW_RUN_ID", "abc123")
+	t.Setenv("MLFLOW_EXPERIMENT_ID", "7")
+	t.Setenv("MLFLOW_TRACKING_URI", "https://mlflow.example.com")
+	t.Setenv("GITHUB_ACTIONS", "true")
+	t.Setenv("GITHUB_RUN_ID", "555")
+	t.Setenv("GITHUB_REPOSITORY", "zuchka/ding")
+
+	c := New()
+
+	if c.Runner != "github-actions" {
+		t.Errorf("Runner = %q, want github-actions (CI must win over MLflow)", c.Runner)
+	}
+	if c.RunID != "555" {
+		t.Errorf("RunID = %q, want 555", c.RunID)
+	}
+	if _, ok := c.Labels["experiment_id"]; ok {
+		t.Errorf("experiment_id leaked from MLflow — CI should win cleanly: %#v", c.Labels)
+	}
+	if _, ok := c.Labels["tracking_uri"]; ok {
+		t.Errorf("tracking_uri leaked from MLflow — CI should win cleanly: %#v", c.Labels)
+	}
+}
+
 func TestSummaryEvent_PopulatesFields(t *testing.T) {
 	c := &Context{
 		RunID:     "r1",
@@ -278,6 +367,7 @@ func clearCIEnv(t *testing.T) {
 		"BUILDKITE", "BUILDKITE_BUILD_ID", "BUILDKITE_PIPELINE_SLUG",
 		"BUILDKITE_BRANCH", "BUILDKITE_COMMIT",
 		"KUBERNETES_SERVICE_HOST", "POD_UID", "POD_NAME", "POD_NAMESPACE", "NODE_NAME",
+		"MLFLOW_RUN_ID", "MLFLOW_EXPERIMENT_ID", "MLFLOW_TRACKING_URI",
 	} {
 		t.Setenv(k, "")
 	}
