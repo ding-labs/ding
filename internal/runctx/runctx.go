@@ -1,7 +1,7 @@
 // Package runctx holds run/job-scoped metadata for `ding run` mode.
 //
 // A Context auto-detects the surrounding CI/job runner (GitHub Actions,
-// GitLab CI, CircleCI, Jenkins, Buildkite, MLflow, Kubernetes) from environment variables and exposes
+// GitLab CI, CircleCI, Jenkins, Buildkite, Argo Workflows, MLflow, Kubernetes) from environment variables and exposes
 // helpers that attach run-scoped labels to events flowing through the
 // alerting engine. On run exit, SummaryEvent produces a synthetic
 // "run.exit" event with the exit code and run duration so rules can
@@ -87,6 +87,16 @@ func (c *Context) detect() {
 		setIf(c.Labels, "repo", os.Getenv("BUILDKITE_PIPELINE_SLUG"))
 		setIf(c.Labels, "branch", os.Getenv("BUILDKITE_BRANCH"))
 		setIf(c.Labels, "commit", os.Getenv("BUILDKITE_COMMIT"))
+	case os.Getenv("ARGO_TEMPLATE") != "":
+		c.Runner = "argo-workflows"
+		c.RunID = os.Getenv("ARGO_WORKFLOW_UID")
+		if c.RunID == "" {
+			c.RunID = os.Getenv("ARGO_WORKFLOW_NAME")
+		}
+		setIf(c.Labels, "workflow", os.Getenv("ARGO_WORKFLOW_NAME"))
+		setIf(c.Labels, "node", os.Getenv("ARGO_NODE_ID"))
+		setIf(c.Labels, "pod", os.Getenv("ARGO_POD_NAME"))
+		setIf(c.Labels, "namespace", os.Getenv("POD_NAMESPACE"))
 	case os.Getenv("MLFLOW_RUN_ID") != "":
 		c.Runner = "mlflow"
 		c.RunID = os.Getenv("MLFLOW_RUN_ID")

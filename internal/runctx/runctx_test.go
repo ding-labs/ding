@@ -352,6 +352,136 @@ func TestGenerateID_Unique(t *testing.T) {
 	}
 }
 
+func TestNew_DetectsArgoWorkflows(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("ARGO_TEMPLATE", `{"name":"main"}`)
+	t.Setenv("ARGO_WORKFLOW_UID", "wf-uid-123")
+	t.Setenv("ARGO_WORKFLOW_NAME", "dingdemo-abc12")
+	t.Setenv("ARGO_NODE_ID", "dingdemo-abc12-train-7654321")
+	t.Setenv("ARGO_POD_NAME", "dingdemo-abc12-train-7654321")
+	t.Setenv("POD_NAMESPACE", "ml-experiments")
+
+	c := New()
+
+	if c.Runner != "argo-workflows" {
+		t.Errorf("Runner = %q, want argo-workflows", c.Runner)
+	}
+	if c.RunID != "wf-uid-123" {
+		t.Errorf("RunID = %q, want wf-uid-123 (ARGO_WORKFLOW_UID)", c.RunID)
+	}
+	wantLabels := map[string]string{
+		"workflow":  "dingdemo-abc12",
+		"node":      "dingdemo-abc12-train-7654321",
+		"pod":       "dingdemo-abc12-train-7654321",
+		"namespace": "ml-experiments",
+	}
+	for k, v := range wantLabels {
+		if got := c.Labels[k]; got != v {
+			t.Errorf("Labels[%q] = %q, want %q", k, got, v)
+		}
+	}
+}
+
+func TestNew_ArgoFallsBackToWorkflowNameWhenNoUID(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("ARGO_TEMPLATE", `{}`)
+	t.Setenv("ARGO_WORKFLOW_NAME", "dingdemo-abc12")
+	// ARGO_WORKFLOW_UID intentionally unset — exercise fallback.
+
+	c := New()
+
+	if c.Runner != "argo-workflows" {
+		t.Errorf("Runner = %q, want argo-workflows", c.Runner)
+	}
+	if c.RunID != "dingdemo-abc12" {
+		t.Errorf("RunID = %q, want dingdemo-abc12 (ARGO_WORKFLOW_NAME fallback)", c.RunID)
+	}
+}
+
+// TestNew_ArgoWinsOverKubernetes locks the ordering rule that Argo
+// detection takes precedence over bare Kubernetes detection. An Argo
+// step's pod sets BOTH ARGO_TEMPLATE and KUBERNETES_SERVICE_HOST;
+// Argo's labels are richer for alerting, so it must win.
+func TestNew_ArgoWinsOverKubernetes(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
+	t.Setenv("POD_NAME", "wf-pod-xyz")
+	t.Setenv("POD_NAMESPACE", "argo")
+	t.Setenv("NODE_NAME", "ip-10-0-1-100.ec2.internal")
+	t.Setenv("ARGO_TEMPLATE", `{}`)
+	t.Setenv("ARGO_WORKFLOW_UID", "wf-uid")
+	t.Setenv("ARGO_WORKFLOW_NAME", "wf-name")
+
+	c := New()
+
+	if c.Runner != "argo-workflows" {
+		t.Errorf("Runner = %q, want argo-workflows (Argo must win over K8s)", c.Runner)
+	}
+	if c.RunID != "wf-uid" {
+		t.Errorf("RunID = %q, want wf-uid", c.RunID)
+	}
+	if _, ok := c.Labels["node"]; ok {
+		t.Errorf("node leaked from K8s detection — Argo should win cleanly: %#v", c.Labels)
+	}
+	if _, ok := c.Labels["job_name"]; ok {
+		t.Errorf("job_name leaked from K8s detection — Argo should win cleanly: %#v", c.Labels)
+	}
+}
+
+// Locks ordering so a future reorder of the detect() switch is caught;
+// parallels TestNew_CIDetectionWinsOverKubernetes's rationale comment.
+func TestNew_ArgoWinsOverMLflow(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("MLFLOW_RUN_ID", "mlflow-run-abc")
+	t.Setenv("MLFLOW_EXPERIMENT_ID", "7")
+	t.Setenv("MLFLOW_TRACKING_URI", "https://mlflow.example.com")
+	t.Setenv("ARGO_TEMPLATE", `{}`)
+	t.Setenv("ARGO_WORKFLOW_UID", "wf-uid")
+	t.Setenv("ARGO_WORKFLOW_NAME", "wf-name")
+
+	c := New()
+
+	if c.Runner != "argo-workflows" {
+		t.Errorf("Runner = %q, want argo-workflows (Argo must win over MLflow)", c.Runner)
+	}
+	if c.RunID != "wf-uid" {
+		t.Errorf("RunID = %q, want wf-uid", c.RunID)
+	}
+	if _, ok := c.Labels["experiment_id"]; ok {
+		t.Errorf("experiment_id leaked from MLflow — Argo should win cleanly: %#v", c.Labels)
+	}
+	if _, ok := c.Labels["tracking_uri"]; ok {
+		t.Errorf("tracking_uri leaked from MLflow — Argo should win cleanly: %#v", c.Labels)
+	}
+}
+
+func TestNew_CIDetectionWinsOverArgo(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("ARGO_TEMPLATE", `{}`)
+	t.Setenv("ARGO_WORKFLOW_UID", "wf-uid")
+	t.Setenv("ARGO_WORKFLOW_NAME", "wf-name")
+	t.Setenv("ARGO_NODE_ID", "node-id")
+	t.Setenv("ARGO_POD_NAME", "wf-pod")
+	t.Setenv("GITHUB_ACTIONS", "true")
+	t.Setenv("GITHUB_RUN_ID", "555")
+	t.Setenv("GITHUB_REPOSITORY", "zuchka/ding")
+
+	c := New()
+
+	if c.Runner != "github-actions" {
+		t.Errorf("Runner = %q, want github-actions (CI must win over Argo)", c.Runner)
+	}
+	if c.RunID != "555" {
+		t.Errorf("RunID = %q, want 555", c.RunID)
+	}
+	if _, ok := c.Labels["workflow"]; ok {
+		t.Errorf("workflow leaked from Argo — CI should win cleanly: %#v", c.Labels)
+	}
+	if _, ok := c.Labels["node"]; ok {
+		t.Errorf("node leaked from Argo — CI should win cleanly: %#v", c.Labels)
+	}
+}
+
 // clearCIEnv unsets all CI/runner env vars so detection starts from a clean slate.
 // Uses t.Setenv so they're restored after the test.
 func clearCIEnv(t *testing.T) {
@@ -368,6 +498,7 @@ func clearCIEnv(t *testing.T) {
 		"BUILDKITE_BRANCH", "BUILDKITE_COMMIT",
 		"KUBERNETES_SERVICE_HOST", "POD_UID", "POD_NAME", "POD_NAMESPACE", "NODE_NAME",
 		"MLFLOW_RUN_ID", "MLFLOW_EXPERIMENT_ID", "MLFLOW_TRACKING_URI",
+		"ARGO_TEMPLATE", "ARGO_WORKFLOW_UID", "ARGO_WORKFLOW_NAME", "ARGO_NODE_ID", "ARGO_POD_NAME",
 	} {
 		t.Setenv(k, "")
 	}
