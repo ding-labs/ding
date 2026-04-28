@@ -119,6 +119,7 @@ DING reads the runner's environment variables and attaches labels automatically.
 | CircleCI | `CIRCLECI=true` | `run_id`, `runner`, `repo`, `branch`, `commit`, `job` |
 | Jenkins | `JENKINS_URL` set | `run_id`, `runner`, `job`, `build` |
 | Buildkite | `BUILDKITE=true` | `run_id`, `runner`, `repo`, `branch`, `commit` |
+| Argo Workflows | `ARGO_TEMPLATE` set | `run_id`, `runner`, `workflow`, `node`, `pod`, `namespace` |
 | MLflow | `MLFLOW_RUN_ID` set | `run_id`, `runner`, `experiment_id`, `tracking_uri` |
 | (anything else) | — | `run_id` (random hex), `runner=local` |
 
@@ -265,9 +266,9 @@ The webhook receives a JSON POST:
 Looking for a config that works on your specific platform? See **[docs/recipes/](docs/recipes/index.md)** for platform-specific guides:
 
 - **CI/CD:** [GitHub Actions](https://github.com/zuchka/ding-action) · [GitLab CI](docs/recipes/gitlab-ci.md) · [CircleCI](docs/recipes/circleci.md) · [Jenkins](docs/recipes/jenkins.md) · [Buildkite](docs/recipes/buildkite.md)
-- **Orchestration:** [Kubernetes Jobs / CronJobs](docs/recipes/kubernetes-jobs.md)
+- **Orchestration:** [Kubernetes Jobs / CronJobs](docs/recipes/kubernetes-jobs.md) · [Argo Workflows](docs/recipes/argo-workflows.md)
 - **ML:** [MLflow](docs/recipes/mlflow.md)
-- More platforms (Ray, Argo Workflows, dbt, Modal, …) coming in subsequent waves.
+- More platforms (Ray, dbt, Modal, …) coming in subsequent waves.
 
 ---
 

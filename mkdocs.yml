@@ -37,6 +37,7 @@ nav:
     - Jenkins: recipes/jenkins.md
     - Buildkite: recipes/buildkite.md
     - Kubernetes Jobs: recipes/kubernetes-jobs.md
+    - Argo Workflows: recipes/argo-workflows.md
     - MLflow: recipes/mlflow.md
   - CLI Reference:
     - ding: cli/ding.md
