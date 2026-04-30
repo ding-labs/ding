@@ -1,4 +1,4 @@
-module github.com/zuchka/ding
+module github.com/ding-labs/ding
 
 go 1.24.0
 

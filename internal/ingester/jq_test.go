@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zuchka/ding/internal/ingester"
+	"github.com/ding-labs/ding/internal/ingester"
 )
 
 func TestCompileJQ_Valid(t *testing.T) {

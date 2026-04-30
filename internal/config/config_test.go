@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zuchka/ding/internal/config"
+	"github.com/ding-labs/ding/internal/config"
 )
 
 const validYAML = `

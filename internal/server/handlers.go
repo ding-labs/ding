@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/zuchka/ding/internal/evaluator"
-	"github.com/zuchka/ding/internal/ingester"
-	"github.com/zuchka/ding/internal/notifier"
+	"github.com/ding-labs/ding/internal/evaluator"
+	"github.com/ding-labs/ding/internal/ingester"
+	"github.com/ding-labs/ding/internal/notifier"
 )
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {

@@ -24,7 +24,7 @@ func TestNew_DetectsGitHubActions(t *testing.T) {
 	clearCIEnv(t)
 	t.Setenv("GITHUB_ACTIONS", "true")
 	t.Setenv("GITHUB_RUN_ID", "42")
-	t.Setenv("GITHUB_REPOSITORY", "zuchka/ding")
+	t.Setenv("GITHUB_REPOSITORY", "ding-labs/ding")
 	t.Setenv("GITHUB_REF_NAME", "main")
 	t.Setenv("GITHUB_SHA", "abc123")
 	t.Setenv("GITHUB_WORKFLOW", "ci")
@@ -38,7 +38,7 @@ func TestNew_DetectsGitHubActions(t *testing.T) {
 		t.Errorf("RunID = %q, want 42", c.RunID)
 	}
 	wantLabels := map[string]string{
-		"repo":     "zuchka/ding",
+		"repo":     "ding-labs/ding",
 		"branch":   "main",
 		"commit":   "abc123",
 		"workflow": "ci",
@@ -157,7 +157,7 @@ func TestNew_CIDetectionWinsOverKubernetes(t *testing.T) {
 	t.Setenv("POD_NAMESPACE", "actions-runner-system")
 	t.Setenv("GITHUB_ACTIONS", "true")
 	t.Setenv("GITHUB_RUN_ID", "555")
-	t.Setenv("GITHUB_REPOSITORY", "zuchka/ding")
+	t.Setenv("GITHUB_REPOSITORY", "ding-labs/ding")
 
 	c := New()
 
@@ -287,7 +287,7 @@ func TestNew_CIDetectionWinsOverMLflow(t *testing.T) {
 	t.Setenv("MLFLOW_TRACKING_URI", "https://mlflow.example.com")
 	t.Setenv("GITHUB_ACTIONS", "true")
 	t.Setenv("GITHUB_RUN_ID", "555")
-	t.Setenv("GITHUB_REPOSITORY", "zuchka/ding")
+	t.Setenv("GITHUB_REPOSITORY", "ding-labs/ding")
 
 	c := New()
 
@@ -464,7 +464,7 @@ func TestNew_CIDetectionWinsOverArgo(t *testing.T) {
 	t.Setenv("ARGO_POD_NAME", "wf-pod")
 	t.Setenv("GITHUB_ACTIONS", "true")
 	t.Setenv("GITHUB_RUN_ID", "555")
-	t.Setenv("GITHUB_REPOSITORY", "zuchka/ding")
+	t.Setenv("GITHUB_REPOSITORY", "ding-labs/ding")
 
 	c := New()
 

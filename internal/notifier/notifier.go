@@ -3,7 +3,7 @@ package notifier
 import (
 	"time"
 
-	"github.com/zuchka/ding/internal/evaluator"
+	"github.com/ding-labs/ding/internal/evaluator"
 )
 
 // Notifier sends a fired alert somewhere.

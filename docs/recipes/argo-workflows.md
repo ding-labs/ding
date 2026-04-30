@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- DING binary `>= v0.6.0` — see [install](../install.md). The recipe pulls the official container image `ghcr.io/zuchka/ding:v0.6.0` (multi-arch, scratch base) into each step's Pod via an initContainer; no need to bake DING into your workload image.
+- DING binary `>= v0.6.0` — see [install](../install.md). The recipe pulls the official container image `ghcr.io/ding-labs/ding:v0.6.0` (multi-arch, scratch base) into each step's Pod via an initContainer; no need to bake DING into your workload image.
 - Argo Workflows controller installed in the cluster, `>= v3.5` (most users on v3.5/v3.6 LTS series).
 - `kubectl` access to a namespace where you can create Workflows, ConfigMaps, and Secrets.
 - `argo` CLI installed locally (ships with the controller; one-line install per [Argo docs](https://argo-workflows.readthedocs.io/en/latest/quick-start/)).
@@ -71,7 +71,7 @@ spec:
             name: ding-config
       initContainers:
         - name: install-ding
-          image: ghcr.io/zuchka/ding:v0.6.0
+          image: ghcr.io/ding-labs/ding:v0.6.0
           # `ding install` self-copies the binary — works against the FROM-scratch
           # release image (no /bin/sh available). Added in DING v0.5.1.
           command: ["/ding", "install", "/shared/ding"]
@@ -163,7 +163,7 @@ spec:
         - { name: ding-config, configMap: { name: ding-config } }
       initContainers:
         - name: install-ding
-          image: ghcr.io/zuchka/ding:v0.6.0
+          image: ghcr.io/ding-labs/ding:v0.6.0
           command: ["/ding", "install", "/shared/ding"]
           mirrorVolumeMounts: true
       container:
@@ -260,4 +260,4 @@ This recipe is **a Tier-2 candidate** by the program's standard rubric:
 - **"Gotcha" callouts:** 5 — over threshold of 2 → **Tier-2 candidate**
 - **End-to-end runnable:** yes (kind + open-source Argo controller; ~3-5min cold)
 
-**Tier-2 candidate.** The boilerplate count is the structural problem — both the minimal manifest and the DAG subsection are mostly mechanical plumbing (volumes, initContainers, downward API env block) that every Argo user will copy verbatim. An `argo-workflow-template` repo (separate, mirroring [`ding-k8s-job`](https://github.com/zuchka/ding-k8s-job)) that publishes a parameterized `WorkflowTemplate` to GHCR — invoked via `argo submit --from workflowtemplate/ding-step --parameter image=my-app --parameter command='python train.py' --parameter slack-url=$SLACK_WEBHOOK_URL` — would collapse the recipe to a one-line invocation. Defer the chart until 2+ users ask.
+**Tier-2 candidate.** The boilerplate count is the structural problem — both the minimal manifest and the DAG subsection are mostly mechanical plumbing (volumes, initContainers, downward API env block) that every Argo user will copy verbatim. An `argo-workflow-template` repo (separate, mirroring [`ding-k8s-job`](https://github.com/ding-labs/ding-k8s-job)) that publishes a parameterized `WorkflowTemplate` to GHCR — invoked via `argo submit --from workflowtemplate/ding-step --parameter image=my-app --parameter command='python train.py' --parameter slack-url=$SLACK_WEBHOOK_URL` — would collapse the recipe to a one-line invocation. Defer the chart until 2+ users ask.

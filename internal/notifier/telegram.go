@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zuchka/ding/internal/evaluator"
-	"github.com/zuchka/ding/internal/metrics"
+	"github.com/ding-labs/ding/internal/evaluator"
+	"github.com/ding-labs/ding/internal/metrics"
 )
 
 // TelegramNotifier POSTs HTML-formatted messages to a Telegram chat via the

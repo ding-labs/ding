@@ -3,9 +3,9 @@
 > Kubernetes Jobs and CronJobs are the canonical primitives for ephemeral, run-to-completion workloads. Grafana watches the cluster; DING ships with the work — `ding run` wraps your container's command, evaluates rules in-Pod, and alerts when the Pod exits, automatically tagging each alert with namespace, pod, node, and Job name.
 
 !!! tip "One-line install via Helm"
-    For the common case (Slack alert on Job failure, no per-field K8s tuning), use the [`ding-k8s-job`](https://github.com/zuchka/ding-k8s-job) Helm chart instead of copying the manifest below:
+    For the common case (Slack alert on Job failure, no per-field K8s tuning), use the [`ding-k8s-job`](https://github.com/ding-labs/ding-k8s-job) Helm chart instead of copying the manifest below:
     ```bash
-    helm install nightly-batch oci://ghcr.io/zuchka/ding-k8s-job \
+    helm install nightly-batch oci://ghcr.io/ding-labs/ding-k8s-job \
       --set image.repository=my-app --set image.tag=v1.2.3 \
       --set command='{python,train.py}' \
       --set slack.webhookUrl=$SLACK_WEBHOOK_URL
@@ -14,7 +14,7 @@
 
 ## Prerequisites
 
-- DING binary `>= v0.5.1` — see [install](../install.md). The recipe pulls the official container image `ghcr.io/zuchka/ding:v0.5.1` (multi-arch, scratch base) into your Pod via an initContainer; no need to bake DING into your workload image.
+- DING binary `>= v0.5.1` — see [install](../install.md). The recipe pulls the official container image `ghcr.io/ding-labs/ding:v0.5.1` (multi-arch, scratch base) into your Pod via an initContainer; no need to bake DING into your workload image.
 - A Kubernetes cluster `>= 1.21` for the primary wrapper pattern below. The sidecar alternative documented in [Configuration](#sidecar-alternative-k8s-129) requires `>= 1.29` for native sidecar lifecycle.
 - `kubectl` access to a namespace where you can create Jobs, ConfigMaps, and Secrets.
 - A notifier endpoint (Slack webhook URL or custom webhook) you can store in a Kubernetes Secret.
@@ -82,7 +82,7 @@ spec:
             name: ding-config
       initContainers:
         - name: install-ding
-          image: ghcr.io/zuchka/ding:v0.5.1
+          image: ghcr.io/ding-labs/ding:v0.5.1
           # `ding install` self-copies the binary — works against the FROM-scratch
           # release image (no /bin/sh available). Added in DING v0.5.1.
           command: ["/ding", "install", "/shared/ding"]
@@ -184,7 +184,7 @@ spec:
     spec:
       initContainers:
         - name: ding
-          image: ghcr.io/zuchka/ding:v0.5.1
+          image: ghcr.io/ding-labs/ding:v0.5.1
           restartPolicy: Always       # native sidecar — K8s 1.29+
           command: ["/ding", "serve", "--config", "/etc/ding/ding.yaml"]
           # ...volumeMounts for config + downward-API env block
@@ -225,4 +225,4 @@ This recipe is **a Tier-2 candidate** by the program's standard rubric:
 - **"Gotcha" callouts:** 3 (drain/terminationGracePeriod pairing, sidecar gates on K8s 1.29+, no CronJob-name auto-label) — over threshold of 2 → **Tier-2 candidate**
 - **End-to-end runnable:** yes (kind / minikube are free and self-installable in a few minutes)
 
-**Tier-2 candidate.** The boilerplate count is the structural problem — the manifest is mostly mechanical plumbing (volumes, initContainers, downward API env block) that every K8s user will copy verbatim. A `ding-k8s-job` Helm chart (separate repo, mirroring the [`ding-action`](https://github.com/zuchka/ding-action) pattern) that templates the wrapper-pattern manifest behind `helm install ding-k8s-job ... --set image=my-app --set command='python train.py'` would collapse the recipe to a one-line install. `${VAR}` substitution in the YAML parser shipped (the recipe was just simplified above). The remaining boilerplate is structural — pure manifest plumbing every K8s user copies verbatim. Defer the chart until 2+ users ask.
+**Tier-2 candidate.** The boilerplate count is the structural problem — the manifest is mostly mechanical plumbing (volumes, initContainers, downward API env block) that every K8s user will copy verbatim. A `ding-k8s-job` Helm chart (separate repo, mirroring the [`ding-action`](https://github.com/ding-labs/ding-action) pattern) that templates the wrapper-pattern manifest behind `helm install ding-k8s-job ... --set image=my-app --set command='python train.py'` would collapse the recipe to a one-line install. `${VAR}` substitution in the YAML parser shipped (the recipe was just simplified above). The remaining boilerplate is structural — pure manifest plumbing every K8s user copies verbatim. Defer the chart until 2+ users ask.

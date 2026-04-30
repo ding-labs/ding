@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra/doc"
 
-	"github.com/zuchka/ding/internal/cli"
+	"github.com/ding-labs/ding/internal/cli"
 )
 
 func main() {

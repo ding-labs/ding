@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zuchka/ding/internal/evaluator"
-	"github.com/zuchka/ding/internal/notifier"
+	"github.com/ding-labs/ding/internal/evaluator"
+	"github.com/ding-labs/ding/internal/notifier"
 )
 
 func makeAlert() evaluator.Alert {

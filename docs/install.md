@@ -3,7 +3,7 @@
 ## Homebrew (macOS / Linux)
 
 ```bash
-brew install zuchka/tap/ding
+brew install ding-labs/tap/ding
 ```
 
 ## Binary script
@@ -18,14 +18,14 @@ curl -sf https://start.ding.ing | sh
 
 ```bash
 docker run -v ./ding.yaml:/etc/ding/ding.yaml \
-  ghcr.io/zuchka/ding
+  ghcr.io/ding-labs/ding
 ```
 
 Runs on `linux/amd64` and `linux/arm64`.
 
 ## Manual binary download
 
-Download a release from [GitHub Releases](https://github.com/zuchka/ding/releases), extract, and place the binary on your `$PATH`.
+Download a release from [GitHub Releases](https://github.com/ding-labs/ding/releases), extract, and place the binary on your `$PATH`.
 
 Available for:
 

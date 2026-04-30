@@ -1,8 +1,8 @@
 site_name: DING
 site_description: Stream-based alerting daemon — single binary, zero infrastructure
 site_url: https://docs.ding.ing
-repo_url: https://github.com/zuchka/ding
-repo_name: zuchka/ding
+repo_url: https://github.com/ding-labs/ding
+repo_name: ding-labs/ding
 
 theme:
   name: material

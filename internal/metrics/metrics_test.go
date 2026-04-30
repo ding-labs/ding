@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/zuchka/ding/internal/metrics"
+	"github.com/ding-labs/ding/internal/metrics"
 )
 
 func TestCollector_IncrEvents(t *testing.T) {

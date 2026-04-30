@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zuchka/ding/internal/config"
-	"github.com/zuchka/ding/internal/evaluator"
-	"github.com/zuchka/ding/internal/ingester"
+	"github.com/ding-labs/ding/internal/config"
+	"github.com/ding-labs/ding/internal/evaluator"
+	"github.com/ding-labs/ding/internal/ingester"
 )
 
 // ---- Condition parsing ----

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zuchka/ding/internal/evaluator"
-	"github.com/zuchka/ding/internal/ingester"
+	"github.com/ding-labs/ding/internal/evaluator"
+	"github.com/ding-labs/ding/internal/ingester"
 )
 
 // BenchmarkProcessSimpleRule measures throughput of Engine.Process() with a

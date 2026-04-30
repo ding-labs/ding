@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zuchka/ding/internal/evaluator"
+	"github.com/ding-labs/ding/internal/evaluator"
 )
 
 // GitHubActionsNotifier emits alerts as GitHub Actions step-summary markdown

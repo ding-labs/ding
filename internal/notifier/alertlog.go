@@ -6,7 +6,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/zuchka/ding/internal/evaluator"
+	"github.com/ding-labs/ding/internal/evaluator"
 )
 
 // AlertLogger writes every fired alert as a JSON line to a file.
