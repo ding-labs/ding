@@ -24,7 +24,7 @@ jobs:
       - run:
           name: Install DING
           command: |
-            curl -sSL https://github.com/zuchka/ding/releases/latest/download/ding_linux_amd64.tar.gz | tar -xz
+            curl -sSL https://github.com/ding-labs/ding/releases/latest/download/ding_linux_amd64.tar.gz | tar -xz
       - run:
           name: Run tests with DING
           command: ./ding run --config ding.yaml -- ./run-tests.sh
@@ -98,4 +98,4 @@ This recipe is **Tier 1** by the program's standard rubric:
 - **"Gotcha" callouts:** 3 structural (no annotation surface, binary download per job, no orb) — over threshold of 2 → **Tier-2 candidate**
 - **End-to-end runnable:** yes (CircleCI free tier sufficient for evaluation; minutes allotment varies — see [CircleCI pricing](https://circleci.com/pricing/))
 
-**Tier-2 candidate.** Three callouts cross the rubric threshold. The natural Tier-2 abstraction is a CircleCI orb (`zuchka/ding`) that exposes a `ding/run` step — collapsing the install + invoke pattern into one line. Defer until 2+ users ask for it (per spec §"Open Questions" promotion authority).
+**Tier-2 candidate.** Three callouts cross the rubric threshold. The natural Tier-2 abstraction is a CircleCI orb (`ding-labs/ding`) that exposes a `ding/run` step — collapsing the install + invoke pattern into one line. Defer until 2+ users ask for it (per spec §"Open Questions" promotion authority).

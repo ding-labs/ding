@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zuchka/ding/internal/ingester"
+	"github.com/ding-labs/ding/internal/ingester"
 )
 
 // Context is the per-run metadata bag.

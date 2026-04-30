@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/zuchka/ding/internal/evaluator"
+	"github.com/ding-labs/ding/internal/evaluator"
 )
 
 // StdoutNotifier writes alerts as JSON lines to a writer (default: os.Stdout).

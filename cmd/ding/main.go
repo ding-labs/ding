@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/zuchka/ding/internal/cli"
+	"github.com/ding-labs/ding/internal/cli"
 )
 
 var version = "dev"

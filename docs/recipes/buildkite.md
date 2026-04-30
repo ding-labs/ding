@@ -16,7 +16,7 @@
 steps:
   - label: "Test with DING"
     command: |
-      curl -sSL https://github.com/zuchka/ding/releases/latest/download/ding_linux_amd64.tar.gz | tar -xz
+      curl -sSL https://github.com/ding-labs/ding/releases/latest/download/ding_linux_amd64.tar.gz | tar -xz
       ./ding run --config ding.yaml -- ./run-tests.sh
 ```
 

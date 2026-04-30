@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zuchka/ding/internal/ingester"
+	"github.com/ding-labs/ding/internal/ingester"
 )
 
 // TestProcess_EndOfRunRulesDoNotFireDuringRun verifies that rules with

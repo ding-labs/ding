@@ -1,6 +1,6 @@
 package evaluator
 
-import "github.com/zuchka/ding/internal/ingester"
+import "github.com/ding-labs/ding/internal/ingester"
 
 // MatchRule is the minimal match configuration needed by the matcher.
 type MatchRule struct {

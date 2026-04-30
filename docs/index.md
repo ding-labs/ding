@@ -20,7 +20,7 @@ DING is a stream-based alerting daemon. Pipe metrics into it. It evaluates rules
 **1. Install**
 
 ```bash
-brew install zuchka/tap/ding
+brew install ding-labs/tap/ding
 # or
 curl -sf https://start.ding.ing | sh
 ```

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-REPO="zuchka/ding"
+REPO="ding-labs/ding"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
 # Detect OS

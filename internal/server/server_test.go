@@ -9,12 +9,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zuchka/ding/internal/config"
-	"github.com/zuchka/ding/internal/evaluator"
-	"github.com/zuchka/ding/internal/ingester"
-	"github.com/zuchka/ding/internal/metrics"
-	"github.com/zuchka/ding/internal/notifier"
-	"github.com/zuchka/ding/internal/server"
+	"github.com/ding-labs/ding/internal/config"
+	"github.com/ding-labs/ding/internal/evaluator"
+	"github.com/ding-labs/ding/internal/ingester"
+	"github.com/ding-labs/ding/internal/metrics"
+	"github.com/ding-labs/ding/internal/notifier"
+	"github.com/ding-labs/ding/internal/server"
 )
 
 func makeServer(t *testing.T) *server.Server {

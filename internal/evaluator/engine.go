@@ -13,8 +13,8 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/zuchka/ding/internal/config"
-	"github.com/zuchka/ding/internal/ingester"
+	"github.com/ding-labs/ding/internal/config"
+	"github.com/ding-labs/ding/internal/ingester"
 )
 
 // EngineRule is the fully-resolved rule fed to the Engine.

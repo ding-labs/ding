@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zuchka/ding/internal/config"
-	"github.com/zuchka/ding/internal/evaluator"
-	"github.com/zuchka/ding/internal/notifier"
-	"github.com/zuchka/ding/internal/runctx"
+	"github.com/ding-labs/ding/internal/config"
+	"github.com/ding-labs/ding/internal/evaluator"
+	"github.com/ding-labs/ding/internal/notifier"
+	"github.com/ding-labs/ding/internal/runctx"
 )
 
 // captureNotifier records every alert it receives for inspection.

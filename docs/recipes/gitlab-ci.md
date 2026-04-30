@@ -17,7 +17,7 @@ test_with_ding:
   image: alpine:latest
   before_script:
     - apk add --no-cache curl tar
-    - curl -sSL https://github.com/zuchka/ding/releases/latest/download/ding_linux_amd64.tar.gz | tar -xz
+    - curl -sSL https://github.com/ding-labs/ding/releases/latest/download/ding_linux_amd64.tar.gz | tar -xz
   script:
     - ./ding run --config ding.yaml -- ./run-tests.sh
 ```

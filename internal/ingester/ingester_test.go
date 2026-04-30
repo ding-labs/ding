@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zuchka/ding/internal/ingester"
+	"github.com/ding-labs/ding/internal/ingester"
 )
 
 func TestParseJSONLine_Basic(t *testing.T) {

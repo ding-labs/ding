@@ -14,9 +14,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zuchka/ding/internal/evaluator"
-	"github.com/zuchka/ding/internal/metrics"
-	"github.com/zuchka/ding/internal/server"
+	"github.com/ding-labs/ding/internal/evaluator"
+	"github.com/ding-labs/ding/internal/metrics"
+	"github.com/ding-labs/ding/internal/server"
 )
 
 func newServeCmd() *cobra.Command {

@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/zuchka/ding/internal/server"
+	"github.com/ding-labs/ding/internal/server"
 )
 
 func newValidateCmd() *cobra.Command {

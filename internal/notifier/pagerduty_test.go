@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zuchka/ding/internal/notifier"
+	"github.com/ding-labs/ding/internal/notifier"
 )
 
 func newTestPagerDutyNotifier(endpoint string, maxAttempts int, initialBackoff time.Duration) *notifier.PagerDutyNotifier {

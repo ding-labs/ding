@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zuchka/ding/internal/evaluator"
+	"github.com/ding-labs/ding/internal/evaluator"
 )
 
 func TestGitHubActionsNotifier_WritesSummaryAndStdout(t *testing.T) {

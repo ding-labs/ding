@@ -5,7 +5,7 @@
 > Don't store it. Stream it. DING it.
 
 ```
-$ brew install zuchka/tap/ding
+$ brew install ding-labs/tap/ding
 ```
 
 ```
@@ -265,7 +265,7 @@ The webhook receives a JSON POST:
 
 Looking for a config that works on your specific platform? See **[docs/recipes/](docs/recipes/index.md)** for platform-specific guides:
 
-- **CI/CD:** [GitHub Actions](https://github.com/zuchka/ding-action) · [GitLab CI](docs/recipes/gitlab-ci.md) · [CircleCI](docs/recipes/circleci.md) · [Jenkins](docs/recipes/jenkins.md) · [Buildkite](docs/recipes/buildkite.md)
+- **CI/CD:** [GitHub Actions](https://github.com/ding-labs/ding-action) · [GitLab CI](docs/recipes/gitlab-ci.md) · [CircleCI](docs/recipes/circleci.md) · [Jenkins](docs/recipes/jenkins.md) · [Buildkite](docs/recipes/buildkite.md)
 - **Orchestration:** [Kubernetes Jobs / CronJobs](docs/recipes/kubernetes-jobs.md) · [Argo Workflows](docs/recipes/argo-workflows.md)
 - **ML:** [MLflow](docs/recipes/mlflow.md)
 - More platforms (Ray, dbt, Modal, …) coming in subsequent waves.
@@ -323,7 +323,7 @@ The architecture choices that make `ding run` possible are the same ones that al
 | Cold start p50 | **9ms** | fork → first /health — Prometheus: 185ms |
 | Per rule evaluation | **106ns** | simple threshold — windowed: 157ns |
 
-Benchmarked 2026-03-23 on Apple M3. [Full methodology and raw results →](https://github.com/zuchka/ding/blob/main/BENCHMARKS.md)
+Benchmarked 2026-03-23 on Apple M3. [Full methodology and raw results →](https://github.com/ding-labs/ding/blob/main/BENCHMARKS.md)
 
 ---
 
@@ -363,7 +363,7 @@ Each command takes `--config <path>` (default `ding.yaml`).
 **Homebrew:**
 
 ```
-brew install zuchka/tap/ding
+brew install ding-labs/tap/ding
 ```
 
 **Binary:**
@@ -376,10 +376,10 @@ curl -sf https://start.ding.ing | sh
 
 ```
 docker run -v ./ding.yaml:/etc/ding/ding.yaml \
-  ghcr.io/zuchka/ding
+  ghcr.io/ding-labs/ding
 ```
 
-**GitHub Actions:** see [zuchka/ding-action](https://github.com/zuchka/ding-action) — one `uses:` line.
+**GitHub Actions:** see [ding-labs/ding-action](https://github.com/ding-labs/ding-action) — one `uses:` line.
 
 ---
 
