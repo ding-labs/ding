@@ -93,11 +93,19 @@ spec:
           - secretRef:
               name: ding-secrets
         env:
-          # Argo controller auto-injects ARGO_TEMPLATE, ARGO_WORKFLOW_UID,
-          # ARGO_WORKFLOW_NAME, ARGO_NODE_ID, ARGO_POD_NAME. Only POD_NAMESPACE
-          # needs explicit downward API.
+          # Argo's controller auto-injects ARGO_TEMPLATE, ARGO_NODE_ID, and
+          # ARGO_CONTAINER_NAME on the main container — but injects the rest
+          # of the ARGO_* set (ARGO_WORKFLOW_UID, ARGO_WORKFLOW_NAME,
+          # ARGO_POD_NAME) ONLY on the auxiliary `wait` sidecar. We restore
+          # the missing pieces on `main` via the downward API. ARGO_WORKFLOW_UID
+          # isn't recoverable on main; runctx falls back to ARGO_WORKFLOW_NAME
+          # for run_id (see Configuration below).
           - name: POD_NAMESPACE
             valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+          - name: ARGO_POD_NAME
+            valueFrom: { fieldRef: { fieldPath: metadata.name } }
+          - name: ARGO_WORKFLOW_NAME
+            valueFrom: { fieldRef: { fieldPath: "metadata.labels['workflows.argoproj.io/workflow']" } }
         volumeMounts:
           - { name: ding-bin, mountPath: /shared }
           - { name: ding-config, mountPath: /config, readOnly: true }
@@ -118,12 +126,14 @@ This is the wedge's headline use case in Argo: silent step failure inside a mult
 
 | Label | Source |
 |---|---|
-| `run_id` | `ARGO_WORKFLOW_UID` (Workflow CR's K8s UID); falls back to `ARGO_WORKFLOW_NAME` |
+| `run_id` | `ARGO_WORKFLOW_NAME` via downward API on the `workflows.argoproj.io/workflow` pod label. Argo injects `ARGO_WORKFLOW_UID` only on the `wait` sidecar, so runctx's UID-then-NAME fallback chain lands on the workflow name. |
 | `runner` | `"argo-workflows"` (set by runctx) |
-| `workflow` | `ARGO_WORKFLOW_NAME` (parent Workflow CR name) |
-| `node` | `ARGO_NODE_ID` (per-step DAG node identifier) |
-| `pod` | `ARGO_POD_NAME` (step's pod name) |
-| `namespace` | `POD_NAMESPACE` (downward API `metadata.namespace` — must be declared in env block; not in Argo's auto-injected set) |
+| `workflow` | `ARGO_WORKFLOW_NAME` via downward API (same as `run_id` source) |
+| `node` | `ARGO_NODE_ID` — auto-injected by Argo on the main container, no downward API needed |
+| `pod` | `ARGO_POD_NAME` via downward API on `metadata.name` |
+| `namespace` | `POD_NAMESPACE` via downward API on `metadata.namespace` |
+
+> **Why so much downward API?** Argo's controller injects only `ARGO_TEMPLATE`, `ARGO_NODE_ID`, and `ARGO_CONTAINER_NAME` on the step's main container. The richer set (`ARGO_WORKFLOW_UID`, `ARGO_WORKFLOW_NAME`, `ARGO_POD_NAME`) is hardcoded by the controller onto the auxiliary `wait` sidecar only. The recipe's `env:` block uses the K8s downward API to surface workflow name, pod name, and namespace to the main container so runctx can populate the labels above. `ARGO_WORKFLOW_UID` cannot be recovered on the main container — the controller writes it as a literal env value on the `wait` sidecar with no corresponding pod label or annotation; runctx's UID-then-NAME fallback handles this gracefully.
 
 A self-hosted CI runner (GitHub Actions, GitLab CI, etc.) deployed on Argo-managed Kubernetes will set both its CI env vars *and* `ARGO_TEMPLATE`. In that case `runctx` reports the CI platform — its labels are richer for alerting purposes — and the Argo labels are skipped. See [Configuration](../configuration.md) for the full notifier reference.
 
@@ -179,8 +189,15 @@ spec:
           - "{{inputs.parameters.cmd}}"
         envFrom: [{ secretRef: { name: ding-secrets } }]
         env:
+          # See Minimal example for why ARGO_POD_NAME and ARGO_WORKFLOW_NAME
+          # need explicit downward API entries (Argo only injects them on
+          # the `wait` sidecar, not on the main container).
           - name: POD_NAMESPACE
             valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+          - name: ARGO_POD_NAME
+            valueFrom: { fieldRef: { fieldPath: metadata.name } }
+          - name: ARGO_WORKFLOW_NAME
+            valueFrom: { fieldRef: { fieldPath: "metadata.labels['workflows.argoproj.io/workflow']" } }
         volumeMounts:
           - { name: ding-bin, mountPath: /shared }
           - { name: ding-config, mountPath: /config, readOnly: true }
@@ -191,7 +208,7 @@ When `train` exits 1, DING in the `train` step's pod fires the alert; `eval` is 
 - `workflow=<wf-name>` (shared across all three steps)
 - `node=<wf>-train-<random>` (distinct per step)
 - `pod=<wf>-train-<random>-<random>` (distinct per step; contains the step name as substring)
-- `run_id=<wf-uid>` (shared across all three steps — identifies the Workflow run, not the step)
+- `run_id=<wf-name>` (shared across all three steps — identifies the Workflow run; runctx falls back to the workflow name because `ARGO_WORKFLOW_UID` isn't available on main containers)
 
 **Per-step matching is constrained.** DING's `match.labels` does exact-match comparison, and Argo's `node`/`pod` values are dynamic per Workflow run. You can't write a `match.labels: { node: my-train-step }` rule that matches "the train step." Pragmatic patterns:
 
@@ -245,6 +262,7 @@ If the alert doesn't fire, common issues: the Secret wasn't readable (RBAC on th
 
 ## Tradeoffs / known limitations
 
+- **Argo injects `ARGO_WORKFLOW_UID`, `ARGO_WORKFLOW_NAME`, and `ARGO_POD_NAME` only on the `wait` sidecar.** The main container (where DING runs) only gets `ARGO_TEMPLATE`, `ARGO_NODE_ID`, and `ARGO_CONTAINER_NAME` from the controller. The recipe's downward-API env block restores workflow name and pod name; `ARGO_WORKFLOW_UID` isn't available on the main container at all (no corresponding pod label/annotation), so runctx falls back to `ARGO_WORKFLOW_NAME` for `run_id`. Workflow name is stable across retried pods of the same step — good for dedup, but not globally unique like the UID would be.
 - **Template name not auto-labeled.** `runctx` doesn't parse `ARGO_TEMPLATE` JSON. Surface template name manually via downward API on the `workflows.argoproj.io/template` pod label if needed (see [Surfacing the template name](#surfacing-the-template-name-manual)).
 - **Per-step matching is constrained.** Parallel/fan-out steps share `run_id`; `node` and `pod` are dynamic per run, so DING's exact-match `match.labels` can't pre-target a specific DAG step's `run.exit`. Disambiguate in the message template, or emit step labels yourself for during-run rules.
 - **`onExit` template alerts get a different `node`.** If you put DING in an `onExit` template instead of (or in addition to) the main step, its alerts have a different `node` label than the failed step they're reporting on, breaking per-step matching for users who copy-paste rules from the K8s recipe.
@@ -257,7 +275,7 @@ This recipe is **a Tier-2 candidate** by the program's standard rubric:
 
 - **Setup commands required:** 1 (`kubectl apply`) — under threshold of 5
 - **Boilerplate lines:** ~95 minimal + ~50 DAG subsection ≈ ~145 YAML — over threshold of 50 → **Tier-2 candidate**
-- **"Gotcha" callouts:** 5 — over threshold of 2 → **Tier-2 candidate**
+- **"Gotcha" callouts:** 6 — over threshold of 2 → **Tier-2 candidate**
 - **End-to-end runnable:** yes (kind + open-source Argo controller; ~3-5min cold)
 
 **Tier-2 candidate.** The boilerplate count is the structural problem — both the minimal manifest and the DAG subsection are mostly mechanical plumbing (volumes, initContainers, downward API env block) that every Argo user will copy verbatim. An `argo-workflow-template` repo (separate, mirroring [`ding-k8s-job`](https://github.com/ding-labs/ding-k8s-job)) that publishes a parameterized `WorkflowTemplate` to GHCR — invoked via `argo submit --from workflowtemplate/ding-step --parameter image=my-app --parameter command='python train.py' --parameter slack-url=$SLACK_WEBHOOK_URL` — would collapse the recipe to a one-line invocation. Defer the chart until 2+ users ask.
