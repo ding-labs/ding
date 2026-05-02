@@ -383,4 +383,4 @@ docker run -v ./ding.yaml:/etc/ding/ding.yaml \
 
 ---
 
-MIT license · [ding.ing](https://ding.ing)
+[Apache-2.0](./LICENSE) · [ding.ing](https://ding.ing)

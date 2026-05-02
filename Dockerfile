@@ -11,7 +11,7 @@ FROM scratch
 LABEL org.opencontainers.image.title="ding"
 LABEL org.opencontainers.image.description="Stream-based alerting daemon"
 LABEL org.opencontainers.image.source="https://github.com/ding-labs/ding"
-LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.url="https://ding.ing"
 COPY --from=builder /ding /ding
 EXPOSE 8080
