@@ -50,6 +50,10 @@ type DiscordNotifier struct {
 	stop           chan struct{}
 	stopOnce       sync.Once
 	collector      *metrics.Collector // may be nil
+	// inFlight tracks alerts that have been queued but not yet finalized
+	// (delivered, retry-exhausted, or dropped). Drain waits on this so the
+	// process doesn't exit while the worker is mid-POST.
+	inFlight sync.WaitGroup
 }
 
 // NewDiscordNotifier creates and starts a DiscordNotifier.
@@ -83,9 +87,13 @@ func (n *DiscordNotifier) Send(alert evaluator.Alert) error {
 		attempt: 0,
 		nextAt:  time.Now(),
 	}
+	// Add(1) before the channel send so a fast worker that pulls and finalizes
+	// the item is guaranteed to see a positive counter when it calls Done().
+	n.inFlight.Add(1)
 	select {
 	case n.queue <- item:
 	default:
+		n.inFlight.Done()
 		log.Printf("ding: discord queue full for rule %q, dropping alert", alert.Rule)
 		if n.collector != nil {
 			n.collector.IncrWebhookDrop()
@@ -99,17 +107,20 @@ func (n *DiscordNotifier) Stop() {
 	n.stopOnce.Do(func() { close(n.stop) })
 }
 
-// Drain waits up to timeout for all queued alerts to be delivered, then stops
-// the worker. Intended for ding run shutdown so in-flight deliveries complete
+// Drain blocks until all alerts queued before this call have been finalized
+// (delivered, retry-exhausted, or dropped) or timeout elapses, then stops the
+// worker. Intended for ding run shutdown so in-flight HTTP POSTs complete
 // before the process exits. Falls back to Stop on timeout.
 func (n *DiscordNotifier) Drain(timeout time.Duration) {
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		if len(n.queue) == 0 {
-			time.Sleep(150 * time.Millisecond)
-			break
-		}
-		time.Sleep(25 * time.Millisecond)
+	done := make(chan struct{})
+	go func() {
+		n.inFlight.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(timeout):
+		// Hard upper bound: a pathologically slow notifier can't hang shutdown.
 	}
 	n.Stop()
 }
@@ -139,22 +150,26 @@ func (n *DiscordNotifier) worker() {
 					if n.collector != nil {
 						n.collector.IncrWebhookFailed()
 					}
+					n.inFlight.Done() // exhausted retries — finalize
 					continue
 				}
 				backoff := n.initialBackoff * (1 << (item.attempt - 1))
 				item.nextAt = time.Now().Add(backoff)
 				select {
 				case n.queue <- item:
+					// Re-enqueued for retry; same logical alert, do NOT Done() yet.
 				default:
 					log.Printf("ding: discord queue full during retry for rule %q, dropping", item.rule)
 					if n.collector != nil {
 						n.collector.IncrWebhookDrop()
 					}
+					n.inFlight.Done() // dropped on retry — finalize
 				}
 			} else {
 				if n.collector != nil {
 					n.collector.IncrWebhookSuccess()
 				}
+				n.inFlight.Done() // delivered — finalize
 			}
 		}
 	}
