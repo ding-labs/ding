@@ -85,6 +85,8 @@ type NotifierConfig struct {
 	EventType   string `yaml:"event_type,omitempty"`   // K8s Event type, "Normal" or "Warning" (default "Warning")
 	// Fields below are specific to type: gitlab_artifact. All optional.
 	Path string `yaml:"path,omitempty"` // artifact file path (default "ding-alerts.md")
+	// Fields below are specific to type: buildkite_annotate. All optional.
+	Style string `yaml:"style,omitempty"` // annotation style: success | info | warning | error (default "error")
 }
 
 type AlertTarget struct {
@@ -320,6 +322,14 @@ func (cfg *Config) Validate() error {
 			cfg.Notifiers[name] = nc
 		case "gitlab_artifact":
 			// No required fields; path defaults to "ding-alerts.md" if empty.
+		case "buildkite_annotate":
+			if nc.Style != "" {
+				switch nc.Style {
+				case "success", "info", "warning", "error":
+				default:
+					return fmt.Errorf("notifier %q: buildkite_annotate type requires style to be one of \"success\", \"info\", \"warning\", \"error\"", name)
+				}
+			}
 		case "":
 			return fmt.Errorf("notifier %q: type is required", name)
 		default:
