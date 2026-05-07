@@ -76,6 +76,17 @@ notifiers:
   #   url: https://hooks.slack.com/services/T.../...
   #   max_attempts: 3
   #   initial_backoff: 1s
+  #
+  # Native K8s Events — visible to `kubectl describe pod` / `kubectl get events`.
+  # Requires DING running in-cluster (ServiceAccount auth) + RBAC for events.create.
+  # See docs/recipes/kubernetes-jobs.md for the manifest fragment + RBAC example.
+  # alert-k8s:
+  #   type: kubernetes_event
+  #   # event_reason: DingAlertFired   # default
+  #   # event_type: Warning            # "Normal" or "Warning"; default Warning
+  #   # namespace: ""                  # override POD_NAMESPACE downward API
+  #   max_attempts: 3
+  #   initial_backoff: 1s
 
 rules:
   # Event-per-event: fires on a single reading above threshold.
