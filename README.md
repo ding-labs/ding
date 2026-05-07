@@ -121,6 +121,7 @@ DING reads the runner's environment variables and attaches labels automatically.
 | Buildkite | `BUILDKITE=true` | `run_id`, `runner`, `repo`, `branch`, `commit` |
 | Argo Workflows | `ARGO_TEMPLATE` set | `run_id`, `runner`, `workflow`, `node`, `pod`, `namespace` |
 | MLflow | `MLFLOW_RUN_ID` set | `run_id`, `runner`, `experiment_id`, `tracking_uri` |
+| Ray | `RAY_JOB_ID` set | `run_id`, `runner` |
 | (anything else) | — | `run_id` (random hex), `runner=local` |
 
 User-supplied event labels always win over auto-detected ones — DING never clobbers your labels.
@@ -267,8 +268,8 @@ Looking for a config that works on your specific platform? See **[docs/recipes/]
 
 - **CI/CD:** [GitHub Actions](https://github.com/ding-labs/ding-action) · [GitLab CI](docs/recipes/gitlab-ci.md) · [CircleCI](docs/recipes/circleci.md) · [Jenkins](docs/recipes/jenkins.md) · [Buildkite](docs/recipes/buildkite.md)
 - **Orchestration:** [Kubernetes Jobs / CronJobs](docs/recipes/kubernetes-jobs.md) · [Argo Workflows](docs/recipes/argo-workflows.md)
-- **ML:** [MLflow](docs/recipes/mlflow.md)
-- More platforms (Ray, dbt, Modal, …) coming in subsequent waves.
+- **ML:** [MLflow](docs/recipes/mlflow.md) · [Ray Train / Tune](docs/recipes/ray.md)
+- More platforms (dbt, Modal, RunPod, Airflow, …) coming in subsequent waves.
 
 ---
 

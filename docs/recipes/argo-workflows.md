@@ -213,7 +213,7 @@ When `train` exits 1, DING in the `train` step's pod fires the alert; `eval` is 
 **Per-step matching is constrained.** DING's `match.labels` does exact-match comparison, and Argo's `node`/`pod` values are dynamic per Workflow run. You can't write a `match.labels: { node: my-train-step }` rule that matches "the train step." Pragmatic patterns:
 
 - **Identify the step in the alert text**: use `{{ .pod }}` in the rule's `message` (the pod name contains the step name as substring). The user reading the Slack alert disambiguates visually.
-- **Per-step rules via emitted labels**: emit during-run events from your script with an explicit `step` label — `print(json.dumps({"metric": "loss", "value": v, "labels": {"step": "train"}}))` — and write rules with `match.labels: { step: "train" }`. Works for during-run events; the synthetic `run.exit` still flows through unfiltered.
+- **Per-step rules via emitted labels**: emit during-run events from your script with an explicit `step` label as a flat top-level JSON key — `print(json.dumps({"metric": "loss", "value": v, "step": "train"}))` — and write rules with `match.labels: { step: "train" }`. (DING's JSON ingester extracts flat top-level string keys as event labels; nested objects are skipped.) Works for during-run events; the synthetic `run.exit` still flows through unfiltered.
 
 ### Surfacing the template name (manual)
 
