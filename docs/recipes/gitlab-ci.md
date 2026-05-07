@@ -69,9 +69,34 @@ Use these in `match.labels` for selective rules, or in `message` templates as `{
 
 If the alert doesn't fire, check the GitLab CI job log for `ding` output. Common issues: webhook URL not exposed to the job (mark the variable as not "Protected" if testing on a non-protected branch), or `drain_timeout` shorter than the notifier retry window — see [Configuration → drain_timeout](../configuration.md).
 
+## Native GitLab UI surfacing
+
+If you want DING alerts to surface as a GitLab pipeline artifact (downloadable from the job UI, browsable from the pipeline view) rather than (or alongside) external notifiers, DING ships a built-in `type: gitlab_artifact` notifier. See [`type: gitlab_artifact`](../configuration.md#type-gitlab_artifact) for the full reference.
+
+Add to `ding.yaml`:
+
+```yaml
+notifiers:
+  artifact:
+    type: gitlab_artifact
+    # path: ding-alerts.md  # default; relative to $CI_PROJECT_DIR
+```
+
+Add to `.gitlab-ci.yml`:
+
+```yaml
+test_with_ding:
+  # ... existing job config ...
+  artifacts:
+    when: always       # archive even on job failure
+    paths:
+      - ding-alerts.md
+```
+
+After the pipeline runs, the file appears under the job's "Browse artifacts" link with the standard `# DING Alerts` Markdown header and one `## <rule>` section per fired alert.
+
 ## Tradeoffs / known limitations
 
-- **No native step-summary surface.** GitHub Actions has `$GITHUB_STEP_SUMMARY`; GitLab does not. Alerts go to your notifier of choice (Slack, webhook, etc.), not into the GitLab UI itself. Surfacing alerts back into GitLab would require a future Tier-2 abstraction (an artifact-writing notifier) — see escalation criteria below.
 - **Binary download per job.** The minimal example downloads DING from GitHub Releases each run (~4MB tarball, plus an `apk add curl tar` round-trip on `alpine:latest` — typically 5–10s of preamble cold). For high-frequency pipelines, bake DING and its dependencies into your CI image instead.
 
 ## Escalation criteria
@@ -80,7 +105,7 @@ This recipe is **Tier 1** by the program's standard rubric:
 
 - **Setup commands required:** 2 (`apk add`, `curl | tar`) — under threshold of 5
 - **Boilerplate lines:** ~24 across `.gitlab-ci.yml` and `ding.yaml` — under threshold of 50
-- **"Gotcha" callouts:** 2 (no step-summary surface, binary download per job) — at threshold of 2
+- **"Gotcha" callouts:** 1 (binary download per job) — under threshold of 2
 - **End-to-end runnable:** yes (gitlab.com has a free tier sufficient for evaluation; minutes allotment varies — see [GitLab pricing](https://about.gitlab.com/pricing/))
 
-The "no step-summary surface" callout is the only structural friction. If users start asking for GitLab-native alert surfacing, that's the trigger to promote this to Tier 2 with an artifact-writing notifier (`type: gitlab_artifact` or similar).
+GitLab-native alert surfacing now ships as the built-in [`type: gitlab_artifact`](../configuration.md#type-gitlab_artifact) notifier (covered in the section above). The recipe stays Tier 1 — no further Tier-2 promotion needed for GitLab CI.

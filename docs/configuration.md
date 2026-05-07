@@ -196,6 +196,25 @@ rules:
 
 Bind to the Pod's ServiceAccount via a RoleBinding. K8s aggregates duplicate Events (same `involvedObject` + `reason` + `message` within a window) into one Event with `count` incremented; DING's per-rule `cooldown` still applies on top. Forbidden (RBAC denied), Unauthorized, BadRequest, and Invalid responses are permanent (logged + dropped without retry); 5xx and network errors retry up to `max_attempts`.
 
+### `type: gitlab_artifact`
+
+Writes alert Markdown to a file the user declares in `.gitlab-ci.yml` `artifacts:` so DING alerts surface as a downloadable pipeline artifact in the GitLab job UI. No external service required.
+
+```yaml
+notifiers:
+  artifact:
+    type: gitlab_artifact
+    path: ding-alerts.md   # default; relative to current working directory
+```
+
+| Field | Default | Notes |
+|-------|---------|-------|
+| `path` | `ding-alerts.md` | Relative path resolved against the process's CWD (= `$CI_PROJECT_DIR` in GitLab CI). Absolute paths also work. |
+
+**Behavior**: sync, mutex-guarded, append-only. The first `Send()` writes a `# DING Alerts` H1 header; subsequent calls append `## <rule>` sections with metric, value, fired_at, optional aggregates, and sorted-key label list. No async queue, no retry, no metrics — failures (permission denied, disk full) are returned from `Send()` and logged.
+
+**No CI gate**: the notifier writes the file regardless of whether it's running in GitLab CI. Outside CI, it just produces a local `ding-alerts.md` — harmless. Combine with `.gitlab-ci.yml` `artifacts: { when: always, paths: [ding-alerts.md] }` to archive the file on every pipeline run (including failed jobs). See the [GitLab CI recipe](recipes/gitlab-ci.md#native-gitlab-ui-surfacing) for an end-to-end example.
+
 ### `type: webhook`
 
 Posts a flat JSON payload to any HTTP endpoint. Useful for generic integrations (PagerDuty, custom receivers, etc.).
