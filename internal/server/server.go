@@ -150,6 +150,8 @@ func buildFromConfig(path string, collector *metrics.Collector) (*evaluator.Engi
 				return nil, nil, nil, nil, nil, fmt.Errorf("notifier %q: %w", name, err)
 			}
 			notifiers[name] = n
+		case "gitlab_artifact":
+			notifiers[name] = notifier.NewGitLabArtifactNotifier(nc.Path)
 		}
 	}
 
