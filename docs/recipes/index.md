@@ -23,6 +23,7 @@ Recipes marked **Tier-2 candidate** in the table below have self-evaluated as ex
 | [Argo Workflows](argo-workflows.md) | Orchestration | Tier 1 | shipped (Tier-2 candidate) |
 | [MLflow](mlflow.md) | ML | Tier 1 | shipped |
 | [Ray Train / Tune](ray.md) | ML | Tier 1 | shipped (Tier-2 candidate) |
+| [Modal](modal.md) | ML | Tier 1 | shipped (Tier-2 candidate) |
 
 ## Template
 

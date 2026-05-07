@@ -40,6 +40,7 @@ nav:
     - Argo Workflows: recipes/argo-workflows.md
     - MLflow: recipes/mlflow.md
     - Ray Train / Tune: recipes/ray.md
+    - Modal: recipes/modal.md
   - CLI Reference:
     - ding: cli/ding.md
     - run: cli/ding_run.md
