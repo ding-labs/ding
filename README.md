@@ -268,8 +268,8 @@ Looking for a config that works on your specific platform? See **[docs/recipes/]
 
 - **CI/CD:** [GitHub Actions](https://github.com/ding-labs/ding-action) · [GitLab CI](docs/recipes/gitlab-ci.md) · [CircleCI](docs/recipes/circleci.md) · [Jenkins](docs/recipes/jenkins.md) · [Buildkite](docs/recipes/buildkite.md)
 - **Orchestration:** [Kubernetes Jobs / CronJobs](docs/recipes/kubernetes-jobs.md) · [Argo Workflows](docs/recipes/argo-workflows.md)
-- **ML:** [MLflow](docs/recipes/mlflow.md) · [Ray Train / Tune](docs/recipes/ray.md)
-- More platforms (dbt, Modal, RunPod, Airflow, …) coming in subsequent waves.
+- **ML:** [MLflow](docs/recipes/mlflow.md) · [Ray Train / Tune](docs/recipes/ray.md) · [Modal](docs/recipes/modal.md)
+- More platforms (dbt, RunPod, Replicate, Airflow, …) coming in subsequent waves.
 
 ---
 
