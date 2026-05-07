@@ -144,6 +144,12 @@ func buildFromConfig(path string, collector *metrics.Collector) (*evaluator.Engi
 			notifiers[name] = notifier.NewTeamsNotifier(nc.URL, nc.MaxAttempts, nc.InitialBackoff.Duration, collector)
 		case "github_actions":
 			notifiers[name] = notifier.NewGitHubActionsNotifier(nil)
+		case "kubernetes_event":
+			n, err := notifier.NewKubernetesEventNotifier(nc.Namespace, nc.EventReason, nc.EventType, nc.MaxAttempts, nc.InitialBackoff.Duration, collector)
+			if err != nil {
+				return nil, nil, nil, nil, nil, fmt.Errorf("notifier %q: %w", name, err)
+			}
+			notifiers[name] = n
 		}
 	}
 

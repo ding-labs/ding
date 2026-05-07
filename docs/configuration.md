@@ -157,6 +157,45 @@ When used with `ding run`, the following fields appear in the Discord embed if D
 
 All fields are rendered inline. Discord allows up to 25 fields per embed; exit code and duration are prioritized and always appear when present.
 
+### `type: kubernetes_event`
+
+Publishes alerts as native Kubernetes [Events](https://kubernetes.io/docs/reference/kubernetes-api/cluster-resources/event-v1/) (`corev1.Event`), visible to `kubectl describe pod` and `kubectl get events`. Available only when DING is running inside a Kubernetes Pod (in-cluster ServiceAccount auth — `kubeconfig` files are not supported).
+
+```yaml
+notifiers:
+  k8s:
+    type: kubernetes_event
+    namespace: ""              # default: POD_NAMESPACE downward API
+    event_reason: DingAlertFired   # default
+    event_type: Warning            # "Normal" or "Warning"; default Warning
+    max_attempts: 3
+    initial_backoff: 1s
+```
+
+| Field | Default | Notes |
+|-------|---------|-------|
+| `namespace` | `POD_NAMESPACE` env (downward API) | override target namespace if needed |
+| `event_reason` | `DingAlertFired` | K8s convention is short PascalCase |
+| `event_type` | `Warning` | only `Normal` and `Warning` accepted |
+| `max_attempts` | `3` | inherited default |
+| `initial_backoff` | `1s` | inherited default |
+
+**Required Pod env (downward API)**: `POD_NAME`, `POD_UID`, `POD_NAMESPACE`, `NODE_NAME`. The K8s recipe at [docs/recipes/kubernetes-jobs.md](recipes/kubernetes-jobs.md) shows the canonical manifest fragment that surfaces these. The Event's `involvedObject` is the Pod where DING is running (cheap, no API lookup).
+
+**Required RBAC**: `events.create` in the Pod's namespace. Minimal Role:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: { name: ding-event-publisher }
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create"]
+```
+
+Bind to the Pod's ServiceAccount via a RoleBinding. K8s aggregates duplicate Events (same `involvedObject` + `reason` + `message` within a window) into one Event with `count` incremented; DING's per-rule `cooldown` still applies on top. Forbidden (RBAC denied), Unauthorized, BadRequest, and Invalid responses are permanent (logged + dropped without retry); 5xx and network errors retry up to `max_attempts`.
+
 ### `type: webhook`
 
 Posts a flat JSON payload to any HTTP endpoint. Useful for generic integrations (PagerDuty, custom receivers, etc.).

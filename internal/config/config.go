@@ -79,6 +79,10 @@ type NotifierConfig struct {
 	ChatID         string   `yaml:"chat_id,omitempty"`
 	MaxAttempts    int      `yaml:"max_attempts"`
 	InitialBackoff Duration `yaml:"initial_backoff"`
+	// Fields below are specific to type: kubernetes_event. All optional.
+	Namespace   string `yaml:"namespace,omitempty"`    // override POD_NAMESPACE downward API
+	EventReason string `yaml:"event_reason,omitempty"` // K8s Event reason (default "DingAlertFired")
+	EventType   string `yaml:"event_type,omitempty"`   // K8s Event type, "Normal" or "Warning" (default "Warning")
 }
 
 type AlertTarget struct {
@@ -301,6 +305,17 @@ func (cfg *Config) Validate() error {
 			cfg.Notifiers[name] = nc
 		case "github_actions":
 			// no required fields; auto-detects GITHUB_STEP_SUMMARY at runtime
+		case "kubernetes_event":
+			if nc.EventType != "" && nc.EventType != "Normal" && nc.EventType != "Warning" {
+				return fmt.Errorf("notifier %q: kubernetes_event type requires event_type to be \"Normal\" or \"Warning\"", name)
+			}
+			if nc.MaxAttempts == 0 {
+				nc.MaxAttempts = 3
+			}
+			if nc.InitialBackoff.Duration == 0 {
+				nc.InitialBackoff.Duration = 1 * time.Second
+			}
+			cfg.Notifiers[name] = nc
 		case "":
 			return fmt.Errorf("notifier %q: type is required", name)
 		default:

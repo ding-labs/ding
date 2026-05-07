@@ -209,10 +209,57 @@ The sidecar pattern is heavier (separate container, IPC over HTTP, no `ding run`
 
 If the alert doesn't fire, common issues: the Secret wasn't readable (RBAC on the default ServiceAccount), `SLACK_WEBHOOK_URL` was empty/missing in the Secret, or `terminationGracePeriodSeconds` was too tight for the Pod's actual deletion path.
 
+## Native K8s Events as an alerting option
+
+If you want DING alerts to land as native Kubernetes Events visible to `kubectl describe pod` and `kubectl get events` — instead of (or alongside) Slack/PagerDuty/etc. — DING ships a built-in `type: kubernetes_event` notifier. No external webhook needed; alerts publish via the in-cluster ServiceAccount token. See [`type: kubernetes_event`](../configuration.md#type-kubernetes_event) for the full reference.
+
+Minimal `ding.yaml` snippet:
+
+```yaml
+notifiers:
+  k8s:
+    type: kubernetes_event
+    # event_reason: DingAlertFired   # default
+    # event_type: Warning             # default; "Normal" also valid
+rules:
+  - name: job_failed
+    match: { metric: run.exit }
+    condition: value > 0
+    message: "Job failed (exit {{ .exit_code }})"
+    alert:
+      - notifier: k8s
+```
+
+Minimal RBAC (Role + RoleBinding granting the workload's ServiceAccount permission to create Events in its own namespace):
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ding-event-publisher
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ding-event-publisher
+subjects:
+  - kind: ServiceAccount
+    name: default          # or the SA your Job uses
+roleRef:
+  kind: Role
+  name: ding-event-publisher
+  apiGroup: rbac.authorization.k8s.io
+```
+
+After applying these, `kubectl describe pod <ding-pod>` shows the alert in the Events: section, and `kubectl get events --field-selector reason=DingAlertFired` enumerates them across the namespace. Identical alerts within K8s's aggregation window collapse into a single Event with `count` incremented (no extra config — DING's per-rule `cooldown` still applies on top).
+
 ## Tradeoffs / known limitations
 
 - **Wrapper pattern requires modifying `command`.** If the workload's entrypoint is fixed (third-party image), use the [sidecar alternative](#sidecar-alternative-k8s-129) — but it requires K8s 1.29+ for native sidecar lifecycle.
-- **No K8s API access by default.** DING ships alerts to external notifiers (Slack/Discord/PagerDuty/etc.), not as K8s Events visible to `kubectl describe pod` or `kubectl get events`. A native `type: kubernetes_event` notifier is a flagged Tier-2 candidate.
 - **No CronJob-name auto-label.** The Job controller injects `job-name`, but the parent CronJob's name has to be surfaced manually via a label on `jobTemplate.spec.template.metadata.labels` plus an additional `fieldRef`.
 - **Pre-1.29 sidecar pattern needs lifecycle workarounds.** If you must support older clusters, the historical pattern (an emptyDir flag file plus a `pkill` in a lifecycle hook) is documented in upstream K8s docs; it's outside this recipe's scope.
 
