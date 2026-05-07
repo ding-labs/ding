@@ -83,6 +83,8 @@ type NotifierConfig struct {
 	Namespace   string `yaml:"namespace,omitempty"`    // override POD_NAMESPACE downward API
 	EventReason string `yaml:"event_reason,omitempty"` // K8s Event reason (default "DingAlertFired")
 	EventType   string `yaml:"event_type,omitempty"`   // K8s Event type, "Normal" or "Warning" (default "Warning")
+	// Fields below are specific to type: gitlab_artifact. All optional.
+	Path string `yaml:"path,omitempty"` // artifact file path (default "ding-alerts.md")
 }
 
 type AlertTarget struct {
@@ -316,6 +318,8 @@ func (cfg *Config) Validate() error {
 				nc.InitialBackoff.Duration = 1 * time.Second
 			}
 			cfg.Notifiers[name] = nc
+		case "gitlab_artifact":
+			// No required fields; path defaults to "ding-alerts.md" if empty.
 		case "":
 			return fmt.Errorf("notifier %q: type is required", name)
 		default:
