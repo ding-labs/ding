@@ -482,6 +482,98 @@ func TestNew_CIDetectionWinsOverArgo(t *testing.T) {
 	}
 }
 
+func TestNew_DetectsRay(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("RAY_JOB_ID", "raysubmit_abcdef1234567890")
+
+	c := New()
+
+	if c.Runner != "ray" {
+		t.Errorf("Runner = %q, want ray", c.Runner)
+	}
+	if c.RunID != "raysubmit_abcdef1234567890" {
+		t.Errorf("RunID = %q, want raysubmit_abcdef1234567890 (RAY_JOB_ID)", c.RunID)
+	}
+}
+
+// TestNew_RayWinsOverKubernetes locks the ordering rule that Ray
+// detection takes precedence over bare Kubernetes detection. A Ray
+// job submitted to a KubeRay cluster sets BOTH RAY_JOB_ID and
+// KUBERNETES_SERVICE_HOST; Ray's labels are richer for alerting.
+func TestNew_RayWinsOverKubernetes(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
+	t.Setenv("POD_NAME", "ray-head-pod")
+	t.Setenv("POD_NAMESPACE", "ray-system")
+	t.Setenv("NODE_NAME", "ip-10-0-1-100.ec2.internal")
+	t.Setenv("RAY_JOB_ID", "raysubmit_abc")
+
+	c := New()
+
+	if c.Runner != "ray" {
+		t.Errorf("Runner = %q, want ray (Ray must win over K8s)", c.Runner)
+	}
+	if c.RunID != "raysubmit_abc" {
+		t.Errorf("RunID = %q, want raysubmit_abc", c.RunID)
+	}
+	if _, ok := c.Labels["namespace"]; ok {
+		t.Errorf("namespace leaked from K8s detection — Ray should win cleanly: %#v", c.Labels)
+	}
+	if _, ok := c.Labels["pod"]; ok {
+		t.Errorf("pod leaked from K8s detection — Ray should win cleanly: %#v", c.Labels)
+	}
+	if _, ok := c.Labels["job_name"]; ok {
+		t.Errorf("job_name leaked from K8s detection — Ray should win cleanly: %#v", c.Labels)
+	}
+}
+
+// TestNew_RayWinsOverMLflow locks ordering: a Ray job that uses MLflow
+// internally for tracking should report as Ray — the orchestrator is the
+// more useful label for alerting; MLflow is the experiment-tracking layer
+// underneath.
+func TestNew_RayWinsOverMLflow(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("MLFLOW_RUN_ID", "mlflow-run-abc")
+	t.Setenv("MLFLOW_EXPERIMENT_ID", "7")
+	t.Setenv("MLFLOW_TRACKING_URI", "https://mlflow.example.com")
+	t.Setenv("RAY_JOB_ID", "raysubmit_abc")
+
+	c := New()
+
+	if c.Runner != "ray" {
+		t.Errorf("Runner = %q, want ray (Ray must win over MLflow)", c.Runner)
+	}
+	if c.RunID != "raysubmit_abc" {
+		t.Errorf("RunID = %q, want raysubmit_abc", c.RunID)
+	}
+	if _, ok := c.Labels["experiment_id"]; ok {
+		t.Errorf("experiment_id leaked from MLflow — Ray should win cleanly: %#v", c.Labels)
+	}
+	if _, ok := c.Labels["tracking_uri"]; ok {
+		t.Errorf("tracking_uri leaked from MLflow — Ray should win cleanly: %#v", c.Labels)
+	}
+}
+
+func TestNew_CIDetectionWinsOverRay(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("RAY_JOB_ID", "raysubmit_abc")
+	t.Setenv("GITHUB_ACTIONS", "true")
+	t.Setenv("GITHUB_RUN_ID", "555")
+	t.Setenv("GITHUB_REPOSITORY", "ding-labs/ding")
+
+	c := New()
+
+	if c.Runner != "github-actions" {
+		t.Errorf("Runner = %q, want github-actions (CI must win over Ray)", c.Runner)
+	}
+	if c.RunID != "555" {
+		t.Errorf("RunID = %q, want 555", c.RunID)
+	}
+	if c.RunID == "raysubmit_abc" {
+		t.Errorf("RunID leaked from Ray — CI should win cleanly")
+	}
+}
+
 // clearCIEnv unsets all CI/runner env vars so detection starts from a clean slate.
 // Uses t.Setenv so they're restored after the test.
 func clearCIEnv(t *testing.T) {
@@ -499,6 +591,7 @@ func clearCIEnv(t *testing.T) {
 		"KUBERNETES_SERVICE_HOST", "POD_UID", "POD_NAME", "POD_NAMESPACE", "NODE_NAME",
 		"MLFLOW_RUN_ID", "MLFLOW_EXPERIMENT_ID", "MLFLOW_TRACKING_URI",
 		"ARGO_TEMPLATE", "ARGO_WORKFLOW_UID", "ARGO_WORKFLOW_NAME", "ARGO_NODE_ID", "ARGO_POD_NAME",
+		"RAY_JOB_ID",
 	} {
 		t.Setenv(k, "")
 	}
