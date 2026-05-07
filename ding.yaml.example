@@ -93,6 +93,12 @@ notifiers:
   # alert-gitlab:
   #   type: gitlab_artifact
   #   # path: ding-alerts.md      # default; relative to CWD ($CI_PROJECT_DIR in GitLab CI)
+  #
+  # Buildkite annotation (publishes alerts as Buildkite build annotations via
+  # `buildkite-agent annotate`; visible at the top of the build UI):
+  # alert-buildkite:
+  #   type: buildkite_annotate
+  #   # style: error              # default; success | info | warning | error
 
 rules:
   # Event-per-event: fires on a single reading above threshold.

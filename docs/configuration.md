@@ -215,6 +215,25 @@ notifiers:
 
 **No CI gate**: the notifier writes the file regardless of whether it's running in GitLab CI. Outside CI, it just produces a local `ding-alerts.md` — harmless. Combine with `.gitlab-ci.yml` `artifacts: { when: always, paths: [ding-alerts.md] }` to archive the file on every pipeline run (including failed jobs). See the [GitLab CI recipe](recipes/gitlab-ci.md#native-gitlab-ui-surfacing) for an end-to-end example.
 
+### `type: buildkite_annotate`
+
+Publishes alerts as Buildkite build annotations via `buildkite-agent annotate`. All alerts for a build land in a single rolling annotation (`--context ding --append`) shown at the top of the Buildkite job UI. Requires `buildkite-agent` on PATH (always set inside Buildkite jobs); outside Buildkite the notifier no-ops gracefully after a one-time warning.
+
+```yaml
+notifiers:
+  annotate:
+    type: buildkite_annotate
+    style: error    # success | info | warning | error; default error
+```
+
+| Field | Default | Notes |
+|-------|---------|-------|
+| `style` | `error` | Buildkite annotation style. Drives the colored badge in the build UI. |
+
+**Behavior**: sync, mutex-guarded. The first `Send()` writes a `# DING Alerts` H1 header; subsequent calls append `## <rule>` sections that Buildkite's `--append` concatenates into the existing annotation body. No async queue, no retry, no metrics — failures from `buildkite-agent` (agent disconnected, body too large, etc.) are returned from `Send()` with stderr captured.
+
+**No CI gate**: the notifier checks for `buildkite-agent` once at construction; outside Buildkite jobs it logs `ding: buildkite_annotate notifier: buildkite-agent not on PATH; alerts via this notifier will be no-ops` and Send becomes a no-op. See the [Buildkite recipe](recipes/buildkite.md#native-buildkite-ui-surfacing) for an end-to-end example.
+
 ### `type: webhook`
 
 Posts a flat JSON payload to any HTTP endpoint. Useful for generic integrations (PagerDuty, custom receivers, etc.).

@@ -152,6 +152,8 @@ func buildFromConfig(path string, collector *metrics.Collector) (*evaluator.Engi
 			notifiers[name] = n
 		case "gitlab_artifact":
 			notifiers[name] = notifier.NewGitLabArtifactNotifier(nc.Path)
+		case "buildkite_annotate":
+			notifiers[name] = notifier.NewBuildkiteAnnotateNotifier(nc.Style)
 		}
 	}
 

@@ -66,11 +66,25 @@ Use these in `match.labels` or `message` templates. See [Configuration](../confi
 
 If the alert doesn't fire, check the Buildkite build log for `ding` output. Common issues: webhook URL not exposed (env hook scope, agent vs pipeline level), or `drain_timeout` shorter than the notifier retry window — see [Configuration](../configuration.md).
 
+## Native Buildkite UI surfacing
+
+If you want DING alerts to surface as Buildkite build annotations (visible at the top of the build UI) rather than (or alongside) external notifiers, DING ships a built-in `type: buildkite_annotate` notifier. See [`type: buildkite_annotate`](../configuration.md#type-buildkite_annotate) for the full reference.
+
+Add to `ding.yaml`:
+
+```yaml
+notifiers:
+  annotate:
+    type: buildkite_annotate
+    # style: error  # default; success | info | warning | error
+```
+
+No changes to `.buildkite/pipeline.yml` are needed — the `buildkite-agent` CLI is already on PATH inside Buildkite jobs. All DING alerts from a build land in a single rolling annotation (`--context ding --append`) so the UI stays uncluttered. Outside Buildkite (e.g. local dev), the notifier no-ops gracefully after a one-time warning.
+
 ## Tradeoffs / known limitations
 
 - **No `job` label by default.** runctx captures Buildkite's pipeline-level identifiers but not step-level (`BUILDKITE_STEP_KEY`). Add explicit `match.labels` if you need per-step rules.
 - **Binary download per step.** Bake DING into your agent image, or use a [`pre-command` hook](https://buildkite.com/docs/agent/v3/hooks#available-hooks) to install it once per agent.
-- **Annotation surface unused.** Buildkite has `buildkite-agent annotate`, the analogue of GHA's `$GITHUB_STEP_SUMMARY`. The minimal recipe doesn't use it; surfacing alerts back into the build UI would be a Tier-2 abstraction (`type: buildkite_annotate` notifier).
 
 ## Escalation criteria
 
@@ -78,7 +92,7 @@ This recipe is **a Tier-2 candidate** by the program's standard rubric:
 
 - **Setup commands required:** 1 (`curl | tar`) — under threshold of 5
 - **Boilerplate lines:** ~24 — under threshold of 50
-- **"Gotcha" callouts:** 3 (no `job` label, binary download, no annotation surface) — over threshold of 2 → **Tier-2 candidate**
+- **"Gotcha" callouts:** 2 (no `job` label, binary download) — at threshold of 2
 - **End-to-end runnable:** yes (Buildkite has a free trial; the underlying agent is OSS and self-hostable indefinitely)
 
-**Tier-2 candidate.** The structural friction is "annotations not used" — Buildkite users expect alerts to land in the build UI, not just Slack. A `type: buildkite_annotate` notifier (calling `buildkite-agent annotate --style error --context ding`) is the natural Tier-2 abstraction. Sequence it after GitLab CI's artifact notifier (similar shape).
+Buildkite-native alert surfacing now ships as the built-in [`type: buildkite_annotate`](../configuration.md#type-buildkite_annotate) notifier (covered in the section above). The remaining gotchas (no `job` label, binary download per step) are environmental rather than implementation gaps; the recipe stays Tier 1.
