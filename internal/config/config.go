@@ -79,6 +79,10 @@ type NotifierConfig struct {
 	ChatID         string   `yaml:"chat_id,omitempty"`
 	MaxAttempts    int      `yaml:"max_attempts"`
 	InitialBackoff Duration `yaml:"initial_backoff"`
+	// Fields below are specific to type: kubernetes_event. All optional.
+	Namespace   string `yaml:"namespace,omitempty"`    // override POD_NAMESPACE downward API
+	EventReason string `yaml:"event_reason,omitempty"` // K8s Event reason (default "DingAlertFired")
+	EventType   string `yaml:"event_type,omitempty"`   // K8s Event type, "Normal" or "Warning" (default "Warning")
 }
 
 type AlertTarget struct {
