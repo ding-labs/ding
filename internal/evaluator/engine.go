@@ -370,7 +370,7 @@ func (e *Engine) getOrCreateBuffer(key string, window time.Duration) *RingBuffer
 	if buf, ok := e.buffers[key]; ok {
 		return buf
 	}
-	buf := NewRingBuffer(window, e.maxBuf)
+	buf := NewRingBuffer(window, e.maxBuf, false)
 	e.buffers[key] = buf
 	return buf
 }

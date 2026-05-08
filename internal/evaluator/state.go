@@ -72,7 +72,7 @@ func SnapshotEngine(e *Engine) StateSnapshot {
 func RestoreEngine(e *Engine, snap StateSnapshot, now time.Time) {
 	e.bufMu.Lock()
 	for key, bs := range snap.Buffers {
-		rb := NewRingBuffer(bs.Window, bs.MaxSize)
+		rb := NewRingBuffer(bs.Window, bs.MaxSize, false)
 		cutoff := now.Add(-bs.Window)
 		for _, ent := range bs.Entries {
 			if ent.At.After(cutoff) {
