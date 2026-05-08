@@ -1,6 +1,7 @@
 package dryrun
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -70,5 +71,44 @@ func TestTextFormatter_NoNotifiers(t *testing.T) {
 	got := string(f.Format(alert))
 	if !strings.Contains(got, "(none)") {
 		t.Errorf("expected '(none)' for empty Notifiers, got:\n%s", got)
+	}
+}
+
+func TestJSONFormatter_RoundTrips(t *testing.T) {
+	alert := evaluator.Alert{
+		Rule:      "loss_spike",
+		Message:   "Loss spiked",
+		Metric:    "loss",
+		Value:     1.2,
+		Labels:    map[string]string{"run_id": "abc123"},
+		Floats:    map[string]float64{"step": 100},
+		Notifiers: []string{"slack", "pagerduty"},
+		FiredAt:   time.Date(2026, 5, 8, 10, 2, 0, 0, time.UTC),
+		Avg:       1.1,
+	}
+
+	f := &JSONFormatter{}
+	out := f.Format(alert)
+
+	if !strings.HasSuffix(string(out), "\n") {
+		t.Errorf("JSONFormatter output must end with newline (JSONL): %q", string(out))
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(out, &got); err != nil {
+		t.Fatalf("JSONFormatter output is not valid JSON: %v\noutput: %s", err, out)
+	}
+
+	wantKeys := []string{"rule", "metric", "value", "message", "alerts", "fired_at", "labels", "floats", "avg"}
+	for _, k := range wantKeys {
+		if _, ok := got[k]; !ok {
+			t.Errorf("JSONFormatter output missing key %q", k)
+		}
+	}
+	if got["rule"] != "loss_spike" {
+		t.Errorf("rule mismatch: got %v", got["rule"])
+	}
+	if alerts, _ := got["alerts"].([]any); len(alerts) != 2 {
+		t.Errorf("alerts should be 2 entries: got %v", alerts)
 	}
 }

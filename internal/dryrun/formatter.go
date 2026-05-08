@@ -4,8 +4,10 @@
 package dryrun
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/ding-labs/ding/internal/evaluator"
 )
@@ -49,4 +51,48 @@ func (f *TextFormatter) Format(alert evaluator.Alert) []byte {
 		fmt.Fprintf(&b, "  message: %s\n", alert.Message)
 	}
 	return []byte(b.String())
+}
+
+// JSONFormatter renders alerts as one JSON object per line (JSONL).
+// Stable schema; safe to pipe to jq.
+type JSONFormatter struct{}
+
+type jsonAlertEnvelope struct {
+	Rule    string             `json:"rule"`
+	Metric  string             `json:"metric"`
+	Value   float64            `json:"value"`
+	Message string             `json:"message"`
+	Alerts  []string           `json:"alerts"`
+	Labels  map[string]string  `json:"labels,omitempty"`
+	Floats  map[string]float64 `json:"floats,omitempty"`
+	FiredAt string             `json:"fired_at"`
+	// Aggregates (always present; zero when not windowed — easier for jq)
+	Avg   float64 `json:"avg"`
+	Max   float64 `json:"max"`
+	Min   float64 `json:"min"`
+	Count float64 `json:"count"`
+	Sum   float64 `json:"sum"`
+}
+
+func (f *JSONFormatter) Format(alert evaluator.Alert) []byte {
+	env := jsonAlertEnvelope{
+		Rule:    alert.Rule,
+		Metric:  alert.Metric,
+		Value:   alert.Value,
+		Message: alert.Message,
+		Alerts:  alert.Notifiers,
+		Labels:  alert.Labels,
+		Floats:  alert.Floats,
+		FiredAt: alert.FiredAt.UTC().Format(time.RFC3339Nano),
+		Avg:     alert.Avg,
+		Max:     alert.Max,
+		Min:     alert.Min,
+		Count:   alert.Count,
+		Sum:     alert.Sum,
+	}
+	if env.Alerts == nil {
+		env.Alerts = []string{}
+	}
+	b, _ := json.Marshal(env)
+	return append(b, '\n')
 }
