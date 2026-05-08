@@ -10,16 +10,17 @@ import (
 
 var (
 	reEventCond    = regexp.MustCompile(`^value\s*(>|>=|<|<=|==|!=)\s*(-?\d+(?:\.\d+)?)$`)
-	reWindowedCond = regexp.MustCompile(`^(avg|max|min|count|sum)\(value\)\s+over\s+(\d+[smh])\s*(>|>=|<|<=|==|!=)\s*(-?\d+(?:\.\d+)?)$`)
+	reWindowedCond = regexp.MustCompile(`^(avg|max|min|count|sum)\(value\)\s+over\s+(\d+[smh]|run)\s*(>|>=|<|<=|==|!=)\s*(-?\d+(?:\.\d+)?)$`)
 )
 
 // Condition is a parsed alert condition.
 type Condition struct {
-	Windowed bool
-	Op       string
-	Literal  float64
-	Func     string        // windowed only: avg|max|min|count|sum
-	Window   time.Duration // windowed only
+	Windowed   bool
+	RunBounded bool          // true when "over run"; Window is zero in this case
+	Op         string
+	Literal    float64
+	Func       string        // windowed only: avg|max|min|count|sum
+	Window     time.Duration // windowed only; zero when RunBounded
 }
 
 // ParseCondition parses a condition string from ding.yaml.
@@ -30,12 +31,17 @@ func ParseCondition(s string) (Condition, error) {
 	}
 	if m := reWindowedCond.FindStringSubmatch(s); m != nil {
 		fn := m[1]
-		dur, err := time.ParseDuration(m[2])
+		windowToken := m[2]
+		op := m[3]
+		lit, _ := strconv.ParseFloat(m[4], 64)
+		if windowToken == "run" {
+			return Condition{Windowed: true, RunBounded: true, Func: fn, Window: 0, Op: op, Literal: lit}, nil
+		}
+		dur, err := time.ParseDuration(windowToken)
 		if err != nil {
 			return Condition{}, fmt.Errorf("invalid duration in condition %q: %w", s, err)
 		}
-		lit, _ := strconv.ParseFloat(m[4], 64)
-		return Condition{Windowed: true, Func: fn, Window: dur, Op: m[3], Literal: lit}, nil
+		return Condition{Windowed: true, Func: fn, Window: dur, Op: op, Literal: lit}, nil
 	}
 	return Condition{}, fmt.Errorf("unrecognized condition syntax: %q", s)
 }
@@ -82,9 +88,10 @@ type evalContext struct {
 // ID is the sequential integer assigned at parse time (zero-based per rule) and
 // is the same integer used as the middle segment of the buffer key.
 type windowedLeaf struct {
-	ID     int
-	Func   string
-	Window time.Duration
+	ID         int
+	Func       string
+	Window     time.Duration
+	RunBounded bool
 }
 
 // leafExpr is a leaf node wrapping a single parsed Condition.
@@ -106,7 +113,7 @@ func (l *leafExpr) eval(ctx evalContext) bool {
 
 func (l *leafExpr) collectWindowedLeaves() []windowedLeaf {
 	if l.Windowed {
-		return []windowedLeaf{{ID: l.id, Func: l.Func, Window: l.Window}}
+		return []windowedLeaf{{ID: l.id, Func: l.Func, Window: l.Window, RunBounded: l.RunBounded}}
 	}
 	return nil
 }

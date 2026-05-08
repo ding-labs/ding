@@ -90,6 +90,104 @@ rules:
 	}
 }
 
+func TestRunTestRule_OverRunWindow_AggregatesAcrossRun(t *testing.T) {
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "ding.yaml")
+	if err := os.WriteFile(cfg, []byte(`
+notifiers:
+  slack:
+    type: webhook
+    url: https://example.invalid/webhook
+rules:
+  - name: high_avg_mem
+    match: { metric: mem }
+    condition: avg(value) over run > 50
+    mode: end-of-run
+    message: "avg mem: {{ .avg }}"
+    alert:
+      - notifier: slack
+`), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	// Three events spanning 2 hours — far wider than any wall-clock window
+	// the test would plausibly use. avg(40, 60, 80) = 60 > 50, so the
+	// end-of-run rule should fire with avg=60.
+	events := `{"metric":"mem","value":40,"timestamp":"2026-05-08T10:00:00Z"}
+{"metric":"mem","value":60,"timestamp":"2026-05-08T11:00:00Z"}
+{"metric":"mem","value":80,"timestamp":"2026-05-08T12:00:00Z"}
+`
+	in := strings.NewReader(events)
+	var out, errBuf bytes.Buffer
+
+	err := runTestRule(cfg, "text", false, in, &out, &errBuf)
+	if err != nil {
+		t.Fatalf("runTestRule: %v\nstderr: %s", err, errBuf.String())
+	}
+
+	got := out.String()
+	if !strings.Contains(got, "high_avg_mem") {
+		t.Errorf("expected high_avg_mem rule to fire at end-of-run:\n%s", got)
+	}
+	if !strings.Contains(got, "avg mem: 60") {
+		t.Errorf("expected rendered message to show avg=60 across whole run:\n%s", got)
+	}
+	if got := strings.Count(out.String(), "would fire"); got != 1 {
+		t.Errorf("expected exactly 1 fire (mode: end-of-run), got %d:\n%s", got, out.String())
+	}
+}
+
+func TestRunTestRule_WindowedRule_EvictsOldestBeforeWindow(t *testing.T) {
+	// Sibling to TestRunTestRule_WindowedRule_FiresAfterEnoughEvents.
+	// That test fits all events inside the 5m window so it doesn't
+	// exercise eviction. This one spans the boundary: events at t0 and
+	// t0+10m with a 5m window — the older event must be evicted by the
+	// time the newer one is processed, leaving the rule's avg computed
+	// over the second event alone.
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "ding.yaml")
+	if err := os.WriteFile(cfg, []byte(`
+notifiers:
+  slack:
+    type: webhook
+    url: https://example.invalid/webhook
+rules:
+  - name: hot_avg
+    match: { metric: temp }
+    condition: avg(value) over 5m > 50
+    message: "avg high: {{ .avg }}"
+    alert:
+      - notifier: slack
+`), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	// First event at t0 is well below threshold (10).
+	// Second event 10 minutes later is above threshold (90).
+	// With a 5m window, the first event is evicted before the second
+	// is evaluated. The avg of {90} alone is 90, condition true.
+	// If eviction were broken (no eviction), avg would be (10+90)/2=50,
+	// which is NOT > 50, and the rule would NOT fire.
+	events := `{"metric":"temp","value":10,"timestamp":"2026-05-08T10:00:00Z"}
+{"metric":"temp","value":90,"timestamp":"2026-05-08T10:10:00Z"}
+`
+	in := strings.NewReader(events)
+	var out, errBuf bytes.Buffer
+
+	err := runTestRule(cfg, "text", false, in, &out, &errBuf)
+	if err != nil {
+		t.Fatalf("runTestRule: %v\nstderr: %s", err, errBuf.String())
+	}
+
+	got := out.String()
+	if !strings.Contains(got, "hot_avg") {
+		t.Errorf("expected hot_avg to fire (eviction should drop the first event so avg=90):\n%s", got)
+	}
+	if !strings.Contains(got, "avg high: 90") {
+		t.Errorf("expected avg=90 (only second event remains after 5m eviction):\n%s", got)
+	}
+}
+
 func TestRunTestRule_NoMatch_SilentStdout(t *testing.T) {
 	dir := t.TempDir()
 	cfg := writeFixtureConfig(t, dir)

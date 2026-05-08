@@ -266,6 +266,7 @@ A list of alerting rules. Rules are evaluated independently; each has its own co
 | `match.metric` | string | no | Metric name filter |
 | `condition` | string | yes | Evaluation expression (see below) |
 | `cooldown` | duration | no | Minimum time between consecutive alerts for the same label-set |
+| `mode` | string | no | Set to `end-of-run` to defer evaluation until `ding run` exits; omit for immediate (mid-run) evaluation |
 | `message` | string | no | Alert message template (Go `text/template` syntax) |
 | `alert` | list | yes | List of `{notifier: <name>}` targets |
 
@@ -300,6 +301,51 @@ value < 5 OR count(value) over 1m > 100
 ```
 
 Comparison operators: `>`, `>=`, `<`, `<=`, `==`, `!=`
+
+#### Run-lifetime windows: `over run`
+
+In addition to wall-clock durations like `over 5m`, the windowed-condition
+grammar accepts the literal `run`, which bounds the window to the lifetime
+of the `ding run` subprocess. Run-bounded windows do not evict entries by
+time — every event observed during the run is included in the aggregate,
+subject only to the configured `max_buffer_size` cap.
+
+```yaml
+rules:
+  # Whole-run aggregate, fires once at exit
+  - name: high_avg_mem
+    match: { metric: mem_pct }
+    condition: avg(value) over run > 80
+    mode: end-of-run
+    message: "avg memory was {{ .avg }}% across the run"
+
+  # Run-bounded sliding window, fires mid-run on threshold cross
+  - name: errors_pile_up
+    match: { metric: errors }
+    condition: count(value) over run > 10
+    cooldown: 30s
+    message: "errors in this run: {{ .count }}"
+```
+
+The behavior matrix:
+
+| condition window | `mode: end-of-run`? | result |
+|---|---|---|
+| `over 5m` | no | wall-clock sliding (default) |
+| `over 5m` | yes | aggregate of last 5m of run, fires at exit |
+| `over run` | no | run-bounded sliding, fires mid-run when threshold crosses |
+| `over run` | yes | whole-run aggregate, fires once at exit |
+
+**Cooldown caveat.** Aggregates like `count` are monotonically non-decreasing
+under `over run` — once `count > 10`, it stays `> 10`. Without `mode:
+end-of-run` or a `cooldown:`, such a rule fires on every subsequent matching
+event. Pair `over run` mid-run rules with a meaningful `cooldown:` (or use
+`mode: end-of-run` for fire-once-at-exit semantics).
+
+**`ding serve` mode.** `over run` is supported syntactically in the daemon
+mode, where it means "since daemon start" (the buffer accumulates indefinitely,
+capped by `max_buffer_size`). The wedge use case is `ding run`; prefer
+wall-clock windows in long-running serve deployments.
 
 ### Message template variables
 

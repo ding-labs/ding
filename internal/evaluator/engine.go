@@ -135,7 +135,7 @@ func (e *Engine) Process(event ingester.Event, now time.Time) []Alert {
 		}
 		for _, leaf := range leaves {
 			leafBufKey := rule.Name + ":" + strconv.Itoa(leaf.ID) + ":" + labelKey
-			buf := e.getOrCreateBuffer(leafBufKey, leaf.Window)
+			buf := e.getOrCreateBuffer(leafBufKey, leaf.Window, leaf.RunBounded)
 			buf.Add(event.Value, event.At)
 			if buf.HasEntries(now) {
 				ctx.Available[leaf.ID] = true
@@ -189,7 +189,7 @@ func (e *Engine) Process(event ingester.Event, now time.Time) []Alert {
 		if len(leaves) == 1 {
 			leaf := leaves[0]
 			leafBufKey := rule.Name + ":" + strconv.Itoa(leaf.ID) + ":" + labelKey
-			buf := e.getOrCreateBuffer(leafBufKey, leaf.Window)
+			buf := e.getOrCreateBuffer(leafBufKey, leaf.Window, leaf.RunBounded)
 			alert.Avg = buf.Avg(now)
 			alert.Max = buf.Max(now)
 			alert.Min = buf.Min(now)
@@ -364,13 +364,14 @@ func (e *Engine) trackLabelKey(ruleName, labelKey string) {
 
 // getOrCreateBuffer returns the ring buffer for a buffer key, creating it if needed.
 // Uses bufMu independently of the RWMutex so it is safe to call from Process() under RLock.
-func (e *Engine) getOrCreateBuffer(key string, window time.Duration) *RingBuffer {
+// runBounded is honored only on first creation; subsequent calls return the existing buffer.
+func (e *Engine) getOrCreateBuffer(key string, window time.Duration, runBounded bool) *RingBuffer {
 	e.bufMu.Lock()
 	defer e.bufMu.Unlock()
 	if buf, ok := e.buffers[key]; ok {
 		return buf
 	}
-	buf := NewRingBuffer(window, e.maxBuf)
+	buf := NewRingBuffer(window, e.maxBuf, runBounded)
 	e.buffers[key] = buf
 	return buf
 }

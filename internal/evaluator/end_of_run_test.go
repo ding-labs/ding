@@ -214,6 +214,98 @@ func TestProcess_DuringRunStillFiresAlongsideEndOfRun(t *testing.T) {
 	}
 }
 
+// TestProcessEndOfRun_OverRun_AggregatesAcrossWholeRun verifies that a rule
+// with `condition: avg(value) over run > X` and `mode: end-of-run` aggregates
+// across the entire run, regardless of how long the run lasted, and fires
+// correctly at run exit. Distinguishes "over run" from "over Nm" by spanning
+// timestamps wider than any plausible wall-clock window.
+func TestProcessEndOfRun_OverRun_AggregatesAcrossWholeRun(t *testing.T) {
+	rules := []EngineRule{
+		{
+			Name:      "whole_run_avg",
+			Match:     map[string]string{"metric": "mem"},
+			Condition: "avg(value) over run > 50",
+			Message:   "avg mem was {{ .avg }}",
+			Alerts:    []string{"stdout"},
+			Mode:      "end-of-run",
+		},
+	}
+	eng, err := NewEngine(rules, 1000)
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	// Feed events spanning 2 hours — far beyond any wall-clock window.
+	t0 := time.Now()
+	eng.Process(ingester.Event{Metric: "mem", Value: 40, At: t0}, t0)
+	eng.Process(ingester.Event{Metric: "mem", Value: 60, At: t0.Add(1 * time.Hour)}, t0.Add(1*time.Hour))
+	eng.Process(ingester.Event{Metric: "mem", Value: 80, At: t0.Add(2 * time.Hour)}, t0.Add(2*time.Hour))
+
+	// At end-of-run the buffer should still hold all three entries:
+	// avg(40, 60, 80) = 60, which is > 50.
+	alerts := eng.ProcessEndOfRun(t0.Add(2 * time.Hour))
+	if len(alerts) != 1 {
+		t.Fatalf("expected 1 end-of-run alert, got %d", len(alerts))
+	}
+	if alerts[0].Avg != 60 {
+		t.Errorf("alert.Avg = %v, want 60 (avg of full run)", alerts[0].Avg)
+	}
+	if alerts[0].Count != 3 {
+		t.Errorf("alert.Count = %v, want 3 (all events in run)", alerts[0].Count)
+	}
+}
+
+// TestProcess_OverRun_FiresMidRunWithCooldown verifies the orthogonal
+// composition: `over run` without `mode: end-of-run` fires mid-run when
+// the threshold crosses, and cooldown prevents repeated firing.
+func TestProcess_OverRun_FiresMidRunWithCooldown(t *testing.T) {
+	rules := []EngineRule{
+		{
+			Name:      "errors_pile_up",
+			Match:     map[string]string{"metric": "errors"},
+			Condition: "count(value) over run > 2",
+			Cooldown:  10 * time.Minute,
+			Message:   "errors: {{ .count }}",
+			Alerts:    []string{"stdout"},
+		},
+	}
+	eng, err := NewEngine(rules, 1000)
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	t0 := time.Now()
+	// Events 1, 2 — count is at most 2, condition (count > 2) false.
+	for i := 0; i < 2; i++ {
+		alerts := eng.Process(ingester.Event{
+			Metric: "errors", Value: 1,
+			At: t0.Add(time.Duration(i) * time.Second),
+		}, t0.Add(time.Duration(i)*time.Second))
+		if len(alerts) > 0 {
+			t.Fatalf("event %d: rule fired prematurely (count=%v)", i, alerts[0].Count)
+		}
+	}
+	// Event 3 — count crosses to 3, condition true, alert fires.
+	alerts := eng.Process(ingester.Event{
+		Metric: "errors", Value: 1,
+		At: t0.Add(2 * time.Second),
+	}, t0.Add(2*time.Second))
+	if len(alerts) != 1 {
+		t.Fatalf("expected 1 alert at event 3, got %d", len(alerts))
+	}
+	if alerts[0].Count != 3 {
+		t.Errorf("alert.Count = %v, want 3", alerts[0].Count)
+	}
+	// Event 4 — count is 4, condition true, but cooldown blocks the alert.
+	alerts = eng.Process(ingester.Event{
+		Metric: "errors", Value: 1,
+		At: t0.Add(3 * time.Second),
+	}, t0.Add(3*time.Second))
+	if len(alerts) != 0 {
+		t.Errorf("expected cooldown to block alert at event 4, got %d", len(alerts))
+	}
+}
+
 // TestParseLabelKey verifies that the labelKey reverser handles the formats
 // produced by LabelSetKey.
 func TestParseLabelKey(t *testing.T) {

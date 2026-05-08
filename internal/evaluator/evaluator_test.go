@@ -71,6 +71,56 @@ func TestParseCondition_WindowedNegative(t *testing.T) {
 	}
 }
 
+func TestParseCondition_OverRun(t *testing.T) {
+	c, err := evaluator.ParseCondition("avg(value) over run > 80")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.Windowed {
+		t.Fatal("expected windowed condition")
+	}
+	if !c.RunBounded {
+		t.Fatal("expected RunBounded=true")
+	}
+	if c.Func != "avg" || c.Op != ">" || c.Literal != 80 {
+		t.Errorf("unexpected condition: %+v", c)
+	}
+	if c.Window != 0 {
+		t.Errorf("expected Window=0 for over run, got %v", c.Window)
+	}
+}
+
+func TestParseCondition_OverNm_NotRunBounded(t *testing.T) {
+	// Backward-compat: existing duration syntax must still parse with RunBounded=false.
+	c, err := evaluator.ParseCondition("avg(value) over 5m > 80")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.RunBounded {
+		t.Fatal("expected RunBounded=false for over 5m")
+	}
+	if c.Window != 5*time.Minute {
+		t.Errorf("expected Window=5m, got %v", c.Window)
+	}
+}
+
+func TestParseCondition_OverRunAllAggregators(t *testing.T) {
+	for _, fn := range []string{"avg", "max", "min", "count", "sum"} {
+		input := fn + "(value) over run > 0"
+		c, err := evaluator.ParseCondition(input)
+		if err != nil {
+			t.Errorf("%s: parse error: %v", input, err)
+			continue
+		}
+		if !c.RunBounded {
+			t.Errorf("%s: expected RunBounded=true", input)
+		}
+		if c.Func != fn {
+			t.Errorf("%s: got Func=%s", input, c.Func)
+		}
+	}
+}
+
 func TestParseCondition_Invalid(t *testing.T) {
 	_, err := evaluator.ParseCondition("value OVER 95")
 	if err == nil {
@@ -113,7 +163,7 @@ func TestMatch_EmptyMatchBlock(t *testing.T) {
 // ---- Ring buffer ----
 
 func TestRingBuffer_EvictsOldEntries(t *testing.T) {
-	rb := evaluator.NewRingBuffer(5*time.Minute, 1000)
+	rb := evaluator.NewRingBuffer(5*time.Minute, 1000, false)
 	now := time.Now()
 
 	rb.Add(10.0, now.Add(-6*time.Minute)) // old, should be evicted
@@ -128,7 +178,7 @@ func TestRingBuffer_EvictsOldEntries(t *testing.T) {
 }
 
 func TestRingBuffer_MaxSize(t *testing.T) {
-	rb := evaluator.NewRingBuffer(5*time.Minute, 3)
+	rb := evaluator.NewRingBuffer(5*time.Minute, 3, false)
 	now := time.Now()
 	rb.Add(1.0, now)
 	rb.Add(2.0, now)
@@ -141,7 +191,7 @@ func TestRingBuffer_MaxSize(t *testing.T) {
 }
 
 func TestRingBuffer_EmptyReturnsZeroAndFalse(t *testing.T) {
-	rb := evaluator.NewRingBuffer(5*time.Minute, 1000)
+	rb := evaluator.NewRingBuffer(5*time.Minute, 1000, false)
 	now := time.Now()
 	if rb.HasEntries(now) {
 		t.Error("empty buffer should have no entries")
@@ -149,7 +199,7 @@ func TestRingBuffer_EmptyReturnsZeroAndFalse(t *testing.T) {
 }
 
 func TestRingBuffer_Aggregates(t *testing.T) {
-	rb := evaluator.NewRingBuffer(5*time.Minute, 1000)
+	rb := evaluator.NewRingBuffer(5*time.Minute, 1000, false)
 	now := time.Now()
 	for _, v := range []float64{10, 20, 30, 40, 50} {
 		rb.Add(v, now)
@@ -168,6 +218,71 @@ func TestRingBuffer_Aggregates(t *testing.T) {
 	}
 	if rb.Count(now) != 5 {
 		t.Errorf("count: expected 5, got %f", rb.Count(now))
+	}
+}
+
+func TestRingBuffer_RunBounded_NoTimeEviction(t *testing.T) {
+	// A run-bounded buffer must NOT evict by time, regardless of how far
+	// "now" advances past the entries' timestamps.
+	rb := evaluator.NewRingBuffer(0, 1000, true)
+	t0 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	rb.Add(10, t0)
+	rb.Add(20, t0.Add(1*time.Hour))
+	rb.Add(30, t0.Add(24*time.Hour))
+
+	// Query 30 days later. A wall-clock buffer would evict everything.
+	now := t0.Add(30 * 24 * time.Hour)
+	if got := rb.Count(now); got != 3 {
+		t.Errorf("expected Count=3 (no time eviction), got %v", got)
+	}
+	if got := rb.Avg(now); got != 20 {
+		t.Errorf("expected Avg=20, got %v", got)
+	}
+	if got := rb.Min(now); got != 10 {
+		t.Errorf("expected Min=10, got %v", got)
+	}
+	if got := rb.Max(now); got != 30 {
+		t.Errorf("expected Max=30, got %v", got)
+	}
+}
+
+func TestRingBuffer_RunBounded_RespectsMaxSize(t *testing.T) {
+	// Run-bounded does NOT mean unbounded memory; maxSize still clips
+	// from oldest. This protects ding from runaway buffers in long runs.
+	rb := evaluator.NewRingBuffer(0, 3, true)
+	t0 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	rb.Add(1, t0)
+	rb.Add(2, t0.Add(1*time.Second))
+	rb.Add(3, t0.Add(2*time.Second))
+	rb.Add(4, t0.Add(3*time.Second))
+	rb.Add(5, t0.Add(4*time.Second))
+
+	now := t0.Add(1 * time.Hour)
+	if got := rb.Count(now); got != 3 {
+		t.Errorf("expected Count=3 (maxSize cap), got %v", got)
+	}
+	// Oldest two (1, 2) are dropped; remaining are 3, 4, 5.
+	if got := rb.Min(now); got != 3 {
+		t.Errorf("expected Min=3, got %v", got)
+	}
+	if got := rb.Max(now); got != 5 {
+		t.Errorf("expected Max=5, got %v", got)
+	}
+}
+
+func TestRingBuffer_WallClock_StillEvicts(t *testing.T) {
+	// Backward-compat: a buffer constructed with runBounded=false must
+	// continue to evict by time.
+	rb := evaluator.NewRingBuffer(5*time.Minute, 1000, false)
+	t0 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	rb.Add(10, t0)
+	rb.Add(20, t0.Add(10*time.Minute)) // outside any 5-minute window of t0
+	now := t0.Add(11 * time.Minute)
+
+	// At now=t0+11m, the cutoff is now-5m = t0+6m. Only the second entry
+	// (at t0+10m) is after the cutoff. The first (at t0) is evicted.
+	if got := rb.Count(now); got != 1 {
+		t.Errorf("expected Count=1 (wall-clock eviction), got %v", got)
 	}
 }
 

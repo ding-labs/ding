@@ -11,17 +11,23 @@ type entry struct {
 }
 
 // RingBuffer is a time-based sliding window of float64 values.
+// When runBounded is true, evict() is a no-op — the buffer accumulates
+// all entries (subject to maxSize) for the lifetime of the process,
+// implementing "over run" condition semantics.
 // Thread-safe.
 type RingBuffer struct {
-	mu      sync.Mutex
-	entries []entry
-	window  time.Duration
-	maxSize int
+	mu         sync.Mutex
+	entries    []entry
+	window     time.Duration
+	maxSize    int
+	runBounded bool
 }
 
-// NewRingBuffer creates a new RingBuffer with the given window and max size.
-func NewRingBuffer(window time.Duration, maxSize int) *RingBuffer {
-	return &RingBuffer{window: window, maxSize: maxSize}
+// NewRingBuffer creates a new RingBuffer. When runBounded is true, the
+// window argument is ignored and entries are never evicted by time
+// (only by maxSize, oldest-first).
+func NewRingBuffer(window time.Duration, maxSize int, runBounded bool) *RingBuffer {
+	return &RingBuffer{window: window, maxSize: maxSize, runBounded: runBounded}
 }
 
 // Add inserts a new value observed at time at.
@@ -36,7 +42,11 @@ func (rb *RingBuffer) Add(value float64, at time.Time) {
 }
 
 // evict removes entries older than the window. Must be called with lock held.
+// Run-bounded buffers do not evict by time; this method is a no-op for them.
 func (rb *RingBuffer) evict(now time.Time) {
+	if rb.runBounded {
+		return
+	}
 	cutoff := now.Add(-rb.window)
 	i := 0
 	for i < len(rb.entries) && rb.entries[i].at.Before(cutoff) {

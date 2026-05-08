@@ -146,3 +146,15 @@ rules:
   #   message: "job failed: exit code {{ .value }} after {{ .duration_seconds }}s"
   #   alert:
   #     - notifier: github_actions
+
+  # Whole-run aggregate alert — fires once at run exit if avg memory across
+  # the entire run exceeded 80%. The "over run" window is bounded by the
+  # ding run subprocess lifetime; no events are evicted by wall-clock time.
+  # - name: high_avg_mem
+  #   match:
+  #     metric: mem_pct
+  #   condition: avg(value) over run > 80
+  #   mode: end-of-run
+  #   message: "avg memory was {{ .avg }}% across the run"
+  #   alert:
+  #     - notifier: slack
