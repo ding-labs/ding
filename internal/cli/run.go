@@ -74,6 +74,11 @@ func runRun(configPath, runIDOverride string, args []string) error {
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
+
+	dispatcher := &NotifierDispatcher{
+		Notifiers:   notifiers,
+		AlertLogger: alertLogger,
+	}
 	// Drain handler — runs from both the deferred path (covers early returns
 	// from config errors, command-start failures, etc.) and the explicit path
 	// before os.Exit (covers the non-zero-exit case where defers don't run).
@@ -134,11 +139,11 @@ func runRun(configPath, runIDOverride string, args []string) error {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		ingestStream(stdoutPipe, os.Stdout, eng, notifiers, alertLogger, cfg, jqCode, rc)
+		ingestStream(stdoutPipe, os.Stdout, eng, dispatcher, cfg, jqCode, rc)
 	}()
 	go func() {
 		defer wg.Done()
-		ingestStream(stderrPipe, os.Stderr, eng, notifiers, alertLogger, cfg, jqCode, rc)
+		ingestStream(stderrPipe, os.Stderr, eng, dispatcher, cfg, jqCode, rc)
 	}()
 
 	wg.Wait()
@@ -162,11 +167,11 @@ func runRun(configPath, runIDOverride string, args []string) error {
 	// Synthetic run.exit event flows through the engine like any other —
 	// during-run rules matching metric: run.exit fire here.
 	summary := rc.SummaryEvent(exitCode)
-	dispatchEvent(summary, eng, notifiers, alertLogger)
+	dispatchEvent(summary, eng, dispatcher)
 
 	// End-of-run rules accumulate state during the run; fire them now.
 	endAlerts := eng.ProcessEndOfRun(time.Now())
-	dispatchAlerts(endAlerts, notifiers, alertLogger)
+	dispatcher.Dispatch(endAlerts)
 
 	log.Printf("ding: run end — run_id=%s exit_code=%d duration=%.1fs",
 		rc.RunID, exitCode, time.Since(rc.StartedAt).Seconds())
@@ -209,8 +214,7 @@ func ingestStream(
 	r io.Reader,
 	mirror io.Writer,
 	eng *evaluator.Engine,
-	notifiers map[string]notifier.Notifier,
-	alertLogger *notifier.AlertLogger,
+	dispatcher Dispatcher,
 	cfg *config.Config,
 	jqCode *gojq.Code,
 	rc *runctx.Context,
@@ -246,7 +250,7 @@ func ingestStream(
 		}
 		for _, ev := range events {
 			ev.Labels = rc.Apply(ev.Labels)
-			dispatchEvent(ev, eng, notifiers, alertLogger)
+			dispatchEvent(ev, eng, dispatcher)
 		}
 	}
 	// Scanner errors on closed pipes are expected at EOF; only log surprising ones.
@@ -255,36 +259,7 @@ func ingestStream(
 	}
 }
 
-func dispatchEvent(
-	ev ingester.Event,
-	eng *evaluator.Engine,
-	notifiers map[string]notifier.Notifier,
-	alertLogger *notifier.AlertLogger,
-) {
+func dispatchEvent(ev ingester.Event, eng *evaluator.Engine, dispatcher Dispatcher) {
 	alerts := eng.Process(ev, time.Now())
-	dispatchAlerts(alerts, notifiers, alertLogger)
-}
-
-func dispatchAlerts(
-	alerts []evaluator.Alert,
-	notifiers map[string]notifier.Notifier,
-	alertLogger *notifier.AlertLogger,
-) {
-	for _, alert := range alerts {
-		if alertLogger != nil {
-			if err := alertLogger.Log(alert); err != nil {
-				log.Printf("ding: alert log write error: %v", err)
-			}
-		}
-		for _, name := range alert.Notifiers {
-			n, ok := notifiers[name]
-			if !ok {
-				log.Printf("ding: unknown notifier %q for rule %q", name, alert.Rule)
-				continue
-			}
-			if err := n.Send(alert); err != nil {
-				log.Printf("ding: notifier %q error: %v", name, err)
-			}
-		}
-	}
+	dispatcher.Dispatch(alerts)
 }

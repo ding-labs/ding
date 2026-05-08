@@ -71,7 +71,8 @@ not a json line — mirrored only
 `)
 	var mirror bytes.Buffer
 
-	ingestStream(input, &mirror, eng, notifierMap, nil, cfg, nil, rc)
+	dispatcher := &NotifierDispatcher{Notifiers: notifierMap, AlertLogger: nil}
+	ingestStream(input, &mirror, eng, dispatcher, cfg, nil, rc)
 
 	alerts := cap.snapshot()
 	if len(alerts) != 2 {
@@ -123,7 +124,8 @@ FAILED test_b
 some random shell output here
 `)
 	var mirror bytes.Buffer
-	ingestStream(input, &mirror, eng, notifierMap, nil, cfg, nil, rc)
+	dispatcher := &NotifierDispatcher{Notifiers: notifierMap, AlertLogger: nil}
+	ingestStream(input, &mirror, eng, dispatcher, cfg, nil, rc)
 
 	if got := cap.snapshot(); len(got) != 0 {
 		t.Errorf("expected no alerts on non-event input, got %d: %#v", len(got), got)
