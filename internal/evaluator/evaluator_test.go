@@ -71,6 +71,56 @@ func TestParseCondition_WindowedNegative(t *testing.T) {
 	}
 }
 
+func TestParseCondition_OverRun(t *testing.T) {
+	c, err := evaluator.ParseCondition("avg(value) over run > 80")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.Windowed {
+		t.Fatal("expected windowed condition")
+	}
+	if !c.RunBounded {
+		t.Fatal("expected RunBounded=true")
+	}
+	if c.Func != "avg" || c.Op != ">" || c.Literal != 80 {
+		t.Errorf("unexpected condition: %+v", c)
+	}
+	if c.Window != 0 {
+		t.Errorf("expected Window=0 for over run, got %v", c.Window)
+	}
+}
+
+func TestParseCondition_OverNm_NotRunBounded(t *testing.T) {
+	// Backward-compat: existing duration syntax must still parse with RunBounded=false.
+	c, err := evaluator.ParseCondition("avg(value) over 5m > 80")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.RunBounded {
+		t.Fatal("expected RunBounded=false for over 5m")
+	}
+	if c.Window != 5*time.Minute {
+		t.Errorf("expected Window=5m, got %v", c.Window)
+	}
+}
+
+func TestParseCondition_OverRunAllAggregators(t *testing.T) {
+	for _, fn := range []string{"avg", "max", "min", "count", "sum"} {
+		input := fn + "(value) over run > 0"
+		c, err := evaluator.ParseCondition(input)
+		if err != nil {
+			t.Errorf("%s: parse error: %v", input, err)
+			continue
+		}
+		if !c.RunBounded {
+			t.Errorf("%s: expected RunBounded=true", input)
+		}
+		if c.Func != fn {
+			t.Errorf("%s: got Func=%s", input, c.Func)
+		}
+	}
+}
+
 func TestParseCondition_Invalid(t *testing.T) {
 	_, err := evaluator.ParseCondition("value OVER 95")
 	if err == nil {
