@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ding-labs/ding/internal/config"
+	"github.com/ding-labs/ding/internal/dryrun"
 	"github.com/ding-labs/ding/internal/evaluator"
 	"github.com/ding-labs/ding/internal/ingester"
 	"github.com/ding-labs/ding/internal/metrics"
@@ -27,6 +28,9 @@ import (
 func newRunCmd() *cobra.Command {
 	var configPath string
 	var runIDOverride string
+	var dryRun bool
+	var format string
+	var noColor bool
 
 	cmd := &cobra.Command{
 		Use:   "run [flags] -- <command> [args...]",
@@ -55,24 +59,52 @@ is safe.`,
   ding run -- python train.py --epochs 100
 
   # Override the auto-detected run ID
-  ding run --run-id manual-debug -- ./flaky-script.sh`,
+  ding run --run-id manual-debug -- ./flaky-script.sh
+
+  # Preview alerts without sending to notifiers
+  ding run --dry-run --config alerts.yaml -- ./script.sh`,
 		DisableFlagsInUseLine: true,
 		Args:                  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRun(configPath, runIDOverride, args)
+			return runRun(configPath, runIDOverride, args, dryRun, format, noColor)
 		},
 	}
 	cmd.Flags().StringVar(&configPath, "config", "ding.yaml", "path to config file")
 	cmd.Flags().StringVar(&runIDOverride, "run-id", "", "override auto-detected run ID")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview alerts without sending to notifiers")
+	cmd.Flags().StringVar(&format, "format", "auto", "output format when --dry-run is set: auto, text, json")
+	cmd.Flags().BoolVar(&noColor, "no-color", false, "disable ANSI color in dry-run text output")
 	return cmd
 }
 
-func runRun(configPath, runIDOverride string, args []string) error {
+func runRun(configPath, runIDOverride string, args []string, dryRun bool, format string, noColor bool) error {
+	// Validate dry-run format BEFORE loading config so we don't pay the
+	// config-load + notifier-construction cost just to reject a typo.
+	if dryRun {
+		switch format {
+		case "auto", "text", "json":
+			// ok
+		default:
+			return fmt.Errorf("invalid --format %q: must be auto, text, or json", format)
+		}
+	}
+
 	collector := metrics.NewCollector()
 
 	eng, cfg, notifiers, alertLogger, jqCode, err := server.BuildFromConfig(configPath, collector)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
+	}
+
+	var dispatcher Dispatcher
+	if dryRun {
+		formatter := pickFormatter(format, noColor, os.Stderr)
+		dispatcher = dryrun.NewLoggingDispatcher(formatter, os.Stderr)
+	} else {
+		dispatcher = &NotifierDispatcher{
+			Notifiers:   notifiers,
+			AlertLogger: alertLogger,
+		}
 	}
 	// Drain handler — runs from both the deferred path (covers early returns
 	// from config errors, command-start failures, etc.) and the explicit path
@@ -85,9 +117,11 @@ func runRun(configPath, runIDOverride string, args []string) error {
 			return
 		}
 		drained = true
-		drainNotifiers(notifiers, cfg.Server.DrainTimeout.Duration)
-		if alertLogger != nil {
-			_ = alertLogger.Close()
+		if !dryRun {
+			drainNotifiers(notifiers, cfg.Server.DrainTimeout.Duration)
+			if alertLogger != nil {
+				_ = alertLogger.Close()
+			}
 		}
 	}
 	defer drainOnce()
@@ -134,11 +168,11 @@ func runRun(configPath, runIDOverride string, args []string) error {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		ingestStream(stdoutPipe, os.Stdout, eng, notifiers, alertLogger, cfg, jqCode, rc)
+		ingestStream(stdoutPipe, os.Stdout, eng, dispatcher, cfg, jqCode, rc)
 	}()
 	go func() {
 		defer wg.Done()
-		ingestStream(stderrPipe, os.Stderr, eng, notifiers, alertLogger, cfg, jqCode, rc)
+		ingestStream(stderrPipe, os.Stderr, eng, dispatcher, cfg, jqCode, rc)
 	}()
 
 	wg.Wait()
@@ -162,11 +196,11 @@ func runRun(configPath, runIDOverride string, args []string) error {
 	// Synthetic run.exit event flows through the engine like any other —
 	// during-run rules matching metric: run.exit fire here.
 	summary := rc.SummaryEvent(exitCode)
-	dispatchEvent(summary, eng, notifiers, alertLogger)
+	dispatchEvent(summary, eng, dispatcher)
 
 	// End-of-run rules accumulate state during the run; fire them now.
 	endAlerts := eng.ProcessEndOfRun(time.Now())
-	dispatchAlerts(endAlerts, notifiers, alertLogger)
+	dispatcher.Dispatch(endAlerts)
 
 	log.Printf("ding: run end — run_id=%s exit_code=%d duration=%.1fs",
 		rc.RunID, exitCode, time.Since(rc.StartedAt).Seconds())
@@ -209,8 +243,7 @@ func ingestStream(
 	r io.Reader,
 	mirror io.Writer,
 	eng *evaluator.Engine,
-	notifiers map[string]notifier.Notifier,
-	alertLogger *notifier.AlertLogger,
+	dispatcher Dispatcher,
 	cfg *config.Config,
 	jqCode *gojq.Code,
 	rc *runctx.Context,
@@ -246,7 +279,7 @@ func ingestStream(
 		}
 		for _, ev := range events {
 			ev.Labels = rc.Apply(ev.Labels)
-			dispatchEvent(ev, eng, notifiers, alertLogger)
+			dispatchEvent(ev, eng, dispatcher)
 		}
 	}
 	// Scanner errors on closed pipes are expected at EOF; only log surprising ones.
@@ -255,36 +288,7 @@ func ingestStream(
 	}
 }
 
-func dispatchEvent(
-	ev ingester.Event,
-	eng *evaluator.Engine,
-	notifiers map[string]notifier.Notifier,
-	alertLogger *notifier.AlertLogger,
-) {
+func dispatchEvent(ev ingester.Event, eng *evaluator.Engine, dispatcher Dispatcher) {
 	alerts := eng.Process(ev, time.Now())
-	dispatchAlerts(alerts, notifiers, alertLogger)
-}
-
-func dispatchAlerts(
-	alerts []evaluator.Alert,
-	notifiers map[string]notifier.Notifier,
-	alertLogger *notifier.AlertLogger,
-) {
-	for _, alert := range alerts {
-		if alertLogger != nil {
-			if err := alertLogger.Log(alert); err != nil {
-				log.Printf("ding: alert log write error: %v", err)
-			}
-		}
-		for _, name := range alert.Notifiers {
-			n, ok := notifiers[name]
-			if !ok {
-				log.Printf("ding: unknown notifier %q for rule %q", name, alert.Rule)
-				continue
-			}
-			if err := n.Send(alert); err != nil {
-				log.Printf("ding: notifier %q error: %v", name, err)
-			}
-		}
-	}
+	dispatcher.Dispatch(alerts)
 }

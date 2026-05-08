@@ -390,6 +390,44 @@ For typical secrets (Slack URLs, PagerDuty tokens, API keys, opaque ID strings) 
 - No `${VAR:-default}` for inline defaults — set the env var to the default before launching DING.
 - No `$${VAR}` escape for writing literal `${VAR}` — the use case is rare; if you hit it, file an issue.
 
+## Testing rules without a workload
+
+DING ships two preview surfaces so you can verify rules before turning on real notifications.
+
+### `ding test-rule` — replay synthetic events
+
+Pipe or pass JSONL events at a config; matching rules render messages as if they were about to fire, but no notifications go out.
+
+```sh
+# Pipe events from any source
+echo '{"metric":"loss","value":1.5}' | ding test-rule --config ding.yaml
+
+# Read from a file (use - for explicit stdin)
+ding test-rule events.jsonl
+```
+
+Each input line is a JSON event in DING's normal shape: a `metric` field for matching, a `value` field for numeric conditions, and any other key/value pairs as labels (string) or floats (number). An optional `timestamp` field (RFC3339 string or Unix epoch number) controls the event's time for windowed rules; events without `timestamp` get sequential synthetic times starting from now.
+
+Output format auto-detects: human-readable text when stdout is a terminal, JSON (one object per line) when piped. Override with `--format text|json`. Disable color with `--no-color`.
+
+End-of-run rules (`mode: end-of-run`) fire after the last input event.
+
+### `ding run --dry-run` — wrap a real workload, suppress sends
+
+Same as `ding run`, but the dispatch boundary is swapped for a logging one — your wrapped command runs normally, events flow through the engine normally, the synthetic `run.exit` event still emits, end-of-run rules still fire, the wrapped command's exit code still propagates. Only `notifier.Send` is bypassed.
+
+```sh
+# Preview what alerts would fire on a real failing build
+ding run --dry-run --config ding.yaml -- pytest tests/
+
+# JSON output for piping (preview is on stderr; redirect to stdout for jq)
+ding run --dry-run --format json --config ding.yaml -- ./train.sh 2>&1 | jq
+```
+
+Preview output goes to stderr alongside the wrapped command's own stderr; the wrapped command's stdout stays clean for downstream tools that read it.
+
+---
+
 ## Platform-specific examples
 
 See [Recipes](recipes/index.md) for end-to-end configurations on specific CI/CD platforms (GitLab CI, Jenkins, Buildkite). Each recipe shows the auto-captured labels and the minimal `ding.yaml` for that platform.

@@ -108,6 +108,14 @@ When your command exits, DING:
 
 SIGTERM and SIGINT are forwarded to the child for graceful shutdown.
 
+After writing a rule, preview it without a real workload:
+
+```sh
+echo '{"metric":"loss","value":1.5}' | ding test-rule --config ding.yaml
+```
+
+For a full preview against a real run without sending notifications, use `ding run --dry-run -- <your-cmd>`.
+
 ### Run context, auto-detected
 
 DING reads the runner's environment variables and attaches labels automatically. No config required.

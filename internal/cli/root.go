@@ -30,6 +30,7 @@ Two modes:
 		newValidateCmd(),
 		newVersionCmd(version),
 		newInstallCmd(),
+		newTestRuleCmd(),
 	)
 	return root
 }
