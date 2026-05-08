@@ -93,6 +93,8 @@ func (f *JSONFormatter) Format(alert evaluator.Alert) []byte {
 	if env.Alerts == nil {
 		env.Alerts = []string{}
 	}
+	// jsonAlertEnvelope contains only stdlib-marshalable types (string, float64,
+	// []string, map[string]string, map[string]float64). Marshal cannot fail here.
 	b, _ := json.Marshal(env)
 	return append(b, '\n')
 }

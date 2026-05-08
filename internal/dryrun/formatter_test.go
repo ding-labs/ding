@@ -99,7 +99,10 @@ func TestJSONFormatter_RoundTrips(t *testing.T) {
 		t.Fatalf("JSONFormatter output is not valid JSON: %v\noutput: %s", err, out)
 	}
 
-	wantKeys := []string{"rule", "metric", "value", "message", "alerts", "fired_at", "labels", "floats", "avg"}
+	wantKeys := []string{
+		"rule", "metric", "value", "message", "alerts", "fired_at",
+		"labels", "floats", "avg", "max", "min", "count", "sum",
+	}
 	for _, k := range wantKeys {
 		if _, ok := got[k]; !ok {
 			t.Errorf("JSONFormatter output missing key %q", k)
@@ -110,5 +113,30 @@ func TestJSONFormatter_RoundTrips(t *testing.T) {
 	}
 	if alerts, _ := got["alerts"].([]any); len(alerts) != 2 {
 		t.Errorf("alerts should be 2 entries: got %v", alerts)
+	}
+}
+
+func TestJSONFormatter_NilNotifiers(t *testing.T) {
+	alert := evaluator.Alert{
+		Rule:      "x",
+		Metric:    "loss",
+		Value:     1,
+		Message:   "m",
+		Notifiers: nil,
+	}
+	out := (&JSONFormatter{}).Format(alert)
+	var got map[string]any
+	if err := json.Unmarshal(out, &got); err != nil {
+		t.Fatalf("not valid JSON: %v\noutput: %s", err, out)
+	}
+	alerts, ok := got["alerts"]
+	if !ok {
+		t.Fatalf("alerts key missing entirely")
+	}
+	if alerts == nil {
+		t.Errorf("alerts should serialize as [] not null when Notifiers is nil")
+	}
+	if arr, _ := alerts.([]any); arr == nil || len(arr) != 0 {
+		t.Errorf("expected empty array, got: %v", alerts)
 	}
 }
