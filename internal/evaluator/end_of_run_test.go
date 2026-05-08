@@ -306,6 +306,61 @@ func TestProcess_OverRun_FiresMidRunWithCooldown(t *testing.T) {
 	}
 }
 
+// TestProcess_OverRunCompoundAND verifies that a rule combining a run-bounded
+// windowed leaf (avg(value) over run > X) with a scalar leaf (value > Y) fires
+// only when both arms are true. Covers the spec example
+// "avg(value) over run > 70 AND value > 95" at the engine evaluation level.
+func TestProcess_OverRunCompoundAND(t *testing.T) {
+	rules := []EngineRule{
+		{
+			Name:      "high_and_spike",
+			Match:     map[string]string{"metric": "cpu"},
+			Condition: "avg(value) over run > 50 AND value > 90",
+			Cooldown:  10 * time.Minute,
+			Message:   "avg={{ .avg }} value={{ .value }}",
+			Alerts:    []string{"stdout"},
+		},
+	}
+	eng, err := NewEngine(rules, 1000)
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	// Events span 2 hours — proves the windowed leaf's buffer is run-bounded
+	// (a wall-clock window would have evicted the earliest events).
+	t0 := time.Now()
+	tick := func(i int) time.Time { return t0.Add(time.Duration(i) * 30 * time.Minute) }
+
+	// Event 1: value=10 → avg(10)=10 < 50; value=10 < 90. Both arms false.
+	if alerts := eng.Process(ingester.Event{Metric: "cpu", Value: 10, At: tick(0)}, tick(0)); len(alerts) > 0 {
+		t.Fatalf("event 1 fired prematurely: %#v", alerts[0])
+	}
+
+	// Event 2: value=20 → avg(10,20)=15 < 50; value=20 < 90.
+	if alerts := eng.Process(ingester.Event{Metric: "cpu", Value: 20, At: tick(1)}, tick(1)); len(alerts) > 0 {
+		t.Fatalf("event 2 fired prematurely: %#v", alerts[0])
+	}
+
+	// Event 3: value=100 → avg(10,20,100)=43.33 < 50; value=100 > 90.
+	// Right arm true, left arm false — AND fails. No fire.
+	if alerts := eng.Process(ingester.Event{Metric: "cpu", Value: 100, At: tick(2)}, tick(2)); len(alerts) > 0 {
+		t.Fatalf("event 3 fired (avg below threshold; AND should fail): %#v", alerts[0])
+	}
+
+	// Event 4: value=200 → avg(10,20,100,200)=82.5 > 50; value=200 > 90.
+	// Both arms true → fires.
+	alerts := eng.Process(ingester.Event{Metric: "cpu", Value: 200, At: tick(3)}, tick(3))
+	if len(alerts) != 1 {
+		t.Fatalf("event 4: expected 1 alert (both arms true), got %d", len(alerts))
+	}
+	if alerts[0].Avg != 82.5 {
+		t.Errorf("alert.Avg = %v, want 82.5", alerts[0].Avg)
+	}
+	if alerts[0].Count != 4 {
+		t.Errorf("alert.Count = %v, want 4 (all events accumulate run-bounded)", alerts[0].Count)
+	}
+}
+
 // TestParseLabelKey verifies that the labelKey reverser handles the formats
 // produced by LabelSetKey.
 func TestParseLabelKey(t *testing.T) {
