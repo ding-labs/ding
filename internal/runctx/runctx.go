@@ -1,7 +1,7 @@
 // Package runctx holds run/job-scoped metadata for `ding run` mode.
 //
 // A Context auto-detects the surrounding CI/job runner (GitHub Actions,
-// GitLab CI, CircleCI, Jenkins, Buildkite, Argo Workflows, Ray, MLflow, Kubernetes) from environment variables and exposes
+// GitLab CI, Jenkins, Buildkite, Argo Workflows, Ray, MLflow, Kubernetes) from environment variables and exposes
 // helpers that attach run-scoped labels to events flowing through the
 // alerting engine. On run exit, SummaryEvent produces a synthetic
 // "run.exit" event with the exit code and run duration so rules can
@@ -69,13 +69,6 @@ func (c *Context) detect() {
 		setIf(c.Labels, "branch", os.Getenv("CI_COMMIT_REF_NAME"))
 		setIf(c.Labels, "commit", os.Getenv("CI_COMMIT_SHA"))
 		setIf(c.Labels, "job", os.Getenv("CI_JOB_NAME"))
-	case os.Getenv("CIRCLECI") == "true":
-		c.Runner = "circleci"
-		c.RunID = os.Getenv("CIRCLE_BUILD_NUM")
-		setIf(c.Labels, "repo", os.Getenv("CIRCLE_PROJECT_REPONAME"))
-		setIf(c.Labels, "branch", os.Getenv("CIRCLE_BRANCH"))
-		setIf(c.Labels, "commit", os.Getenv("CIRCLE_SHA1"))
-		setIf(c.Labels, "job", os.Getenv("CIRCLE_JOB"))
 	case os.Getenv("JENKINS_URL") != "":
 		c.Runner = "jenkins"
 		c.RunID = os.Getenv("BUILD_TAG")

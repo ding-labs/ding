@@ -16,7 +16,6 @@ Recipes marked **Tier-2 candidate** in the table below have self-evaluated as ex
 |---|---|---|---|
 | [GitHub Actions](https://github.com/ding-labs/ding-action) | CI/CD | Tier 2 (separate repo) | shipped |
 | [GitLab CI](gitlab-ci.md) | CI/CD | Tier 1 | shipped |
-| [CircleCI](circleci.md) | CI/CD | Tier 1 | shipped (Tier-2 candidate) |
 | [Jenkins](jenkins.md) | CI/CD | Tier 1 | shipped (Tier-2 candidate) |
 | [Buildkite](buildkite.md) | CI/CD | Tier 1 | shipped (Tier-2 candidate) |
 | [Kubernetes Jobs / CronJobs](kubernetes-jobs.md) | Orchestration | Tier 1 | shipped (Tier-2 candidate) |

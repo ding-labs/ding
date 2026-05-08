@@ -81,7 +81,7 @@ If the alert doesn't fire, check the Jenkins build console for `ding` output. Co
 
 ## Tradeoffs / known limitations
 
-- **No SCM-aware labels by default.** Unlike GitHub Actions / GitLab CI / CircleCI, Jenkins doesn't have a single `BRANCH` env var that works across all SCM plugins. You'll need to surface `GIT_BRANCH` / `GIT_COMMIT` (Git plugin) or equivalent yourself.
+- **No SCM-aware labels by default.** Unlike GitHub Actions or GitLab CI, Jenkins doesn't have a single `BRANCH` env var that works across all SCM plugins. You'll need to surface `GIT_BRANCH` / `GIT_COMMIT` (Git plugin) or equivalent yourself.
 - **Binary download per job.** Cache DING in a Docker agent image, or as a [Tool Installation](https://www.jenkins.io/doc/book/managing/tools/) configuration on the controller.
 - **No native plugin (yet).** A Jenkins plugin would expose alerts in the build console UI alongside DING's stdout. That's the most likely Tier-2 abstraction.
 
