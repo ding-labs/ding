@@ -17,9 +17,10 @@ type StateSnapshot struct {
 }
 
 type BufferSnapshot struct {
-	Window  time.Duration   `json:"window_ns"`
-	MaxSize int             `json:"max_size"`
-	Entries []EntrySnapshot `json:"entries"`
+	Window     time.Duration   `json:"window_ns"`
+	MaxSize    int             `json:"max_size"`
+	RunBounded bool            `json:"run_bounded,omitempty"`
+	Entries    []EntrySnapshot `json:"entries"`
 }
 
 type EntrySnapshot struct {
@@ -47,9 +48,10 @@ func SnapshotEngine(e *Engine) StateSnapshot {
 			entries[i] = EntrySnapshot{Value: ent.value, At: ent.at.UTC()}
 		}
 		snap.Buffers[key] = BufferSnapshot{
-			Window:  rb.window,
-			MaxSize: rb.maxSize,
-			Entries: entries,
+			Window:     rb.window,
+			MaxSize:    rb.maxSize,
+			RunBounded: rb.runBounded,
+			Entries:    entries,
 		}
 		rb.mu.Unlock()
 	}
@@ -72,11 +74,18 @@ func SnapshotEngine(e *Engine) StateSnapshot {
 func RestoreEngine(e *Engine, snap StateSnapshot, now time.Time) {
 	e.bufMu.Lock()
 	for key, bs := range snap.Buffers {
-		rb := NewRingBuffer(bs.Window, bs.MaxSize, false)
-		cutoff := now.Add(-bs.Window)
-		for _, ent := range bs.Entries {
-			if ent.At.After(cutoff) {
+		rb := NewRingBuffer(bs.Window, bs.MaxSize, bs.RunBounded)
+		if bs.RunBounded {
+			// Run-bounded buffers don't evict by time; restore all entries.
+			for _, ent := range bs.Entries {
 				rb.entries = append(rb.entries, entry{value: ent.Value, at: ent.At})
+			}
+		} else {
+			cutoff := now.Add(-bs.Window)
+			for _, ent := range bs.Entries {
+				if ent.At.After(cutoff) {
+					rb.entries = append(rb.entries, entry{value: ent.Value, at: ent.At})
+				}
 			}
 		}
 		if len(rb.entries) > 0 {

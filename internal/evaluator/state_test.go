@@ -408,3 +408,62 @@ func keysOf(m map[string]evaluator.BufferSnapshot) []string {
 	}
 	return keys
 }
+
+// TestSnapshotRestore_RunBoundedRoundtrips verifies that a run-bounded
+// buffer's RunBounded flag and full entry list survive a snapshot/restore
+// cycle. The wall-clock cutoff filter must NOT be applied during restore
+// for run-bounded buffers — otherwise all entries older than `now` would
+// be dropped on restore.
+func TestSnapshotRestore_RunBoundedRoundtrips(t *testing.T) {
+	rules := []evaluator.EngineRule{
+		{
+			Name:      "whole_run_avg",
+			Match:     map[string]string{"metric": "mem"},
+			Condition: "avg(value) over run > 50",
+			Mode:      "end-of-run",
+			Alerts:    []string{"stdout"},
+		},
+	}
+	eng1, err := evaluator.NewEngine(rules, 1000)
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	t0 := time.Now().Add(-1 * time.Hour) // entries are 1h old
+	eng1.Process(ingester.Event{Metric: "mem", Value: 60, At: t0}, t0)
+	eng1.Process(ingester.Event{Metric: "mem", Value: 80, At: t0.Add(30 * time.Minute)}, t0.Add(30*time.Minute))
+
+	snap := evaluator.SnapshotEngine(eng1)
+	if len(snap.Buffers) == 0 {
+		t.Fatal("expected at least one buffer in snapshot")
+	}
+	for key, bs := range snap.Buffers {
+		if !bs.RunBounded {
+			t.Errorf("snapshot buffer %q has RunBounded=false; expected true", key)
+		}
+		if len(bs.Entries) != 2 {
+			t.Errorf("snapshot buffer %q has %d entries; expected 2", key, len(bs.Entries))
+		}
+	}
+
+	// Restore into a fresh engine. Entries are 1 hour old; if the cutoff
+	// filter were applied to a run-bounded buffer it would drop them.
+	eng2, err := evaluator.NewEngine(rules, 1000)
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+	evaluator.RestoreEngine(eng2, snap, time.Now())
+
+	snap2 := evaluator.SnapshotEngine(eng2)
+	if len(snap2.Buffers) == 0 {
+		t.Fatal("expected restored buffer to have entries")
+	}
+	for key, bs := range snap2.Buffers {
+		if !bs.RunBounded {
+			t.Errorf("restored buffer %q has RunBounded=false; expected true", key)
+		}
+		if len(bs.Entries) != 2 {
+			t.Errorf("restored buffer %q has %d entries; expected 2 (cutoff must not apply)", key, len(bs.Entries))
+		}
+	}
+}
