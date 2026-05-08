@@ -132,6 +132,9 @@ rules:
 	if !strings.Contains(got, "avg mem: 60") {
 		t.Errorf("expected rendered message to show avg=60 across whole run:\n%s", got)
 	}
+	if got := strings.Count(out.String(), "would fire"); got != 1 {
+		t.Errorf("expected exactly 1 fire (mode: end-of-run), got %d:\n%s", got, out.String())
+	}
 }
 
 func TestRunTestRule_NoMatch_SilentStdout(t *testing.T) {
