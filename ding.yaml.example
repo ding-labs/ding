@@ -5,6 +5,11 @@
 #                         events the command emits + the synthetic run.exit
 #   ding serve            long-running HTTP daemon; rules evaluate against
 #                         events POSTed to /ingest or piped via stdin
+#
+# Preview rules without sending notifications:
+#   echo '{"metric":"name","value":42}' | ding test-rule --config ding.yaml
+#   ding run --dry-run --config ding.yaml -- ./your-script.sh
+# See: docs/configuration.md#testing-rules-without-a-workload
 
 server:
   port: 8080
