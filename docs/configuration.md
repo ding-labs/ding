@@ -392,4 +392,4 @@ For typical secrets (Slack URLs, PagerDuty tokens, API keys, opaque ID strings) 
 
 ## Platform-specific examples
 
-See [Recipes](recipes/index.md) for end-to-end configurations on specific CI/CD platforms (GitLab CI, CircleCI, Jenkins, Buildkite). Each recipe shows the auto-captured labels and the minimal `ding.yaml` for that platform.
+See [Recipes](recipes/index.md) for end-to-end configurations on specific CI/CD platforms (GitLab CI, Jenkins, Buildkite). Each recipe shows the auto-captured labels and the minimal `ding.yaml` for that platform.

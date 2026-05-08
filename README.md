@@ -116,7 +116,6 @@ DING reads the runner's environment variables and attaches labels automatically.
 |---|---|---|
 | GitHub Actions | `GITHUB_ACTIONS=true` | `run_id`, `runner`, `repo`, `branch`, `commit`, `workflow`, `job`, `actor`, `event` |
 | GitLab CI | `GITLAB_CI=true` | `run_id`, `runner`, `repo`, `branch`, `commit`, `job` |
-| CircleCI | `CIRCLECI=true` | `run_id`, `runner`, `repo`, `branch`, `commit`, `job` |
 | Jenkins | `JENKINS_URL` set | `run_id`, `runner`, `job`, `build` |
 | Buildkite | `BUILDKITE=true` | `run_id`, `runner`, `repo`, `branch`, `commit` |
 | Argo Workflows | `ARGO_TEMPLATE` set | `run_id`, `runner`, `workflow`, `node`, `pod`, `namespace` |
@@ -266,7 +265,7 @@ The webhook receives a JSON POST:
 
 Looking for a config that works on your specific platform? See **[docs/recipes/](docs/recipes/index.md)** for platform-specific guides:
 
-- **CI/CD:** [GitHub Actions](https://github.com/ding-labs/ding-action) · [GitLab CI](docs/recipes/gitlab-ci.md) · [CircleCI](docs/recipes/circleci.md) · [Jenkins](docs/recipes/jenkins.md) · [Buildkite](docs/recipes/buildkite.md)
+- **CI/CD:** [GitHub Actions](https://github.com/ding-labs/ding-action) · [GitLab CI](docs/recipes/gitlab-ci.md) · [Jenkins](docs/recipes/jenkins.md) · [Buildkite](docs/recipes/buildkite.md)
 - **Orchestration:** [Kubernetes Jobs / CronJobs](docs/recipes/kubernetes-jobs.md) · [Argo Workflows](docs/recipes/argo-workflows.md)
 - **ML:** [MLflow](docs/recipes/mlflow.md) · [Ray Train / Tune](docs/recipes/ray.md) · [Modal](docs/recipes/modal.md)
 - More platforms (dbt, RunPod, Replicate, Airflow, …) coming in subsequent waves.

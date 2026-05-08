@@ -70,21 +70,6 @@ func TestNew_DetectsGitLabCI(t *testing.T) {
 	}
 }
 
-func TestNew_DetectsCircleCI(t *testing.T) {
-	clearCIEnv(t)
-	t.Setenv("CIRCLECI", "true")
-	t.Setenv("CIRCLE_BUILD_NUM", "7")
-	t.Setenv("CIRCLE_BRANCH", "main")
-
-	c := New()
-	if c.Runner != "circleci" {
-		t.Errorf("Runner = %q, want circleci", c.Runner)
-	}
-	if c.RunID != "7" {
-		t.Errorf("RunID = %q, want 7", c.RunID)
-	}
-}
-
 func TestNew_DetectsJenkins(t *testing.T) {
 	clearCIEnv(t)
 	t.Setenv("JENKINS_URL", "http://jenkins.local")
@@ -583,8 +568,6 @@ func clearCIEnv(t *testing.T) {
 		"GITHUB_SHA", "GITHUB_WORKFLOW", "GITHUB_JOB", "GITHUB_ACTOR", "GITHUB_EVENT_NAME",
 		"GITLAB_CI", "CI_PIPELINE_ID", "CI_PROJECT_PATH", "CI_COMMIT_REF_NAME",
 		"CI_COMMIT_SHA", "CI_JOB_NAME",
-		"CIRCLECI", "CIRCLE_BUILD_NUM", "CIRCLE_PROJECT_REPONAME", "CIRCLE_BRANCH",
-		"CIRCLE_SHA1", "CIRCLE_JOB",
 		"JENKINS_URL", "BUILD_TAG", "JOB_NAME", "BUILD_NUMBER",
 		"BUILDKITE", "BUILDKITE_BUILD_ID", "BUILDKITE_PIPELINE_SLUG",
 		"BUILDKITE_BRANCH", "BUILDKITE_COMMIT",
