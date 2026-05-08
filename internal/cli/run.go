@@ -72,12 +72,23 @@ is safe.`,
 	cmd.Flags().StringVar(&configPath, "config", "ding.yaml", "path to config file")
 	cmd.Flags().StringVar(&runIDOverride, "run-id", "", "override auto-detected run ID")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview alerts without sending to notifiers")
-	cmd.Flags().StringVar(&format, "format", "auto", "dry-run output format: auto, text, json")
+	cmd.Flags().StringVar(&format, "format", "auto", "output format when --dry-run is set: auto, text, json")
 	cmd.Flags().BoolVar(&noColor, "no-color", false, "disable ANSI color in dry-run text output")
 	return cmd
 }
 
 func runRun(configPath, runIDOverride string, args []string, dryRun bool, format string, noColor bool) error {
+	// Validate dry-run format BEFORE loading config so we don't pay the
+	// config-load + notifier-construction cost just to reject a typo.
+	if dryRun {
+		switch format {
+		case "auto", "text", "json":
+			// ok
+		default:
+			return fmt.Errorf("invalid --format %q: must be auto, text, or json", format)
+		}
+	}
+
 	collector := metrics.NewCollector()
 
 	eng, cfg, notifiers, alertLogger, jqCode, err := server.BuildFromConfig(configPath, collector)
@@ -87,13 +98,6 @@ func runRun(configPath, runIDOverride string, args []string, dryRun bool, format
 
 	var dispatcher Dispatcher
 	if dryRun {
-		// Validate format up front (matches test-rule contract)
-		switch format {
-		case "auto", "text", "json":
-			// ok
-		default:
-			return fmt.Errorf("invalid --format %q: must be auto, text, or json", format)
-		}
 		formatter := pickFormatter(format, noColor, os.Stderr)
 		dispatcher = dryrun.NewLoggingDispatcher(formatter, os.Stderr)
 	} else {
@@ -113,9 +117,11 @@ func runRun(configPath, runIDOverride string, args []string, dryRun bool, format
 			return
 		}
 		drained = true
-		drainNotifiers(notifiers, cfg.Server.DrainTimeout.Duration)
-		if alertLogger != nil {
-			_ = alertLogger.Close()
+		if !dryRun {
+			drainNotifiers(notifiers, cfg.Server.DrainTimeout.Duration)
+			if alertLogger != nil {
+				_ = alertLogger.Close()
+			}
 		}
 	}
 	defer drainOnce()
