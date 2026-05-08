@@ -406,9 +406,9 @@ echo '{"metric":"loss","value":1.5}' | ding test-rule --config ding.yaml
 ding test-rule events.jsonl
 ```
 
-Each input line is a JSON event in DING's normal shape: a `metric` field for matching, a `value` field for numeric conditions, and any other key/value pairs as labels (string) or floats (number). An optional `timestamp` field (RFC3339) controls the event's time for windowed rules; events without `timestamp` get sequential synthetic times starting from now.
+Each input line is a JSON event in DING's normal shape: a `metric` field for matching, a `value` field for numeric conditions, and any other key/value pairs as labels (string) or floats (number). An optional `timestamp` field (RFC3339 string or Unix epoch number) controls the event's time for windowed rules; events without `timestamp` get sequential synthetic times starting from now.
 
-Output format auto-detects: human-readable text when stdout is a terminal, JSONL when piped. Override with `--format text|json`. Disable color with `--no-color`.
+Output format auto-detects: human-readable text when stdout is a terminal, JSON (one object per line) when piped. Override with `--format text|json`. Disable color with `--no-color`.
 
 End-of-run rules (`mode: end-of-run`) fire after the last input event.
 
