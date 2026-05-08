@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ding-labs/ding/internal/config"
+	"github.com/ding-labs/ding/internal/dryrun"
 	"github.com/ding-labs/ding/internal/evaluator"
 	"github.com/ding-labs/ding/internal/ingester"
 	"github.com/ding-labs/ding/internal/metrics"
@@ -27,6 +28,9 @@ import (
 func newRunCmd() *cobra.Command {
 	var configPath string
 	var runIDOverride string
+	var dryRun bool
+	var format string
+	var noColor bool
 
 	cmd := &cobra.Command{
 		Use:   "run [flags] -- <command> [args...]",
@@ -55,19 +59,25 @@ is safe.`,
   ding run -- python train.py --epochs 100
 
   # Override the auto-detected run ID
-  ding run --run-id manual-debug -- ./flaky-script.sh`,
+  ding run --run-id manual-debug -- ./flaky-script.sh
+
+  # Preview alerts without sending to notifiers
+  ding run --dry-run --config alerts.yaml -- ./script.sh`,
 		DisableFlagsInUseLine: true,
 		Args:                  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRun(configPath, runIDOverride, args)
+			return runRun(configPath, runIDOverride, args, dryRun, format, noColor)
 		},
 	}
 	cmd.Flags().StringVar(&configPath, "config", "ding.yaml", "path to config file")
 	cmd.Flags().StringVar(&runIDOverride, "run-id", "", "override auto-detected run ID")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview alerts without sending to notifiers")
+	cmd.Flags().StringVar(&format, "format", "auto", "dry-run output format: auto, text, json")
+	cmd.Flags().BoolVar(&noColor, "no-color", false, "disable ANSI color in dry-run text output")
 	return cmd
 }
 
-func runRun(configPath, runIDOverride string, args []string) error {
+func runRun(configPath, runIDOverride string, args []string, dryRun bool, format string, noColor bool) error {
 	collector := metrics.NewCollector()
 
 	eng, cfg, notifiers, alertLogger, jqCode, err := server.BuildFromConfig(configPath, collector)
@@ -75,9 +85,22 @@ func runRun(configPath, runIDOverride string, args []string) error {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	dispatcher := &NotifierDispatcher{
-		Notifiers:   notifiers,
-		AlertLogger: alertLogger,
+	var dispatcher Dispatcher
+	if dryRun {
+		// Validate format up front (matches test-rule contract)
+		switch format {
+		case "auto", "text", "json":
+			// ok
+		default:
+			return fmt.Errorf("invalid --format %q: must be auto, text, or json", format)
+		}
+		formatter := pickFormatter(format, noColor, os.Stderr)
+		dispatcher = dryrun.NewLoggingDispatcher(formatter, os.Stderr)
+	} else {
+		dispatcher = &NotifierDispatcher{
+			Notifiers:   notifiers,
+			AlertLogger: alertLogger,
+		}
 	}
 	// Drain handler — runs from both the deferred path (covers early returns
 	// from config errors, command-start failures, etc.) and the explicit path

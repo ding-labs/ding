@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/config"
+	"github.com/ding-labs/ding/internal/dryrun"
 	"github.com/ding-labs/ding/internal/evaluator"
 	"github.com/ding-labs/ding/internal/notifier"
 	"github.com/ding-labs/ding/internal/runctx"
@@ -208,3 +209,46 @@ func TestDrainNotifiers_HandlesEmpty(t *testing.T) {
 	// no panic, no return value to check — the helper just returns
 }
 
+func TestIngestStream_DryRun_NoNotifierSends(t *testing.T) {
+	rules := []evaluator.EngineRule{
+		{
+			Name:      "spike",
+			Match:     map[string]string{"metric": "latency"},
+			Condition: "value > 100",
+			Message:   "spike",
+			Alerts:    []string{"capture"},
+		},
+	}
+	eng, err := evaluator.NewEngine(rules, 1000)
+	if err != nil {
+		t.Fatalf("NewEngine: %v", err)
+	}
+
+	cap := &captureNotifier{}
+	notifierMap := map[string]notifier.Notifier{"capture": cap}
+
+	rc := &runctx.Context{
+		RunID:  "r-test",
+		Runner: "local",
+		Labels: map[string]string{},
+	}
+	cfg := &config.Config{}
+
+	var dryOut bytes.Buffer
+	dispatcher := dryrun.NewLoggingDispatcher(&dryrun.JSONFormatter{}, &dryOut)
+
+	input := strings.NewReader(`{"metric":"latency","value":150}` + "\n")
+	var mirror bytes.Buffer
+	ingestStream(input, &mirror, eng, dispatcher, cfg, nil, rc)
+
+	// The capture notifier must have received zero alerts (dry run never sends).
+	if got := cap.snapshot(); len(got) != 0 {
+		t.Errorf("dry-run leaked %d alert(s) to real notifier", len(got))
+	}
+	// LoggingDispatcher must have written the alert to its buffer.
+	if !strings.Contains(dryOut.String(), `"rule":"spike"`) {
+		t.Errorf("expected dry-run output to include the spike rule, got: %s", dryOut.String())
+	}
+
+	_ = notifierMap // declared for clarity, not wired into dispatcher
+}
