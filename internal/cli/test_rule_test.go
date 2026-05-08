@@ -90,6 +90,50 @@ rules:
 	}
 }
 
+func TestRunTestRule_OverRunWindow_AggregatesAcrossRun(t *testing.T) {
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "ding.yaml")
+	if err := os.WriteFile(cfg, []byte(`
+notifiers:
+  slack:
+    type: webhook
+    url: https://example.invalid/webhook
+rules:
+  - name: high_avg_mem
+    match: { metric: mem }
+    condition: avg(value) over run > 50
+    mode: end-of-run
+    message: "avg mem: {{ .avg }}"
+    alert:
+      - notifier: slack
+`), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	// Three events spanning 2 hours — far wider than any wall-clock window
+	// the test would plausibly use. avg(40, 60, 80) = 60 > 50, so the
+	// end-of-run rule should fire with avg=60.
+	events := `{"metric":"mem","value":40,"timestamp":"2026-05-08T10:00:00Z"}
+{"metric":"mem","value":60,"timestamp":"2026-05-08T11:00:00Z"}
+{"metric":"mem","value":80,"timestamp":"2026-05-08T12:00:00Z"}
+`
+	in := strings.NewReader(events)
+	var out, errBuf bytes.Buffer
+
+	err := runTestRule(cfg, "text", false, in, &out, &errBuf)
+	if err != nil {
+		t.Fatalf("runTestRule: %v\nstderr: %s", err, errBuf.String())
+	}
+
+	got := out.String()
+	if !strings.Contains(got, "high_avg_mem") {
+		t.Errorf("expected high_avg_mem rule to fire at end-of-run:\n%s", got)
+	}
+	if !strings.Contains(got, "avg mem: 60") {
+		t.Errorf("expected rendered message to show avg=60 across whole run:\n%s", got)
+	}
+}
+
 func TestRunTestRule_NoMatch_SilentStdout(t *testing.T) {
 	dir := t.TempDir()
 	cfg := writeFixtureConfig(t, dir)
