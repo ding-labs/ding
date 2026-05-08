@@ -420,11 +420,11 @@ Same as `ding run`, but the dispatch boundary is swapped for a logging one — y
 # Preview what alerts would fire on a real failing build
 ding run --dry-run --config ding.yaml -- pytest tests/
 
-# JSON output for piping
-ding run --dry-run --format json --config ding.yaml -- ./train.sh | jq
+# JSON output for piping (preview is on stderr; redirect to stdout for jq)
+ding run --dry-run --format json --config ding.yaml -- ./train.sh 2>&1 | jq
 ```
 
-Preview output goes to stderr (so the wrapped command's own stdout/stderr is uncontaminated by alert lines).
+Preview output goes to stderr alongside the wrapped command's own stderr; the wrapped command's stdout stays clean for downstream tools that read it.
 
 ---
 

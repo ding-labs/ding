@@ -73,6 +73,14 @@ func openTestRuleInput(args []string) (io.Reader, func(), error) {
 }
 
 func runTestRule(configPath, format string, noColor bool, input io.Reader, stdout, stderr io.Writer) error {
+	// Validate format BEFORE loading config so a typo doesn't pay the config-load cost.
+	switch format {
+	case "auto", "text", "json":
+		// ok
+	default:
+		return fmt.Errorf("invalid --format %q: must be auto, text, or json", format)
+	}
+
 	eng, _, _, _, _, err := server.BuildFromConfig(configPath, nil)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
@@ -81,13 +89,6 @@ func runTestRule(configPath, format string, noColor bool, input io.Reader, stdou
 	rc := runctx.New()
 	if rc.Runner == "local" {
 		fmt.Fprintln(stderr, "ding: note — runner=local; rules matching on a specific runner label will not match.")
-	}
-
-	switch format {
-	case "auto", "text", "json":
-		// ok
-	default:
-		return fmt.Errorf("invalid --format %q: must be auto, text, or json", format)
 	}
 
 	formatter := pickFormatter(format, noColor, stdout)
