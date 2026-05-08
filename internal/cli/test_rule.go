@@ -83,6 +83,13 @@ func runTestRule(configPath, format string, noColor bool, input io.Reader, stdou
 		fmt.Fprintln(stderr, "ding: note — runner=local; rules matching on a specific runner label will not match.")
 	}
 
+	switch format {
+	case "auto", "text", "json":
+		// ok
+	default:
+		return fmt.Errorf("invalid --format %q: must be auto, text, or json", format)
+	}
+
 	formatter := pickFormatter(format, noColor, stdout)
 	dispatcher := dryrun.NewLoggingDispatcher(formatter, stdout)
 
@@ -103,11 +110,10 @@ func runTestRule(configPath, format string, noColor bool, input io.Reader, stdou
 			continue
 		}
 		for _, ev := range events {
-			if ev.At.IsZero() {
-				ev.At = syntheticBase.Add(time.Duration(idx) * time.Second)
+			if t, ok := resolveTimestamp(line); ok {
+				ev.At = t
 			} else {
-				// ParseJSONLine only handles Unix epoch timestamps; try RFC3339 override.
-				ev.At = resolveTimestamp(line, ev.At)
+				ev.At = syntheticBase.Add(time.Duration(idx) * time.Second)
 			}
 			ev.Labels = rc.Apply(ev.Labels)
 			lastAt = ev.At
@@ -129,28 +135,31 @@ func runTestRule(configPath, format string, noColor bool, input io.Reader, stdou
 	return nil
 }
 
-// resolveTimestamp tries to parse a "timestamp" field from raw JSON as RFC3339.
-// If successful it returns the parsed time; otherwise it returns the fallback.
-// This extends ParseJSONLine (which handles Unix epoch floats) to also accept
-// RFC3339 strings — useful for test fixtures and replayed log lines.
-func resolveTimestamp(raw []byte, fallback time.Time) time.Time {
-	var obj map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &obj); err != nil {
-		return fallback
+// resolveTimestamp inspects the raw JSON line for a `timestamp` field.
+// Returns the parsed timestamp + true on success.
+// Returns zero time + false when the field is absent, malformed, or unparsable.
+//
+// Accepts: RFC3339 strings ("2026-05-08T10:00:00Z"), Unix epoch floats (1715166000),
+// Unix epoch ints. Mirrors ingester.ParseJSONLine's accepted forms for the
+// numeric case, plus adds RFC3339 support that the ingester does not have today.
+func resolveTimestamp(raw []byte) (time.Time, bool) {
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return time.Time{}, false
 	}
-	tsRaw, ok := obj["timestamp"]
+	v, ok := m["timestamp"]
 	if !ok {
-		return fallback
+		return time.Time{}, false
 	}
-	var s string
-	if err := json.Unmarshal(tsRaw, &s); err != nil {
-		return fallback
+	switch tv := v.(type) {
+	case string:
+		if t, err := time.Parse(time.RFC3339, tv); err == nil {
+			return t, true
+		}
+	case float64:
+		return time.Unix(int64(tv), 0).UTC(), true
 	}
-	t, err := time.Parse(time.RFC3339, s)
-	if err != nil {
-		return fallback
-	}
-	return t
+	return time.Time{}, false
 }
 
 func pickFormatter(format string, noColor bool, out io.Writer) dryrun.Formatter {

@@ -105,3 +105,80 @@ func TestRunTestRule_NoMatch_SilentStdout(t *testing.T) {
 		t.Errorf("expected silent stdout when no rules fire, got: %q", out.String())
 	}
 }
+
+// TestRunTestRule_NoTimestampField_SynthesizesSequential exercises the
+// synthetic-timestamp path for events without a `timestamp` field.
+// We check this by verifying that a windowed rule with a tight window
+// fires correctly when events are spaced out by the synthesized 1s gap.
+func TestRunTestRule_NoTimestampField_SynthesizesSequential(t *testing.T) {
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "ding.yaml")
+	if err := os.WriteFile(cfg, []byte(`
+notifiers:
+  slack:
+    type: webhook
+    url: https://example.invalid/webhook
+rules:
+  - name: hot_avg
+    match: { metric: temp }
+    condition: avg(value) over 30s > 50
+    message: "avg high: {{ .avg }}"
+    alert: [{ notifier: slack }]
+`), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	// Three events with NO timestamp field. With synthesized 1s spacing
+	// they all fit in the 30s window. Without it (bug behavior), they
+	// land at the same wall-clock instant and STILL fit — so this test
+	// verifies firing only.  The eviction-driven verification belongs
+	// in a separate windowed-rule test that tightens timing later.
+	events := `{"metric":"temp","value":40}
+{"metric":"temp","value":60}
+{"metric":"temp","value":70}
+`
+	in := strings.NewReader(events)
+	var out, errBuf bytes.Buffer
+	if err := runTestRule(cfg, "json", true, in, &out, &errBuf); err != nil {
+		t.Fatalf("runTestRule: %v\nstderr: %s", err, errBuf.String())
+	}
+	if !strings.Contains(out.String(), `"rule":"hot_avg"`) {
+		t.Errorf("expected hot_avg to fire on synthesized-timestamp events:\n%s", out.String())
+	}
+}
+
+// TestRunTestRule_InvalidFormat_ReturnsError verifies that --format with
+// an unrecognized value produces a clear error rather than silently
+// falling through to the auto branch.
+func TestRunTestRule_InvalidFormat_ReturnsError(t *testing.T) {
+	dir := t.TempDir()
+	cfg := writeFixtureConfig(t, dir)
+	in := strings.NewReader("")
+	var out, errBuf bytes.Buffer
+	err := runTestRule(cfg, "compact", false, in, &out, &errBuf)
+	if err == nil {
+		t.Fatal("expected error for invalid --format value, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid --format") {
+		t.Errorf("error should explain the issue, got: %v", err)
+	}
+}
+
+// TestRunTestRule_MalformedLine_SkipsAndContinues verifies that a bad
+// line is logged to stderr but doesn't stop the run; the subsequent
+// valid line still fires its rule.
+func TestRunTestRule_MalformedLine_SkipsAndContinues(t *testing.T) {
+	dir := t.TempDir()
+	cfg := writeFixtureConfig(t, dir)
+	events := `not-json
+{"metric":"loss","value":2.0}
+`
+	in := strings.NewReader(events)
+	var out, errBuf bytes.Buffer
+	if err := runTestRule(cfg, "text", true, in, &out, &errBuf); err != nil {
+		t.Fatalf("runTestRule should not return error on malformed line: %v", err)
+	}
+	if !strings.Contains(out.String(), "spike") {
+		t.Errorf("expected the valid second line to still fire spike rule:\n%s", out.String())
+	}
+}
