@@ -42,7 +42,7 @@ func (f *TextFormatter) Format(alert evaluator.Alert) []byte {
 			ansiGreen, rule, ansiReset, ansiCyan, ansiReset, notifiers)
 		fmt.Fprintf(&b, "%s  metric: %s · value: %.2f%s\n",
 			ansiDim, alert.Metric, alert.Value, ansiReset)
-		fmt.Fprintf(&b, "  message: %s\n", alert.Message)
+		fmt.Fprintf(&b, "%s  message:%s %s\n", ansiDim, ansiReset, alert.Message)
 	} else {
 		fmt.Fprintf(&b, "✓ %s — would fire (alerts: %s)\n", rule, notifiers)
 		fmt.Fprintf(&b, "  metric: %s · value: %.2f\n", alert.Metric, alert.Value)

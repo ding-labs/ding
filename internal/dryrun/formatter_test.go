@@ -53,6 +53,9 @@ func TestTextFormatter_Color_EmitsANSIEscapes(t *testing.T) {
 	if !strings.Contains(got, "\x1b[") {
 		t.Errorf("Color=true did not emit ANSI escapes:\n%q", got)
 	}
+	if !strings.Contains(got, ansiReset) {
+		t.Errorf("Color=true output missing reset code — terminal would be left dirty:\n%q", got)
+	}
 }
 
 func TestTextFormatter_NoNotifiers(t *testing.T) {
