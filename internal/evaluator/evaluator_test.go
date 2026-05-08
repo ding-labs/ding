@@ -246,7 +246,7 @@ func TestRingBuffer_RunBounded_NoTimeEviction(t *testing.T) {
 	}
 }
 
-func TestRingBuffer_RunBounded_RespectsMaxSize(t *testing.T) {
+func TestRingBuffer_OverRun_RespectsMaxSize(t *testing.T) {
 	// Run-bounded does NOT mean unbounded memory; maxSize still clips
 	// from oldest. This protects ding from runaway buffers in long runs.
 	rb := evaluator.NewRingBuffer(0, 3, true)
