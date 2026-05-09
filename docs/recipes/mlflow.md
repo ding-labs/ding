@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- DING binary `>= v0.6.0` — see [install](../install.md)
+- DING binary `>= v0.10.0` — see [install](../install.md)
 - `mlflow >= 2.0` (`pip install mlflow`)
 - An MLflow tracking URI: local SQLite for dev; remote tracking server like Databricks or self-hosted (`mlflow server`) for production deep-links to work
 - A notifier endpoint (Slack webhook URL is the canonical example)
@@ -49,7 +49,7 @@ rules:
     match: { metric: run.exit }
     condition: value > 0
     message: |
-      MLflow run failed (exit {{ .exit_code }})
+      MLflow run failed (exit {{ .exit_code }} after {{ .duration_seconds }}s)
       <{{ .tracking_uri }}/#/experiments/{{ .experiment_id }}/runs/{{ .run_id }}|View run in MLflow UI>
     alert:
       - notifier: slack
@@ -87,7 +87,7 @@ A Slack message during training when `val_loss` exceeds threshold:
 …and on training-process exit:
 
 > 🔔 `training_failed`
-> MLflow run failed (exit 1)
+> MLflow run failed (exit 1 after 42s)
 > [View run in MLflow UI](#)
 
 The deep-link in the second message takes you straight to the MLflow run page. All alerts are auto-tagged with `run_id`, `runner=mlflow`, `experiment_id`, `tracking_uri`.
@@ -121,7 +121,7 @@ mlflow run . --env-manager=local
 #   3. labels include run_id, experiment_id, tracking_uri
 ```
 
-If the alert doesn't fire, check the `mlflow run` log for `ding` output. Common issues: `SLACK_WEBHOOK_URL` not exported in the shell that ran `mlflow run`, or `drain_timeout` shorter than the notifier retry window — see [Configuration](../configuration.md).
+If the alert doesn't fire, check the `mlflow run` log for `ding` output. Common issues: `SLACK_WEBHOOK_URL` not exported in the shell that ran `mlflow run`, or `drain_timeout` shorter than the notifier retry window — see [Configuration → drain_timeout](../configuration.md#drain_timeout-and-retry-behaviour-in-ding-run).
 
 ## Tradeoffs / known limitations
 

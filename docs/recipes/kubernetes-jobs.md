@@ -14,7 +14,7 @@
 
 ## Prerequisites
 
-- DING binary `>= v0.7.0` — see [install](../install.md). The recipe pulls the official container image `ghcr.io/ding-labs/ding:v0.7.0` (multi-arch, scratch base) into your Pod via an initContainer; no need to bake DING into your workload image.
+- DING binary `>= v0.10.0` — see [install](../install.md). The recipe pulls the official container image `ghcr.io/ding-labs/ding:v0.10.0` (multi-arch, scratch base) into your Pod via an initContainer; no need to bake DING into your workload image.
 - A Kubernetes cluster `>= 1.21` for the primary wrapper pattern below. The sidecar alternative documented in [Configuration](#sidecar-alternative-k8s-129) requires `>= 1.29` for native sidecar lifecycle.
 - `kubectl` access to a namespace where you can create Jobs, ConfigMaps, and Secrets.
 - A notifier endpoint (Slack webhook URL or custom webhook) you can store in a Kubernetes Secret.
@@ -58,7 +58,7 @@ data:
         match:
           metric: run.exit
         condition: value > 0
-        message: "{{ .pod }} (Job {{ .job_name }}) failed with exit {{ .exit_code }}"
+        message: "{{ .pod }} (Job {{ .job_name }}) failed with exit {{ .exit_code }} after {{ .duration_seconds }}s"
         alert:
           - notifier: slack
 ---
@@ -82,7 +82,7 @@ spec:
             name: ding-config
       initContainers:
         - name: install-ding
-          image: ghcr.io/ding-labs/ding:v0.7.0
+          image: ghcr.io/ding-labs/ding:v0.10.0
           # `ding install` self-copies the binary — works against the FROM-scratch
           # release image (no /bin/sh available). Added in DING v0.5.1.
           command: ["/ding", "install", "/shared/ding"]
@@ -184,7 +184,7 @@ spec:
     spec:
       initContainers:
         - name: ding
-          image: ghcr.io/ding-labs/ding:v0.7.0
+          image: ghcr.io/ding-labs/ding:v0.10.0
           restartPolicy: Always       # native sidecar — K8s 1.29+
           command: ["/ding", "serve", "--config", "/etc/ding/ding.yaml"]
           # ...volumeMounts for config + downward-API env block
@@ -225,7 +225,7 @@ rules:
   - name: job_failed
     match: { metric: run.exit }
     condition: value > 0
-    message: "Job failed (exit {{ .exit_code }})"
+    message: "Job failed (exit {{ .exit_code }} after {{ .duration_seconds }}s)"
     alert:
       - notifier: k8s
 ```

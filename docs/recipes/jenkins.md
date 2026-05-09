@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- DING binary `>= v0.3.0` — see [install](../install.md)
+- DING binary `>= v0.10.0` — see [install](../install.md)
 - A Jenkins controller (any version supporting Pipeline DSL — most do)
 - A notifier endpoint (Slack webhook URL, custom webhook, etc.) reachable from the Jenkins agent
 
@@ -47,7 +47,7 @@ rules:
     match:
       metric: run.exit
     condition: value > 0
-    message: "{{ .job }} build {{ .build }} failed (exit {{ .exit_code }})"
+    message: "{{ .job }} build {{ .build }} failed (exit {{ .exit_code }} after {{ .duration_seconds }}s)"
     alert:
       - notifier: slack
 ```
@@ -77,7 +77,7 @@ Note: Jenkins doesn't expose `repo`, `branch`, or `commit` as universal env vars
 2. Trigger the job. Confirm a successful build produces no alert.
 3. Force a failure (`exit 1` in `run-tests.sh`). Confirm the alert fires in Slack within ~5 seconds of build exit.
 
-If the alert doesn't fire, check the Jenkins build console for `ding` output. Common issues: webhook credential not exposed to the job (`withCredentials` block missing or wrong `credentialsId`), or `drain_timeout` shorter than the notifier retry window — see [Configuration](../configuration.md).
+If the alert doesn't fire, check the Jenkins build console for `ding` output. Common issues: webhook credential not exposed to the job (`withCredentials` block missing or wrong `credentialsId`), or `drain_timeout` shorter than the notifier retry window — see [Configuration → drain_timeout](../configuration.md#drain_timeout-and-retry-behaviour-in-ding-run).
 
 ## Tradeoffs / known limitations
 

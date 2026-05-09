@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- DING binary `>= v0.3.0` — see [install](../install.md)
+- DING binary `>= v0.10.0` — see [install](../install.md)
 - A Buildkite organization with at least one agent ([free trial available](https://buildkite.com/pricing))
 - A notifier endpoint (Slack webhook URL, custom webhook, etc.)
 
@@ -33,7 +33,7 @@ rules:
     match:
       metric: run.exit
     condition: value > 0
-    message: "{{ .repo }}@{{ .branch }} failed (exit {{ .exit_code }})"
+    message: "{{ .repo }}@{{ .branch }} failed (exit {{ .exit_code }} after {{ .duration_seconds }}s)"
     alert:
       - notifier: slack
 ```
@@ -64,7 +64,7 @@ Use these in `match.labels` or `message` templates. See [Configuration](../confi
 2. Trigger a build. Confirm a successful step produces no alert.
 3. Force a failure (`exit 1` in `run-tests.sh`). Confirm the alert fires in Slack within ~5 seconds of step exit.
 
-If the alert doesn't fire, check the Buildkite build log for `ding` output. Common issues: webhook URL not exposed (env hook scope, agent vs pipeline level), or `drain_timeout` shorter than the notifier retry window — see [Configuration](../configuration.md).
+If the alert doesn't fire, check the Buildkite build log for `ding` output. Common issues: webhook URL not exposed (env hook scope, agent vs pipeline level), or `drain_timeout` shorter than the notifier retry window — see [Configuration → drain_timeout](../configuration.md#drain_timeout-and-retry-behaviour-in-ding-run).
 
 ## Native Buildkite UI surfacing
 

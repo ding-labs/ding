@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- DING binary `>= v0.7.1` — see [install](../install.md)
+- DING binary `>= v0.10.0` — see [install](../install.md)
 - `ray >= 2.0` (`pip install "ray[default]"`; add `train`/`tune` extras as needed for your workload)
 - A running Ray cluster: local single-node (`ray start --head`) for dev; KubeRay/Anyscale/EKS for production
 - A notifier endpoint (Slack webhook URL is the canonical example)
@@ -39,7 +39,7 @@ rules:
   - name: training_failed
     match: { metric: run.exit }
     condition: value > 0
-    message: "Ray job {{ .run_id }} failed (exit {{ .exit_code }})"
+    message: "Ray job {{ .run_id }} failed (exit {{ .exit_code }} after {{ .duration_seconds }}s)"
     alert:
       - notifier: slack
 ```
@@ -112,7 +112,7 @@ A Slack message during training when `val_loss` exceeds threshold:
 …and on training-process exit:
 
 > 🔔 `training_failed`
-> Ray job raysubmit_abcdef1234567890 failed (exit 1)
+> Ray job raysubmit_abcdef1234567890 failed (exit 1 after 1843s)
 
 All Path A alerts are auto-tagged with `run_id` + `runner=ray`. The `run_id` matches the UUID printed by `ray job list`.
 
@@ -125,7 +125,7 @@ All Path A alerts are auto-tagged with `run_id` + `runner=ray`. The `run_id` mat
 | `run_id` | `RAY_JOB_ID` | Ray job UUID matching `ray job list` output |
 | `runner` | `"ray"` (set by runctx) | |
 
-Use these in `match.labels` or `message` template variables. See [Configuration](../configuration.md) for the full reference.
+Use these in `match.labels` or `message` template variables. See [Configuration](../configuration.md) for the full notifier reference.
 
 ## Verification
 
@@ -146,7 +146,7 @@ ray job list
 ray stop
 ```
 
-If the alert doesn't fire, check the Ray driver logs (`ray job logs <id>`) for `ding` output. Common issues: `SLACK_WEBHOOK_URL` not forwarded via `--runtime-env-json`, or `drain_timeout` shorter than the notifier retry window — see [Configuration](../configuration.md).
+If the alert doesn't fire, check the Ray driver logs (`ray job logs <id>`) for `ding` output. Common issues: `SLACK_WEBHOOK_URL` not forwarded via `--runtime-env-json`, or `drain_timeout` shorter than the notifier retry window — see [Configuration → drain_timeout](../configuration.md#drain_timeout-and-retry-behaviour-in-ding-run).
 
 ## Tradeoffs / known limitations
 

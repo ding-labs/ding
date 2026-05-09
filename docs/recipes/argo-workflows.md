@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- DING binary `>= v0.7.0` — see [install](../install.md). The recipe pulls the official container image `ghcr.io/ding-labs/ding:v0.7.0` (multi-arch, scratch base) into each step's Pod via an initContainer; no need to bake DING into your workload image.
+- DING binary `>= v0.10.0` — see [install](../install.md). The recipe pulls the official container image `ghcr.io/ding-labs/ding:v0.10.0` (multi-arch, scratch base) into each step's Pod via an initContainer; no need to bake DING into your workload image.
 - Argo Workflows controller installed in the cluster, `>= v3.5` (most users on v3.5/v3.6 LTS series).
 - `kubectl` access to a namespace where you can create Workflows, ConfigMaps, and Secrets.
 - `argo` CLI installed locally (ships with the controller; one-line install per [Argo docs](https://argo-workflows.readthedocs.io/en/latest/quick-start/)).
@@ -49,7 +49,7 @@ data:
         match:
           metric: run.exit
         condition: value > 0
-        message: "Argo step {{ .pod }} (workflow {{ .workflow }}) failed with exit {{ .exit_code }}"
+        message: "Argo step {{ .pod }} (workflow {{ .workflow }}) failed with exit {{ .exit_code }} after {{ .duration_seconds }}s"
         alert:
           - notifier: slack
 ---
@@ -71,7 +71,7 @@ spec:
             name: ding-config
       initContainers:
         - name: install-ding
-          image: ghcr.io/ding-labs/ding:v0.7.0
+          image: ghcr.io/ding-labs/ding:v0.10.0
           # `ding install` self-copies the binary — works against the FROM-scratch
           # release image (no /bin/sh available). Added in DING v0.5.1.
           command: ["/ding", "install", "/shared/ding"]
@@ -173,7 +173,7 @@ spec:
         - { name: ding-config, configMap: { name: ding-config } }
       initContainers:
         - name: install-ding
-          image: ghcr.io/ding-labs/ding:v0.7.0
+          image: ghcr.io/ding-labs/ding:v0.10.0
           command: ["/ding", "install", "/shared/ding"]
           mirrorVolumeMounts: true
       container:
