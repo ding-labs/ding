@@ -39,7 +39,7 @@ rules:
   - name: training_failed
     match: { metric: run.exit }
     condition: value > 0
-    message: "Ray job {{ .run_id }} failed (exit {{ .exit_code }} after {{ .duration_seconds }}s)"
+    message: "Ray job {{ .run_id }} failed (exit {{ .exit_code }} after {{ .duration_seconds | humanize_duration }})"
     alert:
       - notifier: slack
 ```

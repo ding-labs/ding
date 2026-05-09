@@ -67,7 +67,7 @@ rules:
   - name: training_failed
     match: { metric: run.exit }
     condition: value > 0
-    message: "Modal function {{ .function_name }} (task {{ .modal_task_id }}) failed (exit {{ .exit_code }} after {{ .duration_seconds }}s)"
+    message: "Modal function {{ .function_name }} (task {{ .modal_task_id }}) failed (exit {{ .exit_code }} after {{ .duration_seconds | humanize_duration }})"
     alert:
       - notifier: slack
 ```

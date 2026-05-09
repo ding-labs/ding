@@ -58,7 +58,7 @@ data:
         match:
           metric: run.exit
         condition: value > 0
-        message: "{{ .pod }} (Job {{ .job_name }}) failed with exit {{ .exit_code }} after {{ .duration_seconds }}s"
+        message: "{{ .pod }} (Job {{ .job_name }}) failed with exit {{ .exit_code }} after {{ .duration_seconds | humanize_duration }}"
         alert:
           - notifier: slack
 ---
@@ -225,7 +225,7 @@ rules:
   - name: job_failed
     match: { metric: run.exit }
     condition: value > 0
-    message: "Job failed (exit {{ .exit_code }} after {{ .duration_seconds }}s)"
+    message: "Job failed (exit {{ .exit_code }} after {{ .duration_seconds | humanize_duration }})"
     alert:
       - notifier: k8s
 ```

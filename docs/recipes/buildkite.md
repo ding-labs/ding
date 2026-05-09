@@ -33,7 +33,7 @@ rules:
     match:
       metric: run.exit
     condition: value > 0
-    message: "{{ .repo }}@{{ .branch }} failed (exit {{ .exit_code }} after {{ .duration_seconds }}s)"
+    message: "{{ .repo }}@{{ .branch }} failed (exit {{ .exit_code }} after {{ .duration_seconds | humanize_duration }})"
     alert:
       - notifier: slack
 ```

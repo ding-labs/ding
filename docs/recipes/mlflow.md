@@ -49,7 +49,7 @@ rules:
     match: { metric: run.exit }
     condition: value > 0
     message: |
-      MLflow run failed (exit {{ .exit_code }} after {{ .duration_seconds }}s)
+      MLflow run failed (exit {{ .exit_code }} after {{ .duration_seconds | humanize_duration }})
       <{{ .tracking_uri }}/#/experiments/{{ .experiment_id }}/runs/{{ .run_id }}|View run in MLflow UI>
     alert:
       - notifier: slack
