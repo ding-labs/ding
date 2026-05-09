@@ -1,0 +1,1362 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Stream-based alerting daemon — single binary, zero infrastructure">
+      
+      
+      
+        <link rel="canonical" href="https://docs.ding.ing/positioning/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/favicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>DING — Product Positioning & Marketing Document - DING</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#ding-product-positioning-marketing-document" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="DING" class="md-header__button md-logo" aria-label="DING" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            DING
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              DING — Product Positioning &amp; Marketing Document
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ding-labs/ding" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ding-labs/ding
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="DING" class="md-nav__button md-logo" aria-label="DING" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="logo">
+
+    </a>
+    DING
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ding-labs/ding" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ding-labs/ding
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTP API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Recipes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recipes/gitlab-ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitLab CI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recipes/jenkins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Jenkins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recipes/buildkite/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Buildkite
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recipes/kubernetes-jobs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kubernetes Jobs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recipes/argo-workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Argo Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recipes/mlflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MLflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recipes/ray/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ray Train / Tune
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recipes/modal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modal
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/ding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/ding_run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    run
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/ding_serve/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    serve
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/ding_validate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    validate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/ding_version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    version
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-tagline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Tagline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-one-sentence-pitch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The One-Sentence Pitch
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-problem-were-solving" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Problem We're Solving
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-ding-is" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What DING Is
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What DING Is">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-core-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Core Loop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-makes-it-different" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Makes It Different
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#real-world-scenarios-where-ding-wins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real-World Scenarios: Where DING Wins
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Real-World Scenarios: Where DING Wins">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-single-server-applications-with-tight-slas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Single-Server Applications with Tight SLAs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-cicd-pipelines-and-build-systems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. CI/CD Pipelines and Build Systems
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-edge-and-embedded-deployments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Edge and Embedded Deployments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-local-development-and-debugging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Local Development and Debugging
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-scripted-and-batch-workloads" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Scripted and Batch Workloads
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-early-stage-startups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Early-Stage Startups
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-ding-is-not-the-right-tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where DING Is Not the Right Tool
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-target-user" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Target User
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#competitive-landscape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Competitive Landscape
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#distribution-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Distribution Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-now" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why Now
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="ding-product-positioning-marketing-document">DING — Product Positioning &amp; Marketing Document</h1>
+<p><strong>Date:</strong> 2026-03-22
+<strong>Status:</strong> Draft</p>
+<hr />
+<h2 id="the-tagline">The Tagline</h2>
+<blockquote>
+<p><em>Don't store it. Stream it. DING it.</em></p>
+</blockquote>
+<hr />
+<h2 id="the-one-sentence-pitch">The One-Sentence Pitch</h2>
+<p>DING is the alerting tool for developers who would rather ship than configure — a single binary that watches a stream of metrics and fires alerts when conditions are met, with zero infrastructure, zero storage, and zero operational overhead.</p>
+<hr />
+<h2 id="the-problem-were-solving">The Problem We're Solving</h2>
+<p>Every developer has written this code:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">if</span> <span class="n">error_count</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">:</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">SLACK_WEBHOOK_URL</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;text&quot;</span><span class="p">:</span> <span class="s2">&quot;too many errors&quot;</span><span class="p">})</span>
+</code></pre></div>
+<p>It works until it doesn't. It has no cooldown, so it spams Slack every second. It has no windowing, so a spike that lasted two seconds looks the same as one that lasted two hours. It has no config file, so the threshold is hardcoded in a script somewhere, committed to a branch that's six months out of date. And when it breaks, nobody knows where it lives.</p>
+<p>The alternative — Prometheus, Grafana, Alertmanager — is three separate systems, a persistent volume, a scrape target architecture, and a week of configuration before you see your first alert. For a startup, an edge device, a CI pipeline, or an internal tool, that's not a trade-off. It's a non-starter.</p>
+<p>The gap between "a fragile script" and "a full observability platform" is enormous. DING lives in that gap.</p>
+<hr />
+<h2 id="what-ding-is">What DING Is</h2>
+<p>DING is a <strong>stream-based alerting daemon</strong>. It reads a stream of metrics — from stdin, from an HTTP endpoint, or both simultaneously — evaluates user-defined rules, and fires alerts when conditions are met. It runs as a single static binary. It requires no database, no message queue, no sidecar, and no cloud account. Drop it on any server and it works.</p>
+<h3 id="the-core-loop">The Core Loop</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>[your app]  ──stdin──►  ┌─────────────┐
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>                         │    DING     │  ──► Slack webhook
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>[curl/agent] ──HTTP──►  │             │  ──► PagerDuty proxy
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>                         │  1. Parse   │  ──► stdout (pipeable)
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>                         │  2. Match   │
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>                         │  3. Evaluate│
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>                         │  4. Cooldown│
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>                         │  5. Alert   │
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>                         └─────────────┘
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>                                ▲
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>                           ding.yaml
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>                     (lives in your repo)
+</code></pre></div>
+<h3 id="what-makes-it-different">What Makes It Different</h3>
+<p>Most developer tooling sits at one of two extremes:</p>
+<table>
+<thead>
+<tr>
+<th><strong>Unix primitives</strong></th>
+<th><strong>Observability platforms</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>grep</code>, <code>awk</code>, <code>watch</code></td>
+<td>Prometheus, Grafana, Alertmanager, Datadog</td>
+</tr>
+<tr>
+<td>Composable, no infrastructure</td>
+<td>Full-featured, full commitment</td>
+</tr>
+<tr>
+<td>Zero setup time</td>
+<td>Days to weeks to configure</td>
+</tr>
+<tr>
+<td>No alerting semantics</td>
+<td>Everything — and a team to manage it</td>
+</tr>
+</tbody>
+</table>
+<p>DING occupies the gap: <strong>a composable alerting primitive with real rule semantics</strong>.</p>
+<p><code>grep</code> can match a pattern but cannot tell you "this matched more than 50 times in the last minute." Prometheus can do windowed aggregation but requires a scrape architecture, persistent storage, and a separately-managed Alertmanager. Shell scripts can count things but cannot do per-label cooldowns without writing a state machine from scratch.</p>
+<p>DING's specific combination does not exist elsewhere:</p>
+<ul>
+<li><strong>Windowed aggregations without storage</strong> — ring buffers in memory, evicted by wall clock. <code>avg(value) over 5m &gt; 80</code> works with no database.</li>
+<li><strong>Per-label-set cooldowns</strong> — not just "this rule fired, wait 1 minute," but "this rule fired for <code>host=web-01</code>, wait 1 minute — <code>host=web-02</code> is still live."</li>
+<li><strong>Unix composability</strong> — <code>your-app | ding serve</code> works identically to a <code>POST /ingest</code>. Output is JSON lines that pipe into anything downstream.</li>
+<li><strong>Config lives in your repo</strong> — <code>ding.yaml</code> is committed alongside the code that emits the metrics. Alerting is a development-time artifact, not an ops-time artifact.</li>
+</ul>
+<p>That last point is the philosophical core. With Prometheus, your alert rules are managed by a separate team in a separate system. With DING, the developer who writes <code>{"metric":"payment_timeout","value":1}</code> also writes and ships the rule that alerts on it. The feedback loop collapses.</p>
+<hr />
+<h2 id="real-world-scenarios-where-ding-wins">Real-World Scenarios: Where DING Wins</h2>
+<h3 id="1-single-server-applications-with-tight-slas">1. Single-Server Applications with Tight SLAs</h3>
+<p><strong>The situation:</strong> A payment processor on one VM wants millisecond-level alerting when error rates spike. Installing Prometheus and Alertmanager would take a week and add two new failure modes.</p>
+<p><strong>With DING:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>tail<span class="w"> </span>-f<span class="w"> </span>/var/log/payments.json<span class="w"> </span><span class="p">|</span><span class="w"> </span>ding<span class="w"> </span>serve<span class="w"> </span>--config<span class="w"> </span>payments-alerts.yaml
+</code></pre></div></p>
+<p>Alert fires in milliseconds, on the same machine, with no external dependencies. Cooldown prevents Slack from being spammed during an outage. The rule is versioned in the same repository as the application.</p>
+<hr />
+<h3 id="2-cicd-pipelines-and-build-systems">2. CI/CD Pipelines and Build Systems</h3>
+<p><strong>The situation:</strong> A build pipeline emits metrics — test durations, flaky test counts, artifact sizes, coverage percentages. The team wants alerts when regressions appear, before the build finishes.</p>
+<p><strong>With DING:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>run-tests<span class="w"> </span>--json<span class="w"> </span><span class="p">|</span><span class="w"> </span>ding<span class="w"> </span>serve<span class="w"> </span>--config<span class="w"> </span>pipeline-alerts.yaml
+</code></pre></div></p>
+<p>DING starts when the pipeline starts, alerts when thresholds are crossed, and exits when the pipeline exits. No persistent process, no cleanup, no residual state.</p>
+<hr />
+<h3 id="3-edge-and-embedded-deployments">3. Edge and Embedded Deployments</h3>
+<p><strong>The situation:</strong> Industrial machinery, retail point-of-sale systems, agricultural sensors, Raspberry Pi clusters. These environments have constrained resources, intermittent connectivity, and no path to a centralized monitoring stack.</p>
+<p><strong>With DING:</strong> A 5MB static binary runs on anything Go compiles for — linux/arm64, linux/amd64, darwin, windows — with no runtime dependencies. It can alert locally (stdout to a local log), or fire webhooks when connectivity is available. The alert rules ship with the firmware.</p>
+<hr />
+<h3 id="4-local-development-and-debugging">4. Local Development and Debugging</h3>
+<p><strong>The situation:</strong> A developer wants to reproduce a production alerting condition locally. The production monitoring stack is not available in their local environment.</p>
+<p><strong>With DING:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>cat<span class="w"> </span>test-fixtures/high-error-scenario.jsonl<span class="w"> </span><span class="p">|</span><span class="w"> </span>ding<span class="w"> </span>serve<span class="w"> </span>--config<span class="w"> </span>prod-alerts.yaml
+</code></pre></div></p>
+<p>Exact production rules, exact production thresholds, running locally in seconds. No staging environment required, no infrastructure access required.</p>
+<hr />
+<h3 id="5-scripted-and-batch-workloads">5. Scripted and Batch Workloads</h3>
+<p><strong>The situation:</strong> A nightly ETL job processes millions of rows and emits row counts, error rates, and processing time metrics. The team wants alerts if the job runs long, drops rows, or hits unexpected error rates.</p>
+<p><strong>With DING:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>etl.py<span class="w"> </span><span class="p">|</span><span class="w"> </span>ding<span class="w"> </span>serve<span class="w"> </span>--config<span class="w"> </span>etl-alerts.yaml
+</code></pre></div></p>
+<p>DING starts with the script and exits with the script. No long-running daemon to manage. The alert config is part of the ETL project, not a separate ops system.</p>
+<hr />
+<h3 id="6-early-stage-startups">6. Early-Stage Startups</h3>
+<p><strong>The situation:</strong> A 3-person team is shipping fast. They know they need alerting. They do not have time to learn Prometheus query language, set up persistent storage, configure Alertmanager routing, or manage three new infrastructure components.</p>
+<p><strong>With DING:</strong> <code>cp ding.yaml.example ding.yaml</code>, edit two lines, <code>ding serve</code>. Alerting is live in under five minutes. When the team grows and outgrows DING, they replace it — but it bought them six to twelve months of production visibility with an afternoon of work.</p>
+<hr />
+<h2 id="where-ding-is-not-the-right-tool">Where DING Is Not the Right Tool</h2>
+<p>Honesty is a feature of good positioning. DING is not trying to replace the observability stack for mature engineering organizations. The following scenarios require a different tool:</p>
+<p><strong>Monitoring a fleet of servers</strong> — DING has no cross-host aggregation. "Alert if more than 10 of my 500 servers are in a degraded state" requires a centralized time-series database. Each DING instance knows only what flows through it.</p>
+<p><strong>Historical analysis and replay</strong> — DING has no storage. You cannot query past data. If you need to ask "would this alert have fired last Tuesday?", you need a TSDB.</p>
+<p><strong>Complex on-call routing</strong> — Escalation policies, on-call schedules, deduplication, and acknowledgment workflows are out of scope. DING fires webhooks; what happens after the webhook is someone else's problem.</p>
+<p><strong>High-cardinality label environments</strong> — If your metrics are tagged with <code>request_id</code>, <code>trace_id</code>, or <code>user_id</code>, DING will create one ring buffer per unique label combination per rule. At high cardinality, this grows unboundedly. DING is designed for infrastructure-level label cardinality (host, region, service), not request-level.</p>
+<p><strong>Compliance and audit</strong> — Regulatory requirements for proof that an alert did or did not fire require persistent storage. DING's outputs are ephemeral.</p>
+<hr />
+<h2 id="the-target-user">The Target User</h2>
+<p><strong>Primary:</strong> A backend developer at a company of 5–100 engineers who is responsible for the reliability of a service they wrote. They are not a dedicated SRE. They don't manage Prometheus. They have a Slack webhook URL and a <code>ding.yaml</code> file.</p>
+<p><strong>Secondary:</strong> A platform or infrastructure engineer at a larger company who needs to add alerting to an edge deployment, a batch job, or a CI system where the main observability stack is unavailable or inappropriate.</p>
+<p><strong>Anti-target:</strong> A large enterprise with a dedicated SRE team that already runs Datadog or a self-managed Prometheus stack. DING solves a problem they don't have.</p>
+<hr />
+<h2 id="competitive-landscape">Competitive Landscape</h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>What it does</th>
+<th>Why DING is different</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Prometheus + Alertmanager</strong></td>
+<td>Full metrics collection, storage, and alerting</td>
+<td>Requires persistent storage, scrape architecture, 3+ components, dedicated ops. DING requires none of these.</td>
+</tr>
+<tr>
+<td><strong>Datadog / New Relic / Grafana Cloud</strong></td>
+<td>SaaS observability platforms</td>
+<td>Sends your data to a third party, costs money at scale, requires an agent. DING runs entirely on your infrastructure.</td>
+</tr>
+<tr>
+<td><strong>Grafana OSS</strong></td>
+<td>Visualization and alerting over existing data sources</td>
+<td>Requires an existing data source (Prometheus, InfluxDB, etc.). DING IS the pipeline.</td>
+</tr>
+<tr>
+<td><strong>Custom scripts</strong></td>
+<td>Grep + curl + cron</td>
+<td>No windowing, no cooldowns, no composability, brittle. DING replaces this with something maintainable.</td>
+</tr>
+<tr>
+<td><strong>Fluentd / Vector</strong></td>
+<td>Log routing and transformation pipelines</td>
+<td>Not alerting-focused. Rules are complex to write. No notion of thresholds or cooldowns.</td>
+</tr>
+<tr>
+<td><strong>Alertmanager (standalone)</strong></td>
+<td>Alert routing and deduplication</td>
+<td>Receives alerts from Prometheus, does not evaluate conditions. Not useful without a metrics store.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="distribution-model">Distribution Model</h2>
+<p>DING is open source (MIT). The distribution strategy prioritizes developer trust and adoption speed:</p>
+<ul>
+<li><strong>GitHub Releases</strong> — Pre-built binaries for all platforms. <code>curl</code>, extract, run.</li>
+<li><strong>Homebrew</strong> — <code>brew install ding-labs/tap/ding</code>. The standard developer install path on macOS.</li>
+<li><strong>Docker</strong> — <code>docker run -v ./ding.yaml:/etc/ding/ding.yaml ghcr.io/ding-labs/ding</code>. A 5MB scratch-based image.</li>
+<li><strong>Install script</strong> — <code>curl -sf https://start.ding.ing | sh</code>. The one-liner that works everywhere.</li>
+</ul>
+<p>No account required. No telemetry. No license key. No phone-home. The binary works immediately, on your hardware, without asking permission.</p>
+<hr />
+<h2 id="why-now">Why Now</h2>
+<p>The developer tooling market has bifurcated. On one end: primitive Unix tools that compose but have no semantics. On the other: full-featured SaaS platforms with per-seat pricing and vendor lock-in. The middle — maintainable, composable, semantically rich tooling that a single developer can operate — has been underserved.</p>
+<p>At the same time, the explosion of edge deployments (IoT, embedded Linux, wasm), the proliferation of internal tooling teams, and the growing emphasis on developer ownership of reliability ("you build it, you run it") have created a large and growing population of developers who need alerting but cannot or will not operate a full observability stack.</p>
+<p>DING is the tool that fills that gap — the missing Unix utility for alerting.</p>
+<hr />
+<p><em>DING is open source under the MIT license. Contributions welcome at github.com/ding-labs/ding.</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.sections", "content.code.copy", "search.suggest"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,2635 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Stream-based alerting daemon — single binary, zero infrastructure">
+      
+      
+      
+        <link rel="canonical" href="https://docs.ding.ing/configuration/">
+      
+      
+        <link rel="prev" href="../install/">
+      
+      
+        <link rel="next" href="../api/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/favicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Configuration - DING</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#configuration" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="DING" class="md-header__button md-logo" aria-label="DING" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            DING
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Configuration
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ding-labs/ding" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ding-labs/ding
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="DING" class="md-nav__button md-logo" aria-label="DING" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="logo">
+
+    </a>
+    DING
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ding-labs/ding" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ding-labs/ding
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#full-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Full example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        server
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="server">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#drain_timeout-and-retry-behaviour-in-ding-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        drain_timeout and retry behaviour in ding run
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notifiers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        notifiers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="notifiers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#type-slack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type: slack
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-discord" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type: discord
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-kubernetes_event" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type: kubernetes_event
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-gitlab_artifact" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type: gitlab_artifact
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-buildkite_annotate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type: buildkite_annotate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-webhook" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type: webhook
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        rules
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="rules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#condition-syntax" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Condition syntax
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Condition syntax">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#run-lifetime-windows-over-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run-lifetime windows: over run
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#message-template-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Message template variables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#template-helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Template helpers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Template helpers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#humanize_duration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        humanize_duration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        default
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-label-set-cooldowns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-label-set cooldowns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        persistence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alert_log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        alert_log
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#duration-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Duration format
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variable-substitution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variable substitution
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Environment variable substitution">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#syntax" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Syntax
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#behavior-at-a-glance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Behavior at a glance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#footgun-yaml-metacharacters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Footgun: YAML metacharacters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-rules-without-a-workload" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing rules without a workload
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Testing rules without a workload">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ding-test-rule-replay-synthetic-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ding test-rule — replay synthetic events
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ding-run-dry-run-wrap-a-real-workload-suppress-sends" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ding run --dry-run — wrap a real workload, suppress sends
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#platform-specific-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Platform-specific examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTP API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Recipes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recipes/gitlab-ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitLab CI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recipes/jenkins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Jenkins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recipes/buildkite/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Buildkite
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recipes/kubernetes-jobs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kubernetes Jobs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recipes/argo-workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Argo Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recipes/mlflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MLflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recipes/ray/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ray Train / Tune
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../recipes/modal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modal
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/ding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/ding_run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    run
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/ding_serve/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    serve
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/ding_validate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    validate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/ding_version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    version
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#full-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Full example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        server
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="server">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#drain_timeout-and-retry-behaviour-in-ding-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        drain_timeout and retry behaviour in ding run
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notifiers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        notifiers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="notifiers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#type-slack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type: slack
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-discord" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type: discord
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-kubernetes_event" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type: kubernetes_event
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-gitlab_artifact" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type: gitlab_artifact
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-buildkite_annotate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type: buildkite_annotate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-webhook" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type: webhook
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        rules
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="rules">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#condition-syntax" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Condition syntax
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Condition syntax">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#run-lifetime-windows-over-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run-lifetime windows: over run
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#message-template-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Message template variables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#template-helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Template helpers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Template helpers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#humanize_duration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        humanize_duration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        default
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-label-set-cooldowns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-label-set cooldowns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        persistence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alert_log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        alert_log
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#duration-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Duration format
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variable-substitution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variable substitution
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Environment variable substitution">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#syntax" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Syntax
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#behavior-at-a-glance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Behavior at a glance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#footgun-yaml-metacharacters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Footgun: YAML metacharacters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-rules-without-a-workload" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing rules without a workload
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Testing rules without a workload">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ding-test-rule-replay-synthetic-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ding test-rule — replay synthetic events
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ding-run-dry-run-wrap-a-real-workload-suppress-sends" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ding run --dry-run — wrap a real workload, suppress sends
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#platform-specific-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Platform-specific examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="configuration">Configuration</h1>
+<p>DING is configured via a single YAML file (default: <code>ding.yaml</code>). All sections are optional except <code>rules</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ding<span class="w"> </span>validate<span class="w"> </span>--config<span class="w"> </span>ding.yaml<span class="w">   </span><span class="c1"># check before deploying</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>ding<span class="w"> </span>serve<span class="w"> </span>--config<span class="w"> </span>ding.yaml
+</code></pre></div>
+<hr />
+<h2 id="full-example">Full example</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">server</span><span class="p">:</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8080</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">jq</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;.events[]</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">{metric:</span><span class="nv"> </span><span class="s">.name,</span><span class="nv"> </span><span class="s">value:</span><span class="nv"> </span><span class="s">.reading,</span><span class="nv"> </span><span class="s">host:</span><span class="nv"> </span><span class="s">.tags.host}&#39;</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">max_buffer_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10000</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">read_timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5s</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">write_timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10s</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">idle_timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60s</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span><span class="nt">max_body_bytes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1048576</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="nt">notifiers</span><span class="p">:</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span><span class="nt">slack</span><span class="p">:</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slack</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://hooks.slack.com/services/T.../B.../...</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">    </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">    </span><span class="nt">initial_backoff</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1s</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="nt">rules</span><span class="p">:</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpu_spike</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">    </span><span class="nt">match</span><span class="p">:</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">      </span><span class="nt">metric</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpu_usage</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="w">      </span><span class="nt">region</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">us-east</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">value &gt; 95</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">    </span><span class="nt">cooldown</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1m</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="w">    </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;CPU</span><span class="nv"> </span><span class="s">spike</span><span class="nv"> </span><span class="s">on</span><span class="nv"> </span><span class="s">{{</span><span class="nv"> </span><span class="s">.host</span><span class="nv"> </span><span class="s">}}:</span><span class="nv"> </span><span class="s">{{</span><span class="nv"> </span><span class="s">.value</span><span class="nv"> </span><span class="s">}}%&quot;</span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="w">    </span><span class="nt">alert</span><span class="p">:</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">notifier</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slack</span>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpu_sustained</span>
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="w">    </span><span class="nt">match</span><span class="p">:</span>
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a><span class="w">      </span><span class="nt">metric</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cpu_usage</span>
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a><span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">avg(value) over 5m &gt; 80</span>
+<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a><span class="w">    </span><span class="nt">cooldown</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10m</span>
+<a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a><span class="w">    </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Sustained</span><span class="nv"> </span><span class="s">high</span><span class="nv"> </span><span class="s">CPU:</span><span class="nv"> </span><span class="s">{{</span><span class="nv"> </span><span class="s">.avg</span><span class="nv"> </span><span class="s">}}%</span><span class="nv"> </span><span class="s">avg</span><span class="nv"> </span><span class="s">on</span><span class="nv"> </span><span class="s">{{</span><span class="nv"> </span><span class="s">.host</span><span class="nv"> </span><span class="s">}}&quot;</span>
+<a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a><span class="w">    </span><span class="nt">alert</span><span class="p">:</span>
+<a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">notifier</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stdout</span>
+<a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a>
+<a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a><span class="nt">persistence</span><span class="p">:</span>
+<a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a><span class="w">  </span><span class="nt">state_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/var/lib/ding/state.json</span>
+<a id="__codelineno-1-40" name="__codelineno-1-40" href="#__codelineno-1-40"></a><span class="w">  </span><span class="nt">flush_interval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30s</span>
+<a id="__codelineno-1-41" name="__codelineno-1-41" href="#__codelineno-1-41"></a>
+<a id="__codelineno-1-42" name="__codelineno-1-42" href="#__codelineno-1-42"></a><span class="nt">alert_log</span><span class="p">:</span>
+<a id="__codelineno-1-43" name="__codelineno-1-43" href="#__codelineno-1-43"></a><span class="w">  </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/var/log/ding/alerts.jsonl</span>
+</code></pre></div>
+<hr />
+<h2 id="server"><code>server</code></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>port</code></td>
+<td>int</td>
+<td><code>8080</code></td>
+<td>HTTP listen port</td>
+</tr>
+<tr>
+<td><code>format</code></td>
+<td>string</td>
+<td><code>auto</code></td>
+<td>Input format: <code>json</code>, <code>prometheus</code>, or <code>auto</code> (auto-detects per request)</td>
+</tr>
+<tr>
+<td><code>jq</code></td>
+<td>string</td>
+<td>—</td>
+<td>Optional <a href="https://jqlang.github.io/jq/">jq</a> filter applied to every inbound payload before rule evaluation. Output must produce objects with <code>metric</code> and <code>value</code> fields.</td>
+</tr>
+<tr>
+<td><code>max_buffer_size</code></td>
+<td>int</td>
+<td><code>10000</code></td>
+<td>Maximum events retained per rule per label-set for windowed aggregations</td>
+</tr>
+<tr>
+<td><code>read_timeout</code></td>
+<td>duration</td>
+<td><code>5s</code></td>
+<td>HTTP read timeout</td>
+</tr>
+<tr>
+<td><code>write_timeout</code></td>
+<td>duration</td>
+<td><code>10s</code></td>
+<td>HTTP write timeout</td>
+</tr>
+<tr>
+<td><code>idle_timeout</code></td>
+<td>duration</td>
+<td><code>60s</code></td>
+<td>HTTP idle connection timeout</td>
+</tr>
+<tr>
+<td><code>max_body_bytes</code></td>
+<td>int64</td>
+<td><code>1048576</code></td>
+<td>Maximum request body size in bytes (1MB). Returns 413 on overflow.</td>
+</tr>
+<tr>
+<td><code>drain_timeout</code></td>
+<td>duration</td>
+<td><code>5s</code></td>
+<td>How long <code>ding run</code> waits for notifier delivery queues to flush on exit before force-stopping. See note below.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="drain_timeout-and-retry-behaviour-in-ding-run"><code>drain_timeout</code> and retry behaviour in <code>ding run</code></h4>
+<p><code>ding run</code> exits as soon as the wrapped command finishes, so notifier delivery must complete within the drain window. The default <code>5s</code> covers a single fast delivery comfortably, but retry attempts eat into that window. With the default <code>initial_backoff: 1s</code> and <code>max_attempts: 3</code>, a full retry cycle takes at least <code>1 + 2 + 4 = 7s</code> — longer than the default drain timeout.</p>
+<p>If your notifier is flaky and you want retries to have a real chance:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">server</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">drain_timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10s</span><span class="w">   </span><span class="c1"># must exceed initial_backoff * 2^max_attempts</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nt">notifiers</span><span class="p">:</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">slack</span><span class="p">:</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slack</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://hooks.slack.com/...</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">initial_backoff</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1s</span><span class="w">   </span><span class="c1"># retry window: 1 + 2 = 3s (fits in 10s)</span>
+</code></pre></div>
+<p>If fast CI exit matters more than retry guarantees, keep <code>drain_timeout</code> short and set <code>max_attempts: 1</code>.</p>
+<hr />
+<h2 id="notifiers"><code>notifiers</code></h2>
+<p>A map of named notifiers. Reference them by name in rule <code>alert</code> blocks.</p>
+<p><strong>Built-in notifiers</strong> — always available without declaration:</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>stdout</code></td>
+<td>Writes every alert as a JSON line to stdout</td>
+</tr>
+<tr>
+<td><code>github_actions</code></td>
+<td>Emits <code>::warning::</code> annotations and appends a markdown summary to <code>$GITHUB_STEP_SUMMARY</code>. Falls back gracefully outside Actions.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Configured notifiers:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code></td>
+<td>string</td>
+<td>—</td>
+<td><code>slack</code>, <code>discord</code>, <code>webhook</code>, or <code>github_actions</code></td>
+</tr>
+<tr>
+<td><code>url</code></td>
+<td>string</td>
+<td>—</td>
+<td>Destination URL (required for <code>slack</code> and <code>webhook</code>)</td>
+</tr>
+<tr>
+<td><code>max_attempts</code></td>
+<td>int</td>
+<td><code>3</code></td>
+<td>Total delivery attempts including the first (slack/webhook only)</td>
+</tr>
+<tr>
+<td><code>initial_backoff</code></td>
+<td>duration</td>
+<td><code>1s</code></td>
+<td>First retry delay; doubles each attempt (slack/webhook only)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="type-slack"><code>type: slack</code></h3>
+<p>Posts a <a href="https://api.slack.com/block-kit">Block Kit</a> message to a Slack incoming webhook URL. Run-context fields are surfaced automatically as structured fields when present — no template work required.</p>
+<p>When used with <code>ding run</code>, the following fields appear in the Slack message if DING detected them from the CI environment:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Source</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>exit code</td>
+<td><code>run.exit</code> float</td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td>duration</td>
+<td><code>run.exit</code> float</td>
+<td><code>42.5s</code></td>
+</tr>
+<tr>
+<td>branch</td>
+<td>CI env auto-detect</td>
+<td><code>main</code></td>
+</tr>
+<tr>
+<td>commit</td>
+<td>CI env auto-detect</td>
+<td><code>abc1234</code> (truncated)</td>
+</tr>
+<tr>
+<td>repo</td>
+<td>CI env auto-detect</td>
+<td><code>acme/api</code></td>
+</tr>
+<tr>
+<td>workflow</td>
+<td>CI env auto-detect</td>
+<td><code>CI</code></td>
+</tr>
+<tr>
+<td>job</td>
+<td>CI env auto-detect</td>
+<td><code>test</code></td>
+</tr>
+<tr>
+<td>actor</td>
+<td>CI env auto-detect</td>
+<td><code>octocat</code></td>
+</tr>
+<tr>
+<td>runner</td>
+<td>CI env auto-detect</td>
+<td><code>github-actions</code></td>
+</tr>
+<tr>
+<td>run id</td>
+<td>CI env auto-detect</td>
+<td><code>12345</code></td>
+</tr>
+</tbody>
+</table>
+<p>Up to 10 fields are shown. Exit code and duration are prioritized — they always appear when present, even if many label fields would otherwise fill the limit.</p>
+<h3 id="type-discord"><code>type: discord</code></h3>
+<p>Posts a Discord <a href="https://discord.com/developers/docs/resources/message#embed-object">embed</a> to an incoming webhook URL. Run-context fields are surfaced automatically as embed fields when present — no template work required.</p>
+<p>When used with <code>ding run</code>, the following fields appear in the Discord embed if DING detected them from the CI environment:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Source</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>exit code</td>
+<td><code>run.exit</code> float</td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td>duration</td>
+<td><code>run.exit</code> float</td>
+<td><code>42.5s</code></td>
+</tr>
+<tr>
+<td>branch</td>
+<td>CI env auto-detect</td>
+<td><code>main</code></td>
+</tr>
+<tr>
+<td>commit</td>
+<td>CI env auto-detect</td>
+<td><code>abc1234</code> (truncated)</td>
+</tr>
+<tr>
+<td>repo</td>
+<td>CI env auto-detect</td>
+<td><code>acme/api</code></td>
+</tr>
+<tr>
+<td>workflow</td>
+<td>CI env auto-detect</td>
+<td><code>CI</code></td>
+</tr>
+<tr>
+<td>job</td>
+<td>CI env auto-detect</td>
+<td><code>test</code></td>
+</tr>
+<tr>
+<td>actor</td>
+<td>CI env auto-detect</td>
+<td><code>octocat</code></td>
+</tr>
+<tr>
+<td>runner</td>
+<td>CI env auto-detect</td>
+<td><code>github-actions</code></td>
+</tr>
+<tr>
+<td>run id</td>
+<td>CI env auto-detect</td>
+<td><code>12345</code></td>
+</tr>
+</tbody>
+</table>
+<p>All fields are rendered inline. Discord allows up to 25 fields per embed; exit code and duration are prioritized and always appear when present.</p>
+<h3 id="type-kubernetes_event"><code>type: kubernetes_event</code></h3>
+<p>Publishes alerts as native Kubernetes <a href="https://kubernetes.io/docs/reference/kubernetes-api/cluster-resources/event-v1/">Events</a> (<code>corev1.Event</code>), visible to <code>kubectl describe pod</code> and <code>kubectl get events</code>. Available only when DING is running inside a Kubernetes Pod (in-cluster ServiceAccount auth — <code>kubeconfig</code> files are not supported).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">notifiers</span><span class="p">:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">k8s</span><span class="p">:</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kubernetes_event</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w">              </span><span class="c1"># default: POD_NAMESPACE downward API</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">event_reason</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DingAlertFired</span><span class="w">   </span><span class="c1"># default</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">event_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Warning</span><span class="w">            </span><span class="c1"># &quot;Normal&quot; or &quot;Warning&quot;; default Warning</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">max_attempts</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="nt">initial_backoff</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1s</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>namespace</code></td>
+<td><code>POD_NAMESPACE</code> env (downward API)</td>
+<td>override target namespace if needed</td>
+</tr>
+<tr>
+<td><code>event_reason</code></td>
+<td><code>DingAlertFired</code></td>
+<td>K8s convention is short PascalCase</td>
+</tr>
+<tr>
+<td><code>event_type</code></td>
+<td><code>Warning</code></td>
+<td>only <code>Normal</code> and <code>Warning</code> accepted</td>
+</tr>
+<tr>
+<td><code>max_attempts</code></td>
+<td><code>3</code></td>
+<td>inherited default</td>
+</tr>
+<tr>
+<td><code>initial_backoff</code></td>
+<td><code>1s</code></td>
+<td>inherited default</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Required Pod env (downward API)</strong>: <code>POD_NAME</code>, <code>POD_UID</code>, <code>POD_NAMESPACE</code>, <code>NODE_NAME</code>. The K8s recipe at <a href="../recipes/kubernetes-jobs/">docs/recipes/kubernetes-jobs.md</a> shows the canonical manifest fragment that surfaces these. The Event's <code>involvedObject</code> is the Pod where DING is running (cheap, no API lookup).</p>
+<p><strong>Required RBAC</strong>: <code>events.create</code> in the Pod's namespace. Minimal Role:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rbac.authorization.k8s.io/v1</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Role</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">metadata</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">ding-event-publisher</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nt">rules</span><span class="p">:</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">apiGroups</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">resources</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;events&quot;</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nt">verbs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;create&quot;</span><span class="p p-Indicator">]</span>
+</code></pre></div>
+<p>Bind to the Pod's ServiceAccount via a RoleBinding. K8s aggregates duplicate Events (same <code>involvedObject</code> + <code>reason</code> + <code>message</code> within a window) into one Event with <code>count</code> incremented; DING's per-rule <code>cooldown</code> still applies on top. Forbidden (RBAC denied), Unauthorized, BadRequest, and Invalid responses are permanent (logged + dropped without retry); 5xx and network errors retry up to <code>max_attempts</code>.</p>
+<h3 id="type-gitlab_artifact"><code>type: gitlab_artifact</code></h3>
+<p>Writes alert Markdown to a file the user declares in <code>.gitlab-ci.yml</code> <code>artifacts:</code> so DING alerts surface as a downloadable pipeline artifact in the GitLab job UI. No external service required.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">notifiers</span><span class="p">:</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">artifact</span><span class="p">:</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gitlab_artifact</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ding-alerts.md</span><span class="w">   </span><span class="c1"># default; relative to current working directory</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>path</code></td>
+<td><code>ding-alerts.md</code></td>
+<td>Relative path resolved against the process's CWD (= <code>$CI_PROJECT_DIR</code> in GitLab CI). Absolute paths also work.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Behavior</strong>: sync, mutex-guarded, append-only. The first <code>Send()</code> writes a <code># DING Alerts</code> H1 header; subsequent calls append <code>## &lt;rule&gt;</code> sections with metric, value, fired_at, optional aggregates, and sorted-key label list. No async queue, no retry, no metrics — failures (permission denied, disk full) are returned from <code>Send()</code> and logged.</p>
+<p><strong>No CI gate</strong>: the notifier writes the file regardless of whether it's running in GitLab CI. Outside CI, it just produces a local <code>ding-alerts.md</code> — harmless. Combine with <code>.gitlab-ci.yml</code> <code>artifacts: { when: always, paths: [ding-alerts.md] }</code> to archive the file on every pipeline run (including failed jobs). See the <a href="../recipes/gitlab-ci/#native-gitlab-ui-surfacing">GitLab CI recipe</a> for an end-to-end example.</p>
+<h3 id="type-buildkite_annotate"><code>type: buildkite_annotate</code></h3>
+<p>Publishes alerts as Buildkite build annotations via <code>buildkite-agent annotate</code>. All alerts for a build land in a single rolling annotation (<code>--context ding --append</code>) shown at the top of the Buildkite job UI. Requires <code>buildkite-agent</code> on PATH (always set inside Buildkite jobs); outside Buildkite the notifier no-ops gracefully after a one-time warning.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">notifiers</span><span class="p">:</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">annotate</span><span class="p">:</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">buildkite_annotate</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nt">style</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">error</span><span class="w">    </span><span class="c1"># success | info | warning | error; default error</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>style</code></td>
+<td><code>error</code></td>
+<td>Buildkite annotation style. Drives the colored badge in the build UI.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Behavior</strong>: sync, mutex-guarded. The first <code>Send()</code> writes a <code># DING Alerts</code> H1 header; subsequent calls append <code>## &lt;rule&gt;</code> sections that Buildkite's <code>--append</code> concatenates into the existing annotation body. No async queue, no retry, no metrics — failures from <code>buildkite-agent</code> (agent disconnected, body too large, etc.) are returned from <code>Send()</code> with stderr captured.</p>
+<p><strong>No CI gate</strong>: the notifier checks for <code>buildkite-agent</code> once at construction; outside Buildkite jobs it logs <code>ding: buildkite_annotate notifier: buildkite-agent not on PATH; alerts via this notifier will be no-ops</code> and Send becomes a no-op. See the <a href="../recipes/buildkite/#native-buildkite-ui-surfacing">Buildkite recipe</a> for an end-to-end example.</p>
+<h3 id="type-webhook"><code>type: webhook</code></h3>
+<p>Posts a flat JSON payload to any HTTP endpoint. Useful for generic integrations (PagerDuty, custom receivers, etc.).</p>
+<p>Payload shape:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">&quot;rule&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu_spike&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;CPU spike on web-01: 97%&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="nt">&quot;metric&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu_usage&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">97.0</span><span class="p">,</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span><span class="nt">&quot;fired_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-04-25T10:00:00Z&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span><span class="nt">&quot;host&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;web-01&quot;</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="p">}</span>
+</code></pre></div>
+<p>All event labels (including run-context labels when using <code>ding run</code>) are merged into the top-level payload object. 4xx responses are dropped. 5xx responses are retried with exponential backoff.</p>
+<hr />
+<h2 id="rules"><code>rules</code></h2>
+<p>A list of alerting rules. Rules are evaluated independently; each has its own cooldown and buffer state per label-set.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>yes</td>
+<td>Rule identifier, used in alert payloads</td>
+</tr>
+<tr>
+<td><code>match</code></td>
+<td>map</td>
+<td>no</td>
+<td>Label filters. Only events matching all key-value pairs are evaluated by this rule. Omit to match all events.</td>
+</tr>
+<tr>
+<td><code>match.metric</code></td>
+<td>string</td>
+<td>no</td>
+<td>Metric name filter</td>
+</tr>
+<tr>
+<td><code>condition</code></td>
+<td>string</td>
+<td>yes</td>
+<td>Evaluation expression (see below)</td>
+</tr>
+<tr>
+<td><code>cooldown</code></td>
+<td>duration</td>
+<td>no</td>
+<td>Minimum time between consecutive alerts for the same label-set</td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td>string</td>
+<td>no</td>
+<td>Set to <code>end-of-run</code> to defer evaluation until <code>ding run</code> exits; omit for immediate (mid-run) evaluation</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>string</td>
+<td>no</td>
+<td>Alert message template (Go <code>text/template</code> syntax)</td>
+</tr>
+<tr>
+<td><code>alert</code></td>
+<td>list</td>
+<td>yes</td>
+<td>List of <code>{notifier: &lt;name&gt;}</code> targets</td>
+</tr>
+</tbody>
+</table>
+<h3 id="condition-syntax">Condition syntax</h3>
+<p><strong>Single-event (threshold):</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>value &gt; 95
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>value &gt;= 80
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>value &lt; 10
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>value &lt;= 5
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>value == 0
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>value != 42
+</code></pre></div>
+<p><strong>Windowed aggregation:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>avg(value) over 5m &gt; 80
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>max(value) over 1m &gt;= 100
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>min(value) over 10s &lt; 5
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>sum(value) over 30s &gt; 1000
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>count(value) over 2m &gt; 50
+</code></pre></div>
+<p><strong>Compound (AND / OR):</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>value &gt; 90 AND avg(value) over 5m &gt; 80
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>value &lt; 5 OR count(value) over 1m &gt; 100
+</code></pre></div>
+<p>Comparison operators: <code>&gt;</code>, <code>&gt;=</code>, <code>&lt;</code>, <code>&lt;=</code>, <code>==</code>, <code>!=</code></p>
+<h4 id="run-lifetime-windows-over-run">Run-lifetime windows: <code>over run</code></h4>
+<p>In addition to wall-clock durations like <code>over 5m</code>, the windowed-condition
+grammar accepts the literal <code>run</code>, which bounds the window to the lifetime
+of the <code>ding run</code> subprocess. Run-bounded windows do not evict entries by
+time — every event observed during the run is included in the aggregate,
+subject only to the configured <code>max_buffer_size</code> cap.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">rules</span><span class="p">:</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="c1"># Whole-run aggregate, fires once at exit</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">high_avg_mem</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="nt">match</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> metric</span><span class="p">:</span><span class="w"> </span><span class="nv">mem_pct</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">avg(value) over run &gt; 80</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">    </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">end-of-run</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">    </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;avg</span><span class="nv"> </span><span class="s">memory</span><span class="nv"> </span><span class="s">was</span><span class="nv"> </span><span class="s">{{</span><span class="nv"> </span><span class="s">.avg</span><span class="nv"> </span><span class="s">}}%</span><span class="nv"> </span><span class="s">across</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">run&quot;</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">  </span><span class="c1"># Run-bounded sliding window, fires mid-run on threshold cross</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">errors_pile_up</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">    </span><span class="nt">match</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> metric</span><span class="p">:</span><span class="w"> </span><span class="nv">errors</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">    </span><span class="nt">condition</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">count(value) over run &gt; 10</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">    </span><span class="nt">cooldown</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30s</span>
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">    </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;errors</span><span class="nv"> </span><span class="s">in</span><span class="nv"> </span><span class="s">this</span><span class="nv"> </span><span class="s">run:</span><span class="nv"> </span><span class="s">{{</span><span class="nv"> </span><span class="s">.count</span><span class="nv"> </span><span class="s">}}&quot;</span>
+</code></pre></div>
+<p>The behavior matrix:</p>
+<table>
+<thead>
+<tr>
+<th>condition window</th>
+<th><code>mode: end-of-run</code>?</th>
+<th>result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>over 5m</code></td>
+<td>no</td>
+<td>wall-clock sliding (default)</td>
+</tr>
+<tr>
+<td><code>over 5m</code></td>
+<td>yes</td>
+<td>aggregate of last 5m of run, fires at exit</td>
+</tr>
+<tr>
+<td><code>over run</code></td>
+<td>no</td>
+<td>run-bounded sliding, fires mid-run when threshold crosses</td>
+</tr>
+<tr>
+<td><code>over run</code></td>
+<td>yes</td>
+<td>whole-run aggregate, fires once at exit</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Cooldown caveat.</strong> Aggregates like <code>count</code> are monotonically non-decreasing
+under <code>over run</code> — once <code>count &gt; 10</code>, it stays <code>&gt; 10</code>. Without <code>mode:
+end-of-run</code> or a <code>cooldown:</code>, such a rule fires on every subsequent matching
+event. Pair <code>over run</code> mid-run rules with a meaningful <code>cooldown:</code> (or use
+<code>mode: end-of-run</code> for fire-once-at-exit semantics).</p>
+<p><strong><code>ding serve</code> mode.</strong> <code>over run</code> is supported syntactically in the daemon
+mode, where it means "since daemon start" (the buffer accumulates indefinitely,
+capped by <code>max_buffer_size</code>). The wedge use case is <code>ding run</code>; prefer
+wall-clock windows in long-running serve deployments.</p>
+<h3 id="message-template-variables">Message template variables</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Available</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.metric</code></td>
+<td>always</td>
+<td>Metric name</td>
+</tr>
+<tr>
+<td><code>.value</code></td>
+<td>always</td>
+<td>Raw event value</td>
+</tr>
+<tr>
+<td><code>.rule</code></td>
+<td>always</td>
+<td>Rule name</td>
+</tr>
+<tr>
+<td><code>.fired_at</code></td>
+<td>always</td>
+<td>RFC3339 timestamp</td>
+</tr>
+<tr>
+<td><code>.&lt;label&gt;</code></td>
+<td>always</td>
+<td>Any label from the event (e.g., <code>.host</code>, <code>.region</code>)</td>
+</tr>
+<tr>
+<td><code>.avg</code></td>
+<td>windowed</td>
+<td>Average over window</td>
+</tr>
+<tr>
+<td><code>.max</code></td>
+<td>windowed</td>
+<td>Maximum over window</td>
+</tr>
+<tr>
+<td><code>.min</code></td>
+<td>windowed</td>
+<td>Minimum over window</td>
+</tr>
+<tr>
+<td><code>.sum</code></td>
+<td>windowed</td>
+<td>Sum over window</td>
+</tr>
+<tr>
+<td><code>.count</code></td>
+<td>windowed</td>
+<td>Event count over window</td>
+</tr>
+</tbody>
+</table>
+<h3 id="template-helpers">Template helpers</h3>
+<p>Two helper functions are available in message templates beyond Go's default <code>text/template</code> syntax:</p>
+<h4 id="humanize_duration"><code>humanize_duration</code></h4>
+<p>Renders a numeric seconds value as a human-readable duration string using Go's native <code>time.Duration.String()</code> format. Useful for the <code>{{ .duration_seconds }}</code> field on <code>run.exit</code> events.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Job</span><span class="nv"> </span><span class="s">failed</span><span class="nv"> </span><span class="s">after</span><span class="nv"> </span><span class="s">{{</span><span class="nv"> </span><span class="s">.duration_seconds</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">humanize_duration</span><span class="nv"> </span><span class="s">}}&quot;</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Input (seconds)</th>
+<th>Rendered</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;"><code>0</code></td>
+<td><code>0s</code></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>0.5</code></td>
+<td><code>500ms</code></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>7</code></td>
+<td><code>7s</code></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>247.3</code></td>
+<td><code>4m7.3s</code></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>1843</code></td>
+<td><code>30m43s</code></td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>7245</code></td>
+<td><code>2h0m45s</code></td>
+</tr>
+</tbody>
+</table>
+<p>Accepts any numeric type (int, int64, float64, etc.) interpreted as seconds. Non-numeric inputs pass through unchanged via <code>fmt.Sprint</code>, so a typo or a missing field renders something visibly wrong rather than crashing the template.</p>
+<h4 id="default"><code>default</code></h4>
+<p>Returns a fallback when the piped value is <code>nil</code> (typically a missing field) or the empty string. Numeric <code>0</code> and boolean <code>false</code> pass through unchanged — they are real values, not absences. This is intentionally narrower than sprig's <code>default</code> to avoid the <code>{{ .exit_code | default 0 }}</code> footgun.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Build</span><span class="nv"> </span><span class="s">on</span><span class="nv"> </span><span class="s">{{</span><span class="nv"> </span><span class="s">.branch</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">default</span><span class="nv"> </span><span class="s">\&quot;unknown\&quot;</span><span class="nv"> </span><span class="s">}}</span><span class="nv"> </span><span class="s">failed&quot;</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th><code>.branch</code> value</th>
+<th>Rendered</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"main"</code></td>
+<td><code>Build on main failed</code></td>
+</tr>
+<tr>
+<td><code>""</code></td>
+<td><code>Build on unknown failed</code></td>
+</tr>
+<tr>
+<td>missing</td>
+<td><code>Build on unknown failed</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="per-label-set-cooldowns">Per-label-set cooldowns</h3>
+<p>Cooldowns are tracked independently per unique label combination. A noisy <code>web-01</code> does not suppress alerts from <code>web-02</code>.</p>
+<hr />
+<h2 id="persistence"><code>persistence</code></h2>
+<p>Optional. Persists cooldown state and windowed ring buffers to disk so DING survives restarts without losing alert history.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>state_file</code></td>
+<td>string</td>
+<td>—</td>
+<td>Path to JSON snapshot file</td>
+</tr>
+<tr>
+<td><code>flush_interval</code></td>
+<td>duration</td>
+<td><code>30s</code></td>
+<td>How often to write the snapshot while running</td>
+</tr>
+</tbody>
+</table>
+<p>On startup, DING restores from the snapshot file if it exists. On reload (<code>SIGHUP</code> or <code>POST /reload</code>), state is flushed before the new config is loaded.</p>
+<hr />
+<h2 id="alert_log"><code>alert_log</code></h2>
+<p>Optional. Appends every fired alert as a JSON line to a file.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>path</code></td>
+<td>string</td>
+<td>Path to the log file. Created if it does not exist.</td>
+</tr>
+</tbody>
+</table>
+<p>Each line is a JSON object matching the webhook payload format.</p>
+<hr />
+<h2 id="duration-format">Duration format</h2>
+<p>All duration fields accept Go duration strings: <code>5s</code>, <code>1m</code>, <code>2h</code>, <code>500ms</code>.</p>
+<h2 id="environment-variable-substitution">Environment variable substitution</h2>
+<p>DING expands <code>${VAR}</code> references in <code>ding.yaml</code> against the process environment when the file is loaded. This lets you keep secrets (Slack URLs, PagerDuty routing keys, API tokens) out of version control.</p>
+<h3 id="syntax">Syntax</h3>
+<p>Reference an environment variable as <code>${VAR}</code>. Variable names match <code>[A-Za-z_][A-Za-z0-9_]*</code>.</p>
+<h3 id="behavior-at-a-glance">Behavior at a glance</h3>
+<table>
+<thead>
+<tr>
+<th>In <code>ding.yaml</code></th>
+<th>Environment</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>url: ${SLACK_URL}</code></td>
+<td><code>SLACK_URL=https://hooks...</code></td>
+<td><code>url: https://hooks...</code></td>
+</tr>
+<tr>
+<td><code>url: https://${HOST}/api</code></td>
+<td><code>HOST=example.com</code></td>
+<td><code>url: https://example.com/api</code></td>
+</tr>
+<tr>
+<td><code>token: ${A}-${B}</code></td>
+<td><code>A=abc</code>, <code>B=xyz</code></td>
+<td><code>token: abc-xyz</code></td>
+</tr>
+<tr>
+<td><code>path: /tmp/${X}/${X}</code></td>
+<td><code>X=foo</code></td>
+<td><code>path: /tmp/foo/foo</code> (repeats fine)</td>
+</tr>
+<tr>
+<td><code>note: ${A}</code></td>
+<td><code>A=""</code></td>
+<td><code>note: ""</code> (empty value is allowed)</td>
+</tr>
+<tr>
+<td><code>url: ${MISSING}</code></td>
+<td><code>MISSING</code> not set</td>
+<td><strong>load fails:</strong> <code>unset env vars referenced in config: MISSING</code></td>
+</tr>
+<tr>
+<td><code>url: ${A}; token: ${B}</code></td>
+<td>neither set</td>
+<td><strong>load fails:</strong> <code>unset env vars referenced in config: A, B</code> (both reported, sorted)</td>
+</tr>
+<tr>
+<td><code>name: $SHELL_STYLE</code></td>
+<td><code>SHELL_STYLE=x</code></td>
+<td><code>name: $SHELL_STYLE</code> (no expansion — braces are required)</td>
+</tr>
+<tr>
+<td><code>name: ${WITH-DASH}</code></td>
+<td>any</td>
+<td><code>name: ${WITH-DASH}</code> (<code>-</code> not allowed in variable names — passes through)</td>
+</tr>
+<tr>
+<td><code>name: ${}</code></td>
+<td>any</td>
+<td><code>name: ${}</code> (empty braces — passes through)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="footgun-yaml-metacharacters">Footgun: YAML metacharacters</h3>
+<p>Substitution is a raw-text replace performed <em>before</em> YAML parsing. If a variable's value might contain newlines, colons, or quotes, wrap the field in quotes:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;${MIGHT_CONTAIN_SPECIAL}&quot;</span>
+</code></pre></div>
+<p>For typical secrets (Slack URLs, PagerDuty tokens, API keys, opaque ID strings) this is never an issue.</p>
+<h3 id="out-of-scope">Out of scope</h3>
+<ul>
+<li>Bare <code>$VAR</code> (no braces) is not expanded.</li>
+<li>No <code>${VAR:-default}</code> for inline defaults — set the env var to the default before launching DING.</li>
+<li>No <code>$${VAR}</code> escape for writing literal <code>${VAR}</code> — the use case is rare; if you hit it, file an issue.</li>
+</ul>
+<h2 id="testing-rules-without-a-workload">Testing rules without a workload</h2>
+<p>DING ships two preview surfaces so you can verify rules before turning on real notifications.</p>
+<h3 id="ding-test-rule-replay-synthetic-events"><code>ding test-rule</code> — replay synthetic events</h3>
+<p>Pipe or pass JSONL events at a config; matching rules render messages as if they were about to fire, but no notifications go out.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># Pipe events from any source</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;{&quot;metric&quot;:&quot;loss&quot;,&quot;value&quot;:1.5}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>ding<span class="w"> </span>test-rule<span class="w"> </span>--config<span class="w"> </span>ding.yaml
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="c1"># Read from a file (use - for explicit stdin)</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>ding<span class="w"> </span>test-rule<span class="w"> </span>events.jsonl
+</code></pre></div>
+<p>Each input line is a JSON event in DING's normal shape: a <code>metric</code> field for matching, a <code>value</code> field for numeric conditions, and any other key/value pairs as labels (string) or floats (number). An optional <code>timestamp</code> field (RFC3339 string or Unix epoch number) controls the event's time for windowed rules; events without <code>timestamp</code> get sequential synthetic times starting from now.</p>
+<p>Output format auto-detects: human-readable text when stdout is a terminal, JSON (one object per line) when piped. Override with <code>--format text|json</code>. Disable color with <code>--no-color</code>.</p>
+<p>End-of-run rules (<code>mode: end-of-run</code>) fire after the last input event.</p>
+<h3 id="ding-run-dry-run-wrap-a-real-workload-suppress-sends"><code>ding run --dry-run</code> — wrap a real workload, suppress sends</h3>
+<p>Same as <code>ding run</code>, but the dispatch boundary is swapped for a logging one — your wrapped command runs normally, events flow through the engine normally, the synthetic <code>run.exit</code> event still emits, end-of-run rules still fire, the wrapped command's exit code still propagates. Only <code>notifier.Send</code> is bypassed.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Preview what alerts would fire on a real failing build</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>ding<span class="w"> </span>run<span class="w"> </span>--dry-run<span class="w"> </span>--config<span class="w"> </span>ding.yaml<span class="w"> </span>--<span class="w"> </span>pytest<span class="w"> </span>tests/
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1"># JSON output for piping (preview is on stderr; redirect to stdout for jq)</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>ding<span class="w"> </span>run<span class="w"> </span>--dry-run<span class="w"> </span>--format<span class="w"> </span>json<span class="w"> </span>--config<span class="w"> </span>ding.yaml<span class="w"> </span>--<span class="w"> </span>./train.sh<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
+</code></pre></div>
+<p>Preview output goes to stderr alongside the wrapped command's own stderr; the wrapped command's stdout stays clean for downstream tools that read it.</p>
+<hr />
+<h2 id="platform-specific-examples">Platform-specific examples</h2>
+<p>See <a href="../recipes/">Recipes</a> for end-to-end configurations on specific CI/CD platforms (GitLab CI, Jenkins, Buildkite). Each recipe shows the auto-captured labels and the minimal <code>ding.yaml</code> for that platform.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.sections", "content.code.copy", "search.suggest"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
