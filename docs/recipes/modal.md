@@ -91,7 +91,7 @@ A Slack message during training when `val_loss` exceeds threshold:
 …and on function exit:
 
 > 🔔 `training_failed`
-> Modal function trainer (task ta-abc123def) failed (exit 1 after 287s)
+> Modal function trainer (task ta-abc123def) failed (exit 1 after 4m47s)
 
 The `modal_task_id` matches the task ID visible in the Modal dashboard, so the Slack alert is one click away from the function's logs and metrics.
 

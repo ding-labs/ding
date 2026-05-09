@@ -112,7 +112,7 @@ A Slack message during training when `val_loss` exceeds threshold:
 …and on training-process exit:
 
 > 🔔 `training_failed`
-> Ray job raysubmit_abcdef1234567890 failed (exit 1 after 1843s)
+> Ray job raysubmit_abcdef1234567890 failed (exit 1 after 30m43s)
 
 All Path A alerts are auto-tagged with `run_id` + `runner=ray`. The `run_id` matches the UUID printed by `ray job list`.
 
