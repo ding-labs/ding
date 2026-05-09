@@ -167,7 +167,7 @@ Match it like any other metric:
 - name: nonzero_exit
   match: { metric: run.exit }
   condition: value > 0
-  message: "job failed with exit code {{ .value }} after {{ .duration_seconds }}s"
+  message: "job failed with exit code {{ .value }} after {{ .duration_seconds | humanize_duration }}"
   alert: [{ notifier: github_actions }]
 ```
 
