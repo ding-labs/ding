@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- DING binary `>= v0.3.0` — see [install](../install.md)
+- DING binary `>= v0.10.0` — see [install](../install.md)
 - A GitLab project with CI enabled (gitlab.com or self-hosted)
 - A notifier endpoint (Slack webhook URL, custom webhook, etc.) accessible from the runner
 
@@ -35,7 +35,7 @@ rules:
     match:
       metric: run.exit
     condition: value > 0
-    message: "Pipeline {{ .branch }} failed (exit {{ .exit_code }})"
+    message: "Pipeline {{ .branch }} failed (exit {{ .exit_code }} after {{ .duration_seconds }}s)"
     alert:
       - notifier: slack
 ```
@@ -67,7 +67,7 @@ Use these in `match.labels` for selective rules, or in `message` templates as `{
 2. Push a commit. Confirm the pipeline runs and that a successful job produces no alert.
 3. Force a failure: change `run-tests.sh` to `exit 1`. Confirm the alert fires in Slack within ~5 seconds of job exit.
 
-If the alert doesn't fire, check the GitLab CI job log for `ding` output. Common issues: webhook URL not exposed to the job (mark the variable as not "Protected" if testing on a non-protected branch), or `drain_timeout` shorter than the notifier retry window — see [Configuration → drain_timeout](../configuration.md).
+If the alert doesn't fire, check the GitLab CI job log for `ding` output. Common issues: webhook URL not exposed to the job (mark the variable as not "Protected" if testing on a non-protected branch), or `drain_timeout` shorter than the notifier retry window — see [Configuration → drain_timeout](../configuration.md#drain_timeout-and-retry-behaviour-in-ding-run).
 
 ## Native GitLab UI surfacing
 

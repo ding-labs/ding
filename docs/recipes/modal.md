@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- DING binary `>= v0.8.0` — see [install](../install.md)
+- DING binary `>= v0.10.0` — see [install](../install.md)
 - Modal CLI (`pip install modal`) authenticated via `modal token new`
 - A Modal account (free tier with $30/mo credit covers this recipe end-to-end)
 - A notifier endpoint (Slack webhook URL is the canonical example)
@@ -67,7 +67,7 @@ rules:
   - name: training_failed
     match: { metric: run.exit }
     condition: value > 0
-    message: "Modal function {{ .function_name }} (task {{ .modal_task_id }}) failed (exit {{ .exit_code }})"
+    message: "Modal function {{ .function_name }} (task {{ .modal_task_id }}) failed (exit {{ .exit_code }} after {{ .duration_seconds }}s)"
     alert:
       - notifier: slack
 ```
@@ -91,7 +91,7 @@ A Slack message during training when `val_loss` exceeds threshold:
 …and on function exit:
 
 > 🔔 `training_failed`
-> Modal function trainer (task ta-abc123def) failed (exit 1)
+> Modal function trainer (task ta-abc123def) failed (exit 1 after 287s)
 
 The `modal_task_id` matches the task ID visible in the Modal dashboard, so the Slack alert is one click away from the function's logs and metrics.
 
@@ -105,7 +105,7 @@ DING does **not** auto-detect Modal — Modal's runtime owns the container entry
 | `MODAL_FUNCTION_NAME` | The function's Python name |
 | `MODAL_APP_NAME` | The Modal `App` name (for multi-function apps) |
 
-Emit any subset as flat top-level JSON keys (DING's ingester at `internal/ingester/json.go` extracts top-level strings as labels and numbers as floats; nested objects are skipped). Use them in `match.labels` or `message` template variables. See [Configuration](../configuration.md) for the full reference.
+Emit any subset as flat top-level JSON keys — DING extracts top-level strings as labels and numbers as floats; nested objects are skipped. Use them in `match.labels` or `message` template variables. See [Configuration](../configuration.md) for the full notifier reference.
 
 ## Verification
 

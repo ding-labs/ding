@@ -12,7 +12,7 @@ rubric.
 
 ## Prerequisites
 
-- DING binary `>= v0.3.0` — see [install](../install.md)
+- DING binary `>= v0.10.0` — see [install](../install.md)
 - <Platform-specific requirements: account, runtime version, etc.>
 - A notifier endpoint (Slack webhook URL, custom webhook, etc.)
 
@@ -32,7 +32,7 @@ rules:
     match:
       metric: run.exit
     condition: value > 0
-    message: "Job failed (exit {{ .exit_code }})"
+    message: "Job failed (exit {{ .exit_code }} after {{ .duration_seconds }}s)"
     alert:
       - notifier: slack
 ```
