@@ -457,7 +457,13 @@ func renderMessage(tmpl string, alert Alert) string {
 	if tmpl == "" {
 		return fmt.Sprintf("rule %q fired (metric=%s value=%v)", alert.Rule, alert.Metric, alert.Value)
 	}
-	t, err := template.New("msg").Parse(tmpl)
+	t, err := template.New("msg").
+		Option("missingkey=zero").
+		Funcs(template.FuncMap{
+			"humanize_duration": humanizeDuration,
+			"default":           defaultValue,
+		}).
+		Parse(tmpl)
 	if err != nil {
 		return tmpl // return raw if template is invalid
 	}

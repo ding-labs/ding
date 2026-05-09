@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"testing"
+	"time"
 )
 
 // TestHumanizeDuration verifies the duration humanization helper renders
@@ -64,5 +65,48 @@ func TestDefault(t *testing.T) {
 				t.Errorf("defaultValue(%v, %v) = %v, want %v", tt.fallback, tt.value, got, tt.want)
 			}
 		})
+	}
+}
+
+// TestRenderMessage_DefaultHelper_FillsMissingField proves the default
+// helper works through the full renderMessage pipeline for a field that
+// is not in Labels, Floats, or the alert struct. After missingkey=zero
+// is wired, the missing field surfaces as nil in the template scope and
+// default returns the fallback.
+func TestRenderMessage_DefaultHelper_FillsMissingField(t *testing.T) {
+	alert := Alert{
+		Rule:    "build_failed",
+		Metric:  "run.exit",
+		Value:   1,
+		Labels:  map[string]string{"runner": "github-actions"},
+		FiredAt: time.Now(),
+	}
+
+	got := renderMessage(`Build on {{ .branch | default "unknown" }} failed`, alert)
+
+	want := "Build on unknown failed"
+	if got != want {
+		t.Errorf("renderMessage default helper: got %q, want %q", got, want)
+	}
+}
+
+// TestRenderMessage_HumanizeDuration_ThroughPipeline proves humanize_duration
+// works through the full renderMessage pipeline against the synthetic
+// run.exit event shape (duration_seconds in Floats).
+func TestRenderMessage_HumanizeDuration_ThroughPipeline(t *testing.T) {
+	alert := Alert{
+		Rule:    "training_failed",
+		Metric:  "run.exit",
+		Value:   1,
+		Labels:  map[string]string{"runner": "mlflow"},
+		Floats:  map[string]float64{"duration_seconds": 1843},
+		FiredAt: time.Now(),
+	}
+
+	got := renderMessage("Run failed after {{ .duration_seconds | humanize_duration }}", alert)
+
+	want := "Run failed after 30m43s"
+	if got != want {
+		t.Errorf("renderMessage humanize_duration: got %q, want %q", got, want)
 	}
 }
