@@ -143,7 +143,7 @@ rules:
   #   match:
   #     metric: run.exit
   #   condition: value > 0
-  #   message: "job failed: exit code {{ .value }} after {{ .duration_seconds }}s"
+  #   message: "job failed: exit code {{ .value }} after {{ .duration_seconds | humanize_duration }}"
   #   alert:
   #     - notifier: github_actions
 

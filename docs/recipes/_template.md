@@ -32,7 +32,7 @@ rules:
     match:
       metric: run.exit
     condition: value > 0
-    message: "Job failed (exit {{ .exit_code }} after {{ .duration_seconds }}s)"
+    message: "Job failed (exit {{ .exit_code }} after {{ .duration_seconds | humanize_duration }})"
     alert:
       - notifier: slack
 ```

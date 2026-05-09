@@ -362,6 +362,43 @@ wall-clock windows in long-running serve deployments.
 | `.sum` | windowed | Sum over window |
 | `.count` | windowed | Event count over window |
 
+### Template helpers
+
+Two helper functions are available in message templates beyond Go's default `text/template` syntax:
+
+#### `humanize_duration`
+
+Renders a numeric seconds value as a human-readable duration string using Go's native `time.Duration.String()` format. Useful for the `{{ .duration_seconds }}` field on `run.exit` events.
+
+```yaml
+message: "Job failed after {{ .duration_seconds | humanize_duration }}"
+```
+
+| Input (seconds) | Rendered |
+|----------------:|----------|
+| `0` | `0s` |
+| `0.5` | `500ms` |
+| `7` | `7s` |
+| `247.3` | `4m7.3s` |
+| `1843` | `30m43s` |
+| `7245` | `2h0m45s` |
+
+Accepts any numeric type (int, int64, float64, etc.) interpreted as seconds. Non-numeric inputs pass through unchanged via `fmt.Sprint`, so a typo or a missing field renders something visibly wrong rather than crashing the template.
+
+#### `default`
+
+Returns a fallback when the piped value is `nil` (typically a missing field) or the empty string. Numeric `0` and boolean `false` pass through unchanged — they are real values, not absences. This is intentionally narrower than sprig's `default` to avoid the `{{ .exit_code | default 0 }}` footgun.
+
+```yaml
+message: "Build on {{ .branch | default \"unknown\" }} failed"
+```
+
+| `.branch` value | Rendered |
+|---|---|
+| `"main"` | `Build on main failed` |
+| `""` | `Build on unknown failed` |
+| missing | `Build on unknown failed` |
+
 ### Per-label-set cooldowns
 
 Cooldowns are tracked independently per unique label combination. A noisy `web-01` does not suppress alerts from `web-02`.

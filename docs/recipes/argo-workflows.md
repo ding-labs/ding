@@ -49,7 +49,7 @@ data:
         match:
           metric: run.exit
         condition: value > 0
-        message: "Argo step {{ .pod }} (workflow {{ .workflow }}) failed with exit {{ .exit_code }} after {{ .duration_seconds }}s"
+        message: "Argo step {{ .pod }} (workflow {{ .workflow }}) failed with exit {{ .exit_code }} after {{ .duration_seconds | humanize_duration }}"
         alert:
           - notifier: slack
 ---

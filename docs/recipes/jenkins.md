@@ -47,7 +47,7 @@ rules:
     match:
       metric: run.exit
     condition: value > 0
-    message: "{{ .job }} build {{ .build }} failed (exit {{ .exit_code }} after {{ .duration_seconds }}s)"
+    message: "{{ .job }} build {{ .build }} failed (exit {{ .exit_code }} after {{ .duration_seconds | humanize_duration }})"
     alert:
       - notifier: slack
 ```

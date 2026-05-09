@@ -67,7 +67,7 @@ rules:
   - name: training_failed
     match: { metric: run.exit }
     condition: value > 0
-    message: "Modal function {{ .function_name }} (task {{ .modal_task_id }}) failed (exit {{ .exit_code }} after {{ .duration_seconds }}s)"
+    message: "Modal function {{ .function_name }} (task {{ .modal_task_id }}) failed (exit {{ .exit_code }} after {{ .duration_seconds | humanize_duration }})"
     alert:
       - notifier: slack
 ```
@@ -91,7 +91,7 @@ A Slack message during training when `val_loss` exceeds threshold:
 …and on function exit:
 
 > 🔔 `training_failed`
-> Modal function trainer (task ta-abc123def) failed (exit 1 after 287s)
+> Modal function trainer (task ta-abc123def) failed (exit 1 after 4m47s)
 
 The `modal_task_id` matches the task ID visible in the Modal dashboard, so the Slack alert is one click away from the function's logs and metrics.
 
