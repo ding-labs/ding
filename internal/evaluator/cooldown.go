@@ -3,42 +3,55 @@ package evaluator
 import (
 	"sync"
 	"time"
+
+	"github.com/ding-labs/ding/internal/identity"
 )
 
-// CooldownTracker tracks per-(rule, label-set) cooldown expiry times.
+// CooldownTracker tracks per-(rule, label-set) expiry in the evaluation clock.
 type CooldownTracker struct {
 	mu     sync.Mutex
 	expiry map[string]time.Time
 }
 
-// NewCooldownTracker creates a new CooldownTracker.
 func NewCooldownTracker() *CooldownTracker {
 	return &CooldownTracker{expiry: make(map[string]time.Time)}
 }
 
-// IsActive returns true if the cooldown for (rule, labelKey) is still active.
-func (ct *CooldownTracker) IsActive(rule, labelKey string) bool {
+// TryAcquire checks and reserves a cooldown atomically. Zero duration allows
+// every event and retains no state. Exact expiry is eligible to fire again.
+func (ct *CooldownTracker) TryAcquire(rule, labelKey string, d time.Duration, now time.Time) bool {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
-	exp, ok := ct.expiry[rule+":"+labelKey]
-	return ok && time.Now().Before(exp)
+	key := identity.Key(rule, labelKey)
+	if now.Before(ct.expiry[key]) {
+		return false
+	}
+	if d > 0 {
+		ct.expiry[key] = now.Add(d)
+	} else {
+		delete(ct.expiry, key)
+	}
+	return true
 }
 
-// Set activates a cooldown for (rule, labelKey) for the given duration.
-func (ct *CooldownTracker) Set(rule, labelKey string, d time.Duration) {
+func (ct *CooldownTracker) IsActive(rule, labelKey string, now time.Time) bool {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
-	ct.expiry[rule+":"+labelKey] = time.Now().Add(d)
+	return now.Before(ct.expiry[identity.Key(rule, labelKey)])
 }
 
-// RemainingString returns a human-readable string of remaining cooldown time.
-func (ct *CooldownTracker) RemainingString(rule, labelKey string) string {
+func (ct *CooldownTracker) Set(rule, labelKey string, d time.Duration, now time.Time) {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
-	exp, ok := ct.expiry[rule+":"+labelKey]
-	if !ok || time.Now().After(exp) {
+	ct.expiry[identity.Key(rule, labelKey)] = now.Add(d)
+}
+
+func (ct *CooldownTracker) RemainingString(rule, labelKey string, now time.Time) string {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
+	exp := ct.expiry[identity.Key(rule, labelKey)]
+	if !now.Before(exp) {
 		return "ready"
 	}
-	remaining := time.Until(exp).Round(time.Second)
-	return remaining.String() + " remaining"
+	return exp.Sub(now).Round(time.Second).String() + " remaining"
 }

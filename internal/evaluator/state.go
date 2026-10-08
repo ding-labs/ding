@@ -34,7 +34,7 @@ type EntrySnapshot struct {
 // All timestamps are written as UTC.
 func SnapshotEngine(e *Engine) StateSnapshot {
 	snap := StateSnapshot{
-		Version:   1,
+		Version:   2,
 		SavedAt:   time.Now().UTC(),
 		Buffers:   make(map[string]BufferSnapshot),
 		Cooldowns: make(map[string]time.Time),
@@ -118,7 +118,7 @@ func LoadSnapshot(path string) (*StateSnapshot, error) {
 	if err := json.Unmarshal(data, &snap); err != nil {
 		return nil, fmt.Errorf("parsing state file: %w", err)
 	}
-	if snap.Version != 1 {
+	if snap.Version != 2 {
 		return nil, fmt.Errorf("unsupported state version %d", snap.Version)
 	}
 	return &snap, nil

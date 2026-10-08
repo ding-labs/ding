@@ -7,7 +7,7 @@ failures and environment limitations are recorded here without implying success.
 | Step | Status | Evidence |
 | --- | --- | --- |
 | P01 Baseline and CI | Complete | Race suite passes, 69.8% coverage; vet and actionlint pass; CGO-free builds pass on Linux/macOS/Windows amd64/arm64. Audit fixtures and plan retained. |
-| P02 Time and identity | Pending | |
+| P02 Time and identity | Complete | Full race suite and vet pass; identity 100%, evaluator 89.7% coverage; key and label fuzzing pass. Cooldowns use explicit time and atomic reservation. Snapshot encoding version bumped to reject ambiguous old keys. |
 | P03 State and limits | Pending | |
 | P04 Delivery and lifecycle | Pending | |
 | P05 Compilation, access, packaging | Pending | |

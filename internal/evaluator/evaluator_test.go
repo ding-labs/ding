@@ -290,23 +290,23 @@ func TestRingBuffer_WallClock_StillEvicts(t *testing.T) {
 
 func TestCooldown_NotActive(t *testing.T) {
 	cd := evaluator.NewCooldownTracker()
-	if cd.IsActive("rule1", "host=web-01") {
+	if cd.IsActive("rule1", "host=web-01", time.Now()) {
 		t.Error("should not be active before being set")
 	}
 }
 
 func TestCooldown_ActiveAfterSet(t *testing.T) {
 	cd := evaluator.NewCooldownTracker()
-	cd.Set("rule1", "host=web-01", 5*time.Minute)
-	if !cd.IsActive("rule1", "host=web-01") {
+	cd.Set("rule1", "host=web-01", 5*time.Minute, time.Now())
+	if !cd.IsActive("rule1", "host=web-01", time.Now()) {
 		t.Error("should be active after being set")
 	}
 }
 
 func TestCooldown_PerLabelSet(t *testing.T) {
 	cd := evaluator.NewCooldownTracker()
-	cd.Set("rule1", "host=web-01", 5*time.Minute)
-	if cd.IsActive("rule1", "host=web-02") {
+	cd.Set("rule1", "host=web-01", 5*time.Minute, time.Now())
+	if cd.IsActive("rule1", "host=web-02", time.Now()) {
 		t.Error("cooldown should not bleed across label sets")
 	}
 }

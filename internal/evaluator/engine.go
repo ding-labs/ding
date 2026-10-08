@@ -8,12 +8,12 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"text/template"
 	"time"
 
 	"github.com/ding-labs/ding/internal/config"
+	"github.com/ding-labs/ding/internal/identity"
 	"github.com/ding-labs/ding/internal/ingester"
 )
 
@@ -24,7 +24,7 @@ type EngineRule struct {
 	Condition string
 	Cooldown  time.Duration
 	Message   string
-	Alerts    []string         // notifier names ("stdout" or named webhook)
+	Alerts    []string            // notifier names ("stdout" or named webhook)
 	Guard     *config.GuardConfig // optional HTTP guard; nil means no guard
 	// Mode is "" / "during-run" (default) or "end-of-run". End-of-run rules
 	// populate buffers during Process() but only fire when ProcessEndOfRun()
@@ -134,7 +134,7 @@ func (e *Engine) Process(event ingester.Event, now time.Time) []Alert {
 			Available:  make(map[int]bool, len(leaves)),
 		}
 		for _, leaf := range leaves {
-			leafBufKey := rule.Name + ":" + strconv.Itoa(leaf.ID) + ":" + labelKey
+			leafBufKey := identity.Key(rule.Name, strconv.Itoa(leaf.ID), labelKey)
 			buf := e.getOrCreateBuffer(leafBufKey, leaf.Window, leaf.RunBounded)
 			buf.Add(event.Value, event.At)
 			if buf.HasEntries(now) {
@@ -168,11 +168,8 @@ func (e *Engine) Process(event ingester.Event, now time.Time) []Alert {
 			continue
 		}
 
-		if e.cooldown.IsActive(rule.Name, labelKey) {
+		if !e.cooldown.TryAcquire(rule.Name, labelKey, rule.Cooldown, now) {
 			continue
-		}
-		if rule.Cooldown > 0 {
-			e.cooldown.Set(rule.Name, labelKey, rule.Cooldown)
 		}
 
 		alert := Alert{
@@ -188,7 +185,7 @@ func (e *Engine) Process(event ingester.Event, now time.Time) []Alert {
 		// Only for single-windowed-leaf rules; compound multi-leaf rules leave these zero.
 		if len(leaves) == 1 {
 			leaf := leaves[0]
-			leafBufKey := rule.Name + ":" + strconv.Itoa(leaf.ID) + ":" + labelKey
+			leafBufKey := identity.Key(rule.Name, strconv.Itoa(leaf.ID), labelKey)
 			buf := e.getOrCreateBuffer(leafBufKey, leaf.Window, leaf.RunBounded)
 			alert.Avg = buf.Avg(now)
 			alert.Max = buf.Max(now)
@@ -236,7 +233,7 @@ func (e *Engine) ProcessEndOfRun(now time.Time) []Alert {
 				Available:  make(map[int]bool, len(leaves)),
 			}
 			for _, leaf := range leaves {
-				leafBufKey := rule.Name + ":" + strconv.Itoa(leaf.ID) + ":" + labelKey
+				leafBufKey := identity.Key(rule.Name, strconv.Itoa(leaf.ID), labelKey)
 				buf := e.lookupBuffer(leafBufKey)
 				if buf == nil || !buf.HasEntries(now) {
 					continue
@@ -272,7 +269,7 @@ func (e *Engine) ProcessEndOfRun(now time.Time) []Alert {
 			}
 			if len(leaves) == 1 {
 				leaf := leaves[0]
-				leafBufKey := rule.Name + ":" + strconv.Itoa(leaf.ID) + ":" + labelKey
+				leafBufKey := identity.Key(rule.Name, strconv.Itoa(leaf.ID), labelKey)
 				if buf := e.lookupBuffer(leafBufKey); buf != nil {
 					alert.Avg = buf.Avg(now)
 					alert.Max = buf.Max(now)
@@ -296,23 +293,24 @@ func (e *Engine) lookupBuffer(key string) *RingBuffer {
 	return e.buffers[key]
 }
 
-// parseLabelKey reverses LabelSetKey, returning the label map for an
-// already-canonicalized "k1=v1,k2=v2" string. Returns nil for empty input.
+// parseLabelKey reverses the canonical pair encoding used by LabelSetKey.
 func parseLabelKey(key string) map[string]string {
 	if key == "" {
 		return nil
 	}
-	out := map[string]string{}
-	for _, p := range strings.Split(key, ",") {
-		if eq := strings.IndexByte(p, '='); eq > 0 {
-			out[p[:eq]] = p[eq+1:]
-		}
+	parts, err := identity.Parts(key)
+	if err != nil || len(parts)%2 != 0 {
+		return nil
+	}
+	out := make(map[string]string, len(parts)/2)
+	for i := 0; i < len(parts); i += 2 {
+		out[parts[i]] = parts[i+1]
 	}
 	return out
 }
 
 // RulesStatus returns rule names with their cooldown states.
-func (e *Engine) RulesStatus() []RuleStatus {
+func (e *Engine) RulesStatus(now time.Time) []RuleStatus {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 
@@ -330,7 +328,7 @@ func (e *Engine) RulesStatus() []RuleStatus {
 	for i, r := range e.rules {
 		cooling := make(map[string]string)
 		for _, labelKey := range seenCopy[r.Name] {
-			cooling[labelKey] = e.cooldown.RemainingString(r.Name, labelKey)
+			cooling[labelKey] = e.cooldown.RemainingString(r.Name, labelKey, now)
 		}
 		out[i] = RuleStatus{
 			Name:        r.Name,
@@ -386,11 +384,11 @@ func LabelSetKey(labels map[string]string) string {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	parts := make([]string, len(keys))
-	for i, k := range keys {
-		parts[i] = k + "=" + labels[k]
+	parts := make([]string, 0, 2*len(keys))
+	for _, k := range keys {
+		parts = append(parts, k, labels[k])
 	}
-	return strings.Join(parts, ",")
+	return identity.Key(parts...)
 }
 
 // StartFlusher starts a background goroutine that periodically saves engine state to path.

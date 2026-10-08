@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/evaluator"
+	"github.com/ding-labs/ding/internal/identity"
 	"github.com/ding-labs/ding/internal/ingester"
 )
 
@@ -56,8 +57,8 @@ func TestSnapshotEngine_Empty(t *testing.T) {
 	eng := makeWindowedEngine(t)
 	snap := evaluator.SnapshotEngine(eng)
 
-	if snap.Version != 1 {
-		t.Errorf("expected version 1, got %d", snap.Version)
+	if snap.Version != 2 {
+		t.Errorf("expected version 2, got %d", snap.Version)
 	}
 	if len(snap.Buffers) != 0 {
 		t.Errorf("expected empty Buffers, got %d entries", len(snap.Buffers))
@@ -85,8 +86,8 @@ func TestSnapshotEngine_CapturesBuffers(t *testing.T) {
 		t.Fatal("expected at least one buffer in snapshot")
 	}
 
-	// The key should be "cpu_sustained:0:host=web-01"
-	expectedKey := "cpu_sustained:0:host=web-01"
+	// The key should be identity.Key("cpu_sustained", "0", evaluator.LabelSetKey(map[string]string{"host":"web-01"}))
+	expectedKey := identity.Key("cpu_sustained", "0", evaluator.LabelSetKey(map[string]string{"host": "web-01"}))
 	bs, ok := snap.Buffers[expectedKey]
 	if !ok {
 		t.Fatalf("expected buffer key %q in snapshot, got keys: %v", expectedKey, keysOf(snap.Buffers))
@@ -121,7 +122,7 @@ func TestSnapshotEngine_CapturesCooldowns(t *testing.T) {
 	}
 
 	// Cooldown key format: "ruleName:labelKey"
-	expectedKey := "cpu_spike:host=web-01"
+	expectedKey := identity.Key("cpu_spike", evaluator.LabelSetKey(map[string]string{"host": "web-01"}))
 	exp, ok := snap.Cooldowns[expectedKey]
 	if !ok {
 		t.Fatalf("expected cooldown key %q, got: %v", expectedKey, snap.Cooldowns)
@@ -134,10 +135,10 @@ func TestSnapshotEngine_CapturesCooldowns(t *testing.T) {
 // TestRestoreEngine_RejectsExpiredEntries verifies that old buffer entries are dropped on restore.
 func TestRestoreEngine_RejectsExpiredEntries(t *testing.T) {
 	snap := evaluator.StateSnapshot{
-		Version: 1,
+		Version: 2,
 		SavedAt: time.Now().UTC(),
 		Buffers: map[string]evaluator.BufferSnapshot{
-			"cpu_sustained:0:host=web-01": {
+			identity.Key("cpu_sustained", "0", evaluator.LabelSetKey(map[string]string{"host": "web-01"})): {
 				Window:  5 * time.Minute,
 				MaxSize: 1000,
 				Entries: []evaluator.EntrySnapshot{
@@ -164,11 +165,11 @@ func TestRestoreEngine_RejectsExpiredEntries(t *testing.T) {
 func TestRestoreEngine_RejectsExpiredCooldowns(t *testing.T) {
 	now := time.Now()
 	snap := evaluator.StateSnapshot{
-		Version: 1,
+		Version: 2,
 		SavedAt: now.UTC(),
 		Buffers: map[string]evaluator.BufferSnapshot{},
 		Cooldowns: map[string]time.Time{
-			"cpu_spike:host=web-01": now.Add(-1 * time.Minute), // expired 1 minute ago
+			identity.Key("cpu_spike", evaluator.LabelSetKey(map[string]string{"host": "web-01"})): now.Add(-1 * time.Minute), // expired 1 minute ago
 		},
 	}
 
@@ -213,7 +214,7 @@ func TestRestoreEngine_PreservesActiveState(t *testing.T) {
 	// eng2 should have the same buffers as eng1
 	snap2 := evaluator.SnapshotEngine(eng2)
 
-	key := "cpu_sustained:0:host=web-01"
+	key := identity.Key("cpu_sustained", "0", evaluator.LabelSetKey(map[string]string{"host": "web-01"}))
 	bs1, ok1 := snap.Buffers[key]
 	bs2, ok2 := snap2.Buffers[key]
 	if !ok1 || !ok2 {
@@ -235,7 +236,7 @@ func TestSaveAndLoadSnapshot_RoundTrip(t *testing.T) {
 	path := filepath.Join(dir, "state.json")
 
 	original := evaluator.StateSnapshot{
-		Version: 1,
+		Version: 2,
 		SavedAt: time.Now().UTC().Truncate(time.Millisecond),
 		Buffers: map[string]evaluator.BufferSnapshot{
 			"rule1:host=a": {
@@ -350,8 +351,8 @@ func TestStartFlusher_PeriodicFlush(t *testing.T) {
 	if err := json.Unmarshal(data, &snap); err != nil {
 		t.Fatalf("state file is not valid JSON: %v", err)
 	}
-	if snap.Version != 1 {
-		t.Errorf("expected version 1, got %d", snap.Version)
+	if snap.Version != 2 {
+		t.Errorf("expected version 2, got %d", snap.Version)
 	}
 }
 
@@ -394,7 +395,7 @@ func TestStartFlusher_FinalFlushOnStop(t *testing.T) {
 	if len(snap.Cooldowns) == 0 {
 		t.Error("expected cooldowns in flushed state")
 	}
-	expectedKey := "cpu_spike:host=web-01"
+	expectedKey := identity.Key("cpu_spike", evaluator.LabelSetKey(map[string]string{"host": "web-01"}))
 	if _, ok := snap.Cooldowns[expectedKey]; !ok {
 		t.Errorf("expected cooldown key %q in flushed state, got: %v", expectedKey, snap.Cooldowns)
 	}

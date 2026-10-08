@@ -369,8 +369,8 @@ func TestParseLabelKey(t *testing.T) {
 		want map[string]string
 	}{
 		{"", nil},
-		{"host=a", map[string]string{"host": "a"}},
-		{"host=a,region=us", map[string]string{"host": "a", "region": "us"}},
+		{LabelSetKey(map[string]string{"host": "a"}), map[string]string{"host": "a"}},
+		{LabelSetKey(map[string]string{"host": "a", "region": "us"}), map[string]string{"host": "a", "region": "us"}},
 	}
 	for _, c := range cases {
 		got := parseLabelKey(c.in)

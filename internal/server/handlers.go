@@ -81,7 +81,7 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 	eng := s.engine
 	s.mu.RUnlock()
 
-	statuses := eng.RulesStatus()
+	statuses := eng.RulesStatus(time.Now())
 	type ruleResp struct {
 		Name        string            `json:"name"`
 		Condition   string            `json:"condition"`
