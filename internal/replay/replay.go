@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sort"
 
 	"github.com/ding-labs/ding/internal/condition"
 	"github.com/ding-labs/ding/internal/plan"
@@ -53,24 +52,30 @@ func Run(p plan.Compiled, input io.Reader) (Report, error) {
 			return report, fmt.Errorf("observation sequence must increase across the fixture")
 		}
 		previous = o.Sequence
-		keys := []string{}
-		if o.Health != "ok" && len(report.States) > 0 {
-			for key := range report.States {
-				keys = append(keys, key)
-			}
-			sort.Strings(keys)
-		} else {
-			key, err := watch.EntityKey(p.Definition.Spec.GroupBy, o.Fields)
-			if err != nil {
-				return report, err
-			}
-			keys = append(keys, key)
+		existing := make([]string, 0, len(report.States))
+		for key := range report.States {
+			existing = append(existing, key)
 		}
+		keys, clearSource, err := e.Route(existing, o)
+		if err != nil {
+			return report, err
+		}
+		if clearSource {
+			if report.States[condition.SourceEntity].SourceUnhealthy {
+				report.Events = append(report.Events, e.SourceRecovered(o))
+			}
+			delete(report.States, condition.SourceEntity)
+		}
+
 		for _, key := range keys {
 			if _, exists := report.States[key]; !exists && len(report.States) >= p.Definition.Spec.Limits.MaxEntities {
 				return report, fmt.Errorf("entity budget exceeded")
 			}
-			r, err := e.Evaluate(report.States[key], o, o.AcceptedAt)
+			state := report.States[key]
+			if state.Entity == "" {
+				state.Entity = key
+			}
+			r, err := e.Evaluate(state, o, o.AcceptedAt)
 			if err != nil {
 				return report, fmt.Errorf("observation %d: %w", report.Observations+1, err)
 			}

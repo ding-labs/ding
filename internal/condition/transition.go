@@ -19,6 +19,10 @@ type Sample struct {
 	Sequence int64     `json:"sequence"`
 }
 type State struct {
+	IncidentEvent   string    `json:"incidentEvent,omitempty"`
+	HealthEvent     string    `json:"healthEvent,omitempty"`
+	FreshSequence   int64     `json:"freshSequence,omitempty"`
+	MissingAt       time.Time `json:"missingAt,omitempty"`
 	Entity          string    `json:"entity"`
 	Open            bool      `json:"open"`
 	Matches         int       `json:"matches"`
@@ -62,7 +66,7 @@ func New(def watch.Definition, revision string) (*Evaluator, error) {
 		return nil, err
 	}
 	e := &Evaluator{definition: copied, revision: revision}
-	if def.Spec.Condition.MissingFor != "" || def.Spec.Condition.Operator == "changed" || def.Spec.Condition.Operator == "new-event" {
+	if def.Spec.Condition.Operator == "changed" || def.Spec.Condition.Operator == "new-event" {
 		return nil, fmt.Errorf("condition capability is not implemented yet")
 	}
 	if def.Spec.Policy.Consecutive < 1 || def.Spec.Policy.RecoverAfter < 1 || def.Spec.Limits.MaxSamples < 1 {
@@ -104,6 +108,9 @@ func (e *Evaluator) Evaluate(previous State, o watch.Observation, now time.Time)
 	key, err := watch.EntityKey(e.definition.Spec.GroupBy, o.Fields)
 	if err != nil {
 		return result, err
+	}
+	if o.Health == "timer" && o.Entity != "" {
+		key = o.Entity
 	}
 	if state.Entity != "" {
 		if o.Health == "ok" && state.Entity != key {
@@ -151,6 +158,9 @@ func (e *Evaluator) Evaluate(previous State, o watch.Observation, now time.Time)
 			}
 		}
 		if kind == "firing" || kind == "recovered" {
+			if e.definition.Spec.Condition.MissingFor != "" && state.FreshSequence > 0 {
+				add(state.FreshSequence)
+			}
 			for _, sample := range state.Samples {
 				add(sample.Sequence)
 			}
@@ -173,6 +183,7 @@ func (e *Evaluator) Evaluate(previous State, o watch.Observation, now time.Time)
 				return result, err
 			}
 			state.SourceUnhealthy = true
+			state.HealthEvent = result.Events[len(result.Events)-1].ID
 		}
 		state.LastSequence = o.Sequence
 		if now.After(state.LastAt) {
@@ -197,7 +208,7 @@ func (e *Evaluator) Evaluate(previous State, o watch.Observation, now time.Time)
 		result.Reason = "sampling_gap"
 		return result, nil
 	}
-	if !state.LastAt.IsZero() && e.maxGap > 0 && now.Sub(state.LastAt) > e.maxGap {
+	if e.definition.Spec.Condition.MissingFor == "" && !state.LastAt.IsZero() && e.maxGap > 0 && now.Sub(state.LastAt) > e.maxGap {
 		state.Matches = 0
 		state.Recoveries = 0
 		state.Evidence = nil
@@ -205,7 +216,7 @@ func (e *Evaluator) Evaluate(previous State, o watch.Observation, now time.Time)
 			return result, err
 		}
 	}
-	if o.Health == "unchanged" {
+	if o.Health == "unchanged" && e.definition.Spec.Condition.MissingFor == "" {
 		// A 304 is evidence of source freshness, not another independent sample.
 		state.LastAt = now
 		state.LastSequence = o.Sequence
@@ -213,12 +224,16 @@ func (e *Evaluator) Evaluate(previous State, o watch.Observation, now time.Time)
 		result.Reason = "unchanged"
 		return result, nil
 	}
-	if o.Health != "ok" {
+	if o.Health != "ok" && !(e.definition.Spec.Condition.MissingFor != "" && (o.Health == "timer" || o.Health == "unchanged")) {
 		return unknown(o.DetailOrDefault())
 	}
 	for k, want := range e.definition.Spec.Match {
+		if o.Health == "timer" || o.Health == "unchanged" {
+			break
+		}
 		actual, present := o.Fields[k]
-		if !present || !reflect.DeepEqual(actual, want) {
+		known, matched := Compare(actual, "eq", want)
+		if !present || !known || !matched {
 			state.LastAt = now
 			state.LastSequence = o.Sequence
 			result.State = state
@@ -230,11 +245,12 @@ func (e *Evaluator) Evaluate(previous State, o watch.Observation, now time.Time)
 	if !known {
 		return unknown(reason)
 	}
-	if state.SourceUnhealthy {
+	if state.SourceUnhealthy && o.Health != "timer" {
 		if err := emit("source_recovered", "source_recovered"); err != nil {
 			return result, err
 		}
 		state.SourceUnhealthy = false
+		state.HealthEvent = ""
 	}
 	result.Known = true
 	result.Matched = matched
@@ -255,6 +271,7 @@ func (e *Evaluator) Evaluate(previous State, o watch.Observation, now time.Time)
 					return result, err
 				}
 				state.LastFired = now
+				state.IncidentEvent = result.Events[len(result.Events)-1].ID
 			}
 			state.Open = true
 		}
@@ -271,6 +288,7 @@ func (e *Evaluator) Evaluate(previous State, o watch.Observation, now time.Time)
 					return result, err
 				}
 				state.Open = false
+				state.IncidentEvent = ""
 				state.Recoveries = 0
 				state.Evidence = nil
 			}
@@ -286,6 +304,24 @@ func (e *Evaluator) Evaluate(previous State, o watch.Observation, now time.Time)
 }
 func (e *Evaluator) predicate(state *State, o watch.Observation, now time.Time) (bool, bool, string) {
 	c := e.definition.Spec.Condition
+	if c.MissingFor != "" {
+		if o.Health == "timer" {
+			if state.MissingAt.IsZero() && o.Deadline != nil {
+				state.MissingAt = *o.Deadline
+			}
+			if state.MissingAt.IsZero() {
+				return false, false, "missing_deadline"
+			}
+			if o.Deadline != nil && !state.MissingAt.Equal(*o.Deadline) {
+				return false, false, "stale_deadline"
+			}
+			return true, !now.Before(state.MissingAt), ""
+		}
+		duration, _ := time.ParseDuration(c.MissingFor)
+		state.MissingAt = now.Add(duration)
+		state.FreshSequence = o.Sequence
+		return true, false, ""
+	}
 	value, present := o.Fields[c.Field]
 	if !present {
 		return false, false, "missing_field"

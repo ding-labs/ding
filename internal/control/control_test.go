@@ -112,6 +112,19 @@ func TestAPIAuthApplyInspectAndErrors(t *testing.T) {
 			t.Fatal(tc, err)
 		}
 	}
+	for _, action := range []string{"pause", "resume", "delete"} {
+		if _, err := client.Call(ctx, "POST", "/v1/watches/api/lifecycle", watchrun.LifecycleRequest{Action: action}); err != nil {
+			t.Fatal(action, err)
+		}
+	}
+	for _, request := range []watchrun.LifecycleRequest{{Action: "resume"}, {Action: "delete", Expected: "stale"}, {Action: "wat"}} {
+		if _, err := client.Call(ctx, "POST", "/v1/watches/api/lifecycle", request); err == nil {
+			t.Fatal("invalid lifecycle accepted")
+		}
+	}
+	if _, err := client.Call(ctx, "POST", "/v1/watches/absent/lifecycle", watchrun.LifecycleRequest{Action: "pause"}); err == nil {
+		t.Fatal("missing watch accepted")
+	}
 	// Multiple JSON objects are not accepted as one request.
 	req, _ := http.NewRequest("POST", server.URL+"/v1/apply", bytes.NewBufferString(`{} {}`))
 	req.Header.Set("Authorization", "Bearer "+c.Admin)

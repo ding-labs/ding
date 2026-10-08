@@ -36,6 +36,5 @@ go run ./cmd/ding-watch test examples/watches/api-health.yaml \
 The fixture produces one firing and one recovery. JSONL records carry explicit
 sequence, acceptedAt, health, and typed fields. Replay never acquires live data,
 resolves secrets, or sends notifications. Records are bounded by the manifest's
-byte limit; total input is limited to 100,000 observations. Missing-data timers
-and change/new-event conditions are rejected by the evaluator until their
-implementation milestones, even though the portable schema describes them.
+byte limit; total input is limited to 100,000 observations. Missing-data timers are replayable records with explicit deadlines and entities.
+Change/new-event conditions are rejected until their implementation milestone.

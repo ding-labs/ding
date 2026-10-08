@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -32,17 +31,21 @@ type App struct {
 	outputMu                            sync.Mutex
 	running                             bool
 	lastError                           string
+	closing                             bool
+	cancels                             map[string]acquisition
+	Limits                              Limits
 }
 
 func New(s *store.Store) *App {
-	return &App{Store: s, HTTP: source.HTTP{Client: &http.Client{}, Lookup: os.LookupEnv}, Lookup: os.LookupEnv, Now: func() time.Time { return time.Now().UTC() }, Output: os.Stdout, AcquisitionWorkers: 32, DeliveryWorkers: 8}
+	return &App{Store: s, HTTP: source.HTTP{Client: &http.Client{}, Lookup: os.LookupEnv}, Lookup: os.LookupEnv, Now: func() time.Time { return time.Now().UTC() }, Output: os.Stdout, AcquisitionWorkers: 32, DeliveryWorkers: 8, Limits: DefaultLimits(), cancels: map[string]acquisition{}}
 }
 
 type Change struct {
-	ID       string `json:"id"`
-	Revision string `json:"revision"`
-	Previous string `json:"previous,omitempty"`
-	State    string `json:"state"`
+	Permissions []string `json:"permissions"`
+	ID          string   `json:"id"`
+	Revision    string   `json:"revision"`
+	Previous    string   `json:"previous,omitempty"`
+	State       string   `json:"state"`
 }
 type ApplyRequest struct {
 	Manifest string            `json:"manifest"`
@@ -74,7 +77,15 @@ func (a *App) Apply(ctx context.Context, request ApplyRequest) (ApplyResult, err
 		}
 	}
 	now := a.Now()
+	changed := map[string]int64{}
 	apply := func(tx *store.Tx) error {
+		if a.isClosing() {
+			return ErrClosing
+		}
+		usage, err := tx.Budget()
+		if err != nil {
+			return err
+		}
 		available := map[string]bool{}
 		for _, d := range bundle.Destinations {
 			available[d.Definition.Metadata.ID] = true
@@ -104,19 +115,70 @@ func (a *App) Apply(ctx context.Context, request ApplyRequest) (ApplyResult, err
 			if expected, ok := request.Expected[id]; ok && expected != previous {
 				return store.ErrConflict
 			}
-			change := Change{ID: id, Revision: p.Revision, Previous: previous, State: "created"}
+			change := Change{ID: id, Revision: p.Revision, Previous: previous, State: "created", Permissions: p.Permissions}
+			record := store.WatchRecord{Plan: p, Generation: 1, Status: "running", NextAt: now}
+			reset := false
 			if previous != "" {
-				if previous != p.Revision {
-					return fmt.Errorf("updating existing watches requires the lifecycle milestone")
+				record = old
+				record.Plan = p
+				if old.Status == "deleted" {
+					return fmt.Errorf("watch %s is deleted; use a new watch ID", id)
 				}
 				change.State = "preserved"
+				if previous != p.Revision {
+					record.Generation++
+					reset = old.Plan.Fingerprint != p.Fingerprint
+					if reset {
+						change.State = "reset"
+						record.Cursor = ""
+						record.LastInputAt = time.Time{}
+						record.LastError = ""
+						record.NextAt = now
+					}
+				}
+			} else {
+				usage.Watches++
+				if usage.Watches > a.Limits.MaxWatches {
+					return ErrQuota
+				}
 			}
 			result.Changes = append(result.Changes, change)
-			if request.DryRun || previous != "" {
+			if request.DryRun || previous == p.Revision {
 				continue
 			}
-			if err := tx.SaveWatch(store.WatchRecord{Plan: p, Generation: 1, Status: "running", NextAt: now}, now); err != nil {
+			if err := tx.SaveWatch(record, now); err != nil {
 				return err
+			}
+			if reset {
+				if err := tx.ResetState(id); err != nil {
+					return err
+				}
+				if err := lifecycleEvent(tx, record, "state_reset", "source, condition, grouping, policy, or limits changed", now); err != nil {
+					return err
+				}
+			}
+			if previous != "" && !reset {
+				if err := tx.RevisionState(id, p.Revision, record.Generation); err != nil {
+					return err
+				}
+			} else {
+				if err := armInitial(tx, record, now); err != nil {
+					return err
+				}
+			}
+			if err := lifecycleEvent(tx, record, "applied", change.State, now); err != nil {
+				return err
+			}
+			changed[id] = record.Generation
+
+		}
+		if !request.DryRun {
+			usage, err := tx.Budget()
+			if err != nil {
+				return err
+			}
+			if usage.Bytes > a.Limits.MaxBytes {
+				return ErrQuota
 			}
 		}
 		return nil
@@ -125,6 +187,11 @@ func (a *App) Apply(ctx context.Context, request ApplyRequest) (ApplyResult, err
 		err = a.Store.View(ctx, apply)
 	} else {
 		err = a.Store.Update(ctx, apply)
+	}
+	if err == nil && !request.DryRun {
+		for id, generation := range changed {
+			a.cancelBefore(id, generation)
+		}
 	}
 	return result, err
 }
@@ -166,6 +233,9 @@ type Receipt struct {
 
 func (a *App) Accept(ctx context.Context, record store.WatchRecord, batch source.Batch, inputID string, now time.Time) (Receipt, error) {
 	var receipt Receipt
+	if a.isClosing() {
+		return receipt, ErrClosing
+	}
 	if inputID == "" || len(inputID) > 256 {
 		return receipt, fmt.Errorf("invalid input identity")
 	}
@@ -177,6 +247,9 @@ func (a *App) Accept(ctx context.Context, record store.WatchRecord, batch source
 		return receipt, err
 	}
 	err = a.Store.Update(ctx, func(tx *store.Tx) error {
+		if a.isClosing() {
+			return ErrClosing
+		}
 		current, err := tx.Watch(record.Plan.Definition.Metadata.ID)
 		if err != nil {
 			return err
@@ -185,6 +258,19 @@ func (a *App) Accept(ctx context.Context, record store.WatchRecord, batch source
 			return store.ErrStale
 		}
 		id := current.Plan.Definition.Metadata.ID
+		timerInput := !batch.Deadline.IsZero()
+		if timerInput {
+			timer, err := tx.Timer(id, batch.Entity, "missing")
+			if err != nil {
+				return store.ErrStale
+			}
+			if timer.Generation != current.Generation || !timer.Due.Equal(batch.Deadline) || now.Before(timer.Due) {
+				return store.ErrStale
+			}
+			if err := tx.DeleteTimer(timer); err != nil {
+				return err
+			}
+		}
 		first, last, err := tx.Receipt(id, current.Generation, inputID, now)
 		if err == nil {
 			receipt = Receipt{First: first, Last: last, Duplicate: true}
@@ -198,8 +284,20 @@ func (a *App) Accept(ctx context.Context, record store.WatchRecord, batch source
 		if batch.RetryAt.After(next) {
 			next = batch.RetryAt
 		}
-		if err := tx.Checkpoint(id, current.Generation, next, now, batch.Cursor); err != nil {
+		if !timerInput {
+			if err := tx.Checkpoint(id, current.Generation, next, now, batch.Cursor); err != nil {
+				return err
+			}
+		}
+		usage, err := tx.Budget()
+		if err != nil {
 			return err
+		}
+		if usage.Bytes >= a.Limits.MaxBytes || usage.Pending >= a.Limits.MaxPending {
+			return ErrQuota
+		}
+		if current.LastError != "" && !timerInput {
+			batch.Observations = append([]watch.Observation{{Health: "gap", Detail: "backpressure_gap"}}, batch.Observations...)
 		}
 		states, err := tx.Entities(id)
 		if err != nil {
@@ -207,8 +305,20 @@ func (a *App) Accept(ctx context.Context, record store.WatchRecord, batch source
 		}
 		for i, o := range batch.Observations {
 			o.AcceptedAt = now
-			o.InputID = inputID + ":" + strconv.Itoa(i)
+			o.InputID = inputID + ":" + strconv.Itoa(i) + ":" + strconv.FormatInt(now.UnixNano(), 10)
 			o.Sequence = 0
+			if timerInput {
+				o.Entity = batch.Entity
+				deadline := batch.Deadline
+				o.Deadline = &deadline
+			}
+			encoded, err := json.Marshal(o)
+			if err != nil {
+				return err
+			}
+			if len(encoded) > current.Plan.Definition.Spec.Limits.MaxBytes {
+				return ErrQuota
+			}
 			sequence, err := tx.AppendObservation(id, current.Plan.Revision, current.Generation, o)
 			if err != nil {
 				return err
@@ -218,27 +328,38 @@ func (a *App) Accept(ctx context.Context, record store.WatchRecord, batch source
 				receipt.First = sequence
 			}
 			receipt.Last = sequence
-			keys := []string{}
-			if o.Health != "ok" && len(states) > 0 {
-				for key := range states {
-					keys = append(keys, key)
-				}
-				sort.Strings(keys)
-			} else {
-				key, err := watch.EntityKey(current.Plan.Definition.Spec.GroupBy, o.Fields)
-				if err != nil {
+			existing := make([]string, 0, len(states))
+			for key := range states {
+				existing = append(existing, key)
+			}
+			keys, clearSource, err := evaluator.Route(existing, o)
+			if err != nil {
+				return err
+			}
+			if clearSource {
+				var bootstrap condition.State
+				if err := json.Unmarshal(states[condition.SourceEntity], &bootstrap); err != nil {
 					return err
 				}
-				keys = append(keys, key)
+				if err := tx.DeleteEntity(id, condition.SourceEntity); err != nil {
+					return err
+				}
+				delete(states, condition.SourceEntity)
+				if bootstrap.SourceUnhealthy {
+					if err := a.appendEvent(tx, current, evaluator.SourceRecovered(o), now); err != nil {
+						return err
+					}
+				}
 			}
+
 			for _, key := range keys {
-				var state condition.State
+				state := condition.State{Entity: key}
 				if data, ok := states[key]; ok {
 					if err := json.Unmarshal(data, &state); err != nil {
 						return err
 					}
 				} else if len(states) >= current.Plan.Definition.Spec.Limits.MaxEntities {
-					return fmt.Errorf("entity budget exceeded")
+					return ErrQuota
 				}
 				result, err := evaluator.Evaluate(state, o, now)
 				if err != nil {
@@ -247,37 +368,42 @@ func (a *App) Accept(ctx context.Context, record store.WatchRecord, batch source
 				if err := tx.SaveEntity(id, key, current.Plan.Revision, result.State, now); err != nil {
 					return err
 				}
+				if current.Plan.Definition.Spec.Condition.MissingFor != "" && (o.Health == "ok" || o.Health == "unchanged") {
+					if err := tx.SaveTimer(store.Timer{WatchID: id, Entity: key, Kind: "missing", Generation: current.Generation, Due: result.State.MissingAt}); err != nil {
+						return err
+					}
+				}
 				states[key], err = json.Marshal(result.State)
 				if err != nil {
 					return err
 				}
 				for _, event := range result.Events {
-					sequence, err := tx.AppendEvent(event)
-					if err != nil {
+					if err := a.appendEvent(tx, current, event, now); err != nil {
 						return err
 					}
-					event.Sequence = sequence
-					for _, target := range current.Plan.Definition.Spec.Destinations {
-						if !contains(target.Events, event.Type) {
-							continue
-						}
-						destination, err := tx.Destination(target.Ref, "")
-						if err != nil {
-							return err
-						}
-						payload, err := json.Marshal(watch.Envelope{APIVersion: watch.APIVersion, Data: event})
-						if err != nil {
-							return err
-						}
-						if _, err := tx.Enqueue(store.Intent{EventID: event.ID, WatchID: id, DestinationID: target.Ref, DestinationRevision: destination.Revision, Payload: payload, NextAt: now, CreatedAt: now}); err != nil {
-							return err
-						}
-					}
 				}
+
 			}
+		}
+		usage, err = tx.Budget()
+		if err != nil {
+			return err
+		}
+		if usage.Bytes > a.Limits.MaxBytes {
+			return ErrQuota
 		}
 		return tx.SaveReceipt(id, current.Generation, inputID, receipt.First, receipt.Last, now.Add(24*time.Hour))
 	})
+	if err != nil && !errors.Is(err, store.ErrStale) && !errors.Is(err, ErrClosing) && ctx.Err() == nil {
+		detail := "acceptance_failed"
+		if errors.Is(err, ErrQuota) {
+			detail = "quota_exceeded"
+		}
+		a.note(err)
+		_ = a.Store.Update(ctx, func(tx *store.Tx) error {
+			return tx.LastError(record.Plan.Definition.Metadata.ID, record.Generation, detail, time.Time{})
+		})
+	}
 	return receipt, err
 }
 func contains(values []string, value string) bool {

@@ -300,7 +300,7 @@ func TestValidationUnknownAndTemplateFailure(t *testing.T) {
 		t.Fatal("uncompiled definition accepted")
 	}
 	d, rev = definition(t, nil)
-	d.Spec.Condition.MissingFor = "1m"
+	d.Spec.Condition.Operator = "changed"
 	if _, err := condition.New(d, rev); err == nil {
 		t.Fatal("unimplemented accepted")
 	}
@@ -362,4 +362,62 @@ func FuzzEvaluationIsDeterministic(f *testing.F) {
 			a, b = ra.State, rb.State
 		}
 	})
+}
+
+func TestMissingDeadlineReplayAndHealthSeparation(t *testing.T) {
+	e := engine(t, func(d *watch.Definition) {
+		d.Spec.Condition = watch.Condition{MissingFor: "10s"}
+		d.Spec.Policy = watch.Policy{}
+	})
+	var s condition.State
+	o := obs(1, 0, nil, "timer")
+	o.Deadline = new(time.Time)
+	*o.Deadline = epoch.Add(10 * time.Second)
+	r := step(t, e, &s, o)
+	if r.Matched || s.Open {
+		t.Fatal("early deadline matched")
+	}
+	r = step(t, e, &s, obs(2, 5, nil, "unknown"))
+	wantKinds(t, r, "source_error")
+	r = step(t, e, &s, obs(3, 10, nil, "timer"))
+	wantKinds(t, r, "firing")
+	if !s.SourceUnhealthy {
+		t.Fatal("timer claimed transport recovered")
+	}
+	r = step(t, e, &s, obs(4, 15, nil, "unchanged"))
+	wantKinds(t, r, "source_recovered", "recovered")
+	if s.Open || !s.MissingAt.Equal(epoch.Add(25*time.Second)) {
+		t.Fatal("freshness did not rearm")
+	}
+	var empty condition.State
+	r = step(t, e, &empty, obs(1, 0, nil, "timer"))
+	if r.Reason != "missing_deadline" {
+		t.Fatal(r)
+	}
+	wrong := obs(5, 25, nil, "timer")
+	deadline := epoch.Add(30 * time.Second)
+	wrong.Deadline = &deadline
+	r = step(t, e, &s, wrong)
+	if r.Reason != "stale_deadline" {
+		t.Fatal(r)
+	}
+}
+
+func TestRouteUsesTypedNumericMatch(t *testing.T) {
+	e := engine(t, func(d *watch.Definition) {
+		d.Spec.Match = map[string]any{"status": 500}
+		d.Spec.Policy = watch.Policy{}
+	})
+	o := obs(1, 0, 500, "ok")
+	keys, _, err := e.Route(nil, o)
+	if err != nil || len(keys) != 1 {
+		t.Fatal(keys, err)
+	}
+	var s condition.State
+	wantKinds(t, step(t, e, &s, o), "firing")
+	o.Fields["status"] = "500"
+	keys, _, err = e.Route(nil, o)
+	if err != nil || len(keys) != 0 {
+		t.Fatal("string matched number", keys, err)
+	}
 }

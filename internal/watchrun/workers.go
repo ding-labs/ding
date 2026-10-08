@@ -95,10 +95,17 @@ func (a *App) Run(ctx context.Context) error {
 		return fmt.Errorf("runtime already running")
 	}
 	a.running = true
+	a.closing = false
 	a.mu.Unlock()
 	defer func() { a.mu.Lock(); a.running = false; a.mu.Unlock() }()
+	if err := a.validateLimits(); err != nil {
+		return err
+	}
 	if a.AcquisitionWorkers < 1 || a.DeliveryWorkers < 1 {
 		return fmt.Errorf("worker counts must be positive")
+	}
+	if err := a.Store.LimitBytes(context.WithoutCancel(ctx), a.Limits.MaxBytes); err != nil {
+		return err
 	}
 	deliveryCtx, stopDelivery := context.WithCancel(context.WithoutCancel(ctx))
 	defer stopDelivery()
@@ -134,13 +141,43 @@ func (a *App) Run(ctx context.Context) error {
 	var activeMu sync.Mutex
 	tick := time.NewTicker(100 * time.Millisecond)
 	defer tick.Stop()
+	lastMaintenance := time.Time{}
 	schedule := func() {
+		now := a.Now()
+		if lastMaintenance.IsZero() || now.Sub(lastMaintenance) >= time.Minute {
+			if err := a.Maintain(ctx, now); err != nil {
+				a.note(err)
+				return
+			}
+			lastMaintenance = now
+		}
+		if _, err := a.Budget(ctx); err != nil {
+			a.note(err)
+			return
+		}
+		if err := a.RunTimers(ctx, now); err != nil {
+			a.note(err)
+			return
+		}
+
 		records, err := a.List(ctx)
 		if err != nil {
 			a.note(err)
 			return
 		}
-		now := a.Now()
+		activeMu.Lock()
+		known := map[string]bool{}
+		for _, record := range records {
+			if record.Status == "running" {
+				known[record.Plan.Definition.Metadata.ID] = true
+			}
+		}
+		for id := range retry {
+			if !known[id] {
+				delete(retry, id)
+			}
+		}
+		activeMu.Unlock()
 		for _, record := range records {
 			id := record.Plan.Definition.Metadata.ID
 			if record.Status != "running" || record.Plan.Definition.Spec.Source.Type != "http" || record.NextAt.After(now) {
@@ -157,30 +194,52 @@ func (a *App) Run(ctx context.Context) error {
 			go func(record store.WatchRecord, id string) {
 				defer acquisitions.Done()
 				defer func() { activeMu.Lock(); delete(active, id); activeMu.Unlock() }()
-				batch := a.HTTP.Fetch(ctx, record.Plan, record.Cursor, a.Now())
-				if ctx.Err() != nil {
+				acquireCtx, cancel := context.WithCancel(ctx)
+				defer cancel()
+				a.mu.Lock()
+				a.cancels[id] = acquisition{record.Generation, cancel}
+				a.mu.Unlock()
+				defer func() { a.mu.Lock(); delete(a.cancels, id); a.mu.Unlock() }()
+				// A lifecycle commit can race registration; verify the generation before I/O.
+				var current store.WatchRecord
+				if err := a.Store.View(acquireCtx, func(tx *store.Tx) error { var err error; current, err = tx.Watch(id); return err }); err != nil || current.Generation != record.Generation || current.Status != "running" {
+					return
+				}
+				batch := a.HTTP.Fetch(acquireCtx, record.Plan, record.Cursor, a.Now())
+				if acquireCtx.Err() != nil {
 					return
 				}
 				_, err := a.Accept(ctx, record, batch, "poll:"+strconv.FormatInt(record.Generation, 10)+":"+strconv.FormatInt(record.NextAt.UnixNano(), 10), a.Now())
-				if err != nil {
+				if err != nil && err != store.ErrStale {
 					a.note(err)
 					activeMu.Lock()
-					retry[id] = a.Now().Add(time.Second)
+					interval, _ := time.ParseDuration(record.Plan.Definition.Spec.Source.Every)
+					if interval < time.Second {
+						interval = time.Second
+					}
+					retry[id] = a.Now().Add(interval)
 					activeMu.Unlock()
 				}
 			}(record, id)
 		}
 	}
-	schedule()
+	if ctx.Err() == nil {
+		schedule()
+	}
 loop:
 	for {
 		select {
 		case <-ctx.Done():
 			break loop
 		case <-tick.C:
-			schedule()
+			if ctx.Err() == nil {
+				schedule()
+			}
 		}
 	}
+	a.mu.Lock()
+	a.closing = true
+	a.mu.Unlock()
 	acquisitions.Wait()
 	drainDeadline := time.NewTimer(5 * time.Second)
 	defer drainDeadline.Stop()

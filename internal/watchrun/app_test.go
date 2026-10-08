@@ -380,11 +380,14 @@ func TestFiveSecondRestartDemonstration(t *testing.T) {
 	if err := a.Store.Close(); err != nil {
 		t.Fatal(err)
 	}
+	childLogs := map[*exec.Cmd]*bytes.Buffer{}
 	launch := func() *exec.Cmd {
 		cmd := exec.Command(os.Args[0], "-test.run=^TestRuntimeChild$")
 		cmd.Env = append(os.Environ(), "DING_RUNTIME_CHILD=1", "DING_RUNTIME_DIR="+dir, "DING_RUNTIME_STOP="+filepath.Join(dir, "stop"), "WEBHOOK_URL="+receiver.URL)
-		cmd.Stdout = os.Stderr
-		cmd.Stderr = os.Stderr
+		logs := &bytes.Buffer{}
+		childLogs[cmd] = logs
+		cmd.Stdout = logs
+		cmd.Stderr = logs
 		if err := cmd.Start(); err != nil {
 			t.Fatal(err)
 		}
@@ -395,6 +398,11 @@ func TestFiveSecondRestartDemonstration(t *testing.T) {
 		if child != nil && child.Process != nil {
 			_ = child.Process.Kill()
 			_ = child.Wait()
+		}
+		if t.Failed() {
+			for _, logs := range childLogs {
+				t.Log(logs.String())
+			}
 		}
 	})
 	deadline := time.Now().Add(18 * time.Second)

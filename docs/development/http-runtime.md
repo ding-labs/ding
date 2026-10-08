@@ -56,7 +56,5 @@ two healthy responses and delivers firing followed by recovery. A separate test
 exercises a reclaimed lease and rejects the old worker's acknowledgment. Offline
 fixture replay verifies the same condition transitions without source I/O.
 
-P09 accepts creation and reapplication of unchanged watches. Revision replacement,
-pause/resume/delete, persisted missing-data timers, retention, and global store
-backpressure are the next milestone. Unsupported runtime capabilities fail at
-apply time rather than running an approximation.
+P10 adds revision replacement, pause/resume/delete, missing-data timers, and
+retention/backpressure. See [the lifecycle contract](lifecycle-contract.md).

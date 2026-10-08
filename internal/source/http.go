@@ -18,6 +18,8 @@ import (
 
 type Lookup func(string) (string, bool)
 type Batch struct {
+	Entity       string
+	Deadline     time.Time
 	Observations []watch.Observation
 	Cursor       string
 	RetryAt      time.Time

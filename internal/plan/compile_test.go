@@ -95,6 +95,7 @@ func TestCapabilityShapes(t *testing.T) {
 	}
 	d.Spec.Source = watch.Source{Type: "push"}
 	d.Spec.Condition = watch.Condition{MissingFor: "1m"}
+	d.Spec.Policy = watch.Policy{}
 	if _, err := Compile(d); err != nil {
 		t.Fatal(err)
 	}

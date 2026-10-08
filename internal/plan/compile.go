@@ -365,6 +365,9 @@ func Compile(d watch.Definition) (Compiled, error) {
 			return Compiled{}, err
 		}
 	}
+	if c.MissingFor != "" && (p.Trigger != "transition" || p.Consecutive != 1 || p.RecoverAfter != 1) {
+		return Compiled{}, fmt.Errorf("missingFor requires transition policy with consecutive=1 and recoverAfter=1")
+	}
 	if c.Operator == "changed" || c.Operator == "new-event" {
 		if p.Trigger != "level" || p.Consecutive != 1 {
 			return Compiled{}, fmt.Errorf("change/event conditions require level policy with consecutive=1")

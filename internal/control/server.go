@@ -27,6 +27,14 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 			return
 		}
 		result, err := app.Apply(r.Context(), request)
+		if errors.Is(err, watchrun.ErrQuota) {
+			fail(w, 429, "quota_exceeded", "resource quota exceeded")
+			return
+		}
+		if errors.Is(err, watchrun.ErrClosing) {
+			fail(w, 503, "shutting_down", "runtime is shutting down")
+			return
+		}
 		if errors.Is(err, store.ErrConflict) {
 			fail(w, 409, "revision_conflict", "expected revision does not match")
 			return
@@ -56,6 +64,28 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 			return
 		}
 		write(w, 200, result, nil)
+	})
+	mux.HandleFunc("POST /v1/watches/{id}/lifecycle", func(w http.ResponseWriter, r *http.Request) {
+		var request watchrun.LifecycleRequest
+		if err := decode(w, r, &request); err != nil {
+			fail(w, 400, "invalid_request", "invalid lifecycle request")
+			return
+		}
+		record, err := app.Lifecycle(r.Context(), r.PathValue("id"), request)
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			fail(w, 404, "not_found", "watch not found")
+		case errors.Is(err, store.ErrConflict):
+			fail(w, 409, "revision_conflict", "expected revision does not match")
+		case errors.Is(err, watchrun.ErrQuota):
+			fail(w, 429, "quota_exceeded", "resource quota exceeded")
+		case errors.Is(err, watchrun.ErrClosing):
+			fail(w, 503, "shutting_down", "runtime is shutting down")
+		case err != nil:
+			fail(w, 400, "lifecycle_failed", err.Error())
+		default:
+			write(w, 200, record, nil)
+		}
 	})
 	mux.HandleFunc("GET /v1/events", func(w http.ResponseWriter, r *http.Request) {
 		after := int64(0)

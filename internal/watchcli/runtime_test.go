@@ -30,7 +30,7 @@ func TestRuntimeCLI(t *testing.T) {
 	if err := control.SaveConnection(dir, server.URL); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"apply", "../../examples/watches/api-health.yaml", "--dry-run"}, {"apply", "../../examples/watches/api-health.yaml"}, {"watch", "list"}, {"watch", "inspect", "api-health"}, {"watch", "list", "--json"}} {
+	for _, args := range [][]string{{"apply", "../../examples/watches/api-health.yaml", "--dry-run"}, {"apply", "../../examples/watches/api-health.yaml"}, {"watch", "list"}, {"watch", "inspect", "api-health"}, {"watch", "list", "--json"}, {"watch", "pause", "api-health", "--json"}, {"watch", "resume", "api-health", "--json"}, {"watch", "delete", "api-health", "--cancel-pending", "--json"}} {
 		var out, errs bytes.Buffer
 		args = append(args, "--state-dir", dir)
 		if err := Execute("test", args, &out, &errs); err != nil {

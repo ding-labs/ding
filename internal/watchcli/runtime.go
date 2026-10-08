@@ -26,6 +26,7 @@ func runtimeCommands(root *cobra.Command) {
 	root.PersistentFlags().StringVar(&dir, "state-dir", dir, "directory owned by the local daemon")
 	var address string
 	var remote bool
+	limits := watchrun.DefaultLimits()
 	daemon := &cobra.Command{Use: "daemon", Short: "Run applied watches and durable delivery workers", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
 		if err := control.ValidateListen(address, remote); err != nil {
 			return err
@@ -60,6 +61,7 @@ func runtimeCommands(root *cobra.Command) {
 			return err
 		}
 		app := watchrun.New(database)
+		app.Limits = limits
 		app.Output = cmd.OutOrStdout()
 		server := &http.Server{Handler: control.Handler(app, credentials), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
 		served := make(chan error, 1)
@@ -93,6 +95,10 @@ func runtimeCommands(root *cobra.Command) {
 	}}
 	daemon.Flags().StringVar(&address, "listen", "127.0.0.1:7676", "explicit listen IP:port")
 	daemon.Flags().BoolVar(&remote, "allow-remote", false, "allow remote binding; configure a TLS reverse proxy")
+	daemon.Flags().IntVar(&limits.MaxWatches, "max-watches", limits.MaxWatches, "maximum active watches")
+	daemon.Flags().IntVar(&limits.MaxPending, "max-pending", limits.MaxPending, "maximum pending or leased deliveries")
+	daemon.Flags().Int64Var(&limits.MaxBytes, "max-store-bytes", limits.MaxBytes, "maximum live SQLite data bytes before backpressure")
+	daemon.Flags().DurationVar(&limits.Retention, "history", limits.Retention, "ordinary history retention; active evidence remains pinned")
 	root.AddCommand(daemon)
 	var dryRun, structured bool
 	var expected, id string
@@ -130,6 +136,19 @@ func runtimeCommands(root *cobra.Command) {
 			command.Args = cobra.ExactArgs(1)
 		}
 		command.Flags().BoolVar(&structured, "json", false, "emit a versioned JSON response")
+		watchCmd.AddCommand(command)
+	}
+	for _, action := range []string{"pause", "resume", "delete"} {
+		var structured, cancelPending bool
+		var expected string
+		command := &cobra.Command{Use: action + " ID", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+			return call(cmd, dir, structured, http.MethodPost, "/v1/watches/"+url.PathEscape(args[0])+"/lifecycle", watchrun.LifecycleRequest{Action: cmd.Name(), Expected: expected, CancelPending: cancelPending})
+		}}
+		command.Flags().BoolVar(&structured, "json", false, "emit a versioned JSON response")
+		command.Flags().StringVar(&expected, "expected-revision", "", "reject changes if revision differs")
+		if action == "delete" {
+			command.Flags().BoolVar(&cancelPending, "cancel-pending", false, "cancel committed pending deliveries; in-flight remote receipt may already have occurred")
+		}
 		watchCmd.AddCommand(command)
 	}
 	root.AddCommand(watchCmd)

@@ -72,7 +72,7 @@ func TestGroupedHealthFanoutAndLimits(t *testing.T) {
 	if _, err := Run(p, strings.NewReader(input)); err == nil {
 		t.Fatal("entity limit ignored")
 	}
-	p.Definition.Spec.Condition.MissingFor = "1m"
+	p.Definition.Spec.Condition.Operator = "changed"
 	if _, err := Run(p, strings.NewReader(input)); err == nil {
 		t.Fatal("unsupported accepted")
 	}
@@ -85,5 +85,37 @@ func TestGroupedHealthFanoutAndLimits(t *testing.T) {
 	input = `{"sequence":1,"acceptedAt":"2026-01-01T00:00:00Z","health":"ok","fields":{"host":{}}}`
 	if _, err := Run(p, strings.NewReader(input)); err == nil {
 		t.Fatal("object grouping accepted")
+	}
+}
+
+func TestMissingDataReplay(t *testing.T) {
+	data, err := os.ReadFile("../../testdata/watches/missing-data.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := plan.Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Open("../../testdata/watches/missing-data.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	r, err := Run(bundle.Watches[0], f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"source_error", "firing", "source_recovered", "recovered"}
+	if len(r.Events) != len(want) {
+		t.Fatal(r.Events)
+	}
+	for i, event := range r.Events {
+		if event.Type != want[i] {
+			t.Fatal(r.Events)
+		}
+	}
+	if len(r.Events[1].Evidence) != 2 || r.Events[1].Evidence[0] != 1 || r.Events[1].Evidence[1] != 3 {
+		t.Fatal("absence lacks freshness/deadline evidence", r.Events[1])
 	}
 }

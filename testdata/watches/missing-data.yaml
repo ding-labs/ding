@@ -1,0 +1,6 @@
+apiVersion: ding.ing/v1alpha1
+kind: Watch
+metadata: {id: heartbeat}
+spec:
+  source: {type: http, url: https://example.com/heartbeat, every: 5s}
+  condition: {missingFor: 10s}

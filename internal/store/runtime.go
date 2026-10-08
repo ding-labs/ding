@@ -59,6 +59,10 @@ func (t *Tx) Outbox(id string) ([]Intent, error) {
 	return out, nil
 }
 func (t *Tx) LastError(id string, generation int64, detail string, next time.Time) error {
+	if next.IsZero() {
+		_, err := t.sql.ExecContext(t.ctx, "UPDATE watches SET last_error=? WHERE id=? AND generation=?", detail, id, generation)
+		return err
+	}
 	_, err := t.sql.ExecContext(t.ctx, "UPDATE watches SET last_error=?,next_at=? WHERE id=? AND generation=?", detail, timestamp(next), id, generation)
 	return err
 }

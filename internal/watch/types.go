@@ -127,6 +127,8 @@ func EntityKey(groupBy []string, fields map[string]any) (string, error) {
 // AcceptedAt, Sequence and InputID are assigned at the transactional boundary.
 // ObservedAt is provider evidence and never substitutes for accepted time.
 type Observation struct {
+	Entity     string         `json:"entity,omitempty"` // explicit timer target
+	Deadline   *time.Time     `json:"deadline,omitempty"`
 	Sequence   int64          `json:"sequence"`
 	InputID    string         `json:"inputId"`
 	AcceptedAt time.Time      `json:"acceptedAt"`
