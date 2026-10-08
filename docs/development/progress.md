@@ -12,7 +12,7 @@ failures and environment limitations are recorded here without implying success.
 | P04 Delivery and lifecycle | Complete | Full race suite and vet pass. Transport 96.7%, notifier 86.7%, server 68.9% coverage. Provider rejection/rate limits, retry deadlines, queue capacity, concurrent send/drain, and ingest/swap/close regression tests pass. |
 | P05 Compilation, access, packaging | Complete | Full race suite, vet, actionlint, six target builds, native daemon auth/shutdown subprocess regression, and both container TLS smoke tests pass. GoReleaser snapshot packages all archives and corrected Homebrew metadata. Published v0.14.0; release CI, archive checksums, native version, published container TLS, and Homebrew metadata verified. See legacy-hardening.md. |
 | P06 Watch contract | Complete | Full race suite plus affected-package rerun, vet, module consistency, six target builds, and actionlint pass. Compiler 83.0%, watch 100%, CLI 95.3% coverage; ~148k manifest fuzz executions pass. Independent JSON Schema validation passes for examples and normalized output. |
-| P07 Transactional store | Pending | |
+| P07 Transactional store | Complete | Store 83.1% coverage; full race suite, vet, module consistency, and actionlint pass. SQLite driver test binaries build for all six targets. Full store suite passes in Linux arm64 container, including subprocess crash/lock tests, backup/restore, leases, rollback, and SQLite write-failure cases. |
 | P08 Watch evaluation | Pending | |
 | P09 Complete HTTP watch | Pending | |
 | P10 Lifecycle, bounds, timers | Pending | |
