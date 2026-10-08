@@ -163,3 +163,29 @@ func TestSourceObservedTimeIsExplicitMetadata(t *testing.T) {
 		}
 	}
 }
+
+func TestInvalidTimestampDoesNotAdvanceCache(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("ETag", "invalid-time")
+		fmt.Fprint(w, `{"timestamp":"bad"}`)
+	}))
+	defer s.Close()
+	p := compiled(t, s.URL, func(d *watch.Definition) {
+		d.Spec.Source.Fields = map[string]string{"time": "timestamp"}
+		d.Spec.Source.ObservedAtField = "time"
+	})
+	old := `{"etag":"known-valid"}`
+	b := (HTTP{Client: s.Client()}).Fetch(context.Background(), p, old, time.Now())
+	if b.Observations[0].Detail != "source_invalid_observed_time" || b.Cursor != old {
+		t.Fatal("cached invalid representation", b)
+	}
+}
+func TestUnsolicited304IsUnknown(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(304) }))
+	defer s.Close()
+	p := compiled(t, s.URL, nil)
+	b := (HTTP{Client: s.Client()}).Fetch(context.Background(), p, "", time.Now())
+	if b.Observations[0].Detail != "source_unexpected_304" {
+		t.Fatal(b)
+	}
+}

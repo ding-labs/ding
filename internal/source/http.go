@@ -105,6 +105,9 @@ func (h HTTP) Fetch(ctx context.Context, p plan.Compiled, cursor string, now tim
 	defer response.Body.Close()
 	b.RetryAt = delivery.RetryAfter(response.Header.Get("Retry-After"), now)
 	if response.StatusCode == http.StatusNotModified {
+		if cached.ETag == "" && cached.Modified == "" {
+			return unknown("source_unexpected_304")
+		}
 		b.Observations = []watch.Observation{{Health: "unchanged"}}
 		return b
 	}
@@ -127,8 +130,6 @@ func (h HTTP) Fetch(ctx context.Context, p plan.Compiled, cursor string, now tim
 		}
 	}
 
-	data, _ := json.Marshal(validators{response.Header.Get("ETag"), response.Header.Get("Last-Modified")})
-	b.Cursor = string(data)
 	for _, fields := range outputs {
 		fields["http.status"] = response.StatusCode
 	}
@@ -137,5 +138,7 @@ func (h HTTP) Fetch(ctx context.Context, p plan.Compiled, cursor string, now tim
 		return unknown("source_invalid_observed_time")
 	}
 
+	data, _ := json.Marshal(validators{response.Header.Get("ETag"), response.Header.Get("Last-Modified")})
+	b.Cursor = string(data)
 	return b
 }
