@@ -14,7 +14,7 @@ failures and environment limitations are recorded here without implying success.
 | P06 Watch contract | Complete | Full race suite plus affected-package rerun, vet, module consistency, six target builds, and actionlint pass. Compiler 83.0%, watch 100%, CLI 95.3% coverage; ~148k manifest fuzz executions pass. Independent JSON Schema validation passes for examples and normalized output. |
 | P07 Transactional store | Complete | Store 83.1% coverage; full race suite, vet, module consistency, and actionlint pass. SQLite driver test binaries build for all six targets. Full store suite passes in Linux arm64 container, including subprocess crash/lock tests, backup/restore, leases, rollback, and SQLite write-failure cases. |
 | P08 Watch evaluation | Complete | Full race suite, vet, and module consistency pass. Condition coverage 94.2%, replay 93.2%, CLI 97.4%; 75,573 deterministic-evaluation fuzz cases pass. Offline example replay fires once and recovers once. New CLI dependency graph contains no legacy evaluator/notifier or Kubernetes packages. |
-| P09 Complete HTTP watch | Pending | |
+| P09 Complete HTTP watch | Complete | Full race suite, vet, module consistency, and six CGO-free CLI builds pass. Actual five-second subprocess/restart/429 demonstration passes. HTTP source 91.2%, control API 90.7%, CLI 90.3%; isolated runtime unit suite 83.2% (full subprocess-including coverage reports 57.8%). Atomic rollback/dedup, lease fencing, delivery order, auth, bounded polling, and graceful shutdown verified. |
 | P10 Lifecycle, bounds, timers | Pending | |
 | P11 Initial adapters | Pending | |
 | P12 Inspection and agent use | Pending | |
