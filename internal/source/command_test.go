@@ -89,13 +89,22 @@ func TestCommandArgvDirectoryAndEnvironment(t *testing.T) {
 		t.Fatal(b)
 	}
 	fields := b.Observations[0].Fields
-	expectedDir, err := filepath.EvalSymlinks(p.Definition.Spec.Source.Directory)
+	actualDir, ok := fields["directory"].(string)
+	if !ok {
+		t.Fatal(fields)
+	}
+	expectedInfo, err := os.Stat(p.Definition.Spec.Source.Directory)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fields["leak"] != "" || fields["directory"] != expectedDir || fields["arg"] != "literal; $(touch not-a-command)" {
+	actualInfo, err := os.Stat(actualDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fields["leak"] != "" || !os.SameFile(expectedInfo, actualInfo) || fields["arg"] != "literal; $(touch not-a-command)" {
 		t.Fatal(fields)
 	}
+
 }
 func TestCommandFailureLimits(t *testing.T) {
 	for _, tc := range []struct{ mode, reason string }{{"large", "command_output_limit"}, {"error", "command_failed"}, {"wait", "command_timeout"}} {

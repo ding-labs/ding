@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/source"
+	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watch"
 )
 
@@ -61,7 +62,7 @@ func TestProviderPayloadAndAcknowledgment(t *testing.T) {
 func TestSignalStateSurvivesRestartAndRetention(t *testing.T) {
 	for _, operator := range []string{"changed", "new-event"} {
 		t.Run(operator, func(t *testing.T) {
-			a, _ := setup(t)
+			a, dir := setup(t)
 			condition := "field: http.status, operator: changed"
 			if operator == "new-event" {
 				condition = "field: http.status, operator: new-event, dedupFor: 72h"
@@ -77,6 +78,15 @@ func TestSignalStateSurvivesRestartAndRetention(t *testing.T) {
 			if _, err := a.Accept(ctx, record, batch, "first", start); err != nil {
 				t.Fatal(err)
 			}
+			if err := a.Store.Close(); err != nil {
+				t.Fatal(err)
+			}
+			reopened, err := store.Open(ctx, dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer reopened.Close()
+			a = New(reopened)
 			if err := a.Maintain(ctx, start.Add(48*time.Hour)); err != nil {
 				t.Fatal(err)
 			}
