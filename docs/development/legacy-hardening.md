@@ -57,3 +57,19 @@ Stripped `-trimpath -ldflags="-s -w -X main.version=0.14.0"` binary sizes:
 | windows/arm64 | 43,867,648 |
 
 The Linux arm64 release image measured 43,632,254 bytes locally, including CA roots.
+
+## Published release verification
+
+[v0.14.0](https://github.com/ding-labs/ding/releases/tag/v0.14.0) was published
+from `478bc14`; the [release workflow](https://github.com/ding-labs/ding/actions/runs/37852571992)
+passed Linux vet/race tests, the container TLS gate, and publishing. All six
+downloaded archives match their published checksums. The downloaded macOS arm64
+binary prints `ding version 0.14.0`. The published multi-architecture image
+`ghcr.io/ding-labs/ding:v0.14.0` passes the positive and negative TLS smoke checks
+on Linux arm64. The published Homebrew formula references v0.14.0, Apache-2.0,
+and `ding version`. No native Windows runtime result is claimed.
+
+Validation and replay also pass in a read-only container with `--network none`,
+a Kubernetes notifier configured, and unwritable alert/state paths. The legacy
+maintenance branch is `codex/legacy-maintenance`. A following metadata-only
+commit declares the syscall module as direct and gates `go mod tidy -diff`.
