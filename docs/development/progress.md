@@ -8,7 +8,7 @@ failures and environment limitations are recorded here without implying success.
 | --- | --- | --- |
 | P01 Baseline and CI | Complete | Race suite passes, 69.8% coverage; vet and actionlint pass; CGO-free builds pass on Linux/macOS/Windows amd64/arm64. Audit fixtures and plan retained. |
 | P02 Time and identity | Complete | Full race suite and vet pass; identity 100%, evaluator 89.7% coverage; key and label fuzzing pass. Cooldowns use explicit time and atomic reservation. Snapshot encoding version bumped to reject ambiguous old keys. |
-| P03 State and limits | Pending | |
+| P03 State and limits | Complete | Full race suite, affected-package rerun, and vet pass. Evaluator 90.4%, server 65.3% coverage. Tests cover changed/removed rules, malformed/oversized state, active-state retention, idle pruning, atomic failed restore, HTTP quota rejection, and explicit startup failure. |
 | P04 Delivery and lifecycle | Pending | |
 | P05 Compilation, access, packaging | Pending | |
 | P06 Watch contract | Pending | |

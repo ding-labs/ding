@@ -16,6 +16,7 @@ import (
 
 	"github.com/ding-labs/ding/internal/evaluator"
 	"github.com/ding-labs/ding/internal/metrics"
+	"github.com/ding-labs/ding/internal/notifier"
 	"github.com/ding-labs/ding/internal/server"
 )
 
@@ -72,13 +73,11 @@ func runServe(configPath string) error {
 	// Persistence: restore state and start periodic flusher.
 	stopFlusher := func() {} // no-op until flusher is started
 	if cfg.Persistence.StateFile != "" {
-		snap, err := evaluator.LoadSnapshot(cfg.Persistence.StateFile)
-		if err != nil {
-			log.Printf("ding: could not load state: %v (starting fresh)", err)
-		} else if snap != nil {
-			evaluator.RestoreEngine(eng, *snap, time.Now())
-			log.Printf("ding: restored state from %s (saved at %s)", cfg.Persistence.StateFile, snap.SavedAt.Format(time.RFC3339))
+		if err := restoreStateFile(eng, cfg.Persistence.StateFile, time.Now()); err != nil {
+			closeConstructed(notifiers, alertLogger)
+			return err
 		}
+
 		stopFlusher = eng.StartFlusher(cfg.Persistence.StateFile, cfg.Persistence.FlushInterval.Duration)
 	}
 
@@ -102,11 +101,12 @@ func runServe(configPath string) error {
 
 		// Restore state into new engine from file.
 		if newCfg.Persistence.StateFile != "" {
-			snap, err := evaluator.LoadSnapshot(newCfg.Persistence.StateFile)
-			if err != nil {
-				log.Printf("ding: state restore after reload failed: %v (new engine starts fresh)", err)
-			} else if snap != nil {
-				evaluator.RestoreEngine(newEng, *snap, time.Now())
+			if err := restoreStateFile(newEng, newCfg.Persistence.StateFile, time.Now()); err != nil {
+				closeConstructed(newNotifiers, newAlertLogger)
+				if cfg.Persistence.StateFile != "" {
+					stopFlusher = eng.StartFlusher(cfg.Persistence.StateFile, cfg.Persistence.FlushInterval.Duration)
+				}
+				return err
 			}
 		}
 
@@ -141,6 +141,18 @@ func runServe(configPath string) error {
 	// Signal handling
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case now := <-ticker.C:
+				srv.Sweep(now)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
 	sighup := make(chan os.Signal, 1)
 	signal.Notify(sighup, syscall.SIGHUP)
@@ -168,11 +180,14 @@ func runServe(configPath string) error {
 
 			// Restore state into new engine from file.
 			if newCfg.Persistence.StateFile != "" {
-				snap, err := evaluator.LoadSnapshot(newCfg.Persistence.StateFile)
-				if err != nil {
-					log.Printf("ding: state restore after reload failed: %v (new engine starts fresh)", err)
-				} else if snap != nil {
-					evaluator.RestoreEngine(newEng, *snap, time.Now())
+				if err := restoreStateFile(newEng, newCfg.Persistence.StateFile, time.Now()); err != nil {
+					closeConstructed(newNotifiers, newAlertLogger)
+					if cfg.Persistence.StateFile != "" {
+						stopFlusher = eng.StartFlusher(cfg.Persistence.StateFile, cfg.Persistence.FlushInterval.Duration)
+					}
+					reloadMu.Unlock()
+					log.Printf("ding: reload rejected: %v", err)
+					continue
 				}
 			}
 
@@ -239,4 +254,34 @@ func readStdin(srv *server.Server, _ string) {
 		log.Printf("ding: stdin read error: %v", err)
 	}
 	// stdin EOF — HTTP server continues
+}
+
+// An invalid snapshot must never be overwritten by a silently fresh engine.
+func restoreStateFile(eng *evaluator.Engine, path string, now time.Time) error {
+	snap, err := evaluator.LoadSnapshot(path)
+	if err != nil {
+		return fmt.Errorf("loading state %s: %w", path, err)
+	}
+	if snap == nil {
+		return nil
+	}
+	report, err := evaluator.RestoreEngine(eng, *snap, now)
+	if err != nil {
+		return fmt.Errorf("restoring state %s: %w", path, err)
+	}
+	if len(report.ResetRules) > 0 {
+		log.Printf("ding: reset incompatible/retired rule state: %v", report.ResetRules)
+	}
+	return nil
+}
+
+func closeConstructed(ns map[string]notifier.Notifier, logger *notifier.AlertLogger) {
+	for _, n := range ns {
+		if stop, ok := n.(interface{ Stop() }); ok {
+			stop.Stop()
+		}
+	}
+	if logger != nil {
+		logger.Close()
+	}
 }

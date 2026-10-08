@@ -55,6 +55,8 @@ type ServerConfig struct {
 	Port          int      `yaml:"port"`
 	Format        string   `yaml:"format"`
 	MaxBufferSize int      `yaml:"max_buffer_size"`
+	MaxLabelSets  int      `yaml:"max_label_sets"`
+	StateIdleTTL  Duration `yaml:"state_idle_ttl"`
 	ReadTimeout   Duration `yaml:"read_timeout"`
 	WriteTimeout  Duration `yaml:"write_timeout"`
 	IdleTimeout   Duration `yaml:"idle_timeout"`
@@ -98,9 +100,9 @@ type AlertTarget struct {
 // fires if the response status matches ExpectStatus. Results are cached
 // for TTL (default 5s) to avoid hammering the guard endpoint.
 type GuardConfig struct {
-	URL          string   `yaml:"url"`
-	ExpectStatus int      `yaml:"expect_status"`
-	TTLRaw       Duration `yaml:"ttl"`
+	URL          string        `yaml:"url"`
+	ExpectStatus int           `yaml:"expect_status"`
+	TTLRaw       Duration      `yaml:"ttl"`
 	TTL          time.Duration `yaml:"-"`
 }
 
@@ -173,6 +175,15 @@ func (cfg *Config) Validate() error {
 	}
 	if cfg.Server.Format == "" {
 		cfg.Server.Format = "auto"
+	}
+	if cfg.Server.MaxLabelSets == 0 {
+		cfg.Server.MaxLabelSets = 10000
+	}
+	if cfg.Server.StateIdleTTL.Duration == 0 {
+		cfg.Server.StateIdleTTL.Duration = time.Hour
+	}
+	if cfg.Server.MaxLabelSets < 0 || cfg.Server.StateIdleTTL.Duration < 0 {
+		return fmt.Errorf("state limits must be positive")
 	}
 	if cfg.Server.MaxBufferSize == 0 {
 		cfg.Server.MaxBufferSize = 10000

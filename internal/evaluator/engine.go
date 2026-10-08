@@ -57,10 +57,10 @@ type guardEntry struct {
 }
 
 // Engine evaluates events against rules and produces alerts.
-// Thread-safe. Supports atomic hot-swap via Swap().
+// Thread-safe. ProcessChecked serializes whole-event state transitions.
 //
 // Locking strategy:
-//   - mu (RWMutex): protects rules/maxBuf during hot-reload. Process() holds RLock;
+//   - mu (RWMutex): protects rules/maxBuf during hot-reload. Process() holds Lock;
 //     SwapEngine() holds Lock.
 //   - bufMu (Mutex): protects buffers and seenLabelKeys independently of mu, so
 //     buffer creation never races with concurrent Process() calls.
@@ -70,10 +70,14 @@ type Engine struct {
 	bufMu         sync.Mutex
 	guardMu       sync.Mutex
 	rules         []parsedRule
-	buffers       map[string]*RingBuffer // keyed by "ruleName:labelSetKey"
-	seenLabelKeys map[string][]string    // ruleName -> seen label-set keys (for /rules endpoint)
+	buffers       map[string]*RingBuffer          // keyed by "ruleName:labelSetKey"
+	seenLabelKeys map[string]map[string]time.Time // ruleName -> seen label-set keys (for /rules endpoint)
 	cooldown      *CooldownTracker
 	maxBuf        int
+	limits        StateLimits
+	labelCount    int
+	lastSweep     time.Time
+	rejected      uint64
 	guardCache    map[string]guardEntry
 	guardHTTP     *http.Client
 }
@@ -88,8 +92,21 @@ func (r parsedRule) IsEndOfRun() bool { return r.Mode == "end-of-run" }
 
 // NewEngine creates an Engine from a slice of EngineRules.
 func NewEngine(rules []EngineRule, maxBufferSize int) (*Engine, error) {
+	return NewEngineWithLimits(rules, maxBufferSize, StateLimits{MaxLabelSets: 10000, IdleTTL: time.Hour})
+}
+
+func NewEngineWithLimits(rules []EngineRule, maxBufferSize int, limits StateLimits) (*Engine, error) {
+	if maxBufferSize <= 0 || limits.MaxLabelSets <= 0 || limits.IdleTTL <= 0 {
+		return nil, fmt.Errorf("state limits must be positive")
+	}
+	names := map[string]bool{}
+
 	parsed := make([]parsedRule, len(rules))
 	for i, r := range rules {
+		if names[r.Name] {
+			return nil, fmt.Errorf("duplicate rule name %q", r.Name)
+		}
+		names[r.Name] = true
 		expr, err := ParseConditionExpr(r.Condition)
 		if err != nil {
 			return nil, fmt.Errorf("rule %q: %w", r.Name, err)
@@ -99,9 +116,10 @@ func NewEngine(rules []EngineRule, maxBufferSize int) (*Engine, error) {
 	return &Engine{
 		rules:         parsed,
 		buffers:       make(map[string]*RingBuffer),
-		seenLabelKeys: make(map[string][]string),
+		seenLabelKeys: make(map[string]map[string]time.Time),
 		cooldown:      NewCooldownTracker(),
 		maxBuf:        maxBufferSize,
+		limits:        limits,
 		guardCache:    make(map[string]guardEntry),
 		guardHTTP:     &http.Client{Timeout: 3 * time.Second},
 	}, nil
@@ -109,8 +127,40 @@ func NewEngine(rules []EngineRule, maxBufferSize int) (*Engine, error) {
 
 // Process evaluates an event against all rules. Returns fired alerts.
 func (e *Engine) Process(event ingester.Event, now time.Time) []Alert {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
+	alerts, err := e.ProcessChecked(event, now)
+	if err != nil {
+		log.Printf("ding: %v", err)
+	}
+	return alerts
+}
+
+// ProcessChecked rejects an event before mutating rule state when its new groups
+// would exceed the global limit. Evaluation and snapshots are serialized.
+func (e *Engine) ProcessChecked(event ingester.Event, now time.Time) ([]Alert, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.lastSweep.IsZero() || now.Sub(e.lastSweep) >= time.Minute {
+		e.sweepLocked(now)
+	}
+	labelKey := LabelSetKey(event.Labels)
+	neededGroups := func() int {
+		needed := 0
+		for _, r := range e.rules {
+			if Match(event, MatchRule{Match: r.Match}) {
+				if _, ok := e.seenLabelKeys[r.Name][labelKey]; !ok {
+					needed++
+				}
+			}
+		}
+		return needed
+	}
+	if e.labelCount+neededGroups() > e.limits.MaxLabelSets {
+		e.sweepLocked(now)
+		if e.labelCount+neededGroups() > e.limits.MaxLabelSets {
+			e.rejected++
+			return nil, fmt.Errorf("state label-set limit %d reached", e.limits.MaxLabelSets)
+		}
+	}
 
 	var alerts []Alert
 	for _, rule := range e.rules {
@@ -122,7 +172,7 @@ func (e *Engine) Process(event ingester.Event, now time.Time) []Alert {
 		labelKey := LabelSetKey(event.Labels)
 
 		// Track seen label keys for /rules endpoint (before condition check)
-		e.trackLabelKey(rule.Name, labelKey)
+		e.trackLabelKey(rule.Name, labelKey, now)
 
 		// Unconditional pre-pass: populate all windowed ring buffers before evaluation.
 		// Buffers must receive every event regardless of short-circuit outcome so that
@@ -196,7 +246,7 @@ func (e *Engine) Process(event ingester.Event, now time.Time) []Alert {
 		alert.Message = renderMessage(rule.Message, alert)
 		alerts = append(alerts, alert)
 	}
-	return alerts
+	return alerts, nil
 }
 
 // ProcessEndOfRun evaluates all rules with mode "end-of-run" using whatever
@@ -204,8 +254,8 @@ func (e *Engine) Process(event ingester.Event, now time.Time) []Alert {
 // Called once when a wrapped subprocess exits (ding run mode). Cooldowns
 // are not consulted — end-of-run rules fire at most once per run anyway.
 func (e *Engine) ProcessEndOfRun(now time.Time) []Alert {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
+	e.mu.Lock()
+	defer e.mu.Unlock()
 
 	var alerts []Alert
 	for _, rule := range e.rules {
@@ -219,7 +269,11 @@ func (e *Engine) ProcessEndOfRun(now time.Time) []Alert {
 		// no events were seen — though in practice, these rules need at least
 		// one buffer entry to evaluate).
 		e.bufMu.Lock()
-		labelKeys := append([]string{}, e.seenLabelKeys[rule.Name]...)
+		labelKeys := make([]string, 0, len(e.seenLabelKeys[rule.Name]))
+		for key := range e.seenLabelKeys[rule.Name] {
+			labelKeys = append(labelKeys, key)
+		}
+		sort.Strings(labelKeys)
 		e.bufMu.Unlock()
 		if len(labelKeys) == 0 {
 			labelKeys = []string{""}
@@ -318,8 +372,11 @@ func (e *Engine) RulesStatus(now time.Time) []RuleStatus {
 	e.bufMu.Lock()
 	seenCopy := make(map[string][]string, len(e.seenLabelKeys))
 	for k, v := range e.seenLabelKeys {
-		cp := make([]string, len(v))
-		copy(cp, v)
+		cp := make([]string, 0, len(v))
+		for key := range v {
+			cp = append(cp, key)
+		}
+		sort.Strings(cp)
 		seenCopy[k] = cp
 	}
 	e.bufMu.Unlock()
@@ -349,15 +406,16 @@ type RuleStatus struct {
 }
 
 // trackLabelKey records that a label-set key was seen for a rule.
-func (e *Engine) trackLabelKey(ruleName, labelKey string) {
+func (e *Engine) trackLabelKey(ruleName, labelKey string, now time.Time) {
 	e.bufMu.Lock()
 	defer e.bufMu.Unlock()
-	for _, k := range e.seenLabelKeys[ruleName] {
-		if k == labelKey {
-			return
-		}
+	if e.seenLabelKeys[ruleName] == nil {
+		e.seenLabelKeys[ruleName] = make(map[string]time.Time)
 	}
-	e.seenLabelKeys[ruleName] = append(e.seenLabelKeys[ruleName], labelKey)
+	if _, ok := e.seenLabelKeys[ruleName][labelKey]; !ok {
+		e.labelCount++
+	}
+	e.seenLabelKeys[ruleName][labelKey] = now
 }
 
 // getOrCreateBuffer returns the ring buffer for a buffer key, creating it if needed.

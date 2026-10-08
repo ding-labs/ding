@@ -5,13 +5,14 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
-	"github.com/itchyny/gojq"
 	"github.com/ding-labs/ding/internal/config"
 	"github.com/ding-labs/ding/internal/evaluator"
 	"github.com/ding-labs/ding/internal/ingester"
 	"github.com/ding-labs/ding/internal/metrics"
 	"github.com/ding-labs/ding/internal/notifier"
+	"github.com/itchyny/gojq"
 )
 
 // Server holds the HTTP server state.
@@ -119,7 +120,7 @@ func buildFromConfig(path string, collector *metrics.Collector) (*evaluator.Engi
 			Mode:      r.Mode,
 		}
 	}
-	eng, err := evaluator.NewEngine(rules, cfg.Server.MaxBufferSize)
+	eng, err := evaluator.NewEngineWithLimits(rules, cfg.Server.MaxBufferSize, evaluator.StateLimits{MaxLabelSets: cfg.Server.MaxLabelSets, IdleTTL: cfg.Server.StateIdleTTL.Duration})
 	if err != nil {
 		return nil, nil, nil, nil, nil, fmt.Errorf("building engine: %w", err)
 	}
@@ -219,5 +220,15 @@ func (s *Server) IngestLine(line []byte) {
 		return
 	}
 
-	s.processEvents(events, notifiers, eng, alertLogger)
+	if _, _, err := s.processEvents(events, notifiers, eng, alertLogger); err != nil {
+		log.Printf("ding: stdin rejected: %v", err)
+	}
+}
+
+// Sweep prunes idle state even when no producer sends new observations.
+func (s *Server) Sweep(now time.Time) {
+	s.mu.RLock()
+	eng := s.engine
+	s.mu.RUnlock()
+	eng.Sweep(now)
 }

@@ -135,8 +135,9 @@ func TestSnapshotEngine_CapturesCooldowns(t *testing.T) {
 // TestRestoreEngine_RejectsExpiredEntries verifies that old buffer entries are dropped on restore.
 func TestRestoreEngine_RejectsExpiredEntries(t *testing.T) {
 	snap := evaluator.StateSnapshot{
-		Version: 2,
-		SavedAt: time.Now().UTC(),
+		Version:      2,
+		Fingerprints: evaluator.SnapshotEngine(makeWindowedEngine(t)).Fingerprints,
+		SavedAt:      time.Now().UTC(),
 		Buffers: map[string]evaluator.BufferSnapshot{
 			identity.Key("cpu_sustained", "0", evaluator.LabelSetKey(map[string]string{"host": "web-01"})): {
 				Window:  5 * time.Minute,
@@ -165,9 +166,10 @@ func TestRestoreEngine_RejectsExpiredEntries(t *testing.T) {
 func TestRestoreEngine_RejectsExpiredCooldowns(t *testing.T) {
 	now := time.Now()
 	snap := evaluator.StateSnapshot{
-		Version: 2,
-		SavedAt: now.UTC(),
-		Buffers: map[string]evaluator.BufferSnapshot{},
+		Version:      2,
+		Fingerprints: evaluator.SnapshotEngine(makeCooldownEngine(t)).Fingerprints,
+		SavedAt:      now.UTC(),
+		Buffers:      map[string]evaluator.BufferSnapshot{},
 		Cooldowns: map[string]time.Time{
 			identity.Key("cpu_spike", evaluator.LabelSetKey(map[string]string{"host": "web-01"})): now.Add(-1 * time.Minute), // expired 1 minute ago
 		},
@@ -236,8 +238,9 @@ func TestSaveAndLoadSnapshot_RoundTrip(t *testing.T) {
 	path := filepath.Join(dir, "state.json")
 
 	original := evaluator.StateSnapshot{
-		Version: 2,
-		SavedAt: time.Now().UTC().Truncate(time.Millisecond),
+		Version:      2,
+		Fingerprints: map[string]string{},
+		SavedAt:      time.Now().UTC().Truncate(time.Millisecond),
 		Buffers: map[string]evaluator.BufferSnapshot{
 			"rule1:host=a": {
 				Window:  5 * time.Minute,

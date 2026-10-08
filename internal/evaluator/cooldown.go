@@ -55,3 +55,14 @@ func (ct *CooldownTracker) RemainingString(rule, labelKey string, now time.Time)
 	}
 	return exp.Sub(now).Round(time.Second).String() + " remaining"
 }
+
+// Prune removes expired reservations; callers use the same logical clock.
+func (ct *CooldownTracker) Prune(now time.Time) {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
+	for key, exp := range ct.expiry {
+		if !exp.After(now) {
+			delete(ct.expiry, key)
+		}
+	}
+}

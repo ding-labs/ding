@@ -66,7 +66,13 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	totalAlerts := s.processEvents(events, notifiers, eng, alertLogger)
+	totalAlerts, accepted, evalErr := s.processEvents(events, notifiers, eng, alertLogger)
+	if evalErr != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusTooManyRequests)
+		json.NewEncoder(w).Encode(map[string]interface{}{"error": evalErr.Error(), "events": accepted, "alerts_fired": totalAlerts})
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, `{"events":%d,"alerts_fired":%d}`, len(events), totalAlerts)
@@ -152,6 +158,7 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 
 	s.mu.RLock()
 	notifiers := s.notifiers
+	eng := s.engine
 	s.mu.RUnlock()
 
 	queueDepth := 0
@@ -163,6 +170,8 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 	s.collector.WritePrometheus(w, queueDepth)
+	stats := eng.StateStats()
+	fmt.Fprintf(w, "ding_state_label_sets %d\nding_state_buffers %d\nding_state_rejections_total %d\n", stats.LabelSets, stats.Buffers, stats.Rejected)
 }
 
 func jsonError(w http.ResponseWriter, msg string, code int) {
@@ -172,14 +181,17 @@ func jsonError(w http.ResponseWriter, msg string, code int) {
 	w.Write(data)
 }
 
-func (s *Server) processEvents(events []ingester.Event, notifiers map[string]notifier.Notifier, eng *evaluator.Engine, alertLogger *notifier.AlertLogger) int {
+func (s *Server) processEvents(events []ingester.Event, notifiers map[string]notifier.Notifier, eng *evaluator.Engine, alertLogger *notifier.AlertLogger) (int, int, error) {
 	now := time.Now()
 	totalAlerts := 0
 	if s.collector != nil {
 		s.collector.IncrEvents(int64(len(events)))
 	}
-	for _, event := range events {
-		alerts := eng.Process(event, now)
+	for i, event := range events {
+		alerts, err := eng.ProcessChecked(event, now)
+		if err != nil {
+			return totalAlerts, i, err
+		}
 		totalAlerts += len(alerts)
 		for _, alert := range alerts {
 			if alertLogger != nil {
@@ -202,5 +214,5 @@ func (s *Server) processEvents(events []ingester.Event, notifiers map[string]not
 			}
 		}
 	}
-	return totalAlerts
+	return totalAlerts, len(events), nil
 }

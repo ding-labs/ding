@@ -20,6 +20,8 @@ server:
   # Example: accept Datadog-style batched events:
   # jq: '.series[] | {metric: .metric, value: (.points[0][1]), host: .tags[0]}'
   max_buffer_size: 10000
+  max_label_sets: 10000
+  state_idle_ttl: 1h
   # HTTP server timeouts (optional, secure defaults applied if omitted)
   # read_timeout: 5s
   # write_timeout: 10s

@@ -67,6 +67,8 @@ alert_log:
 | `format` | string | `auto` | Input format: `json`, `prometheus`, or `auto` (auto-detects per request) |
 | `jq` | string | — | Optional [jq](https://jqlang.github.io/jq/) filter applied to every inbound payload before rule evaluation. Output must produce objects with `metric` and `value` fields. |
 | `max_buffer_size` | int | `10000` | Maximum events retained per rule per label-set for windowed aggregations |
+| `max_label_sets` | int | `10000` | Global limit on rule/label-set combinations; excess groups are rejected visibly |
+| `state_idle_ttl` | duration | `1h` | Idle group retention, extended while a window or cooldown remains active |
 | `read_timeout` | duration | `5s` | HTTP read timeout |
 | `write_timeout` | duration | `10s` | HTTP write timeout |
 | `idle_timeout` | duration | `60s` | HTTP idle connection timeout |
@@ -514,3 +516,21 @@ Preview output goes to stderr alongside the wrapped command's own stderr; the wr
 ## Platform-specific examples
 
 See [Recipes](recipes/index.md) for end-to-end configurations on specific CI/CD platforms (GitLab CI, Jenkins, Buildkite). Each recipe shows the auto-captured labels and the minimal `ding.yaml` for that platform.
+
+### State compatibility and capacity
+
+Snapshots use format version 2 with canonical identities and rule fingerprints.
+Changed conditions, matching, modes, cooldowns, or buffer sizes reset the affected
+state with a diagnostic; presentation-only changes preserve it. Removed rules
+are discarded. Unsupported, corrupt, or ambiguous old snapshots stop startup.
+Preserve an old state file as a backup and explicitly move it aside to start
+fresh; a fresh start also resets cooldowns and can emit an alert again.
+
+Label-set limits apply across all rules. The daemon sweeps idle state once per
+minute, including when no new events arrive. Idle cleanup preserves active rolling
+windows, run-lifetime buffers, and cooldowns. At the limit, HTTP ingestion returns
+429 with `events` identifying the already accepted portion of a batch. Retrying
+a partially accepted legacy batch can repeat those events. Stdin rejection is
+logged. Inspect `ding_state_label_sets`, `ding_state_buffers`, and
+`ding_state_rejections_total` for capacity pressure. Cooldown state keys are
+opaque canonical identities, not comma-separated labels.
