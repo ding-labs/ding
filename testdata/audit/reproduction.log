@@ -1,0 +1,26 @@
+=== RUN   TestAuditCooldownUsesReplayClock
+    zz_audit_test.go:34: event two minutes later: got 0 alerts; want 1 after one-minute cooldown
+--- FAIL: TestAuditCooldownUsesReplayClock (0.00s)
+=== RUN   TestAuditReloadUsesNewWindow
+    zz_audit_test.go:45: new one-minute rule fired with avg=50; ten-minute-old sample should have expired
+--- FAIL: TestAuditReloadUsesNewWindow (0.00s)
+=== RUN   TestAuditLabelIdentityIsUnambiguous
+    zz_audit_test.go:52: distinct label maps collide as "a=x,b=y"
+--- FAIL: TestAuditLabelIdentityIsUnambiguous (0.00s)
+=== RUN   TestAuditConcurrentCooldown
+    zz_audit_test.go:71: round 15: 4 concurrent alerts within one-minute cooldown; want 1
+--- FAIL: TestAuditConcurrentCooldown (0.01s)
+=== RUN   TestAuditRateLimitIsNotSuccess
+2026/10/08 13:42:56 ding: webhook http://127.0.0.1:63489 returned 429 for rule "watch" (not retrying)
+    zz_audit_test.go:85: HTTP 429 attempts=1; want 3
+    zz_audit_test.go:86: HTTP 429 counted as successful delivery
+--- FAIL: TestAuditRateLimitIsNotSuccess (0.00s)
+=== RUN   TestAuditWindowBenchmarkActuallyHasSamples
+    zz_audit_test.go:97: benchmark warmup retained 0 samples; advertised 1000
+--- FAIL: TestAuditWindowBenchmarkActuallyHasSamples (0.00s)
+=== RUN   TestAuditLabelRetentionObservation
+    zz_audit_test.go:111: one day later: 1001 buffers, 1000 expired samples retained
+--- PASS: TestAuditLabelRetentionObservation (0.01s)
+FAIL
+FAIL	github.com/ding-labs/ding/internal/evaluator	0.524s
+FAIL

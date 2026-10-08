@@ -1,0 +1,112 @@
+package evaluator_test
+
+import (
+    "bytes"
+    "fmt"
+    "net/http"
+    "net/http/httptest"
+    "strings"
+    "sync"
+    "sync/atomic"
+    "testing"
+    "time"
+
+    "github.com/ding-labs/ding/internal/evaluator"
+    "github.com/ding-labs/ding/internal/ingester"
+    "github.com/ding-labs/ding/internal/metrics"
+    "github.com/ding-labs/ding/internal/notifier"
+)
+
+func auditEngine(t *testing.T, condition string, cooldown time.Duration) *evaluator.Engine {
+    t.Helper()
+    e, err := evaluator.NewEngine([]evaluator.EngineRule{{Name: "watch", Condition: condition, Cooldown: cooldown}}, 10000)
+    if err != nil { t.Fatal(err) }
+    return e
+}
+
+func TestAuditCooldownUsesReplayClock(t *testing.T) {
+    e := auditEngine(t, "value > 0", time.Minute)
+    now := time.Now()
+    ev := ingester.Event{Metric:"price", Value:1, At:now}
+    if len(e.Process(ev,now)) != 1 { t.Fatal("first alert missing") }
+    ev.At = now.Add(2*time.Minute)
+    if n:=len(e.Process(ev,ev.At)); n != 1 {
+        t.Fatalf("event two minutes later: got %d alerts; want 1 after one-minute cooldown",n)
+    }
+}
+
+func TestAuditReloadUsesNewWindow(t *testing.T) {
+    now:=time.Now()
+    old:=auditEngine(t,"avg(value) over 1h > 40",0)
+    old.Process(ingester.Event{Metric:"price",Value:100,At:now.Add(-10*time.Minute)},now.Add(-10*time.Minute))
+    next:=auditEngine(t,"avg(value) over 1m > 40",0)
+    evaluator.RestoreEngine(next,evaluator.SnapshotEngine(old),now)
+    got:=next.Process(ingester.Event{Metric:"price",Value:0,At:now},now)
+    if len(got)!=0 { t.Fatalf("new one-minute rule fired with avg=%v; ten-minute-old sample should have expired",got[0].Avg) }
+}
+
+func TestAuditLabelIdentityIsUnambiguous(t *testing.T) {
+    a:=map[string]string{"a":"x,b=y"}
+    b:=map[string]string{"a":"x","b":"y"}
+    if evaluator.LabelSetKey(a)==evaluator.LabelSetKey(b) {
+        t.Fatalf("distinct label maps collide as %q",evaluator.LabelSetKey(a))
+    }
+}
+
+func TestAuditConcurrentCooldown(t *testing.T) {
+    const concurrency=64
+    for round:=0;round<500;round++ {
+        e:=auditEngine(t,"value > 0",time.Minute)
+        now:=time.Now()
+        ev:=ingester.Event{Metric:"price",Value:1,At:now}
+        var wg sync.WaitGroup
+        var count atomic.Int64
+        start:=make(chan struct{})
+        for i:=0;i<concurrency;i++ {
+            wg.Add(1)
+            go func(){ defer wg.Done(); <-start; count.Add(int64(len(e.Process(ev,now)))) }()
+        }
+        close(start)
+        wg.Wait()
+        if n:=count.Load(); n!=1 { t.Fatalf("round %d: %d concurrent alerts within one-minute cooldown; want 1",round,n) }
+    }
+}
+
+func TestAuditRateLimitIsNotSuccess(t *testing.T) {
+    var attempts atomic.Int64
+    srv:=httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){ attempts.Add(1); w.WriteHeader(http.StatusTooManyRequests) }))
+    defer srv.Close()
+    c:=metrics.NewCollector()
+    n:=notifier.NewWebhookNotifier(srv.URL,3,time.Millisecond,c)
+    n.Send(evaluator.Alert{Rule:"watch",FiredAt:time.Now()})
+    n.Drain(time.Second)
+    var buf bytes.Buffer
+    c.WritePrometheus(&buf,0)
+    if attempts.Load()!=3 { t.Errorf("HTTP 429 attempts=%d; want 3",attempts.Load()) }
+    if strings.Contains(buf.String(),"ding_webhook_deliveries_total{result=\"success\"} 1") { t.Error("HTTP 429 counted as successful delivery") }
+}
+
+func TestAuditWindowBenchmarkActuallyHasSamples(t *testing.T) {
+    e:=auditEngine(t,"avg(value) over 5m > 80",0)
+    warmNow:=time.Now().Add(10*time.Minute)
+    for j:=0;j<1000;j++ {
+        e.Process(ingester.Event{Metric:"cpu_usage",Value:50,Labels:map[string]string{"host":"web-01"},At:time.Now().Add(time.Duration(j)*time.Millisecond)},warmNow)
+    }
+    count:=0
+    for _,b:=range evaluator.SnapshotEngine(e).Buffers { count+=len(b.Entries) }
+    if count!=1000 { t.Fatalf("benchmark warmup retained %d samples; advertised 1000",count) }
+}
+
+func TestAuditLabelRetentionObservation(t *testing.T) {
+    e:=auditEngine(t,"avg(value) over 1m > 80",0)
+    now:=time.Now()
+    for i:=0;i<1000;i++ {
+        e.Process(ingester.Event{Metric:"cpu",Value:50,Labels:map[string]string{"request_id":fmt.Sprint(i)},At:now},now)
+    }
+    later:=now.Add(24*time.Hour)
+    e.Process(ingester.Event{Metric:"cpu",Value:50,Labels:map[string]string{"request_id":"new"},At:later},later)
+    s:=evaluator.SnapshotEngine(e)
+    stale:=0
+    for _,b:=range s.Buffers { for _,entry:=range b.Entries { if entry.At.Before(later.Add(-time.Minute)) {stale++} } }
+    t.Logf("one day later: %d buffers, %d expired samples retained",len(s.Buffers),stale)
+}
