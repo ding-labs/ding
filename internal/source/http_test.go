@@ -78,8 +78,8 @@ func TestHTTPFailureContracts(t *testing.T) {
 	}{
 		{name: "real500", status: 500},
 		{name: "redirect", status: 302, reason: "source_redirect_rejected"},
-		{name: "badjson", status: 200, body: "bad", fields: map[string]string{"a": "a"}, reason: "source_invalid_json"},
-		{name: "nested", status: 200, body: `{"a":{}}`, fields: map[string]string{"a": "a"}, reason: "source_field_not_scalar"},
+		{name: "badjson", status: 200, body: "bad", fields: map[string]string{"a": "a"}, reason: "source_invalid_projection"},
+		{name: "nested", status: 200, body: `{"a":{}}`, fields: map[string]string{"a": "a"}, reason: "source_invalid_projection"},
 		{name: "bound", status: 200, body: strings.Repeat("x", 2000), max: 1024, reason: "source_response_too_large"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -131,5 +131,35 @@ func TestHTTPTimeoutIsUnknown(t *testing.T) {
 	b := (HTTP{Client: s.Client()}).Fetch(context.Background(), p, "", time.Now())
 	if b.Observations[0].Health != "unknown" || b.Observations[0].Fields != nil {
 		t.Fatal("timeout became status", b)
+	}
+}
+
+func TestHTTPProjectionMultipleOutputsAndReservedStatus(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(503)
+		fmt.Fprint(w, `{"events":[{"n":1},{"n":2}]}`)
+	}))
+	defer s.Close()
+	p := compiled(t, s.URL, func(d *watch.Definition) { d.Spec.Source.JQ = `.events[] | {value:.n,"http.status":200}` })
+	b := (HTTP{Client: s.Client()}).Fetch(context.Background(), p, "", time.Now())
+	if len(b.Observations) != 2 || b.Observations[1].Fields["value"] != float64(2) || b.Observations[0].Fields["http.status"] != 503 {
+		t.Fatal(b)
+	}
+	p.Definition.Spec.Source.JQ = "empty"
+	b = (HTTP{Client: s.Client()}).Fetch(context.Background(), p, "", time.Now())
+	if len(b.Observations) != 1 || b.Observations[0].Health != "unchanged" {
+		t.Fatal(b)
+	}
+}
+
+func TestSourceObservedTimeIsExplicitMetadata(t *testing.T) {
+	observations, err := Observations([]map[string]any{{"value": 7, "timestamp": "2001-01-01T00:00:00Z"}}, "timestamp")
+	if err != nil || observations[0].ObservedAt == nil || observations[0].ObservedAt.Year() != 2001 {
+		t.Fatal(observations, err)
+	}
+	for _, fields := range []map[string]any{{}, {"timestamp": 123}, {"timestamp": "bad"}} {
+		if _, err := Observations([]map[string]any{fields}, "timestamp"); err == nil {
+			t.Fatal("bad timestamp accepted")
+		}
 	}
 }

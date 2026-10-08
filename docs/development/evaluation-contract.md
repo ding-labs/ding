@@ -37,4 +37,5 @@ The fixture produces one firing and one recovery. JSONL records carry explicit
 sequence, acceptedAt, health, and typed fields. Replay never acquires live data,
 resolves secrets, or sends notifications. Records are bounded by the manifest's
 byte limit; total input is limited to 100,000 observations. Missing-data timers are replayable records with explicit deadlines and entities.
-Change/new-event conditions are rejected until their implementation milestone.
+Change/new-event conditions retain typed baselines and bounded provider-ID horizons;
+see [the adapter contract](adapter-contract.md).

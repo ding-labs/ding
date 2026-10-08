@@ -47,8 +47,13 @@ func (a *App) Maintain(ctx context.Context, now time.Time) error {
 				if err := json.Unmarshal(data, &state); err != nil {
 					return err
 				}
+				for id, expiry := range state.Seen {
+					if !now.Before(expiry) {
+						delete(state.Seen, id)
+					}
+				}
 				_, timerErr := tx.Timer(id, key, "missing")
-				expire := r.Status == "deleted" || (!state.Open && !state.SourceUnhealthy && timerErr == store.ErrNotFound && !state.LastAt.IsZero() && !now.Before(state.LastAt.Add(idle)) && !now.Before(state.LastFired.Add(interval)) && !now.Before(state.LastAt.Add(window)))
+				expire := r.Status == "deleted" || (len(state.Baseline) == 0 && len(state.Seen) == 0 && !state.Open && !state.SourceUnhealthy && timerErr == store.ErrNotFound && !state.LastAt.IsZero() && !now.Before(state.LastAt.Add(idle)) && !now.Before(state.LastFired.Add(interval)) && !now.Before(state.LastAt.Add(window)))
 				if expire {
 					if err := tx.DeleteEntity(id, key); err != nil {
 						return err
@@ -79,7 +84,7 @@ func (a *App) Maintain(ctx context.Context, now time.Time) error {
 				}
 				eventPins = append(eventPins, state.IncidentEvent, state.HealthEvent)
 				pins = append(pins, state.Evidence...)
-				pins = append(pins, state.LastSequence, state.FreshSequence)
+				pins = append(pins, state.LastSequence, state.FreshSequence, state.BaselineSequence)
 				if err := tx.SaveEntity(id, key, r.Plan.Revision, state, state.LastAt); err != nil {
 					return err
 				}

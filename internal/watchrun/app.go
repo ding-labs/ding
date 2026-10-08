@@ -32,6 +32,7 @@ type App struct {
 	running                             bool
 	lastError                           string
 	closing                             bool
+	inflight                            int
 	cancels                             map[string]acquisition
 	Limits                              Limits
 }
@@ -64,16 +65,9 @@ func (a *App) Apply(ctx context.Context, request ApplyRequest) (ApplyResult, err
 		return result, err
 	}
 	for _, p := range bundle.Watches {
-		if p.Definition.Spec.Source.Type != "http" || p.Definition.Spec.Source.JQ != "" {
-			return result, fmt.Errorf("source capability is not implemented yet")
-		}
+
 		if _, err := condition.New(p.Definition, p.Revision); err != nil {
 			return result, err
-		}
-	}
-	for _, p := range bundle.Destinations {
-		if p.Definition.Spec.Type != "webhook" && p.Definition.Spec.Type != "console" {
-			return result, fmt.Errorf("destination capability is not implemented yet")
 		}
 	}
 	now := a.Now()

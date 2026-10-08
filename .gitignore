@@ -33,3 +33,7 @@ site/
 
 # Internal planning / brainstorming artifacts (kept local)
 docs/superpowers/
+
+# Local watch runtime state contains credentials and live databases.
+/ding-state/
+/ding-state-*/

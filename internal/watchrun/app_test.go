@@ -177,7 +177,7 @@ func TestApplyIsAtomicAndDryRun(t *testing.T) {
 	if err != nil || result.Changes[0].State != "preserved" {
 		t.Fatal(result, err)
 	}
-	for _, bad := range []string{"bad", strings.Replace(manifest("https://example.com"), "type: webhook", "type: slack", 1), strings.Replace(manifest("https://example.com"), "type: http, url: \"https://example.com\", every: 5s, timeout: 2s", "type: push", 1)} {
+	for _, bad := range []string{"bad", strings.Replace(manifest("https://example.com"), "type: webhook", "type: unsupported", 1), strings.Replace(manifest("https://example.com"), "type: http, url: \"https://example.com\", every: 5s, timeout: 2s", "type: unsupported", 1)} {
 		if _, err := a.Apply(ctx, ApplyRequest{Manifest: bad}); err == nil {
 			t.Fatal("unsupported apply accepted")
 		}

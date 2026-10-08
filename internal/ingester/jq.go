@@ -6,21 +6,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ding-labs/ding/internal/transform"
 	"github.com/itchyny/gojq"
 )
 
 // CompileJQ compiles a JQ expression. Returns an error if the expression is invalid.
 // Call this once at startup; the returned *gojq.Code is safe for concurrent use.
 func CompileJQ(expr string) (*gojq.Code, error) {
-	q, err := gojq.Parse(expr)
-	if err != nil {
-		return nil, fmt.Errorf("parsing jq expression: %w", err)
-	}
-	code, err := gojq.Compile(q)
-	if err != nil {
-		return nil, fmt.Errorf("compiling jq expression: %w", err)
-	}
-	return code, nil
+	return transform.CompileJQ(expr)
 }
 
 // RunJQ runs a compiled JQ program against raw JSON bytes and returns the resulting events.

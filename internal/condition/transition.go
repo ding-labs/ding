@@ -19,21 +19,22 @@ type Sample struct {
 	Sequence int64     `json:"sequence"`
 }
 type State struct {
-	IncidentEvent   string    `json:"incidentEvent,omitempty"`
-	HealthEvent     string    `json:"healthEvent,omitempty"`
-	FreshSequence   int64     `json:"freshSequence,omitempty"`
-	MissingAt       time.Time `json:"missingAt,omitempty"`
-	Entity          string    `json:"entity"`
-	Open            bool      `json:"open"`
-	Matches         int       `json:"matches"`
-	Recoveries      int       `json:"recoveries"`
-	LastAt          time.Time `json:"lastAt"`
-	LastFired       time.Time `json:"lastFired"`
-	LastSequence    int64     `json:"lastSequence"`
-	SourceUnhealthy bool      `json:"sourceUnhealthy"`
-	Samples         []Sample  `json:"samples,omitempty"`
-	OverflowUntil   time.Time `json:"overflowUntil,omitempty"`
-	Evidence        []int64   `json:"evidence,omitempty"`
+	BaselineSequence int64     `json:"baselineSequence,omitempty"`
+	IncidentEvent    string    `json:"incidentEvent,omitempty"`
+	HealthEvent      string    `json:"healthEvent,omitempty"`
+	FreshSequence    int64     `json:"freshSequence,omitempty"`
+	MissingAt        time.Time `json:"missingAt,omitempty"`
+	Entity           string    `json:"entity"`
+	Open             bool      `json:"open"`
+	Matches          int       `json:"matches"`
+	Recoveries       int       `json:"recoveries"`
+	LastAt           time.Time `json:"lastAt"`
+	LastFired        time.Time `json:"lastFired"`
+	LastSequence     int64     `json:"lastSequence"`
+	SourceUnhealthy  bool      `json:"sourceUnhealthy"`
+	Samples          []Sample  `json:"samples,omitempty"`
+	OverflowUntil    time.Time `json:"overflowUntil,omitempty"`
+	Evidence         []int64   `json:"evidence,omitempty"`
 	// Baseline and Seen are populated by change/new-event adapters in P11.
 	Baseline json.RawMessage      `json:"baseline,omitempty"`
 	Seen     map[string]time.Time `json:"seen,omitempty"`
@@ -67,7 +68,9 @@ func New(def watch.Definition, revision string) (*Evaluator, error) {
 	}
 	e := &Evaluator{definition: copied, revision: revision}
 	if def.Spec.Condition.Operator == "changed" || def.Spec.Condition.Operator == "new-event" {
-		return nil, fmt.Errorf("condition capability is not implemented yet")
+		if def.Spec.Condition.Value != nil || def.Spec.Condition.Numeric != "" || def.Spec.Condition.MissingFor != "" || def.Spec.Policy.Trigger != "level" || def.Spec.Policy.Consecutive != 1 {
+			return nil, fmt.Errorf("change/event condition must be compiled before evaluation")
+		}
 	}
 	if def.Spec.Policy.Consecutive < 1 || def.Spec.Policy.RecoverAfter < 1 || def.Spec.Limits.MaxSamples < 1 {
 		return nil, fmt.Errorf("definition must be compiled before evaluation")
@@ -98,6 +101,12 @@ func (e *Evaluator) Evaluate(previous State, o watch.Observation, now time.Time)
 	state := previous
 	state.Samples = append([]Sample(nil), previous.Samples...)
 	state.Evidence = append([]int64(nil), previous.Evidence...)
+	if previous.Seen != nil {
+		state.Seen = make(map[string]time.Time, len(previous.Seen))
+		for id, expiry := range previous.Seen {
+			state.Seen[id] = expiry
+		}
+	}
 	result := Transition{State: state, Events: []watch.Event{}}
 	if now.IsZero() || o.Sequence < 1 || !now.Equal(o.AcceptedAt) {
 		return result, fmt.Errorf("accepted time and positive sequence are required")
@@ -128,7 +137,7 @@ func (e *Evaluator) Evaluate(previous State, o watch.Observation, now time.Time)
 			return err
 		}
 		message := reason
-		if e.definition.Spec.Message != "" && (kind == "firing" || kind == "recovered") {
+		if e.definition.Spec.Message != "" && (kind == "firing" || kind == "recovered" || kind == "changed" || kind == "new-event") {
 			var buf bytes.Buffer
 			value := o.Fields[e.definition.Spec.Condition.Field]
 			context := map[string]any{"Watch": e.definition.Metadata.ID, "Name": e.definition.Metadata.Name, "Type": kind, "Value": value, "Fields": o.Fields}
@@ -255,6 +264,19 @@ func (e *Evaluator) Evaluate(previous State, o watch.Observation, now time.Time)
 	result.Known = true
 	result.Matched = matched
 	policy := e.definition.Spec.Policy
+	if operator := e.definition.Spec.Condition.Operator; operator == "changed" || operator == "new-event" {
+		if matched && (state.LastFired.IsZero() || !now.Before(state.LastFired.Add(e.interval))) {
+			if err := emit(operator, "condition_"+operator); err != nil {
+				return result, err
+			}
+			state.LastFired = now
+		}
+		state.Evidence = nil
+		state.LastAt = now
+		state.LastSequence = o.Sequence
+		result.State = state
+		return result, nil
+	}
 	if matched {
 		state.Recoveries = 0
 		if state.Matches < policy.Consecutive {
@@ -325,6 +347,9 @@ func (e *Evaluator) predicate(state *State, o watch.Observation, now time.Time) 
 	value, present := o.Fields[c.Field]
 	if !present {
 		return false, false, "missing_field"
+	}
+	if c.Operator == "changed" || c.Operator == "new-event" {
+		return e.signal(state, value, o.Sequence, now)
 	}
 	if e.expression == nil {
 		known, matched := Compare(value, c.Operator, c.Value)

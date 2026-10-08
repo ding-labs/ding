@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/condition"
-	"github.com/ding-labs/ding/internal/ingester"
+	"github.com/ding-labs/ding/internal/transform"
 	"github.com/ding-labs/ding/internal/watch"
 	"gopkg.in/yaml.v3"
 )
@@ -256,6 +256,9 @@ func Compile(d watch.Definition) (Compiled, error) {
 	if err := refs(s.Headers); err != nil {
 		return Compiled{}, err
 	}
+	if s.ObservedAtField != "" && !fieldName.MatchString(s.ObservedAtField) {
+		return Compiled{}, fmt.Errorf("observedAtField must name a selected field")
+	}
 	if len(s.Fields) > 100 {
 		return Compiled{}, fmt.Errorf("too many selected fields")
 	}
@@ -268,7 +271,7 @@ func Compile(d watch.Definition) (Compiled, error) {
 		if len(s.JQ) > 8192 {
 			return Compiled{}, fmt.Errorf("jq exceeds 8192 bytes")
 		}
-		if _, err := ingester.CompileJQ(s.JQ); err != nil {
+		if _, err := transform.CompileJQ(s.JQ); err != nil {
 			return Compiled{}, err
 		}
 	}

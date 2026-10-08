@@ -180,11 +180,15 @@ func (a *App) Run(ctx context.Context) error {
 		activeMu.Unlock()
 		for _, record := range records {
 			id := record.Plan.Definition.Metadata.ID
-			if record.Status != "running" || record.Plan.Definition.Spec.Source.Type != "http" || record.NextAt.After(now) {
+			if record.Status != "running" || record.Plan.Definition.Spec.Source.Type == "push" || record.NextAt.After(now) {
 				continue
 			}
 			activeMu.Lock()
 			if active[id] || retry[id].After(now) || len(active) >= a.AcquisitionWorkers {
+				activeMu.Unlock()
+				continue
+			}
+			if err := a.Reserve(); err != nil {
 				activeMu.Unlock()
 				continue
 			}
@@ -193,6 +197,7 @@ func (a *App) Run(ctx context.Context) error {
 			acquisitions.Add(1)
 			go func(record store.WatchRecord, id string) {
 				defer acquisitions.Done()
+				defer a.Release()
 				defer func() { activeMu.Lock(); delete(active, id); activeMu.Unlock() }()
 				acquireCtx, cancel := context.WithCancel(ctx)
 				defer cancel()
@@ -205,7 +210,12 @@ func (a *App) Run(ctx context.Context) error {
 				if err := a.Store.View(acquireCtx, func(tx *store.Tx) error { var err error; current, err = tx.Watch(id); return err }); err != nil || current.Generation != record.Generation || current.Status != "running" {
 					return
 				}
-				batch := a.HTTP.Fetch(acquireCtx, record.Plan, record.Cursor, a.Now())
+				var acquirer source.Acquirer = a.HTTP
+				if record.Plan.Definition.Spec.Source.Type == "command" {
+					acquirer = source.Command{Lookup: a.Lookup}
+				}
+				batch := acquirer.Fetch(acquireCtx, record.Plan, record.Cursor, a.Now())
+
 				if acquireCtx.Err() != nil {
 					return
 				}

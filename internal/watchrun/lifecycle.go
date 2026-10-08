@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/condition"
+	"github.com/ding-labs/ding/internal/delivery"
 	"github.com/ding-labs/ding/internal/source"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watch"
@@ -85,7 +86,7 @@ func (a *App) appendEvent(tx *store.Tx, r store.WatchRecord, event watch.Event, 
 		if err != nil {
 			return err
 		}
-		payload, err := json.Marshal(watch.Envelope{APIVersion: watch.APIVersion, Data: event})
+		payload, err := delivery.Render(destination.Definition.Spec.Type, event)
 		if err != nil {
 			return err
 		}

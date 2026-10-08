@@ -16,7 +16,7 @@ failures and environment limitations are recorded here without implying success.
 | P08 Watch evaluation | Complete | Full race suite, vet, and module consistency pass. Condition coverage 94.2%, replay 93.2%, CLI 97.4%; 75,573 deterministic-evaluation fuzz cases pass. Offline example replay fires once and recovers once. New CLI dependency graph contains no legacy evaluator/notifier or Kubernetes packages. |
 | P09 Complete HTTP watch | Complete | Full race suite, vet, module consistency, and six CGO-free CLI builds pass. Actual five-second subprocess/restart/429 demonstration passes. HTTP source 91.2%, control API 90.7%, CLI 90.3%; isolated runtime unit suite 83.2% (full subprocess-including coverage reports 57.8%). Atomic rollback/dedup, lease fencing, delivery order, auth, bounded polling, and graceful shutdown verified. |
 | P10 Lifecycle, bounds, timers | Complete | Full race suite with cross-package coverage, affected-package rerun, vet, module consistency, actionlint, and six builds pass. Integrated coverage: store 82.1%, condition 93.9%, runtime 82.5%, control 87.4%, CLI 91.0%. Revision/reset/cancel races, durable timers and replay, quota rollback/gap recovery, dedup expiry, and evidence-safe retention pass. |
-| P11 Initial adapters | Pending | |
+| P11 Initial adapters | In progress | Adding shared typed projections, command/push sources, change/event conditions, and Slack/Discord payloads. |
 | P12 Inspection and agent use | Pending | |
 | P13 Migration and deletion | Pending | |
 | P14 Release qualification | Pending | |

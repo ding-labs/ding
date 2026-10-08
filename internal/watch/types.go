@@ -35,17 +35,18 @@ type Spec struct {
 	Limits       Limits         `json:"limits" yaml:"limits"`
 }
 type Source struct {
-	Type      string               `json:"type" yaml:"type"`
-	URL       string               `json:"url,omitempty" yaml:"url,omitempty"`
-	URLRef    *SecretRef           `json:"urlRef,omitempty" yaml:"urlRef,omitempty"`
-	Every     string               `json:"every,omitempty" yaml:"every,omitempty"`
-	Timeout   string               `json:"timeout,omitempty" yaml:"timeout,omitempty"`
-	Headers   map[string]SecretRef `json:"headers,omitempty" yaml:"headers,omitempty"`
-	Fields    map[string]string    `json:"fields,omitempty" yaml:"fields,omitempty"`
-	JQ        string               `json:"jq,omitempty" yaml:"jq,omitempty"`
-	Argv      []string             `json:"argv,omitempty" yaml:"argv,omitempty"`
-	Directory string               `json:"directory,omitempty" yaml:"directory,omitempty"`
-	Env       map[string]SecretRef `json:"env,omitempty" yaml:"env,omitempty"`
+	ObservedAtField string               `json:"observedAtField,omitempty" yaml:"observedAtField,omitempty"`
+	Type            string               `json:"type" yaml:"type"`
+	URL             string               `json:"url,omitempty" yaml:"url,omitempty"`
+	URLRef          *SecretRef           `json:"urlRef,omitempty" yaml:"urlRef,omitempty"`
+	Every           string               `json:"every,omitempty" yaml:"every,omitempty"`
+	Timeout         string               `json:"timeout,omitempty" yaml:"timeout,omitempty"`
+	Headers         map[string]SecretRef `json:"headers,omitempty" yaml:"headers,omitempty"`
+	Fields          map[string]string    `json:"fields,omitempty" yaml:"fields,omitempty"`
+	JQ              string               `json:"jq,omitempty" yaml:"jq,omitempty"`
+	Argv            []string             `json:"argv,omitempty" yaml:"argv,omitempty"`
+	Directory       string               `json:"directory,omitempty" yaml:"directory,omitempty"`
+	Env             map[string]SecretRef `json:"env,omitempty" yaml:"env,omitempty"`
 }
 type Condition struct {
 	Field      string `json:"field,omitempty" yaml:"field,omitempty"`

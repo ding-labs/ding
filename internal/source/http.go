@@ -8,11 +8,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/ding-labs/ding/internal/delivery"
 	"github.com/ding-labs/ding/internal/plan"
+	"github.com/ding-labs/ding/internal/transform"
 	"github.com/ding-labs/ding/internal/watch"
 )
 
@@ -118,48 +118,24 @@ func (h HTTP) Fetch(ctx context.Context, p plan.Compiled, cursor string, now tim
 	if len(body) > p.Definition.Spec.Limits.MaxBytes {
 		return unknown("source_response_too_large")
 	}
-	fields := map[string]any{"http.status": response.StatusCode}
-	if len(s.Fields) > 0 {
-		var object any
-		if json.Unmarshal(body, &object) != nil {
-			return unknown("source_invalid_json")
-		}
-		for alias, path := range s.Fields {
-			value, present := Field(object, path)
-			if present {
-				if !Scalar(value) {
-					return unknown("source_field_not_scalar")
-				}
-				fields[alias] = value
-			}
+	outputs := []map[string]any{{}}
+	if len(s.Fields) > 0 || s.JQ != "" {
+		var err error
+		outputs, err = transform.Project(ctx, body, s.JQ, s.Fields, p.Definition.Spec.Limits.MaxOutputs, p.Definition.Spec.Limits.MaxBytes)
+		if err != nil {
+			return unknown("source_invalid_projection")
 		}
 	}
-	if s.JQ != "" {
-		return unknown("unsupported_transform")
-	}
+
 	data, _ := json.Marshal(validators{response.Header.Get("ETag"), response.Header.Get("Last-Modified")})
 	b.Cursor = string(data)
-	b.Observations = []watch.Observation{{Health: "ok", Fields: fields}}
+	for _, fields := range outputs {
+		fields["http.status"] = response.StatusCode
+	}
+	b.Observations, err = Observations(outputs, s.ObservedAtField)
+	if err != nil {
+		return unknown("source_invalid_observed_time")
+	}
+
 	return b
-}
-func Field(object any, path string) (any, bool) {
-	value := object
-	for _, part := range strings.Split(path, ".") {
-		m, ok := value.(map[string]any)
-		if !ok {
-			return nil, false
-		}
-		value, ok = m[part]
-		if !ok {
-			return nil, false
-		}
-	}
-	return value, true
-}
-func Scalar(value any) bool {
-	switch value.(type) {
-	case nil, string, bool, float64, int, int64, json.Number:
-		return true
-	}
-	return false
 }
