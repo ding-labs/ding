@@ -178,7 +178,7 @@ func (e *Engine) ProcessChecked(event ingester.Event, now time.Time) ([]Alert, e
 		// Unconditional pre-pass: populate all windowed ring buffers before evaluation.
 		// Buffers must receive every event regardless of short-circuit outcome so that
 		// aggregates remain accurate when conditions later become true.
-		leaves := rule.expr.collectWindowedLeaves()
+		leaves := rule.expr.Windows()
 		ctx := evalContext{
 			Value:      event.Value,
 			Aggregates: make(map[int]float64, len(leaves)),
@@ -215,7 +215,7 @@ func (e *Engine) ProcessChecked(event ingester.Event, now time.Time) ([]Alert, e
 			continue
 		}
 
-		if !rule.expr.eval(ctx) {
+		if !rule.expr.Eval(ctx) {
 			continue
 		}
 
@@ -280,7 +280,7 @@ func (e *Engine) ProcessEndOfRun(now time.Time) []Alert {
 			labelKeys = []string{""}
 		}
 
-		leaves := rule.expr.collectWindowedLeaves()
+		leaves := rule.expr.Windows()
 
 		for _, labelKey := range labelKeys {
 			ctx := evalContext{
@@ -311,7 +311,7 @@ func (e *Engine) ProcessEndOfRun(now time.Time) []Alert {
 			if rule.Guard != nil && !e.checkGuard(rule.Name, rule.Guard, now) {
 				continue
 			}
-			if !rule.expr.eval(ctx) {
+			if !rule.expr.Eval(ctx) {
 				continue
 			}
 

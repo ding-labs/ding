@@ -16,7 +16,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/ding-labs/ding/internal/evaluator"
+	"github.com/ding-labs/ding/internal/condition"
 	"github.com/ding-labs/ding/internal/ingester"
 	"github.com/ding-labs/ding/internal/watch"
 	"gopkg.in/yaml.v3"
@@ -535,11 +535,11 @@ func normalizeDurations(values ...*string) {
 	}
 }
 func validateNumeric(expr string) error {
-	if _, err := evaluator.ParseConditionExpr(expr); err != nil {
+	if _, err := condition.ParseExpression(expr); err != nil {
 		return err
 	}
 	for _, atom := range regexp.MustCompile(` AND | OR `).Split(expr, -1) {
-		c, err := evaluator.ParseCondition(strings.TrimSpace(atom))
+		c, err := condition.ParseCondition(strings.TrimSpace(atom))
 		if err != nil {
 			return err
 		}

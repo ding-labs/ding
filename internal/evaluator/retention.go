@@ -49,7 +49,7 @@ func (e *Engine) sweepLocked(now time.Time) {
 				continue
 			}
 			active := false
-			for _, leaf := range rule.expr.collectWindowedLeaves() {
+			for _, leaf := range rule.expr.Windows() {
 				if e.buffers[identity.Key(rule.Name, strconv.Itoa(leaf.ID), key)] != nil {
 					active = true
 					break

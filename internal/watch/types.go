@@ -158,3 +158,10 @@ type Envelope struct {
 	Data       any    `json:"data,omitempty"`
 	Error      *Error `json:"error,omitempty"`
 }
+
+func (o Observation) DetailOrDefault() string {
+	if o.Detail != "" {
+		return o.Detail
+	}
+	return "source_unknown"
+}

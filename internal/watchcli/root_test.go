@@ -92,3 +92,50 @@ func TestExecuteSuccessAndReportedError(t *testing.T) {
 		t.Fatal("multiple error envelopes", out.String())
 	}
 }
+
+func TestFixtureCLI(t *testing.T) {
+	manifest := "../../examples/watches/api-health.yaml"
+	fixture := "../../testdata/watches/api-health.jsonl"
+	for _, structured := range []bool{false, true} {
+		args := []string{"test", manifest, "--events", fixture}
+		if structured {
+			args = append(args, "--json")
+		}
+		var out, errs bytes.Buffer
+		if err := Execute("test", args, &out, &errs); err != nil {
+			t.Fatal(err, errs.String())
+		}
+		if structured {
+			var envelope watch.Envelope
+			if err := json.Unmarshal(out.Bytes(), &envelope); err != nil || envelope.Error != nil {
+				t.Fatal(out.String(), err)
+			}
+		} else if !bytes.Contains(out.Bytes(), []byte("5 observations, 2 events")) {
+			t.Fatal(out.String())
+		}
+	}
+	bad := filepath.Join(t.TempDir(), "bad")
+	if err := os.WriteFile(bad, []byte("{}"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		args []string
+		code string
+	}{
+		{[]string{"test", "absent", "--events", fixture}, "read_failed"},
+		{[]string{"test", bad, "--events", fixture}, "invalid_manifest"},
+		{[]string{"test", manifest, "--events", fixture, "--watch", "absent"}, "invalid_watch"},
+		{[]string{"test", manifest, "--events", "absent"}, "read_failed"},
+		{[]string{"test", manifest, "--events", bad}, "invalid_fixture"},
+		{[]string{"test", manifest}, "invalid_arguments"},
+	} {
+		var out, errs bytes.Buffer
+		if err := Execute("test", append(tc.args, "--json"), &out, &errs); err == nil {
+			t.Fatal("accepted", tc.args)
+		}
+		var e watch.Envelope
+		if err := json.Unmarshal(errs.Bytes(), &e); err != nil || e.Error == nil || e.Error.Code != tc.code || out.Len() != 0 {
+			t.Fatal(errs.String(), out.String(), err)
+		}
+	}
+}

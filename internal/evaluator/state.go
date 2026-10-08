@@ -149,7 +149,7 @@ func RestoreEngine(e *Engine, snap StateSnapshot, now time.Time) (RestoreReport,
 			return report, fmt.Errorf("invalid leaf identity in snapshot")
 		}
 		var leaf *windowedLeaf
-		for _, l := range r.expr.collectWindowedLeaves() {
+		for _, l := range r.expr.Windows() {
 			if l.ID == leafID {
 				copy := l
 				leaf = &copy
@@ -198,7 +198,7 @@ func RestoreEngine(e *Engine, snap StateSnapshot, now time.Time) (RestoreReport,
 	for name, labels := range seen {
 		for key, last := range labels {
 			active := cooldowns[identity.Key(name, key)].After(now)
-			for _, leaf := range compatible[name].expr.collectWindowedLeaves() {
+			for _, leaf := range compatible[name].expr.Windows() {
 				if buffers[identity.Key(name, strconv.Itoa(leaf.ID), key)] != nil {
 					active = true
 					break
