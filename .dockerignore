@@ -1,0 +1,10 @@
+.git
+.env
+.env.*
+*.db
+*.db-*
+*.log
+*.out
+node_modules
+workers
+dist

@@ -32,8 +32,8 @@ Use in CI pipelines to catch config errors before deployment.`,
 }
 
 func runValidate(configPath string) error {
-	// Pass nil collector so validate does not open the alert log file as a side effect.
-	_, _, _, _, _, err := server.BuildFromConfig(configPath, nil)
+	// Compilation starts no clients, workers, logs, or persistence.
+	_, _, _, err := server.CompileConfig(configPath)
 	if err != nil {
 		return fmt.Errorf("config invalid: %w", err)
 	}

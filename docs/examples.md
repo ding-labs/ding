@@ -121,7 +121,7 @@ server:
 Send events:
 
 ```bash
-curl -X POST http://localhost:8080/ingest \
+curl -H "Authorization: Bearer $DING_INGEST_TOKEN" -X POST http://localhost:8080/ingest \
   --data-binary @- << 'EOF'
 cpu_usage{host="web-01",region="us-east"} 92.5
 memory_usage{host="web-01"} 78.2
@@ -219,7 +219,7 @@ Update rules without restarting:
 kill -HUP $(pgrep ding)
 
 # Or via HTTP:
-curl -X POST http://localhost:8080/reload
+curl -H "Authorization: Bearer $DING_ADMIN_TOKEN" -X POST http://localhost:8080/reload
 ```
 
 If the new config is invalid, DING logs the error and keeps the current config active.

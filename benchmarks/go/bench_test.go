@@ -61,16 +61,22 @@ func BenchmarkProcessWindowedRule(b *testing.B) {
 		At:     time.Now(),
 	}
 	// Warm up ring buffer to 1000 entries before measuring
-	warmNow := time.Now().Add(10 * time.Minute) // far enough ahead that all entries are in window
+	warmNow := time.Now()
 	for j := 0; j < 1000; j++ {
 		warmEvent := ingester.Event{
 			Metric: event.Metric,
 			Value:  event.Value,
 			Labels: event.Labels,
-			At:     time.Now().Add(time.Duration(j) * time.Millisecond),
+			At:     warmNow.Add(time.Duration(j-1000) * time.Millisecond),
 		}
 		engine.Process(warmEvent, warmNow)
 	}
+	for _, buffer := range evaluator.SnapshotEngine(engine).Buffers {
+		if len(buffer.Entries) != 1000 {
+			b.Fatalf("warmup retained %d entries", len(buffer.Entries))
+		}
+	}
+	event.At = warmNow
 	now := warmNow
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -103,16 +109,22 @@ func BenchmarkProcess100Rules(b *testing.B) {
 		At:     time.Now(),
 	}
 	// Warm up ring buffer to 1000 entries before measuring
-	warmNow := time.Now().Add(10 * time.Minute) // far enough ahead that all entries are in window
+	warmNow := time.Now()
 	for j := 0; j < 1000; j++ {
 		warmEvent := ingester.Event{
 			Metric: event.Metric,
 			Value:  event.Value,
 			Labels: event.Labels,
-			At:     time.Now().Add(time.Duration(j) * time.Millisecond),
+			At:     warmNow.Add(time.Duration(j-1000) * time.Millisecond),
 		}
 		engine.Process(warmEvent, warmNow)
 	}
+	for _, buffer := range evaluator.SnapshotEngine(engine).Buffers {
+		if len(buffer.Entries) != 1000 {
+			b.Fatalf("warmup retained %d entries", len(buffer.Entries))
+		}
+	}
+	event.At = warmNow
 	now := warmNow
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -170,5 +182,51 @@ func BenchmarkEngineReinit(b *testing.B) {
 			b.Fatal(err)
 		}
 		_ = newEngine // in production, server.mu.Lock(); server.engine = newEngine
+	}
+}
+
+func BenchmarkParseJSON(b *testing.B) {
+	data := []byte(`{"metric":"cpu","value":12.5,"host":"a"}`)
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, err := ingester.ParseJSONLine(data); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+func BenchmarkThousandGroups(b *testing.B) {
+	e, err := evaluator.NewEngine([]evaluator.EngineRule{{Name: "groups", Condition: "avg(value) over 5m > 80"}}, 1000)
+	if err != nil {
+		b.Fatal(err)
+	}
+	now := time.Now()
+	events := make([]ingester.Event, 1000)
+	for i := range events {
+		events[i] = ingester.Event{Metric: "cpu", Value: 1, Labels: map[string]string{"host": fmt.Sprint(i)}, At: now}
+		e.Process(events[i], now)
+	}
+	if e.StateStats().LabelSets != 1000 {
+		b.Fatal("cardinality warmup")
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		e.Process(events[i%1000], now)
+	}
+}
+func BenchmarkSnapshotPersistence(b *testing.B) {
+	e, _ := evaluator.NewEngine([]evaluator.EngineRule{{Name: "state", Condition: "avg(value) over 5m > 80"}}, 1000)
+	now := time.Now()
+	for i := 0; i < 1000; i++ {
+		e.Process(ingester.Event{Value: 1, At: now}, now)
+	}
+	snap := evaluator.SnapshotEngine(e)
+	path := b.TempDir() + "/state.json"
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if err := evaluator.SaveSnapshot(path, snap); err != nil {
+			b.Fatal(err)
+		}
 	}
 }

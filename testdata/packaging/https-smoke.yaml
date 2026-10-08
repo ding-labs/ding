@@ -1,0 +1,8 @@
+rules:
+  - name: verified_https
+    match: {metric: run.exit}
+    condition: value == 0
+    guard:
+      url: https://example.com/
+      expect_status: 200
+    alert: [{notifier: stdout}]

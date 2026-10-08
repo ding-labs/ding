@@ -6,12 +6,7 @@ DING is a stream-based alerting daemon. Pipe metrics into it. It evaluates rules
 
 **Single binary. No database. No agents. No cloud account.**
 
-| Metric | Result |
-|--------|--------|
-| Alert latency p50 | **4ms** (Prometheus default: ~62s) |
-| Requests / second | **116k** |
-| Cold start p50 | **9ms** |
-| Binary size | **~5MB** |
+See the [hardening report](development/legacy-hardening.md) for current measurements and limitations.
 
 ---
 
@@ -41,7 +36,7 @@ ding serve
 **4. Send an event**
 
 ```bash
-curl -X POST http://localhost:8080/ingest \
+curl -H "Authorization: Bearer $DING_INGEST_TOKEN" -X POST http://localhost:8080/ingest \
   -H "Content-Type: application/json" \
   -d '{"metric":"cpu_usage","value":97,"host":"web-01"}'
 ```

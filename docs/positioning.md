@@ -113,7 +113,7 @@ DING starts when the pipeline starts, alerts when thresholds are crossed, and ex
 
 **The situation:** Industrial machinery, retail point-of-sale systems, agricultural sensors, Raspberry Pi clusters. These environments have constrained resources, intermittent connectivity, and no path to a centralized monitoring stack.
 
-**With DING:** A 5MB static binary runs on anything Go compiles for — linux/arm64, linux/amd64, darwin, windows — with no runtime dependencies. It can alert locally (stdout to a local log), or fire webhooks when connectivity is available. The alert rules ship with the firmware.
+**With DING:** A static Go binary runs on anything Go compiles for — linux/arm64, linux/amd64, darwin, windows — with no runtime dependencies. It can alert locally (stdout to a local log), or fire webhooks when connectivity is available. The alert rules ship with the firmware.
 
 ---
 
@@ -196,7 +196,7 @@ DING is open source (MIT). The distribution strategy prioritizes developer trust
 
 - **GitHub Releases** — Pre-built binaries for all platforms. `curl`, extract, run.
 - **Homebrew** — `brew install ding-labs/tap/ding`. The standard developer install path on macOS.
-- **Docker** — `docker run -v ./ding.yaml:/etc/ding/ding.yaml ghcr.io/ding-labs/ding`. A 5MB scratch-based image.
+- **Docker** — `docker run -v ./ding.yaml:/etc/ding/ding.yaml ghcr.io/ding-labs/ding`. A scratch-based image with CA roots. Configure remote binding and authentication explicitly; see the configuration reference.
 - **Install script** — `curl -sf https://start.ding.ing | sh`. The one-liner that works everywhere.
 
 No account required. No telemetry. No license key. No phone-home. The binary works immediately, on your hardware, without asking permission.

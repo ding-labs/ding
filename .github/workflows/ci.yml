@@ -50,3 +50,20 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: go build -trimpath -ldflags='-s -w' -o dist/ding ./cmd/ding
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build source image and verify HTTPS trust
+        run: |
+          docker build -t ding-ci .
+          scripts/container-smoke.sh ding-ci
+      - name: Build release image and verify HTTPS trust
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o ding ./cmd/ding
+          docker build -f Dockerfile.release -t ding-release-ci .
+          scripts/container-smoke.sh ding-release-ci

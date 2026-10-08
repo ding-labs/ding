@@ -97,7 +97,7 @@ After the pipeline runs, the file appears under the job's "Browse artifacts" lin
 
 ## Tradeoffs / known limitations
 
-- **Binary download per job.** The minimal example downloads DING from GitHub Releases each run (~4MB tarball, plus an `apk add curl tar` round-trip on `alpine:latest` — typically 5–10s of preamble cold). For high-frequency pipelines, bake DING and its dependencies into your CI image instead.
+- **Binary download per job.** The minimal example downloads DING from GitHub Releases each run (size varies by release, plus an `apk add curl tar` round-trip on `alpine:latest` — typically 5–10s of preamble cold). For high-frequency pipelines, bake DING and its dependencies into your CI image instead.
 
 ## Escalation criteria
 

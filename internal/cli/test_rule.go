@@ -31,7 +31,7 @@ messages as if they were about to fire, but no notifier sends happen.
 Each event is a normal DING JSON event — same shape DING already parses
 on 'ding run' stdin. An optional 'timestamp' field (RFC3339 or Unix epoch)
 controls the event's time for windowed rules; omitted timestamps get
-synthesized sequentially starting from now.
+synthesized sequentially starting from the Unix epoch.
 
 End-of-run rules (mode: end-of-run) fire after all input events are
 consumed.`,
@@ -81,12 +81,18 @@ func runTestRule(configPath, format string, noColor bool, input io.Reader, stdou
 		return fmt.Errorf("invalid --format %q: must be auto, text, or json", format)
 	}
 
-	eng, _, _, _, _, err := server.BuildFromConfig(configPath, nil)
+	eng, cfg, jqCode, err := server.CompileConfig(configPath)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
+	for _, r := range cfg.Rules {
+		if r.Guard != nil {
+			return fmt.Errorf("rule %q: live HTTP guards are unsupported in offline replay", r.Name)
+		}
+	}
 	rc := runctx.New()
+	rc.RunID = "replay"
 	if rc.Runner == "local" {
 		fmt.Fprintln(stderr, "ding: note — runner=local; rules matching on a specific runner label will not match.")
 	}
@@ -96,7 +102,7 @@ func runTestRule(configPath, format string, noColor bool, input io.Reader, stdou
 
 	scanner := bufio.NewScanner(input)
 	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
-	syntheticBase := time.Now()
+	syntheticBase := time.Unix(0, 0).UTC()
 	idx := 0
 	var lastAt time.Time
 	for scanner.Scan() {
@@ -104,7 +110,13 @@ func runTestRule(configPath, format string, noColor bool, input io.Reader, stdou
 		if len(line) == 0 {
 			continue
 		}
-		events, err := ingester.ParseJSONLine(line)
+		var events []ingester.Event
+		var err error
+		if jqCode != nil {
+			events, err = ingester.RunJQ(jqCode, line)
+		} else {
+			events, err = ingester.ParseJSONLine(line)
+		}
 		if err != nil || len(events) == 0 {
 			fmt.Fprintf(stderr, "ding: skipping unparseable event line %d: %v\n", idx+1, err)
 			idx++
@@ -129,7 +141,7 @@ func runTestRule(configPath, format string, noColor bool, input io.Reader, stdou
 
 	endTime := lastAt
 	if endTime.IsZero() {
-		endTime = time.Now()
+		endTime = syntheticBase
 	}
 	endAlerts := eng.ProcessEndOfRun(endTime)
 	dispatcher.Dispatch(endAlerts)
@@ -158,7 +170,8 @@ func resolveTimestamp(raw []byte) (time.Time, bool) {
 			return t, true
 		}
 	case float64:
-		return time.Unix(int64(tv), 0).UTC(), true
+		sec := int64(tv)
+		return time.Unix(sec, int64((tv-float64(sec))*1e9)).UTC(), true
 	}
 	return time.Time{}, false
 }

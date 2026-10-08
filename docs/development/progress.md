@@ -10,7 +10,7 @@ failures and environment limitations are recorded here without implying success.
 | P02 Time and identity | Complete | Full race suite and vet pass; identity 100%, evaluator 89.7% coverage; key and label fuzzing pass. Cooldowns use explicit time and atomic reservation. Snapshot encoding version bumped to reject ambiguous old keys. |
 | P03 State and limits | Complete | Full race suite, affected-package rerun, and vet pass. Evaluator 90.4%, server 65.3% coverage. Tests cover changed/removed rules, malformed/oversized state, active-state retention, idle pruning, atomic failed restore, HTTP quota rejection, and explicit startup failure. |
 | P04 Delivery and lifecycle | Complete | Full race suite and vet pass. Transport 96.7%, notifier 86.7%, server 68.9% coverage. Provider rejection/rate limits, retry deadlines, queue capacity, concurrent send/drain, and ingest/swap/close regression tests pass. |
-| P05 Compilation, access, packaging | Pending | |
+| P05 Compilation, access, packaging | Implementation verified; release pending | Full race suite, vet, actionlint, six target builds, native daemon auth/shutdown subprocess regression, and both container TLS smoke tests pass. GoReleaser snapshot packages all archives and corrected Homebrew metadata. See legacy-hardening.md. |
 | P06 Watch contract | Pending | |
 | P07 Transactional store | Pending | |
 | P08 Watch evaluation | Pending | |

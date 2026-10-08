@@ -91,7 +91,24 @@ func runRun(configPath, runIDOverride string, args []string, dryRun bool, format
 
 	collector := metrics.NewCollector()
 
-	eng, cfg, notifiers, alertLogger, jqCode, err := server.BuildFromConfig(configPath, collector)
+	var eng *evaluator.Engine
+	var cfg *config.Config
+	var notifiers map[string]notifier.Notifier
+	var alertLogger *notifier.AlertLogger
+	var jqCode *gojq.Code
+	var err error
+	if dryRun {
+		eng, cfg, jqCode, err = server.CompileConfig(configPath)
+		if err == nil {
+			for _, r := range cfg.Rules {
+				if r.Guard != nil {
+					return fmt.Errorf("live guards are unsupported in dry-run")
+				}
+			}
+		}
+	} else {
+		eng, cfg, notifiers, alertLogger, jqCode, err = server.BuildFromConfig(configPath, collector)
+	}
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}

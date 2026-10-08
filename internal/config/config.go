@@ -1,7 +1,11 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"net"
+	"net/url"
 	"os"
 	"regexp"
 	"sort"
@@ -52,6 +56,10 @@ func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
 }
 
 type ServerConfig struct {
+	Listen        string   `yaml:"listen"`
+	AdminToken    string   `yaml:"admin_token"`
+	IngestToken   string   `yaml:"ingest_token"`
+	TokenFile     string   `yaml:"token_file"`
 	Port          int      `yaml:"port"`
 	Format        string   `yaml:"format"`
 	MaxBufferSize int      `yaml:"max_buffer_size"`
@@ -136,12 +144,32 @@ func Load(path string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading config: %w", err)
 	}
-	data, err = expandEnvVars(data)
-	if err != nil {
+	return Parse(data)
+}
+
+// Parse decodes YAML before expanding scalar values, so secret contents cannot
+// inject configuration structure. Unknown fields and extra documents fail.
+func Parse(data []byte) (*Config, error) {
+	var node yaml.Node
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	if err := decoder.Decode(&node); err != nil {
 		return nil, fmt.Errorf("parsing config: %w", err)
 	}
+	var extra yaml.Node
+	if err := decoder.Decode(&extra); err != io.EOF {
+		return nil, fmt.Errorf("config must contain exactly one YAML document")
+	}
+	if err := expandNode(&node); err != nil {
+		return nil, err
+	}
+	encoded, err := yaml.Marshal(&node)
+	if err != nil {
+		return nil, err
+	}
 	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	strict := yaml.NewDecoder(bytes.NewReader(encoded))
+	strict.KnownFields(true)
+	if err := strict.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("parsing config: %w", err)
 	}
 	// Copy parsed duration values
@@ -170,6 +198,23 @@ func isBuiltinNotifier(name string) bool {
 
 // Validate sets defaults and checks for semantic errors.
 func (cfg *Config) Validate() error {
+	if cfg.Server.Listen == "" {
+		cfg.Server.Listen = "127.0.0.1"
+	}
+	ip := net.ParseIP(cfg.Server.Listen)
+	if ip == nil {
+		return fmt.Errorf("server.listen must be an explicit IP address")
+	}
+	if !ip.IsLoopback() && (len(cfg.Server.AdminToken) < 16 || len(cfg.Server.IngestToken) < 16) {
+		return fmt.Errorf("remote binding requires separate admin_token and ingest_token (at least 16 characters)")
+	}
+	if cfg.Server.AdminToken != "" && cfg.Server.AdminToken == cfg.Server.IngestToken {
+		return fmt.Errorf("admin and ingest tokens must differ")
+	}
+	if cfg.Server.Port < 0 || cfg.Server.Port > 65535 || cfg.Server.MaxBufferSize < 0 || cfg.Server.MaxBodyBytes < 0 || cfg.Server.ReadTimeout.Duration < 0 || cfg.Server.WriteTimeout.Duration < 0 || cfg.Server.IdleTimeout.Duration < 0 || cfg.Server.DrainTimeout.Duration < 0 || cfg.Persistence.FlushInterval.Duration < 0 {
+		return fmt.Errorf("server bounds and durations must be positive; port must be 1..65535")
+	}
+
 	if cfg.Server.Port == 0 {
 		cfg.Server.Port = 8080
 	}
@@ -213,7 +258,15 @@ func (cfg *Config) Validate() error {
 		return fmt.Errorf("invalid server.format %q: must be json, prometheus, or auto", cfg.Server.Format)
 	}
 
+	names := map[string]bool{}
 	for i, rule := range cfg.Rules {
+		if names[rule.Name] {
+			return fmt.Errorf("duplicate rule name %q", rule.Name)
+		}
+		names[rule.Name] = true
+		if rule.Cooldown < 0 {
+			return fmt.Errorf("rule %q: cooldown must not be negative", rule.Name)
+		}
 		if rule.Name == "" {
 			return fmt.Errorf("rule[%d]: name is required", i)
 		}
@@ -235,10 +288,10 @@ func (cfg *Config) Validate() error {
 			}
 		}
 		if g := rule.Guard; g != nil {
-			if g.URL == "" {
+			if !validHTTPURL(g.URL) {
 				return fmt.Errorf("rule %q: guard.url is required", rule.Name)
 			}
-			if g.ExpectStatus == 0 {
+			if g.ExpectStatus < 100 || g.ExpectStatus > 599 || g.TTL < 0 {
 				return fmt.Errorf("rule %q: guard.expect_status is required", rule.Name)
 			}
 			if g.TTL == 0 {
@@ -248,6 +301,13 @@ func (cfg *Config) Validate() error {
 	}
 
 	for name, nc := range cfg.Notifiers {
+		if nc.MaxAttempts < 0 || nc.MaxAttempts > 100 || nc.InitialBackoff.Duration < 0 {
+			return fmt.Errorf("notifier %q: invalid retry bounds", name)
+		}
+		if nc.URL != "" && !validHTTPURL(nc.URL) {
+			return fmt.Errorf("notifier %q: invalid HTTP URL", name)
+		}
+
 		switch nc.Type {
 		case "webhook":
 			if nc.URL == "" {
@@ -349,4 +409,33 @@ func (cfg *Config) Validate() error {
 	}
 
 	return nil
+}
+
+func expandNode(node *yaml.Node) error {
+	if node.Kind == yaml.AliasNode {
+		return fmt.Errorf("YAML aliases are not supported")
+	}
+	if node.Kind == yaml.ScalarNode && node.Tag == "!!str" {
+		expanded, err := expandEnvVars([]byte(node.Value))
+		if err != nil {
+			return err
+		}
+		node.Value = string(expanded)
+	}
+	for i, child := range node.Content {
+		if node.Kind == yaml.MappingNode && i%2 == 0 {
+			if envVarRef.MatchString(child.Value) {
+				return fmt.Errorf("environment references in keys are not supported")
+			}
+			continue
+		}
+		if err := expandNode(child); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func validHTTPURL(raw string) bool {
+	u, err := url.Parse(raw)
+	return err == nil && (u.Scheme == "https" || u.Scheme == "http") && u.Hostname() != "" && u.User == nil && u.Fragment == ""
 }

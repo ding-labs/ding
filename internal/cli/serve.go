@@ -4,10 +4,13 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -89,11 +92,23 @@ func runServe(configPath string) error {
 		}
 	}()
 	if info, err := os.Stdin.Stat(); err == nil && info.Mode()&os.ModeCharDevice == 0 {
+		input, err := cancelableStdin()
+		if err != nil {
+			stop()
+			<-maintenanceDone
+			return err
+		}
 		stdinDone := make(chan struct{})
-		go func() { defer close(stdinDone); readStdin(srv, cfg.Server.Format) }()
-		defer func() { os.Stdin.Close(); <-stdinDone }()
+		go func() { defer close(stdinDone); readStdin(srv, input) }()
+		defer func() { input.Close(); <-stdinDone }()
 	}
-	httpSrv := &http.Server{Addr: fmt.Sprintf(":%d", cfg.Server.Port), Handler: srv.Handler(), ReadTimeout: cfg.Server.ReadTimeout.Duration, WriteTimeout: cfg.Server.WriteTimeout.Duration, IdleTimeout: cfg.Server.IdleTimeout.Duration}
+	handler, err := srv.SecureHandler()
+	if err != nil {
+		stop()
+		<-maintenanceDone
+		return err
+	}
+	httpSrv := &http.Server{Addr: net.JoinHostPort(cfg.Server.Listen, strconv.Itoa(cfg.Server.Port)), Handler: handler, ReadTimeout: cfg.Server.ReadTimeout.Duration, WriteTimeout: cfg.Server.WriteTimeout.Duration, IdleTimeout: cfg.Server.IdleTimeout.Duration}
 	result := make(chan error, 1)
 	go func() { result <- httpSrv.ListenAndServe() }()
 	log.Printf("ding: listening on %s", httpSrv.Addr)
@@ -115,8 +130,9 @@ func runServe(configPath string) error {
 	return nil
 }
 
-func readStdin(srv *server.Server, _ string) {
-	scanner := bufio.NewScanner(os.Stdin)
+func readStdin(srv *server.Server, input io.Reader) {
+	scanner := bufio.NewScanner(input)
+	scanner.Buffer(make([]byte, 64*1024), 1<<20)
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		if len(line) == 0 {

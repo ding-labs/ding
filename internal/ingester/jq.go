@@ -1,8 +1,10 @@
 package ingester
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/itchyny/gojq"
 )
@@ -33,12 +35,22 @@ func CompileJQ(expr string) (*gojq.Code, error) {
 //   - a yielded value is a non-object type (string, number, etc.)
 //   - no values are yielded (empty result)
 func RunJQ(code *gojq.Code, rawBytes []byte) ([]Event, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	return RunJQContext(ctx, code, rawBytes, 100, 1<<20)
+}
+
+func RunJQContext(ctx context.Context, code *gojq.Code, rawBytes []byte, maxOutputs, maxBytes int) ([]Event, error) {
+	if maxOutputs <= 0 || maxBytes <= 0 || len(rawBytes) > maxBytes {
+		return nil, fmt.Errorf("jq input or limit exceeds budget")
+	}
 	var input interface{}
 	if err := json.Unmarshal(rawBytes, &input); err != nil {
 		return nil, fmt.Errorf("invalid JSON: %w", err)
 	}
 
-	iter := code.Run(input)
+	iter := code.RunWithContext(ctx, input)
+	outputBytes := 0
 	var events []Event
 	for {
 		v, ok := iter.Next()
@@ -51,6 +63,9 @@ func RunJQ(code *gojq.Code, rawBytes []byte) ([]Event, error) {
 		if v == nil {
 			return nil, fmt.Errorf("jq produced null output")
 		}
+		if len(events) >= maxOutputs {
+			return nil, fmt.Errorf("jq output count exceeds budget")
+		}
 		m, ok := v.(map[string]interface{})
 		if !ok {
 			return nil, fmt.Errorf("jq produced unexpected output type: %T", v)
@@ -58,6 +73,10 @@ func RunJQ(code *gojq.Code, rawBytes []byte) ([]Event, error) {
 		b, err := json.Marshal(m)
 		if err != nil {
 			return nil, fmt.Errorf("jq output marshal error: %w", err)
+		}
+		outputBytes += len(b)
+		if outputBytes > maxBytes {
+			return nil, fmt.Errorf("jq output bytes exceed budget")
 		}
 		evs, err := ParseJSONLine(b)
 		if err != nil {

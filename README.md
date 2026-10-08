@@ -308,12 +308,12 @@ SIGTERM / SIGINT — drains in-flight requests, flushes state, exits 0.
 
 ## Why
 
-> **Fires alerts in 4ms.** Prometheus default scrape + eval + Alertmanager dispatch: ~62 seconds minimum. That's not a knock on Prometheus — it's a pull-based system built for persistence and fleet-wide aggregation. DING is push-based and stateless. The architecture is the difference.
+DING evaluates pushed events as they arrive. Latency depends on the rules, retained window size, input rate, and delivery destination.
 
 The architecture choices that make `ding run` possible are the same ones that always made DING fast:
 
 - **Stateless** — nothing to provision, nothing to clean up when the job dies
-- **5MB static binary, 9ms cold start** — small enough to ship inside a CI job, fast enough that it doesn't add latency to your pipeline
+- **One static Go binary** — no external runtime required; size and latency depend on the release and workload
 - **Push-based** — events flow at the speed of your job, no scrape interval to tune
 - **Windowed aggregations in memory** — `avg(value) over 5m` works without a database
 - **Per-labelset cooldowns** — `web-01` being loud doesn't silence `web-02`; one flaky test doesn't silence another
@@ -324,14 +324,7 @@ The architecture choices that make `ding run` possible are the same ones that al
 
 ## Performance
 
-| Metric | Result | Context |
-|---|---|---|
-| Alert latency p50 | **4ms** | p99: 16ms — Prometheus default: ~62s |
-| Requests / second | **116k** | 50 concurrent workers, 30s window |
-| Cold start p50 | **9ms** | fork → first /health — Prometheus: 185ms |
-| Per rule evaluation | **106ns** | simple threshold — windowed: 157ns |
-
-Benchmarked 2026-03-23 on Apple M3. [Full methodology and raw results →](https://github.com/ding-labs/ding/blob/main/BENCHMARKS.md)
+Current measurements and reproducible commands are in [the hardening report](docs/development/legacy-hardening.md). Earlier window benchmarks pruned their warmup data and are not valid evidence for populated-window performance.
 
 ---
 

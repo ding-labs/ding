@@ -1,5 +1,6 @@
 # Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.26-alpine AS builder
+RUN apk add --no-cache ca-certificates
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -13,6 +14,7 @@ LABEL org.opencontainers.image.description="Stream-based alerting daemon"
 LABEL org.opencontainers.image.source="https://github.com/ding-labs/ding"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.url="https://ding.ing"
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /ding /ding
 EXPOSE 8080
 ENTRYPOINT ["/ding", "serve", "--config", "/etc/ding/ding.yaml"]

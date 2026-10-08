@@ -1,6 +1,18 @@
 # HTTP API
 
-DING exposes five HTTP endpoints. Default port: `8080`.
+DING exposes five HTTP endpoints on `127.0.0.1:8080` by default. Except for
+`/health`, requests require `Authorization: Bearer <token>`. `/ingest` uses the
+ingest token; control and metrics use the separate admin token. Set
+`server.admin_token` and `server.ingest_token` via environment references, or use
+the generated private JSON file at the platform user config directory under
+`ding/legacy-tokens.json` (`server.token_file` overrides that path). Each token
+must have at least 16 characters and they must differ. Load the respective values
+into `DING_ADMIN_TOKEN` / `DING_INGEST_TOKEN` for the examples below.
+
+For remote or container access, set `server.listen: 0.0.0.0` explicitly and supply
+both tokens. Put remote access behind a TLS proxy; bearer tokens must not cross
+an untrusted network over plaintext HTTP. Listen/authentication changes require
+a daemon restart.
 
 ---
 
@@ -47,7 +59,7 @@ With `server.format: auto` (default), DING detects the format per request. Set `
 **Example**
 
 ```bash
-curl -s -X POST http://localhost:8080/ingest \
+curl -H "Authorization: Bearer $DING_INGEST_TOKEN" -s -X POST http://localhost:8080/ingest \
   -H "Content-Type: application/json" \
   -d '{"metric":"cpu_usage","value":97,"host":"web-01"}'
 ```
@@ -97,7 +109,7 @@ Inspect active rules, their conditions, and current cooldown state.
 **Example**
 
 ```bash
-curl -s http://localhost:8080/rules | jq
+curl -H "Authorization: Bearer $DING_ADMIN_TOKEN" -s http://localhost:8080/rules | jq
 ```
 
 ---
@@ -125,7 +137,7 @@ If the new config is invalid, the reload fails and the current config remains ac
 **Example**
 
 ```bash
-curl -s -X POST http://localhost:8080/reload
+curl -H "Authorization: Bearer $DING_ADMIN_TOKEN" -s -X POST http://localhost:8080/reload
 ```
 
 ---
@@ -153,7 +165,7 @@ ding_webhook_queue_depth 0
 **Example**
 
 ```bash
-curl -s http://localhost:8080/metrics
+curl -H "Authorization: Bearer $DING_ADMIN_TOKEN" -s http://localhost:8080/metrics
 ```
 
 Scrape this endpoint from Prometheus to monitor DING's own throughput and alert rate.

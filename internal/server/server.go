@@ -63,10 +63,10 @@ func BuildFromConfig(path string, collector *metrics.Collector) (*evaluator.Engi
 }
 
 // buildFromConfig is the internal implementation.
-func buildFromConfig(path string, collector *metrics.Collector) (*evaluator.Engine, *config.Config, map[string]notifier.Notifier, *notifier.AlertLogger, *gojq.Code, error) {
+func CompileConfig(path string) (*evaluator.Engine, *config.Config, *gojq.Code, error) {
 	cfg, err := config.Load(path)
 	if err != nil {
-		return nil, nil, nil, nil, nil, fmt.Errorf("loading config: %w", err)
+		return nil, nil, nil, fmt.Errorf("loading config: %w", err)
 	}
 
 	rules := make([]evaluator.EngineRule, len(cfg.Rules))
@@ -89,7 +89,22 @@ func buildFromConfig(path string, collector *metrics.Collector) (*evaluator.Engi
 	}
 	eng, err := evaluator.NewEngineWithLimits(rules, cfg.Server.MaxBufferSize, evaluator.StateLimits{MaxLabelSets: cfg.Server.MaxLabelSets, IdleTTL: cfg.Server.StateIdleTTL.Duration})
 	if err != nil {
-		return nil, nil, nil, nil, nil, fmt.Errorf("building engine: %w", err)
+		return nil, nil, nil, fmt.Errorf("building engine: %w", err)
+	}
+
+	var jqCode *gojq.Code
+	if cfg.Server.JQ != "" {
+		jqCode, err = ingester.CompileJQ(cfg.Server.JQ)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
+	return eng, cfg, jqCode, nil
+}
+func buildFromConfig(path string, collector *metrics.Collector) (*evaluator.Engine, *config.Config, map[string]notifier.Notifier, *notifier.AlertLogger, *gojq.Code, error) {
+	eng, cfg, jqCode, err := CompileConfig(path)
+	if err != nil {
+		return nil, nil, nil, nil, nil, err
 	}
 
 	notifiers := map[string]notifier.Notifier{
@@ -142,22 +157,6 @@ func buildFromConfig(path string, collector *metrics.Collector) (*evaluator.Engi
 		alertLogger = al
 	}
 
-	var jqCode *gojq.Code
-	if cfg.Server.JQ != "" {
-		var jqErr error
-		jqCode, jqErr = ingester.CompileJQ(cfg.Server.JQ)
-		if jqErr != nil {
-			if alertLogger != nil {
-				alertLogger.Close()
-			}
-			for _, n := range notifiers {
-				if stopper, ok := n.(interface{ Stop() }); ok {
-					stopper.Stop()
-				}
-			}
-			return nil, nil, nil, nil, nil, fmt.Errorf("compiling jq: %w", jqErr)
-		}
-	}
 	return eng, cfg, notifiers, alertLogger, jqCode, nil
 }
 

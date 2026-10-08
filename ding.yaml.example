@@ -12,6 +12,10 @@
 # See: docs/configuration.md#testing-rules-without-a-workload
 
 server:
+  listen: 127.0.0.1 # Remote/container binding requires explicit admin_token and ingest_token.
+  # Local generated tokens: platform user config directory / ding/legacy-tokens.json
+  # admin_token: ${DING_ADMIN_TOKEN}
+  # ingest_token: ${DING_INGEST_TOKEN}
   port: 8080
   format: auto          # json | prometheus | auto
   # JQ transform (optional): transform arbitrary inbound JSON before parsing.

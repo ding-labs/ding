@@ -36,12 +36,14 @@ checksum:
 dockers:
   - image_templates:
       - "ghcr.io/ding-labs/ding:{{ .Tag }}-amd64"
+    goarch: amd64
     use: buildx
     dockerfile: Dockerfile.release
     build_flag_templates:
       - "--platform=linux/amd64"
   - image_templates:
       - "ghcr.io/ding-labs/ding:{{ .Tag }}-arm64"
+    goarch: arm64
     use: buildx
     dockerfile: Dockerfile.release
     build_flag_templates:
@@ -64,8 +66,8 @@ brews:
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     homepage: https://ding.ing
     description: Stream-based alerting daemon — single binary, zero infrastructure
-    license: MIT
+    license: Apache-2.0
     install: |
       bin.install "ding"
     test: |
-      system "#{bin}/ding", "--version"
+      system "#{bin}/ding", "version"

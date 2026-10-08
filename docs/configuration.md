@@ -13,6 +13,7 @@ ding serve --config ding.yaml
 
 ```yaml
 server:
+  listen: 127.0.0.1
   port: 8080
   format: auto
   jq: '.events[] | {metric: .name, value: .reading, host: .tags.host}'
@@ -63,6 +64,9 @@ alert_log:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
+| `listen` | IP address | `127.0.0.1` | Explicit interface; remote binding requires both credentials |
+| `admin_token` / `ingest_token` | string | generated locally | Separate tokens, at least 16 characters; use `${ENV_VAR}` references |
+| `token_file` | path | user config directory / ding/legacy-tokens.json | Private generated local credentials |
 | `port` | int | `8080` | HTTP listen port |
 | `format` | string | `auto` | Input format: `json`, `prometheus`, or `auto` (auto-detects per request) |
 | `jq` | string | — | Optional [jq](https://jqlang.github.io/jq/) filter applied to every inbound payload before rule evaluation. Output must produce objects with `metric` and `value` fields. |
@@ -416,7 +420,7 @@ Optional. Persists cooldown state and windowed ring buffers to disk so DING surv
 | `state_file` | string | — | Path to JSON snapshot file |
 | `flush_interval` | duration | `30s` | How often to write the snapshot while running |
 
-On startup, DING restores from the snapshot file if it exists. On reload (`SIGHUP` or `POST /reload`), state is flushed before the new config is loaded.
+On startup, DING restores from the snapshot file if it exists. On reload (`SIGHUP` or `POST /reload`), in-flight dispatch completes before compatible state is transferred directly to the new engine. Incompatible state resets are reported. Old unversioned snapshots require an explicit reset and are never silently overwritten.
 
 ---
 

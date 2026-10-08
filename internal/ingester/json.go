@@ -34,10 +34,21 @@ func ParseJSONLine(data []byte) ([]Event, error) {
 
 	at := time.Now()
 	if tsRaw, ok := raw["timestamp"]; ok {
-		if tsFloat, ok := toFloat64(tsRaw); ok {
-			sec := int64(tsFloat)
-			nsec := int64((tsFloat - float64(sec)) * 1e9)
-			at = time.Unix(sec, nsec)
+		switch v := tsRaw.(type) {
+		case string:
+			parsed, err := time.Parse(time.RFC3339Nano, v)
+			if err != nil {
+				return nil, fmt.Errorf("timestamp must be RFC3339 or Unix seconds")
+			}
+			at = parsed
+		case float64:
+			if math.IsNaN(v) || math.IsInf(v, 0) || v < -62135596800 || v >= 253402300800 {
+				return nil, fmt.Errorf("timestamp outside supported range")
+			}
+			sec := int64(v)
+			at = time.Unix(sec, int64((v-float64(sec))*1e9))
+		default:
+			return nil, fmt.Errorf("timestamp must be RFC3339 or Unix seconds")
 		}
 	}
 
@@ -55,7 +66,7 @@ func ParseJSONLine(data []byte) ([]Event, error) {
 				floats = make(map[string]float64)
 			}
 			floats[k] = tv
-		// bool, nil, nested objects/arrays: skip
+			// bool, nil, nested objects/arrays: skip
 		}
 	}
 

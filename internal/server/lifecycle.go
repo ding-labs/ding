@@ -91,6 +91,11 @@ func (s *Server) swap(eng *evaluator.Engine, cfg *config.Config, ns map[string]n
 		closeResources(ns, logger, 0)
 		return fmt.Errorf("server closed")
 	}
+	if cfg.Server.Listen != s.cfg.Server.Listen || cfg.Server.Port != s.cfg.Server.Port || cfg.Server.AdminToken != s.cfg.Server.AdminToken || cfg.Server.IngestToken != s.cfg.Server.IngestToken || cfg.Server.TokenFile != s.cfg.Server.TokenFile {
+		s.mu.Unlock()
+		closeResources(ns, logger, 0)
+		return fmt.Errorf("listen/authentication changes require a restart")
+	}
 	report, err := evaluator.RestoreEngine(eng, evaluator.SnapshotEngine(s.engine), time.Now())
 	if err != nil {
 		s.mu.Unlock()

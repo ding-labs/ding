@@ -1,4 +1,6 @@
-# Ding Benchmark Report
+# Historical Ding Benchmark Report
+
+**Superseded for current releases.** The windowed benchmark used future evaluation times and discarded its warmup samples. These numbers and binary-size claims have not been requalified after architectural changes. See [the hardening report](docs/development/legacy-hardening.md) for measured replacement results.
 
 **Run date:** 2026-03-23
 **Platform:** Apple M3, Darwin arm64
