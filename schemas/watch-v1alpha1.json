@@ -1,0 +1,372 @@
+{
+  "$defs": {
+    "Condition": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operator": {
+                "enum": [
+                  "eq",
+                  "ne",
+                  "gt",
+                  "gte",
+                  "lt",
+                  "lte"
+                ]
+              }
+            },
+            "required": [
+              "operator"
+            ]
+          },
+          "then": {
+            "required": [
+              "value"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "dedupFor": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "missingFor": {
+          "type": "string"
+        },
+        "numeric": {
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "eq",
+            "ne",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "changed",
+            "new-event"
+          ],
+          "type": "string"
+        },
+        "value": {
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "Definition": {
+      "additionalProperties": false,
+      "properties": {
+        "apiVersion": {
+          "const": "ding.ing/v1alpha1",
+          "type": "string"
+        },
+        "kind": {
+          "const": "Watch",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/Metadata"
+        },
+        "spec": {
+          "$ref": "#/$defs/Spec"
+        }
+      },
+      "required": [
+        "apiVersion",
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "type": "object"
+    },
+    "Destination": {
+      "additionalProperties": false,
+      "properties": {
+        "apiVersion": {
+          "const": "ding.ing/v1alpha1",
+          "type": "string"
+        },
+        "kind": {
+          "const": "Destination",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/Metadata"
+        },
+        "spec": {
+          "$ref": "#/$defs/DestinationSpec"
+        }
+      },
+      "required": [
+        "apiVersion",
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "type": "object"
+    },
+    "DestinationSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "headers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SecretRef"
+          },
+          "type": "object"
+        },
+        "initialBackoff": {
+          "type": "string"
+        },
+        "maxAge": {
+          "type": "string"
+        },
+        "maxAttempts": {
+          "type": "integer"
+        },
+        "type": {
+          "enum": [
+            "console",
+            "webhook",
+            "slack",
+            "discord"
+          ],
+          "type": "string"
+        },
+        "urlRef": {
+          "$ref": "#/$defs/SecretRef"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "Limits": {
+      "additionalProperties": false,
+      "properties": {
+        "idleTTL": {
+          "type": "string"
+        },
+        "maxBytes": {
+          "type": "integer"
+        },
+        "maxEntities": {
+          "type": "integer"
+        },
+        "maxOutputs": {
+          "type": "integer"
+        },
+        "maxSamples": {
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "Metadata": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "Policy": {
+      "additionalProperties": false,
+      "properties": {
+        "consecutive": {
+          "type": "integer"
+        },
+        "interval": {
+          "type": "string"
+        },
+        "maxGap": {
+          "type": "string"
+        },
+        "onUnknown": {
+          "const": "hold-incident",
+          "type": "string"
+        },
+        "recoverAfter": {
+          "type": "integer"
+        },
+        "trigger": {
+          "enum": [
+            "transition",
+            "level"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "SecretRef": {
+      "additionalProperties": false,
+      "properties": {
+        "env": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "env"
+      ],
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "argv": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "directory": {
+          "type": "string"
+        },
+        "env": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SecretRef"
+          },
+          "type": "object"
+        },
+        "every": {
+          "type": "string"
+        },
+        "fields": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "headers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SecretRef"
+          },
+          "type": "object"
+        },
+        "jq": {
+          "type": "string"
+        },
+        "timeout": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "http",
+            "command",
+            "push"
+          ],
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "urlRef": {
+          "$ref": "#/$defs/SecretRef"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "Spec": {
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "$ref": "#/$defs/Condition"
+        },
+        "destinations": {
+          "items": {
+            "$ref": "#/$defs/Target"
+          },
+          "type": "array"
+        },
+        "groupBy": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "limits": {
+          "$ref": "#/$defs/Limits"
+        },
+        "match": {
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "type": "object"
+        },
+        "message": {
+          "type": "string"
+        },
+        "policy": {
+          "$ref": "#/$defs/Policy"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        }
+      },
+      "required": [
+        "source",
+        "condition"
+      ],
+      "type": "object"
+    },
+    "Target": {
+      "additionalProperties": false,
+      "properties": {
+        "events": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "ref": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://ding.ing/schema/watch-v1alpha1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/Definition"
+    },
+    {
+      "$ref": "#/$defs/Destination"
+    }
+  ],
+  "title": "Ding watch resources"
+}
