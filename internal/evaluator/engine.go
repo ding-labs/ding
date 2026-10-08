@@ -19,13 +19,14 @@ import (
 
 // EngineRule is the fully-resolved rule fed to the Engine.
 type EngineRule struct {
-	Name      string
-	Match     map[string]string
-	Condition string
-	Cooldown  time.Duration
-	Message   string
-	Alerts    []string            // notifier names ("stdout" or named webhook)
-	Guard     *config.GuardConfig // optional HTTP guard; nil means no guard
+	InputSignature string // parsing and transform semantics fence persisted state
+	Name           string
+	Match          map[string]string
+	Condition      string
+	Cooldown       time.Duration
+	Message        string
+	Alerts         []string            // notifier names ("stdout" or named webhook)
+	Guard          *config.GuardConfig // optional HTTP guard; nil means no guard
 	// Mode is "" / "during-run" (default) or "end-of-run". End-of-run rules
 	// populate buffers during Process() but only fire when ProcessEndOfRun()
 	// is invoked at run exit (ding run mode).

@@ -2,6 +2,7 @@ package notifier_test
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -46,6 +47,7 @@ func TestPagerDutyNotifier_Send_success(t *testing.T) {
 		n, _ := r.Body.Read(buf)
 		delivered <- buf[:n]
 		w.WriteHeader(http.StatusAccepted)
+		w.Write([]byte(`{"status":"success"}`))
 	}))
 	defer srv.Close()
 
@@ -89,6 +91,7 @@ func TestBuildPagerDutyPayload_customDetails(t *testing.T) {
 		n, _ := r.Body.Read(buf)
 		delivered <- buf[:n]
 		w.WriteHeader(http.StatusAccepted)
+		w.Write([]byte(`{"status":"success"}`))
 	}))
 	defer srv.Close()
 
@@ -134,6 +137,7 @@ func TestPagerDutyNotifier_Send_retries5xx(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
 			w.WriteHeader(http.StatusAccepted)
+			w.Write([]byte(`{"status":"success"}`))
 			select {
 			case delivered <- struct{}{}:
 			default:
@@ -187,6 +191,7 @@ func TestPagerDutyNotifier_Drain(t *testing.T) {
 	delivered := make(chan struct{}, 1)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
+		w.Write([]byte(`{"status":"success"}`))
 		select {
 		case delivered <- struct{}{}:
 		default:
@@ -215,6 +220,7 @@ func TestPagerDutyNotifier_Drain_waitsForInFlightDelivery(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(400 * time.Millisecond)
 		w.WriteHeader(http.StatusAccepted)
+		w.Write([]byte(`{"status":"success"}`))
 		select {
 		case delivered <- struct{}{}:
 		default:
@@ -244,7 +250,8 @@ func TestPagerDutyNotifier_Drain_waitsForInFlightDelivery(t *testing.T) {
 
 func TestPagerDutyNotifier_Drain_respectsTimeout(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(10 * time.Second)
+		io.Copy(io.Discard, r.Body)
+		<-r.Context().Done()
 	}))
 	defer srv.Close()
 

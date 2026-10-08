@@ -3,9 +3,9 @@ package notifier
 import (
 	"context"
 	"fmt"
-	"log"
+
+	"github.com/ding-labs/ding/internal/delivery"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/ding-labs/ding/internal/evaluator"
@@ -32,35 +32,20 @@ func (r realEventsClient) Create(ctx context.Context, ns string, event *corev1.E
 	return r.cs.CoreV1().Events(ns).Create(ctx, event, opts)
 }
 
-type k8sEventRetryItem struct {
-	alert   evaluator.Alert
-	attempt int       // number of failed delivery attempts so far (0 = never tried)
-	nextAt  time.Time // earliest time to attempt delivery
-}
-
 // KubernetesEventNotifier publishes DING alerts as native Kubernetes Events
 // (corev1.Event), visible to `kubectl describe pod` and `kubectl get events`.
 // Targets the Pod where DING is running (read from POD_NAME / POD_UID via
 // downward API). Requires in-cluster ServiceAccount auth; not usable from
 // outside a Kubernetes pod.
 type KubernetesEventNotifier struct {
-	client         eventsClient
-	namespace      string
-	podName        string
-	podUID         types.UID
-	nodeName       string
-	eventReason    string
-	eventType      string
-	maxAttempts    int
-	initialBackoff time.Duration
-	queue          chan k8sEventRetryItem
-	stop           chan struct{}
-	stopOnce       sync.Once
-	collector      *metrics.Collector // may be nil
-	// inFlight tracks alerts that have been queued but not yet finalized
-	// (delivered, retry-exhausted, or dropped). Drain waits on this so the
-	// process doesn't exit while the worker is mid-Create.
-	inFlight sync.WaitGroup
+	client      eventsClient
+	namespace   string
+	podName     string
+	podUID      types.UID
+	nodeName    string
+	eventReason string
+	eventType   string
+	*queuedNotifier
 }
 
 // NewKubernetesEventNotifier constructs a KubernetesEventNotifier. Reads
@@ -112,127 +97,29 @@ func newKubernetesEventNotifierWithClient(client eventsClient, namespace, podNam
 		nodeName:       nodeName,
 		eventReason:    eventReason,
 		eventType:      eventType,
-		maxAttempts:    maxAttempts,
-		initialBackoff: initialBackoff,
-		queue:          make(chan k8sEventRetryItem, 256),
-		stop:           make(chan struct{}),
-		collector:      collector,
+		queuedNotifier: newQueuedNotifier(maxAttempts, initialBackoff, collector),
 	}
-	go n.worker()
 	return n
 }
 
-// Send enqueues an alert for delivery as a Kubernetes Event. Returns nil always
-// (Notifier interface contract). Drops the alert with a logged warning if the
-// queue is full.
 func (n *KubernetesEventNotifier) Send(alert evaluator.Alert) error {
-	item := k8sEventRetryItem{
-		alert:   alert,
-		attempt: 0,
-		nextAt:  time.Now(),
-	}
-	// Add(1) before the channel send so a fast worker that pulls and finalizes
-	// the item is guaranteed to see a positive counter when it calls Done().
-	n.inFlight.Add(1)
-	select {
-	case n.queue <- item:
-	default:
-		n.inFlight.Done()
-		log.Printf("ding: kubernetes_event queue full for rule %q, dropping alert", alert.Rule)
-		if n.collector != nil {
-			n.collector.IncrWebhookDrop()
+	message := alert.Message
+	return n.enqueue(alert.Rule, func(ctx context.Context) delivery.Result {
+		err := n.deliver(ctx, message)
+		if err == nil {
+			return delivery.Result{Outcome: delivery.Delivered}
 		}
-	}
-	return nil
-}
-
-// Stop signals the worker to exit. Safe to call multiple times.
-func (n *KubernetesEventNotifier) Stop() {
-	n.stopOnce.Do(func() { close(n.stop) })
-}
-
-// Drain blocks until all alerts queued before this call have been finalized
-// (delivered, retry-exhausted, or dropped) or timeout elapses, then stops the
-// worker. Mirrors the slack/webhook contract introduced in PR #6.
-func (n *KubernetesEventNotifier) Drain(timeout time.Duration) {
-	done := make(chan struct{})
-	go func() {
-		n.inFlight.Wait()
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-time.After(timeout):
-		// Hard upper bound: a pathologically slow apiserver can't hang shutdown.
-	}
-	n.Stop()
-}
-
-func (n *KubernetesEventNotifier) worker() {
-	for {
-		select {
-		case <-n.stop:
-			return
-		case item := <-n.queue:
-			delay := time.Until(item.nextAt)
-			if delay > 0 {
-				t := time.NewTimer(delay)
-				select {
-				case <-t.C:
-				case <-n.stop:
-					if !t.Stop() {
-						<-t.C
-					}
-					return
-				}
-			}
-			err := n.deliver(item)
-			if err == nil {
-				if n.collector != nil {
-					n.collector.IncrWebhookSuccess()
-				}
-				n.inFlight.Done() // delivered — finalize
-				continue
-			}
-			if isPermanentK8sError(err) {
-				log.Printf("ding: kubernetes_event permanent failure for rule %q: %v", item.alert.Rule, err)
-				if n.collector != nil {
-					n.collector.IncrWebhookFailed()
-				}
-				n.inFlight.Done() // permanent — finalize
-				continue
-			}
-			item.attempt++
-			if item.attempt >= n.maxAttempts {
-				log.Printf("ding: kubernetes_event dropped after %d attempts for rule %q: %v", n.maxAttempts, item.alert.Rule, err)
-				if n.collector != nil {
-					n.collector.IncrWebhookFailed()
-				}
-				n.inFlight.Done() // exhausted retries — finalize
-				continue
-			}
-			backoff := n.initialBackoff * (1 << (item.attempt - 1))
-			item.nextAt = time.Now().Add(backoff)
-			select {
-			case n.queue <- item:
-				// Re-enqueued for retry; same logical alert, do NOT Done() yet.
-			default:
-				log.Printf("ding: kubernetes_event queue full during retry for rule %q, dropping", item.alert.Rule)
-				if n.collector != nil {
-					n.collector.IncrWebhookDrop()
-				}
-				n.inFlight.Done() // dropped on retry — finalize
-			}
+		result := delivery.Result{Outcome: delivery.Retryable, Detail: "Kubernetes event delivery failed"}
+		if isPermanentK8sError(err) {
+			result.Outcome = delivery.Permanent
 		}
-	}
+		if seconds, ok := apierrors.SuggestsClientDelay(err); ok {
+			result.RetryAt = time.Now().Add(time.Duration(seconds) * time.Second)
+		}
+		return result
+	})
 }
-
-// deliver builds a corev1.Event from the alert and creates it via the K8s API.
-// Returns an error for retryable failures (network, 5xx, server timeout); the
-// caller separately classifies permanent vs retryable via isPermanentK8sError.
-func (n *KubernetesEventNotifier) deliver(item k8sEventRetryItem) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+func (n *KubernetesEventNotifier) deliver(ctx context.Context, message string) error {
 	now := metav1.Now()
 	ev := &corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{
@@ -247,7 +134,7 @@ func (n *KubernetesEventNotifier) deliver(item k8sEventRetryItem) error {
 			Namespace:  n.namespace,
 		},
 		Reason:         n.eventReason,
-		Message:        item.alert.Message,
+		Message:        message,
 		Type:           n.eventType,
 		Source:         corev1.EventSource{Component: "ding", Host: n.nodeName},
 		FirstTimestamp: now,

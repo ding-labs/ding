@@ -18,12 +18,14 @@ import (
 // Server holds the HTTP server state.
 type Server struct {
 	mu          sync.RWMutex
+	lifecycleMu sync.Mutex
+	closed      bool
+	stopFlusher func()
 	engine      *evaluator.Engine
 	notifiers   map[string]notifier.Notifier
 	cfg         *config.Config
 	configPath  string
 	mux         *http.ServeMux
-	reloadHook  func() error // optional; set via SetReloadHook
 	alertLogger *notifier.AlertLogger
 	collector   *metrics.Collector // set once in New(), never swapped
 	jqCode      *gojq.Code         // nil when no JQ configured
@@ -53,42 +55,6 @@ func New(eng *evaluator.Engine, notifiers map[string]notifier.Notifier, cfg *con
 // Handler returns the HTTP handler for use in tests or net/http.
 func (s *Server) Handler() http.Handler { return s.mux }
 
-// SwapEngine atomically replaces the engine (used by hot-reload).
-// alertLogger replaces the current one; the old logger is closed outside the lock.
-func (s *Server) SwapEngine(eng *evaluator.Engine, cfg *config.Config, notifiers map[string]notifier.Notifier, alertLogger *notifier.AlertLogger, jqCode *gojq.Code) {
-	s.mu.Lock()
-	oldNotifiers := s.notifiers
-	oldLogger := s.alertLogger
-	s.engine = eng
-	s.cfg = cfg
-	s.notifiers = notifiers
-	s.alertLogger = alertLogger
-	s.jqCode = jqCode
-	s.mu.Unlock()
-
-	// Stop old notifier goroutines outside the lock.
-	for _, n := range oldNotifiers {
-		if stopper, ok := n.(interface{ Stop() }); ok {
-			stopper.Stop()
-		}
-	}
-	// Close old alert logger outside the lock.
-	if oldLogger != nil {
-		if err := oldLogger.Close(); err != nil {
-			log.Printf("ding: closing old alert logger: %v", err)
-		}
-	}
-}
-
-// SetReloadHook registers a function that handleReload will call instead of its
-// default inline reload logic. main.go uses this to inject the full
-// flush-restore-swap-flusher sequence around hot-reload.
-func (s *Server) SetReloadHook(fn func() error) {
-	s.mu.Lock()
-	s.reloadHook = fn
-	s.mu.Unlock()
-}
-
 // BuildFromConfig loads a config file and builds an Engine + Notifiers + AlertLogger.
 // Exported for use in main.go. Pass a nil collector to skip alert log construction
 // (e.g. in validate mode).
@@ -110,14 +76,15 @@ func buildFromConfig(path string, collector *metrics.Collector) (*evaluator.Engi
 			alerts[j] = a.Notifier
 		}
 		rules[i] = evaluator.EngineRule{
-			Name:      r.Name,
-			Match:     r.Match,
-			Condition: r.Condition,
-			Cooldown:  r.Cooldown,
-			Message:   r.Message,
-			Alerts:    alerts,
-			Guard:     r.Guard,
-			Mode:      r.Mode,
+			Name:           r.Name,
+			InputSignature: cfg.Server.Format + "\x00" + cfg.Server.JQ,
+			Match:          r.Match,
+			Condition:      r.Condition,
+			Cooldown:       r.Cooldown,
+			Message:        r.Message,
+			Alerts:         alerts,
+			Guard:          r.Guard,
+			Mode:           r.Mode,
 		}
 	}
 	eng, err := evaluator.NewEngineWithLimits(rules, cfg.Server.MaxBufferSize, evaluator.StateLimits{MaxLabelSets: cfg.Server.MaxLabelSets, IdleTTL: cfg.Server.StateIdleTTL.Duration})
@@ -148,6 +115,7 @@ func buildFromConfig(path string, collector *metrics.Collector) (*evaluator.Engi
 		case "kubernetes_event":
 			n, err := notifier.NewKubernetesEventNotifier(nc.Namespace, nc.EventReason, nc.EventType, nc.MaxAttempts, nc.InitialBackoff.Duration, collector)
 			if err != nil {
+				closeResources(notifiers, nil, 0)
 				return nil, nil, nil, nil, nil, fmt.Errorf("notifier %q: %w", name, err)
 			}
 			notifiers[name] = n
@@ -196,12 +164,15 @@ func buildFromConfig(path string, collector *metrics.Collector) (*evaluator.Engi
 // IngestLine processes a single raw event line from stdin.
 func (s *Server) IngestLine(line []byte) {
 	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return
+	}
 	cfg := s.cfg
 	eng := s.engine
 	notifiers := s.notifiers
 	alertLogger := s.alertLogger
 	jqCode := s.jqCode
-	s.mu.RUnlock()
 
 	var events []ingester.Event
 	var err error

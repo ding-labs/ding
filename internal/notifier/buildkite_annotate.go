@@ -2,6 +2,7 @@ package notifier
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log"
 	"os/exec"
@@ -20,7 +21,10 @@ func defaultCmdRunner(args []string, stdin string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("cmdRunner: empty args")
 	}
-	cmd := exec.Command(args[0], args[1:]...)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	cmd.WaitDelay = time.Second
 	cmd.Stdin = strings.NewReader(stdin)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr

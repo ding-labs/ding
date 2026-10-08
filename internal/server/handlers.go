@@ -31,12 +31,16 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 
 	// Acquire cfg FIRST so MaxBodyBytes is available for MaxBytesReader.
 	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		jsonError(w, "server closed", http.StatusServiceUnavailable)
+		return
+	}
 	cfg := s.cfg
 	eng := s.engine
 	notifiers := s.notifiers
 	alertLogger := s.alertLogger
 	jqCode := s.jqCode
-	s.mu.RUnlock()
 
 	r.Body = http.MaxBytesReader(w, r.Body, cfg.Server.MaxBodyBytes)
 	body, err := io.ReadAll(r.Body)
@@ -119,28 +123,10 @@ func (s *Server) handleReload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If a reload hook has been registered (e.g. by main.go to handle
-	// persistence flush/restore around the swap), use it.
-	s.mu.RLock()
-	hook := s.reloadHook
-	s.mu.RUnlock()
-	if hook != nil {
-		if err := hook(); err != nil {
-			jsonError(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"reloaded"}`))
-		return
-	}
-
-	// Default inline reload (no persistence awareness).
-	newEng, newCfg, newNotifiers, newAlertLogger, newJQCode, err := buildFromConfig(s.configPath, s.collector)
-	if err != nil {
+	if err := s.Reload(); err != nil {
 		jsonError(w, "reload failed: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	s.SwapEngine(newEng, newCfg, newNotifiers, newAlertLogger, newJQCode)
 	log.Printf("ding: config reloaded from %s", s.configPath)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"status":"reloaded"}`))
@@ -163,7 +149,7 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 
 	queueDepth := 0
 	for _, n := range notifiers {
-		if wn, ok := n.(*notifier.WebhookNotifier); ok {
+		if wn, ok := n.(interface{ QueueDepth() int }); ok {
 			queueDepth += wn.QueueDepth()
 		}
 	}

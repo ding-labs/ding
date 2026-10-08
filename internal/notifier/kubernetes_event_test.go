@@ -22,15 +22,15 @@ import (
 // Tests configure a `nextErr` function that returns the error (or nil) for
 // each call, allowing per-attempt control of retry vs. permanent failure.
 type recordingClient struct {
-	mu       sync.Mutex
-	calls    []*corev1.Event
-	nextErr  func(callNum int) error // 0-indexed call number → error to return
-	preCall  func()                  // optional hook called before each Create returns
+	mu      sync.Mutex
+	calls   []*corev1.Event
+	nextErr func(callNum int) error // 0-indexed call number → error to return
+	preCall func(context.Context)   // optional hook called before each Create returns
 }
 
-func (r *recordingClient) Create(_ context.Context, ns string, ev *corev1.Event, _ metav1.CreateOptions) (*corev1.Event, error) {
+func (r *recordingClient) Create(ctx context.Context, ns string, ev *corev1.Event, _ metav1.CreateOptions) (*corev1.Event, error) {
 	if r.preCall != nil {
-		r.preCall()
+		r.preCall(ctx)
 	}
 	r.mu.Lock()
 	r.calls = append(r.calls, ev)
@@ -208,7 +208,7 @@ func TestKubernetesEvent_Drain_WaitsForInFlight(t *testing.T) {
 	releaseCreate := make(chan struct{})
 	creating := make(chan struct{}, 1)
 	rc := &recordingClient{
-		preCall: func() {
+		preCall: func(ctx context.Context) {
 			creating <- struct{}{}
 			<-releaseCreate
 		},
@@ -246,9 +246,9 @@ func TestKubernetesEvent_Drain_WaitsForInFlight(t *testing.T) {
 
 func TestKubernetesEvent_Drain_RespectsTimeout(t *testing.T) {
 	rc := &recordingClient{
-		preCall: func() {
+		preCall: func(ctx context.Context) {
 			// Block forever — Drain must return when timeout elapses.
-			select {}
+			<-ctx.Done()
 		},
 	}
 	n := newTestNotifier(rc)

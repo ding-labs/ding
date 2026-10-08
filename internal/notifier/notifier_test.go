@@ -209,33 +209,13 @@ func TestWebhookNotifier_DropsAfterMaxAttempts(t *testing.T) {
 	}
 }
 
-// TestWebhookNotifier_QueueFull_DropsSilently: Stop immediately, then Send many times.
-// Assert Send always returns nil and doesn't block.
-func TestWebhookNotifier_QueueFull_DropsSilently(t *testing.T) {
-	// Create a notifier and immediately stop the worker so the queue won't drain.
-	n := notifier.NewWebhookNotifier("http://127.0.0.1:1", 3, 1*time.Millisecond, nil)
+func TestWebhookNotifier_SendAfterStopRejected(t *testing.T) {
+	n := notifier.NewWebhookNotifier("http://127.0.0.1:1", 3, time.Millisecond, nil)
 	n.Stop()
-
-	// Give the worker goroutine time to actually exit.
-	time.Sleep(10 * time.Millisecond)
-
-	// Send 300 alerts — queue capacity is 256, so many will be dropped.
-	// All calls must return nil and must not block.
-	done := make(chan struct{})
-	go func() {
-		for i := 0; i < 300; i++ {
-			if err := n.Send(makeAlert()); err != nil {
-				t.Errorf("Send returned non-nil error: %v", err)
-			}
+	for i := 0; i < 300; i++ {
+		if err := n.Send(makeAlert()); err != notifier.ErrStopped {
+			t.Fatalf("got %v", err)
 		}
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		// Success: all sends returned without blocking.
-	case <-time.After(3 * time.Second):
-		t.Fatal("Send blocked — queue should drop when full")
 	}
 }
 

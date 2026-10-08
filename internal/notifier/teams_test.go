@@ -2,6 +2,7 @@ package notifier_test
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -425,7 +426,8 @@ func TestTeamsNotifier_Drain_waitsForInFlightDelivery(t *testing.T) {
 
 func TestTeamsNotifier_Drain_respectsTimeout(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(10 * time.Second)
+		io.Copy(io.Discard, r.Body)
+		<-r.Context().Done()
 	}))
 	defer srv.Close()
 

@@ -225,13 +225,7 @@ func runRun(configPath, runIDOverride string, args []string, dryRun bool, format
 // only implement Stop() fall back to that. Idempotent — calling drain on an
 // already-drained notifier is a no-op.
 func drainNotifiers(notifiers map[string]notifier.Notifier, timeout time.Duration) {
-	for _, n := range notifiers {
-		if drainer, ok := n.(interface{ Drain(time.Duration) }); ok {
-			drainer.Drain(timeout)
-		} else if stopper, ok := n.(interface{ Stop() }); ok {
-			stopper.Stop()
-		}
-	}
+	notifier.DrainAll(notifiers, timeout)
 }
 
 // ingestStream reads from r line-by-line, mirrors each line to mirror, and

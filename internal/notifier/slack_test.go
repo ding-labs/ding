@@ -2,6 +2,7 @@ package notifier_test
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -19,14 +20,14 @@ func makeRunAlert() evaluator.Alert {
 		Metric:  "run.exit",
 		Value:   1,
 		Labels: map[string]string{
-			"branch":  "main",
-			"commit":  "abc1234def5678",
-			"repo":    "acme/api",
-			"runner":  "github-actions",
-			"run_id":  "12345",
+			"branch":   "main",
+			"commit":   "abc1234def5678",
+			"repo":     "acme/api",
+			"runner":   "github-actions",
+			"run_id":   "12345",
 			"workflow": "ci",
-			"job":     "test",
-			"actor":   "octocat",
+			"job":      "test",
+			"actor":    "octocat",
 		},
 		Floats:  map[string]float64{"exit_code": 1, "duration_seconds": 42.5},
 		FiredAt: time.Date(2026, 4, 25, 10, 0, 0, 0, time.UTC),
@@ -42,6 +43,7 @@ func TestSlackNotifier_Send_success(t *testing.T) {
 		body = buf[:n]
 		delivered <- body
 		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`ok`))
 	}))
 	defer srv.Close()
 
@@ -76,6 +78,7 @@ func TestSlackNotifier_Send_retries5xx(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
 			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`ok`))
 			select {
 			case delivered <- struct{}{}:
 			default:
@@ -153,10 +156,10 @@ func TestSlackNotifier_Stop(t *testing.T) {
 
 // slackBlock mirrors the unexported type for test assertions.
 type slackBlock struct {
-	Type     string           `json:"type"`
-	Text     *slackTextObj    `json:"text,omitempty"`
-	Fields   []slackFieldObj  `json:"fields,omitempty"`
-	Elements []slackTextObj   `json:"elements,omitempty"`
+	Type     string          `json:"type"`
+	Text     *slackTextObj   `json:"text,omitempty"`
+	Fields   []slackFieldObj `json:"fields,omitempty"`
+	Elements []slackTextObj  `json:"elements,omitempty"`
 }
 
 type slackTextObj struct {
@@ -189,6 +192,7 @@ func TestBuildSlackPayload_runContext(t *testing.T) {
 		n, _ := r.Body.Read(buf)
 		delivered <- buf[:n]
 		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`ok`))
 	}))
 	defer srv.Close()
 
@@ -268,6 +272,7 @@ func TestSlackNotifier_Drain_waitsForInFlightDelivery(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(400 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`ok`))
 		select {
 		case delivered <- struct{}{}:
 		default:
@@ -299,7 +304,8 @@ func TestSlackNotifier_Drain_respectsTimeout(t *testing.T) {
 	// Server hangs forever. Drain must give up at the configured timeout
 	// rather than blocking until the (10s) http.Client.Timeout would fire.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(10 * time.Second)
+		io.Copy(io.Discard, r.Body)
+		<-r.Context().Done()
 	}))
 	defer srv.Close()
 
@@ -323,6 +329,7 @@ func TestBuildSlackPayload_noRunContext(t *testing.T) {
 		n, _ := r.Body.Read(buf)
 		delivered <- buf[:n]
 		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`ok`))
 	}))
 	defer srv.Close()
 

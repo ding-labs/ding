@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 
 	"github.com/ding-labs/ding/internal/evaluator"
 	"github.com/ding-labs/ding/internal/metrics"
-	"github.com/ding-labs/ding/internal/notifier"
 	"github.com/ding-labs/ding/internal/server"
 )
 
@@ -56,188 +54,64 @@ are restored from disk on startup and flushed periodically.`,
 }
 
 func runServe(configPath string) error {
-	// Collector is created once and never recreated — counters accumulate across hot-reloads.
 	collector := metrics.NewCollector()
-
-	eng, cfg, notifiers, alertLogger, jqCode, err := server.BuildFromConfig(configPath, collector)
+	eng, cfg, ns, logger, jq, err := server.BuildFromConfig(configPath, collector)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
-
-	srv := server.New(eng, notifiers, cfg, configPath, collector, alertLogger, jqCode)
-
-	// reloadMu serializes concurrent reloads from both the SIGHUP goroutine
-	// and the /reload HTTP endpoint (via the reload hook closure below).
-	var reloadMu sync.Mutex
-
-	// Persistence: restore state and start periodic flusher.
-	stopFlusher := func() {} // no-op until flusher is started
-	if cfg.Persistence.StateFile != "" {
-		if err := restoreStateFile(eng, cfg.Persistence.StateFile, time.Now()); err != nil {
-			closeConstructed(notifiers, alertLogger)
-			return err
-		}
-
-		stopFlusher = eng.StartFlusher(cfg.Persistence.StateFile, cfg.Persistence.FlushInterval.Duration)
+	srv := server.New(eng, ns, cfg, configPath, collector, logger, jq)
+	if err := srv.StartPersistence(); err != nil {
+		srv.Close(0)
+		return err
 	}
-
-	// Set up the reload hook so /reload endpoint also transfers state.
-	srv.SetReloadHook(func() error {
-		reloadMu.Lock()
-		defer reloadMu.Unlock()
-
-		// Flush old engine state to disk.
-		stopFlusher()
-		stopFlusher = func() {}
-
-		newEng, newCfg, newNotifiers, newAlertLogger, newJQCode, err := server.BuildFromConfig(configPath, collector)
-		if err != nil {
-			// Restart flusher on old engine since reload failed.
-			if cfg.Persistence.StateFile != "" {
-				stopFlusher = eng.StartFlusher(cfg.Persistence.StateFile, cfg.Persistence.FlushInterval.Duration)
-			}
-			return fmt.Errorf("reload failed: %w", err)
-		}
-
-		// Restore state into new engine from file.
-		if newCfg.Persistence.StateFile != "" {
-			if err := restoreStateFile(newEng, newCfg.Persistence.StateFile, time.Now()); err != nil {
-				closeConstructed(newNotifiers, newAlertLogger)
-				if cfg.Persistence.StateFile != "" {
-					stopFlusher = eng.StartFlusher(cfg.Persistence.StateFile, cfg.Persistence.FlushInterval.Duration)
-				}
-				return err
-			}
-		}
-
-		srv.SwapEngine(newEng, newCfg, newNotifiers, newAlertLogger, newJQCode)
-		eng = newEng
-		cfg = newCfg
-		notifiers = newNotifiers
-		alertLogger = newAlertLogger
-		log.Printf("ding: config reloaded from %s", configPath)
-
-		// Start new flusher on new engine.
-		if newCfg.Persistence.StateFile != "" {
-			stopFlusher = newEng.StartFlusher(newCfg.Persistence.StateFile, newCfg.Persistence.FlushInterval.Duration)
-		}
-		return nil
-	})
-
-	// Detect stdin pipe
-	stdinInfo, err := os.Stdin.Stat()
-	if err == nil && (stdinInfo.Mode()&os.ModeCharDevice) == 0 {
-		go readStdin(srv, cfg.Server.Format)
-	}
-
-	httpSrv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),
-		Handler:      srv.Handler(),
-		ReadTimeout:  cfg.Server.ReadTimeout.Duration,
-		WriteTimeout: cfg.Server.WriteTimeout.Duration,
-		IdleTimeout:  cfg.Server.IdleTimeout.Duration,
-	}
-
-	// Signal handling
+	defer srv.Close(cfg.Server.DrainTimeout.Duration)
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
+	sighup := make(chan os.Signal, 1)
+	signal.Notify(sighup, syscall.SIGHUP)
+	defer signal.Stop(sighup)
+	maintenanceDone := make(chan struct{})
 	go func() {
+		defer close(maintenanceDone)
 		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
 		for {
 			select {
-			case now := <-ticker.C:
-				srv.Sweep(now)
 			case <-ctx.Done():
 				return
-			}
-		}
-	}()
-
-	sighup := make(chan os.Signal, 1)
-	signal.Notify(sighup, syscall.SIGHUP)
-
-	go func() {
-		for range sighup {
-			log.Println("ding: received SIGHUP, reloading config...")
-			reloadMu.Lock()
-
-			// 1a. Flush old engine state to disk.
-			stopFlusher()
-			// 1b. Reset to no-op immediately so any early return path is safe.
-			stopFlusher = func() {}
-
-			newEng, newCfg, newNotifiers, newAlertLogger, newJQCode, err := server.BuildFromConfig(configPath, collector)
-			if err != nil {
-				log.Printf("ding: reload failed: %v (keeping current config)", err)
-				// Restart flusher on old engine since reload failed.
-				if cfg.Persistence.StateFile != "" {
-					stopFlusher = eng.StartFlusher(cfg.Persistence.StateFile, cfg.Persistence.FlushInterval.Duration)
-				}
-				reloadMu.Unlock()
-				continue
-			}
-
-			// Restore state into new engine from file.
-			if newCfg.Persistence.StateFile != "" {
-				if err := restoreStateFile(newEng, newCfg.Persistence.StateFile, time.Now()); err != nil {
-					closeConstructed(newNotifiers, newAlertLogger)
-					if cfg.Persistence.StateFile != "" {
-						stopFlusher = eng.StartFlusher(cfg.Persistence.StateFile, cfg.Persistence.FlushInterval.Duration)
-					}
-					reloadMu.Unlock()
-					log.Printf("ding: reload rejected: %v", err)
-					continue
+			case now := <-ticker.C:
+				srv.Sweep(now)
+			case <-sighup:
+				if err := srv.Reload(); err != nil {
+					log.Printf("ding: reload failed: %v", err)
 				}
 			}
-
-			srv.SwapEngine(newEng, newCfg, newNotifiers, newAlertLogger, newJQCode)
-			eng = newEng
-			cfg = newCfg
-			notifiers = newNotifiers
-			alertLogger = newAlertLogger
-			log.Printf("ding: config reloaded from %s", configPath)
-
-			// Start new flusher on new engine.
-			if newCfg.Persistence.StateFile != "" {
-				stopFlusher = newEng.StartFlusher(newCfg.Persistence.StateFile, newCfg.Persistence.FlushInterval.Duration)
-			}
-			reloadMu.Unlock()
 		}
 	}()
-
-	log.Printf("ding: listening on :%d (config: %s)", cfg.Server.Port, configPath)
-	go func() {
-		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("ding: server error: %v", err)
-			stop()
-		}
-	}()
-
-	<-ctx.Done()
-	signal.Stop(sighup)
-	close(sighup)
-	log.Println("ding: shutting down...")
-
+	if info, err := os.Stdin.Stat(); err == nil && info.Mode()&os.ModeCharDevice == 0 {
+		stdinDone := make(chan struct{})
+		go func() { defer close(stdinDone); readStdin(srv, cfg.Server.Format) }()
+		defer func() { os.Stdin.Close(); <-stdinDone }()
+	}
+	httpSrv := &http.Server{Addr: fmt.Sprintf(":%d", cfg.Server.Port), Handler: srv.Handler(), ReadTimeout: cfg.Server.ReadTimeout.Duration, WriteTimeout: cfg.Server.WriteTimeout.Duration, IdleTimeout: cfg.Server.IdleTimeout.Duration}
+	result := make(chan error, 1)
+	go func() { result <- httpSrv.ListenAndServe() }()
+	log.Printf("ding: listening on %s", httpSrv.Addr)
+	select {
+	case err = <-result:
+		stop()
+	case <-ctx.Done():
+	}
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
-		log.Printf("ding: shutdown error: %v", err)
+	if shutdownErr := httpSrv.Shutdown(shutdownCtx); shutdownErr != nil {
+		httpSrv.Close()
+		log.Printf("ding: shutdown: %v", shutdownErr)
 	}
-
-	// Stop current notifiers.
-	for _, n := range notifiers {
-		if stopper, ok := n.(interface{ Stop() }); ok {
-			stopper.Stop()
-		}
+	<-maintenanceDone
+	if err != nil && err != http.ErrServerClosed {
+		return err
 	}
-	// Close the current alert logger.
-	if alertLogger != nil {
-		if err := alertLogger.Close(); err != nil {
-			log.Printf("ding: closing alert logger: %v", err)
-		}
-	}
-	stopFlusher()
 	return nil
 }
 
@@ -258,30 +132,5 @@ func readStdin(srv *server.Server, _ string) {
 
 // An invalid snapshot must never be overwritten by a silently fresh engine.
 func restoreStateFile(eng *evaluator.Engine, path string, now time.Time) error {
-	snap, err := evaluator.LoadSnapshot(path)
-	if err != nil {
-		return fmt.Errorf("loading state %s: %w", path, err)
-	}
-	if snap == nil {
-		return nil
-	}
-	report, err := evaluator.RestoreEngine(eng, *snap, now)
-	if err != nil {
-		return fmt.Errorf("restoring state %s: %w", path, err)
-	}
-	if len(report.ResetRules) > 0 {
-		log.Printf("ding: reset incompatible/retired rule state: %v", report.ResetRules)
-	}
-	return nil
-}
-
-func closeConstructed(ns map[string]notifier.Notifier, logger *notifier.AlertLogger) {
-	for _, n := range ns {
-		if stop, ok := n.(interface{ Stop() }); ok {
-			stop.Stop()
-		}
-	}
-	if logger != nil {
-		logger.Close()
-	}
+	return server.RestoreStateFile(eng, path, now)
 }

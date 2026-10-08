@@ -1,182 +1,28 @@
 package notifier
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io"
-	"log"
-	"net/http"
-	"sort"
-	"sync"
-	"time"
-
 	"github.com/ding-labs/ding/internal/evaluator"
 	"github.com/ding-labs/ding/internal/metrics"
+	"sort"
+	"time"
 )
+
+type PagerDutyNotifier struct {
+	*httpNotifier
+	routingKey string
+}
 
 const pagerDutyEventsV2URL = "https://events.pagerduty.com/v2/enqueue"
 
-// PagerDutyNotifier POSTs events to the PagerDuty Events API v2 with
-// exponential backoff retry. The routing key is sent in the JSON body.
-type PagerDutyNotifier struct {
-	endpoint       string
-	routingKey     string
-	client         *http.Client
-	maxAttempts    int
-	initialBackoff time.Duration
-	queue          chan retryItem
-	stop           chan struct{}
-	stopOnce       sync.Once
-	collector      *metrics.Collector // may be nil
-	// inFlight tracks alerts that have been queued but not yet finalized
-	// (delivered, retry-exhausted, or dropped). Drain waits on this so the
-	// process doesn't exit while the worker is mid-POST.
-	inFlight sync.WaitGroup
-}
-
-// NewPagerDutyNotifier creates and starts a PagerDutyNotifier using the
-// default PagerDuty Events API v2 endpoint.
 func NewPagerDutyNotifier(routingKey string, maxAttempts int, initialBackoff time.Duration, collector *metrics.Collector) *PagerDutyNotifier {
 	return NewPagerDutyNotifierAt(routingKey, maxAttempts, initialBackoff, collector, pagerDutyEventsV2URL)
 }
-
-// NewPagerDutyNotifierAt is like NewPagerDutyNotifier but uses a custom
-// endpoint. Useful for directing requests to a test server.
 func NewPagerDutyNotifierAt(routingKey string, maxAttempts int, initialBackoff time.Duration, collector *metrics.Collector, endpoint string) *PagerDutyNotifier {
-	n := &PagerDutyNotifier{
-		endpoint:       endpoint,
-		routingKey:     routingKey,
-		client:         &http.Client{Timeout: 10 * time.Second},
-		maxAttempts:    maxAttempts,
-		initialBackoff: initialBackoff,
-		queue:          make(chan retryItem, 256),
-		stop:           make(chan struct{}),
-		collector:      collector,
-	}
-	go n.worker()
-	return n
+	return &PagerDutyNotifier{httpNotifier: newHTTPNotifier(endpoint, "pagerduty", maxAttempts, initialBackoff, collector), routingKey: routingKey}
 }
-
-// Send enqueues an alert for delivery. Returns nil always (Notifier interface contract).
-// If the queue is full, the alert is dropped and a warning is logged.
 func (n *PagerDutyNotifier) Send(alert evaluator.Alert) error {
-	data, err := json.Marshal(buildPagerDutyPayload(alert, n.routingKey))
-	if err != nil {
-		log.Printf("ding: pagerduty marshal error for rule %q: %v", alert.Rule, err)
-		return nil
-	}
-	item := retryItem{
-		payload: data,
-		rule:    alert.Rule,
-		attempt: 0,
-		nextAt:  time.Now(),
-	}
-	// Add(1) before the channel send so a fast worker that pulls and finalizes
-	// the item is guaranteed to see a positive counter when it calls Done().
-	n.inFlight.Add(1)
-	select {
-	case n.queue <- item:
-	default:
-		n.inFlight.Done()
-		log.Printf("ding: pagerduty queue full for rule %q, dropping alert", alert.Rule)
-		if n.collector != nil {
-			n.collector.IncrWebhookDrop()
-		}
-	}
-	return nil
-}
-
-// Stop signals the worker to exit. Safe to call multiple times.
-func (n *PagerDutyNotifier) Stop() {
-	n.stopOnce.Do(func() { close(n.stop) })
-}
-
-// Drain blocks until all alerts queued before this call have been finalized
-// (delivered, retry-exhausted, or dropped) or timeout elapses, then stops the
-// worker. Intended for ding run shutdown so in-flight HTTP POSTs complete
-// before the process exits. Falls back to Stop on timeout.
-func (n *PagerDutyNotifier) Drain(timeout time.Duration) {
-	done := make(chan struct{})
-	go func() {
-		n.inFlight.Wait()
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-time.After(timeout):
-		// Hard upper bound: a pathologically slow notifier can't hang shutdown.
-	}
-	n.Stop()
-}
-
-func (n *PagerDutyNotifier) worker() {
-	for {
-		select {
-		case <-n.stop:
-			return
-		case item := <-n.queue:
-			delay := time.Until(item.nextAt)
-			if delay > 0 {
-				t := time.NewTimer(delay)
-				select {
-				case <-t.C:
-				case <-n.stop:
-					if !t.Stop() {
-						<-t.C
-					}
-					return
-				}
-			}
-			if err := n.deliver(item); err != nil {
-				item.attempt++
-				if item.attempt >= n.maxAttempts {
-					log.Printf("ding: pagerduty dropped after %d attempts for rule %q: %v", n.maxAttempts, item.rule, err)
-					if n.collector != nil {
-						n.collector.IncrWebhookFailed()
-					}
-					n.inFlight.Done() // exhausted retries — finalize
-					continue
-				}
-				backoff := n.initialBackoff * (1 << (item.attempt - 1))
-				item.nextAt = time.Now().Add(backoff)
-				select {
-				case n.queue <- item:
-					// Re-enqueued for retry; same logical alert, do NOT Done() yet.
-				default:
-					log.Printf("ding: pagerduty queue full during retry for rule %q, dropping", item.rule)
-					if n.collector != nil {
-						n.collector.IncrWebhookDrop()
-					}
-					n.inFlight.Done() // dropped on retry — finalize
-				}
-			} else {
-				if n.collector != nil {
-					n.collector.IncrWebhookSuccess()
-				}
-				n.inFlight.Done() // delivered — finalize
-			}
-		}
-	}
-}
-
-// deliver performs a single HTTP POST to the PagerDuty Events API.
-// Returns an error for 5xx or connection errors (retryable).
-// Returns nil for 2xx/3xx (success) and 4xx (not retryable — logged and discarded).
-func (n *PagerDutyNotifier) deliver(item retryItem) error {
-	resp, err := n.client.Post(n.endpoint, "application/json", bytes.NewReader(item.payload))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	io.Copy(io.Discard, io.LimitReader(resp.Body, 1024))
-	if resp.StatusCode >= 500 {
-		return fmt.Errorf("pagerduty api returned %d", resp.StatusCode)
-	}
-	if resp.StatusCode >= 400 {
-		log.Printf("ding: pagerduty %s returned %d for rule %q (not retrying)", n.endpoint, resp.StatusCode, item.rule)
-	}
-	return nil
+	return n.send(alert.Rule, buildPagerDutyPayload(alert, n.routingKey))
 }
 
 type pdPayload struct {

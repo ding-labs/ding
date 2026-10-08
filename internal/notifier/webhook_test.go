@@ -1,6 +1,7 @@
 package notifier_test
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -45,7 +46,8 @@ func TestWebhookNotifier_Drain_waitsForInFlightDelivery(t *testing.T) {
 
 func TestWebhookNotifier_Drain_respectsTimeout(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(10 * time.Second)
+		io.Copy(io.Discard, r.Body)
+		<-r.Context().Done()
 	}))
 	defer srv.Close()
 
