@@ -21,6 +21,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: Module metadata
+        run: go mod tidy -diff
       - name: Vet
         run: go vet ./...
       - name: Tests with race detection and coverage
