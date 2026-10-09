@@ -181,7 +181,7 @@ footer {
   text-decoration: none;
 }
 .primary {
-  background: var(--ding-brand);
+  background: var(--ding-action);
   color: var(--ding-on-brand);
 }
 .primary:hover {
@@ -955,3 +955,13 @@ footer a {
     transition: none !important;
   }
 }
+
+/* Bell restoration draft: the original green, with warm neutral foundations. */
+.wordmark img, .mini-brand img { background: #f7f6f2; border-radius: 5px; padding: 2px; }
+.hero h1 em { color: #17251c; background: var(--ding-green); padding: 0 .09em .04em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.hero-product { background: var(--ding-violet-soft); border-radius: 16px; padding: 20px; }
+.evidence-window { transform: none; box-shadow: none; }
+.figure-note { color: var(--ding-text); margin-bottom: 0; }
+.signal { background: var(--ding-green); border: 1px solid var(--ding-brand); width: 9px; height: 9px; }
+.flow .step { color: var(--ding-violet); }
+.code-panel { border-top: 3px solid var(--ding-green); }

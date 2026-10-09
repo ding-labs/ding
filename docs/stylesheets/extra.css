@@ -61,7 +61,7 @@
   font-size: 0.75rem;
 }
 .md-typeset .md-button--primary {
-  background: var(--ding-brand);
+  background: var(--ding-action);
   color: var(--ding-on-brand);
 }
 .md-typeset code {
@@ -151,3 +151,12 @@
 .md-copyright a:not(:focus):not(:hover) {
   color: var(--ding-brand);
 }
+
+/* One recovered bell and one primary action color across all surfaces. */
+.md-header__button.md-logo img { background: #f7f6f2; border-radius: 4px; padding: 2px; }
+.md-typeset .md-button--primary { border-color: var(--ding-action); }
+.md-typeset h1 { text-decoration: underline; text-decoration-color: var(--ding-green); text-decoration-thickness: 4px; text-underline-offset: .25em; }
+.md-typeset .admonition.note, .md-typeset details.note { border-color: var(--ding-violet); }
+.md-typeset .note > .admonition-title, .md-typeset .note > summary { background: var(--ding-violet-soft); }
+.highlight .nt { color: var(--ding-violet); }
+.highlight .l, .highlight .s, .highlight .s1, .highlight .s2 { color: var(--ding-brand); }

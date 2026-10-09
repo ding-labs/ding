@@ -97,6 +97,9 @@ small {
   height: 100dvh;
 }
 .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 36px;
   letter-spacing: -2px;
   line-height: 1;
@@ -1799,3 +1802,7 @@ a:hover {
     font-size: 11px;
   }
 }
+
+/* Keep the recovered light bell legible on both theme surfaces. */
+.brand-bell { flex-shrink: 0; background: #f7f6f2; border-radius: 5px; padding: 3px; }
+.brand strong { font: inherit; }

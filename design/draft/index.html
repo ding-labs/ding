@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ding — the original bell, a new draft</title>
+  <link rel="icon" href="../assets/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../tokens.css">
+  <link rel="stylesheet" href="review.css">
+  <script src="review.js" defer></script>
+</head>
+<body>
+  <header class="masthead">
+    <a class="wordmark" href="#main"><img src="../assets/mark.svg" width="44" height="44" alt="">Ding<span>.</span></a>
+    <p>Brand &amp; interface draft <span class="separator">/</span> 09 October 2026</p>
+    <span class="draft-label">LOCAL DESIGN REVIEW</span>
+  </header>
+  <main id="main">
+    <section class="intro">
+      <div><p class="eyebrow">The original bell. The original green.</p><h1>A familiar ring.<br><span>A clearer signal.</span></h1></div>
+      <div class="intro-note"><p>The fire-alarm bell is back, with its original <strong>#7EE787</strong> green. Warm ivory, graphite, soft violet, and amber give it room to work.</p><p class="muted">One visual language for the website, the console, and the docs.</p></div>
+    </section>
+    <section class="palette" aria-label="Core palette">
+      <div style="--swatch:#7ee787;--swatch-ink:#17251c"><span>01 / Ding green</span><strong>#7EE787</strong><small>Original identity · primary actions</small></div>
+      <div style="--swatch:#f7f6f2;--swatch-ink:#222b25"><span>02 / Ivory</span><strong>#F7F6F2</strong><small>Warm, quiet space</small></div>
+      <div style="--swatch:#222b25;--swatch-ink:#f7f6f2"><span>03 / Graphite</span><strong>#222B25</strong><small>Structure · contrast</small></div>
+      <div style="--swatch:#ece5f3;--swatch-ink:#574472"><span>04 / Soft violet</span><strong>#ECE5F3</strong><small>Product framing · information</small></div>
+      <div style="--swatch:#ebbc74;--swatch-ink:#49300b"><span>05 / Amber</span><strong>#EBBC74</strong><small>Attention · pending states</small></div>
+    </section>
+    <section class="review" aria-label="Design previews">
+      <div class="toolbar">
+        <div class="tabs" role="group" aria-label="Choose a surface">
+          <button type="button" data-surface="website" aria-pressed="true">Website</button>
+          <button type="button" data-surface="console" aria-pressed="false">Console</button>
+          <button type="button" data-surface="docs" aria-pressed="false">Documentation</button>
+        </div>
+        <div class="themes" role="group" aria-label="Preview theme">
+          <button type="button" data-theme-choice="light" aria-pressed="true">Light</button>
+          <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+        </div>
+      </div>
+      <div class="preview-heading"><div><h2 id="surface-title">An unmistakable first impression.</h2><p id="surface-description">The original green leads. Violet frames the product; warm neutrals carry the story.</p></div><span class="capture-label">WORKING BUILD · DESIGN DRAFT</span></div>
+      <a class="capture" href="previews/website-light.png" target="_blank" rel="noopener" aria-label="Open full-size design capture">
+        <img id="preview-image" src="previews/website-light.png" width="1440" height="1000" alt="Website design draft in the light theme, using the restored bell and original green">
+      </a>
+      <div class="preview-caption"><p id="capture-context">Actual website build. Product illustration uses sample data.</p><a id="full-size" href="previews/website-light.png" target="_blank" rel="noopener">View full size ↗</a></div>
+    </section>
+    <section class="principles" aria-label="How the palette works">
+      <article><span class="eyebrow">01 / Recognizable</span><h2>Keep the bell.</h2><p>Recovered original SVG paths, including the round gong, side striker, and mounting base. The same artwork now appears across all three surfaces.</p></article>
+      <article><span class="eyebrow">02 / Readable</span><h2>Give green a purpose.</h2><p>Bright green with dark text for actions. Pine green for links on ivory. Original green for links on graphite. Clear contrast in either theme.</p></article>
+      <article><span class="eyebrow">03 / Precise</span><h2>Let states speak.</h2><p>Coral for incidents, amber for attention, violet for unknown. Every operational state has a text label; brand color alone never means healthy.</p></article>
+    </section>
+  </main>
+  <footer><span>Restored from the original Ding website · SVG introduced in c449b07</span><span>Draft based on main dd4715e · not deployed</span></footer>
+</body>
+</html>
