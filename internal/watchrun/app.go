@@ -228,6 +228,12 @@ type Receipt struct {
 }
 
 func (a *App) Accept(ctx context.Context, record store.WatchRecord, batch source.Batch, inputID string, now time.Time) (Receipt, error) {
+	return a.accept(ctx, record, batch, inputID, func() time.Time { return now })
+}
+
+// Live time is sampled after obtaining the transaction lock. Concurrent push
+// requests cannot commit timestamps in the reverse order of their evaluation.
+func (a *App) accept(ctx context.Context, record store.WatchRecord, batch source.Batch, inputID string, clock func() time.Time) (Receipt, error) {
 	var receipt Receipt
 	if a.isClosing() {
 		return receipt, ErrClosing
@@ -243,6 +249,7 @@ func (a *App) Accept(ctx context.Context, record store.WatchRecord, batch source
 		return receipt, err
 	}
 	err = a.Store.Update(ctx, func(tx *store.Tx) error {
+		now := clock()
 		if a.isClosing() {
 			return ErrClosing
 		}
@@ -416,7 +423,7 @@ func contains(values []string, value string) bool {
 	return false
 }
 func (a *App) note(err error) {
-	if err != nil {
+	if err != nil && !errors.Is(err, context.Canceled) {
 		a.mu.Lock()
 		a.lastError = "runtime operation failed"
 		a.mu.Unlock()

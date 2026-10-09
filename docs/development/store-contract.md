@@ -38,6 +38,11 @@ Intents refer to immutable destination revisions, so editing a destination canno
 rewrite already queued payloads or routing configuration. Secrets remain refs.
 Actual credential resolution, retry-age policy, and worker dispatch are P09 work.
 
+The current schema is 3. Its partial indexes cover only pending/leased queue
+ordering and live leases, so delivery claims do not scan delivered history.
+Reverse evidence and observation-expiry indexes bound retention work. Upgrades
+from schema 1 or 2 use the same verified-backup and transactional migration path.
+
 Schema migrations execute transactionally; a newer schema makes startup fail.
 Upgrades of an existing schema create a verified backup first. Backups use
 `VACUUM INTO` to produce a consistent copy including committed WAL contents,
@@ -52,6 +57,7 @@ lease claim. They assert atomic recovery of all related tables and recovery of
 expired work. Other tests cover cross-process ownership, destination revision
 pinning, independent dispatch, explicit SQLite page exhaustion (`SQLITE_FULL`),
 SQLite query-only write rejection, migration rollback, future-schema refusal,
-backup/restore, and concurrent transactions. Query-only tests are not a physical
-read-only-filesystem fault; full filesystem/device fault qualification remains
-part of P14. Native Windows execution is also reserved for platform qualification.
+backup/restore, and concurrent transactions. Physical ENOSPC and read-only mount
+tests now run in isolated containers, and native Windows amd64/arm64 execution
+passes. See the [qualification report](qualification.md) for exact tests and
+remaining release gates.

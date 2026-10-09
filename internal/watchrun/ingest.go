@@ -51,7 +51,6 @@ func (a *App) IngestReserved(ctx context.Context, r store.WatchRecord, raw []byt
 		return Receipt{}, ErrInput
 	}
 	spec := r.Plan.Definition.Spec
-	now := a.Now()
 	outputs, err := transform.Project(ctx, raw, spec.Source.JQ, spec.Source.Fields, spec.Limits.MaxOutputs, spec.Limits.MaxBytes)
 	if err != nil {
 		return Receipt{}, fmt.Errorf("%w: invalid JSON projection or input limit", ErrInput)
@@ -62,5 +61,5 @@ func (a *App) IngestReserved(ctx context.Context, r store.WatchRecord, raw []byt
 	}
 	batch := source.Batch{Cursor: r.Cursor, Observations: observations}
 
-	return a.Accept(ctx, r, batch, inputID, now)
+	return a.accept(ctx, r, batch, inputID, a.Now)
 }

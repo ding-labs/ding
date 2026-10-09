@@ -228,7 +228,7 @@ func (a *App) Run(ctx context.Context) error {
 				if acquireCtx.Err() != nil {
 					return
 				}
-				_, err := a.Accept(ctx, record, batch, "poll:"+strconv.FormatInt(record.Generation, 10)+":"+strconv.FormatInt(record.NextAt.UnixNano(), 10), a.Now())
+				_, err := a.accept(ctx, record, batch, "poll:"+strconv.FormatInt(record.Generation, 10)+":"+strconv.FormatInt(record.NextAt.UnixNano(), 10), a.Now)
 				if err != nil && err != store.ErrStale {
 					a.note(err)
 					activeMu.Lock()
