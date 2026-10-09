@@ -23,6 +23,7 @@
   "test": "workbench/test",
   "test-rule": "system/legacy",
   "validate": "workbench/validation",
+  "ui": "system/instance (browser launcher)",
   "version": "system/about",
   "watch delete": "watches/detail",
   "watch inspect": "watches/detail",

@@ -38,3 +38,9 @@ docs/superpowers/
 /ding-state/
 /ding-state-*/
 /qualification-result/
+
+# Console build and browser-test artifacts
+node_modules/
+/web/console/playwright-report/
+/web/console/test-results/
+/web/console/*.tsbuildinfo

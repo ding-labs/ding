@@ -5,7 +5,7 @@ The [plan](console-plan.md) and [architecture decisions](console-architecture.md
 | Phase | Status | Evidence |
 | --- | --- | --- |
 | U01 Design/contracts | Complete | Evidence-first selected; screen and failure-state contracts; repository/deployment decision; CLI inventory test |
-| U02 Foundation/auth | Pending | |
+| U02 Foundation/auth | Complete | Race-tested browser boundary (origin, Host, CSRF, one-use/expired handoffs, logout, session expiry, quotas, ingest isolation); static/deep-link tests; generated contract drift test; headless and embedded builds; Chromium real-daemon launch/deep-link/theme/logout test |
 | U03 Operational reads | Pending | |
 | U04 Workbench/apply | Pending | |
 | U05 Lifecycle/delivery | Pending | |
