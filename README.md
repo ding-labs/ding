@@ -2,32 +2,67 @@
 
 Persistent watches and durable alerts for developers and agents.
 
-Describe a condition as a small versioned manifest. Ding polls an HTTP endpoint,
-runs an explicit local command, or accepts authenticated JSON. It keeps condition
-state across restarts, records why an event happened, and retries delivery through
-a durable outbox. An agent can author and inspect the same manifest and CLI.
+Ding watches for conditions you care about and tells you when they fire or
+recover. Poll an HTTP endpoint, run a local command, or push JSON from your own
+systems. Define each watch in YAML, then let a local daemon evaluate it, retain
+the evidence, and deliver alerts—even across restarts.
 
-**This branch is the watch preview.** The published v0.14.0 release is the legacy
-runtime. Build this checkout to try watches; release qualification is tracked in
-[the implementation progress](docs/development/progress.md). A watch stable release
-has not been declared. [Legacy users and migration](docs/legacy.md).
+Use it to alert after three failed health checks, detect a changed value, catch
+missing data, or notify on a new provider event. Developers and agents use the
+same versioned manifests, CLI, and local API. Checks run without a model call.
+
+**Current status: watch preview.** The `main` branch contains the new watch
+runtime. The latest published release,
+[v0.14.0](https://github.com/ding-labs/ding/releases/tag/v0.14.0), contains the legacy
+job-wrapper runtime. Build from source below to try watches. A stable watch
+release has not been declared; see the [release checklist](docs/releases/watch-checklist.md)
+and [qualification progress](docs/development/progress.md).
+
+## What you can watch
+
+| Part | Supported capabilities |
+| --- | --- |
+| Sources | HTTP polling, explicit local commands returning JSON, authenticated JSON push |
+| Conditions | Typed comparisons, numeric aggregates and windows, value changes, missing data, new provider IDs |
+| Alert policies | Fire on transitions or at configured intervals; consecutive checks, recovery counts, cooldowns, and provider-ID deduplication |
+| Destinations | Console, webhooks, Slack incoming webhooks, Discord webhooks |
+| Local state | SQLite stores condition state, timers, retained evidence, events, and pending deliveries |
+
+A watch declares its source, condition, alert policy, and destinations. Ding
+validates the manifest before applying it. You can inspect a running watch,
+pause or resume it, and replay retained event evidence offline.
+
+Start with the [HTTP health](examples/watches/api-health.yaml),
+[command](examples/watches/command.yaml), or
+[provider event](examples/watches/provider-events.yaml) examples. Replace example
+URLs and command paths with real sources. External data feeds require your own
+provider access and credentials.
 
 ## Try a local watch
 
-Requires Go 1.26 to build, plus curl and jq for this example.
+Requires Go 1.26, Git, curl, and jq. In a terminal:
 
 ```sh
+git clone https://github.com/ding-labs/ding.git
+cd ding
 go build -o ding ./cmd/ding
 ./ding daemon --state-dir ./ding-state
 ```
 
-Leave the daemon running. In another terminal:
+Leave the daemon running. In another terminal, open the same `ding` directory.
+The [example manifest](ding.yaml.example) creates a push watch named `latency`
+that fires above 300 ms and sends firing and recovery alerts to the console.
+Validate it, preview the changes, and apply it:
 
 ```sh
 ./ding validate ding.yaml.example --json
 ./ding apply ding.yaml.example --state-dir ./ding-state --dry-run --json
 ./ding apply ding.yaml.example --state-dir ./ding-state
+```
 
+Send a high reading to fire the watch:
+
+```sh
 curl --fail-with-body http://127.0.0.1:7676/v1/ingest/latency \
   -H "Authorization: Bearer $(jq -r .ingest ding-state/tokens.json)" \
   -H 'Content-Type: application/json' \
@@ -38,16 +73,43 @@ curl --fail-with-body http://127.0.0.1:7676/v1/ingest/latency \
 ./ding watch inspect latency --state-dir ./ding-state --json
 ```
 
-The daemon prints one firing event to its console. Send a reading of 100 using a
-new idempotency key to record recovery. Restart the daemon with the same state
-directory to keep state and pending deliveries. Never commit the state directory:
-it contains private API credentials and retained observation fields.
+The daemon prints one firing alert. Further high readings keep the incident open
+without firing again. Send a low reading to recover:
 
-The [example manifest](ding.yaml.example) is a push watch with a console
-destination. [HTTP health](examples/watches/api-health.yaml),
-[command](examples/watches/command.yaml), and
-[provider event](examples/watches/provider-events.yaml) examples are also included.
-Command paths and example URLs must be replaced with your real source.
+```sh
+curl --fail-with-body http://127.0.0.1:7676/v1/ingest/latency \
+  -H "Authorization: Bearer $(jq -r .ingest ding-state/tokens.json)" \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: quickstart-recovery' \
+  -d '{"latency_ms":100}'
+
+./ding events --watch latency --state-dir ./ding-state --json
+```
+
+Use a new idempotency key for each new reading. Reuse a key only when retrying the
+same payload. The quickstart keys above are intended for a fresh state directory.
+
+Stop the daemon with Ctrl+C and restart it with the same state directory to retain
+condition state and pending deliveries. Keep that directory private: it contains
+API credentials and retained observation fields and must never be committed.
+
+## Manage and inspect watches
+
+Use the same state directory to connect to the running daemon:
+
+```sh
+./ding watch list --state-dir ./ding-state --json
+./ding watch pause latency --state-dir ./ding-state
+./ding watch resume latency --state-dir ./ding-state
+./ding doctor --state-dir ./ding-state --json
+./ding export --watch latency --state-dir ./ding-state
+./ding backup --out "$PWD/ding-backup.db" --state-dir ./ding-state
+```
+
+The CLI and [local API](docs/api.md) expose watch lifecycle, event evidence, and
+delivery inspection. Most inspection commands accept `--json` for tools and
+agents. The [Ding watch authoring skill](skills/ding-watch/SKILL.md) guides agents
+through supported capabilities, validation, and normal lifecycle commands.
 
 ## What the runtime guarantees
 
@@ -61,24 +123,39 @@ Command paths and example URLs must be replaced with your real source.
   history gap. Resource limits apply backpressure instead of silently approximating
   a full rolling window.
 
-Ding needs a running daemon. An AI model is not invoked on each check. The
-[authoring skill](skills/ding-watch/SKILL.md) translates a request into the declared
-capabilities, validates it, and uses normal lifecycle commands. Sports, airfare,
-traffic, and financial feeds require real provider access; there are no bundled
-consumer data feeds, trading actions, or arbitrary autonomous workflows.
+Ding needs a running daemon and a persistent local state directory. HTTP defaults
+to loopback with separate admin and ingest credentials. Command sources run as
+the daemon user and are trusted configuration, not a sandbox. See
+[installation and operation](docs/install.md) for container and service-manager
+guidance.
 
-## Develop and operate
+## Coming from legacy Ding?
+
+The new runtime replaces the job-wrapper model with persistent watches. Legacy
+`run`, `serve`, `test-rule`, and `install` commands now provide migration guidance.
+Keep [v0.14.0](https://github.com/ding-labs/ding/releases/tag/v0.14.0) for existing
+legacy workloads, or convert a supported configuration:
+
+```sh
+./ding migrate --config old.yaml --out converted --json
+```
+
+The converter writes manifests and a per-rule report into a new directory.
+Unsupported rules are reported explicitly; conversion does not start watches or
+import legacy state. Review the [migration guide](docs/legacy.md) before applying
+the results.
+
+## Documentation and development
+
+- [Configuration](docs/configuration.md) and [examples](docs/examples.md)
+- [Local API](docs/api.md) and [inspection/replay contracts](docs/development/inspection-contract.md)
+- [Watch preview release notes](docs/releases/watch-preview.md) and [release qualification](docs/development/qualification.md)
+
+Run the development checks with Go 1.26:
 
 ```sh
 go test -race ./...
 go vet ./...
-./ding doctor --state-dir ./ding-state --json
-./ding export --watch latency --state-dir ./ding-state
-./ding backup --out "$PWD/ding-backup.db" --state-dir ./ding-state
 ```
 
-Read [configuration](docs/configuration.md), [the local API](docs/api.md),
-[migration](docs/legacy.md), and [inspection/replay contracts](docs/development/inspection-contract.md).
-HTTP defaults to loopback with separate admin and ingest credentials. Command
-sources run as the daemon user and are trusted configuration, not a sandbox.
-The Apache-2.0 licensed core is self-hosted; no hosted service or billing is included.
+Ding is self-hosted and licensed under [Apache-2.0](LICENSE).
