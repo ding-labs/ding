@@ -1,0 +1,954 @@
+{
+  "started": "2026-10-09T20:46:26.960525006Z",
+  "finished": "2026-10-09T20:52:26.965007548Z",
+  "requestedSeconds": 360,
+  "elapsedSeconds": 360.270467496,
+  "wallElapsedSeconds": 360.273919709,
+  "updatedAt": "2026-10-09T20:52:27.234444715Z",
+  "status": "passed",
+  "revision": "9326ccc+driver-fix",
+  "goVersion": "go1.26.1",
+  "gomaxprocs": 4,
+  "history": "1m0s",
+  "warmup": "2m0s",
+  "burstEvery": "2m0s",
+  "httpRequests": 7000,
+  "pushAttempts": 18270,
+  "acceptedPushes": 18270,
+  "rejectedPushes": 0,
+  "retryableBusyAdmissions": 1068,
+  "arrivalsLateOver25ms": 45,
+  "consoleDeliveries": 18270,
+  "steadyCommitP95MillisecondsUpperBound": 18,
+  "burstCommitP95MillisecondsUpperBound": 21,
+  "peakRSSBytes": 39641088,
+  "rssMedianGrowthPercent": 6.238102211158303,
+  "errors": {},
+  "samples": [
+    {
+      "elapsedSeconds": 2.8792e-05,
+      "rssBytes": 24776704,
+      "databaseAndWALBytes": 4599552,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 438272,
+        "observations": 100,
+        "events": 101,
+        "entities": 100,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 5.001053294,
+      "rssBytes": 27533312,
+      "databaseAndWALBytes": 7770384,
+      "usage": {
+        "watches": 101,
+        "pending": 3,
+        "liveBytes": 3481600,
+        "observations": 1192,
+        "events": 1099,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 10.015100839,
+      "rssBytes": 27488256,
+      "databaseAndWALBytes": 10735912,
+      "usage": {
+        "watches": 101,
+        "pending": 8,
+        "liveBytes": 6467584,
+        "observations": 2263,
+        "events": 2103,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 15.020040258,
+      "rssBytes": 27410432,
+      "databaseAndWALBytes": 13730208,
+      "usage": {
+        "watches": 101,
+        "pending": 17,
+        "liveBytes": 9461760,
+        "observations": 3330,
+        "events": 3101,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 20.051774093,
+      "rssBytes": 27279360,
+      "databaseAndWALBytes": 16773536,
+      "usage": {
+        "watches": 101,
+        "pending": 2,
+        "liveBytes": 12455936,
+        "observations": 4385,
+        "events": 4086,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 25.085027637,
+      "rssBytes": 27291648,
+      "databaseAndWALBytes": 19845536,
+      "usage": {
+        "watches": 101,
+        "pending": 15,
+        "liveBytes": 15568896,
+        "observations": 5517,
+        "events": 5118,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 31.000321348,
+      "rssBytes": 27860992,
+      "databaseAndWALBytes": 22921656,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 18608128,
+        "observations": 6692,
+        "events": 6102,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 37.001237642,
+      "rssBytes": 27672576,
+      "databaseAndWALBytes": 22962616,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 18681856,
+        "observations": 6807,
+        "events": 6108,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 43.003048187,
+      "rssBytes": 27418624,
+      "databaseAndWALBytes": 23052728,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 18747392,
+        "observations": 6913,
+        "events": 6114,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 49.001532356,
+      "rssBytes": 28733440,
+      "databaseAndWALBytes": 23134648,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 18812928,
+        "observations": 7019,
+        "events": 6120,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 54.0226849,
+      "rssBytes": 28553216,
+      "databaseAndWALBytes": 23183800,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 18890752,
+        "observations": 7124,
+        "events": 6125,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 60.000399486,
+      "rssBytes": 28626944,
+      "databaseAndWALBytes": 23282104,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 18927616,
+        "observations": 7230,
+        "events": 6030,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 65.004247571,
+      "rssBytes": 28991488,
+      "databaseAndWALBytes": 23290296,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 19001344,
+        "observations": 7335,
+        "events": 6035,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 71.001776366,
+      "rssBytes": 28647424,
+      "databaseAndWALBytes": 23384504,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 19083264,
+        "observations": 7441,
+        "events": 6041,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 76.005146242,
+      "rssBytes": 29061120,
+      "databaseAndWALBytes": 23470520,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 19148800,
+        "observations": 7546,
+        "events": 6046,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 82.00011462,
+      "rssBytes": 28663808,
+      "databaseAndWALBytes": 23581112,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 19296256,
+        "observations": 7745,
+        "events": 6052,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 88.000477373,
+      "rssBytes": 28778496,
+      "databaseAndWALBytes": 23667128,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 19369984,
+        "observations": 7858,
+        "events": 6058,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 93.004617376,
+      "rssBytes": 28925952,
+      "databaseAndWALBytes": 23765432,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 19451904,
+        "observations": 7963,
+        "events": 6063,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 99.00199167,
+      "rssBytes": 28262400,
+      "databaseAndWALBytes": 23802296,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 19513344,
+        "observations": 8069,
+        "events": 6069,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 105.001996173,
+      "rssBytes": 28672000,
+      "databaseAndWALBytes": 23900600,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 19599360,
+        "observations": 8175,
+        "events": 6075,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 111.003461258,
+      "rssBytes": 28090368,
+      "databaseAndWALBytes": 24003000,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 19681280,
+        "observations": 8281,
+        "events": 6081,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 117.00216247,
+      "rssBytes": 27979776,
+      "databaseAndWALBytes": 24035768,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 19755008,
+        "observations": 8387,
+        "events": 6087,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 122.005105055,
+      "rssBytes": 27500544,
+      "databaseAndWALBytes": 34928376,
+      "usage": {
+        "watches": 101,
+        "pending": 1,
+        "liveBytes": 3108864,
+        "observations": 1662,
+        "events": 461,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 127.010402433,
+      "rssBytes": 27971584,
+      "databaseAndWALBytes": 34928376,
+      "usage": {
+        "watches": 101,
+        "pending": 2,
+        "liveBytes": 6111232,
+        "observations": 2763,
+        "events": 1462,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 132.01682056,
+      "rssBytes": 28110848,
+      "databaseAndWALBytes": 34928376,
+      "usage": {
+        "watches": 101,
+        "pending": 4,
+        "liveBytes": 9121792,
+        "observations": 3864,
+        "events": 2463,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 137.021789604,
+      "rssBytes": 28299264,
+      "databaseAndWALBytes": 34928376,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 12144640,
+        "observations": 4965,
+        "events": 3464,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 142.025641689,
+      "rssBytes": 27832320,
+      "databaseAndWALBytes": 34928376,
+      "usage": {
+        "watches": 101,
+        "pending": 4,
+        "liveBytes": 15187968,
+        "observations": 6066,
+        "events": 4465,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 147.0303449,
+      "rssBytes": 27693056,
+      "databaseAndWALBytes": 34928376,
+      "usage": {
+        "watches": 101,
+        "pending": 6,
+        "liveBytes": 18214912,
+        "observations": 7167,
+        "events": 5466,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 153.000125195,
+      "rssBytes": 27529216,
+      "databaseAndWALBytes": 35145464,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 20045824,
+        "observations": 7874,
+        "events": 6063,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 159.001065947,
+      "rssBytes": 28344320,
+      "databaseAndWALBytes": 35235576,
+      "usage": {
+        "watches": 101,
+        "pending": 1,
+        "liveBytes": 20172800,
+        "observations": 8071,
+        "events": 6070,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 165.0020037,
+      "rssBytes": 28094464,
+      "databaseAndWALBytes": 35317496,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 20234240,
+        "observations": 8176,
+        "events": 6075,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 171.002327035,
+      "rssBytes": 28631040,
+      "databaseAndWALBytes": 35366648,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 20299776,
+        "observations": 8282,
+        "events": 6081,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 177.00139008,
+      "rssBytes": 28454912,
+      "databaseAndWALBytes": 35448568,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 20365312,
+        "observations": 8388,
+        "events": 6087,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 183.001940916,
+      "rssBytes": 28508160,
+      "databaseAndWALBytes": 35530488,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 19861504,
+        "observations": 7234,
+        "events": 6033,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 189.001874836,
+      "rssBytes": 27512832,
+      "databaseAndWALBytes": 35530488,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 19951616,
+        "observations": 7389,
+        "events": 6039,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 195.001125672,
+      "rssBytes": 27983872,
+      "databaseAndWALBytes": 35530488,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 20025344,
+        "observations": 7546,
+        "events": 6045,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 201.000206382,
+      "rssBytes": 28450816,
+      "databaseAndWALBytes": 35530488,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 20103168,
+        "observations": 7652,
+        "events": 6051,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 207.001437385,
+      "rssBytes": 27918336,
+      "databaseAndWALBytes": 35530488,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 20160512,
+        "observations": 7758,
+        "events": 6057,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 213.00233668,
+      "rssBytes": 27590656,
+      "databaseAndWALBytes": 35530488,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 20234240,
+        "observations": 7864,
+        "events": 6063,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 219.000669683,
+      "rssBytes": 28196864,
+      "databaseAndWALBytes": 35530488,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 20287488,
+        "observations": 7970,
+        "events": 6069,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 225.000019061,
+      "rssBytes": 28483584,
+      "databaseAndWALBytes": 35530488,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 20393984,
+        "observations": 8176,
+        "events": 6075,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 231.003076771,
+      "rssBytes": 28155904,
+      "databaseAndWALBytes": 35559160,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 20459520,
+        "observations": 8282,
+        "events": 6081,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 237.000512857,
+      "rssBytes": 28262400,
+      "databaseAndWALBytes": 35604216,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 20525056,
+        "observations": 8388,
+        "events": 6087,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 242.006550734,
+      "rssBytes": 27852800,
+      "databaseAndWALBytes": 37376000,
+      "usage": {
+        "watches": 101,
+        "pending": 1,
+        "liveBytes": 3817472,
+        "observations": 1662,
+        "events": 461,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 247.012026403,
+      "rssBytes": 27451392,
+      "databaseAndWALBytes": 37376000,
+      "usage": {
+        "watches": 101,
+        "pending": 2,
+        "liveBytes": 6844416,
+        "observations": 2763,
+        "events": 1462,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 252.016546822,
+      "rssBytes": 28078080,
+      "databaseAndWALBytes": 37376000,
+      "usage": {
+        "watches": 101,
+        "pending": 2,
+        "liveBytes": 9859072,
+        "observations": 3864,
+        "events": 2463,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 257.022024116,
+      "rssBytes": 29343744,
+      "databaseAndWALBytes": 37376000,
+      "usage": {
+        "watches": 101,
+        "pending": 5,
+        "liveBytes": 12906496,
+        "observations": 4965,
+        "events": 3464,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 262.026805535,
+      "rssBytes": 29679616,
+      "databaseAndWALBytes": 37376000,
+      "usage": {
+        "watches": 101,
+        "pending": 5,
+        "liveBytes": 15945728,
+        "observations": 6066,
+        "events": 4465,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 267.031028579,
+      "rssBytes": 29298688,
+      "databaseAndWALBytes": 37376000,
+      "usage": {
+        "watches": 101,
+        "pending": 6,
+        "liveBytes": 18944000,
+        "observations": 7167,
+        "events": 5466,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 273.00241179,
+      "rssBytes": 29028352,
+      "databaseAndWALBytes": 37683200,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 20848640,
+        "observations": 7864,
+        "events": 6063,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 279.003024543,
+      "rssBytes": 29847552,
+      "databaseAndWALBytes": 37720064,
+      "usage": {
+        "watches": 101,
+        "pending": 1,
+        "liveBytes": 20918272,
+        "observations": 7971,
+        "events": 6070,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 285.001484462,
+      "rssBytes": 30179328,
+      "databaseAndWALBytes": 37810176,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 20983808,
+        "observations": 8076,
+        "events": 6075,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 291.000993214,
+      "rssBytes": 29708288,
+      "databaseAndWALBytes": 37908480,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 21069824,
+        "observations": 8201,
+        "events": 6081,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 297.00112955,
+      "rssBytes": 29761536,
+      "databaseAndWALBytes": 37994496,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 21188608,
+        "observations": 8388,
+        "events": 6087,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 303.004173428,
+      "rssBytes": 30085120,
+      "databaseAndWALBytes": 38035456,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 20705280,
+        "observations": 7324,
+        "events": 6033,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 309.002343389,
+      "rssBytes": 30404608,
+      "databaseAndWALBytes": 38035456,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 20766720,
+        "observations": 7430,
+        "events": 6039,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 315.001401517,
+      "rssBytes": 29691904,
+      "databaseAndWALBytes": 38035456,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 20836352,
+        "observations": 7536,
+        "events": 6045,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 321.003278477,
+      "rssBytes": 29724672,
+      "databaseAndWALBytes": 38035456,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 20901888,
+        "observations": 7642,
+        "events": 6051,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 327.002168939,
+      "rssBytes": 29716480,
+      "databaseAndWALBytes": 38035456,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 21020672,
+        "observations": 7848,
+        "events": 6057,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 333.002720358,
+      "rssBytes": 29814784,
+      "databaseAndWALBytes": 38035456,
+      "usage": {
+        "watches": 101,
+        "pending": 1,
+        "liveBytes": 21078016,
+        "observations": 7955,
+        "events": 6064,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 339.003403653,
+      "rssBytes": 29392896,
+      "databaseAndWALBytes": 38035456,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 21135360,
+        "observations": 8060,
+        "events": 6069,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 345.003023864,
+      "rssBytes": 29245440,
+      "databaseAndWALBytes": 38035456,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 21204992,
+        "observations": 8166,
+        "events": 6075,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 351.002662325,
+      "rssBytes": 29589504,
+      "databaseAndWALBytes": 38096896,
+      "usage": {
+        "watches": 101,
+        "pending": 1,
+        "liveBytes": 21270528,
+        "observations": 8273,
+        "events": 6082,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 357.004734453,
+      "rssBytes": 31768576,
+      "databaseAndWALBytes": 38146048,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 21340160,
+        "observations": 8388,
+        "events": 6087,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 360.001054621,
+      "rssBytes": 31907840,
+      "databaseAndWALBytes": 38223872,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 21393408,
+        "observations": 8481,
+        "events": 6090,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 360.270467496,
+      "rssBytes": 32432128,
+      "databaseAndWALBytes": 38223872,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 21393408,
+        "observations": 8481,
+        "events": 6090,
+        "entities": 101,
+        "timers": 0
+      }
+    }
+  ],
+  "failures": []
+}

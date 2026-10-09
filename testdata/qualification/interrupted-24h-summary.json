@@ -1,0 +1,37 @@
+{
+  "assessment": "invalid_interrupted_fixture",
+  "reason": "Wall/monotonic time diverged; the driver cached generation 1 while the persisted push watch advanced to generation 35. The invalid run was stopped and must not satisfy the 24-hour gate.",
+  "container": "ding-soak-0029fcd-20261009011500",
+  "stoppedAt": "2026-10-09T20:43:53.344710546Z",
+  "persistedPushGeneration": 35,
+  "databaseIntegrity": "ok",
+  "lastCheckpoint": {
+    "started": "2026-10-09T01:15:03.461105668Z",
+    "finished": "0001-01-01T00:00:00Z",
+    "requestedSeconds": 86400,
+    "elapsedSeconds": 21218.000177535,
+    "status": "running",
+    "revision": "0029fcd9d608ccccee6c06370eec9a75dbfe8b25",
+    "goVersion": "go1.26.1",
+    "gomaxprocs": 4,
+    "history": "1h0m0s",
+    "warmup": "15m0s",
+    "burstEvery": "1h0m0s",
+    "httpRequests": 416458,
+    "pushAttempts": 57039,
+    "acceptedPushes": 17668,
+    "rejectedPushes": 39370,
+    "retryableBusyAdmissions": 158,
+    "arrivalsLateOver25ms": 34,
+    "consoleDeliveries": 17668,
+    "steadyCommitP95MillisecondsUpperBound": 13,
+    "burstCommitP95MillisecondsUpperBound": 6,
+    "peakRSSBytes": 34308096,
+    "rssMedianGrowthPercent": 0,
+    "errors": {
+      "invalid push input: invalid JSON projection or input limit": 1,
+      "stale generation": 39369
+    },
+    "failures": []
+  }
+}

@@ -1,0 +1,119 @@
+{
+  "started": "2026-10-09T20:46:27.038756881Z",
+  "finished": "2026-10-09T20:47:00.81669755Z",
+  "requestedSeconds": 120,
+  "elapsedSeconds": 34.244871849,
+  "wallElapsedSeconds": 34.247215252,
+  "updatedAt": "2026-10-09T20:47:01.285972133Z",
+  "status": "failed",
+  "revision": "9326ccc+driver-fix",
+  "goVersion": "go1.26.1",
+  "gomaxprocs": 4,
+  "history": "30s",
+  "warmup": "45s",
+  "burstEvery": "1m0s",
+  "httpRequests": 300,
+  "pushAttempts": 3732,
+  "acceptedPushes": 3732,
+  "rejectedPushes": 0,
+  "retryableBusyAdmissions": 150,
+  "arrivalsLateOver25ms": 16,
+  "consoleDeliveries": 3732,
+  "steadyCommitP95MillisecondsUpperBound": 0,
+  "burstCommitP95MillisecondsUpperBound": 16,
+  "peakRSSBytes": 34996224,
+  "rssMedianGrowthPercent": 0,
+  "errors": {},
+  "samples": [
+    {
+      "elapsedSeconds": 0.000013209,
+      "rssBytes": 24649728,
+      "databaseAndWALBytes": 4599552,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 438272,
+        "observations": 100,
+        "events": 101,
+        "entities": 100,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 5.001304628,
+      "rssBytes": 28598272,
+      "databaseAndWALBytes": 7753952,
+      "usage": {
+        "watches": 101,
+        "pending": 6,
+        "liveBytes": 3469312,
+        "observations": 1191,
+        "events": 1099,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 10.010585005,
+      "rssBytes": 27836416,
+      "databaseAndWALBytes": 10740128,
+      "usage": {
+        "watches": 101,
+        "pending": 4,
+        "liveBytes": 6459392,
+        "observations": 2261,
+        "events": 2100,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 15.015715008,
+      "rssBytes": 27308032,
+      "databaseAndWALBytes": 13754784,
+      "usage": {
+        "watches": 101,
+        "pending": 9,
+        "liveBytes": 9457664,
+        "observations": 3328,
+        "events": 3102,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 33.775630974,
+      "rssBytes": 27394048,
+      "databaseAndWALBytes": 15921568,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 11653120,
+        "observations": 4132,
+        "events": 3833,
+        "entities": 101,
+        "timers": 0
+      }
+    },
+    {
+      "elapsedSeconds": 34.244871849,
+      "rssBytes": 27127808,
+      "databaseAndWALBytes": 15921568,
+      "usage": {
+        "watches": 101,
+        "pending": 0,
+        "liveBytes": 11653120,
+        "observations": 4132,
+        "events": 3833,
+        "entities": 101,
+        "timers": 0
+      }
+    }
+  ],
+  "failures": [
+    "load interrupted for 15.078624049s; restart the continuous fixture",
+    "requested wall time not completed",
+    "fewer than 95% of expected HTTP polls",
+    "insufficient post-warmup memory samples"
+  ]
+}

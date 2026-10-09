@@ -64,31 +64,33 @@ type counter struct{ n atomic.Uint64 }
 func (c *counter) Write(b []byte) (int, error) { c.n.Add(1); return len(b), nil }
 
 type report struct {
-	Started          time.Time         `json:"started"`
-	Finished         time.Time         `json:"finished,omitempty"`
-	RequestedSeconds float64           `json:"requestedSeconds"`
-	ElapsedSeconds   float64           `json:"elapsedSeconds"`
-	Status           string            `json:"status"`
-	Revision         string            `json:"revision"`
-	GoVersion        string            `json:"goVersion"`
-	CPUs             int               `json:"gomaxprocs"`
-	History          string            `json:"history"`
-	Warmup           string            `json:"warmup"`
-	BurstEvery       string            `json:"burstEvery"`
-	HTTPRequests     uint64            `json:"httpRequests"`
-	Attempts         uint64            `json:"pushAttempts"`
-	Accepted         uint64            `json:"acceptedPushes"`
-	Rejected         uint64            `json:"rejectedPushes"`
-	Busy             uint64            `json:"retryableBusyAdmissions"`
-	Late             uint64            `json:"arrivalsLateOver25ms"`
-	Delivered        uint64            `json:"consoleDeliveries"`
-	SteadyP95MS      int               `json:"steadyCommitP95MillisecondsUpperBound"`
-	BurstP95MS       int               `json:"burstCommitP95MillisecondsUpperBound"`
-	PeakRSS          int64             `json:"peakRSSBytes"`
-	GrowthPercent    float64           `json:"rssMedianGrowthPercent"`
-	Errors           map[string]uint64 `json:"errors"`
-	Samples          []sample          `json:"samples"`
-	Failures         []string          `json:"failures"`
+	Started            time.Time         `json:"started"`
+	Finished           time.Time         `json:"finished,omitempty"`
+	RequestedSeconds   float64           `json:"requestedSeconds"`
+	ElapsedSeconds     float64           `json:"elapsedSeconds"`
+	WallElapsedSeconds float64           `json:"wallElapsedSeconds"`
+	UpdatedAt          time.Time         `json:"updatedAt"`
+	Status             string            `json:"status"`
+	Revision           string            `json:"revision"`
+	GoVersion          string            `json:"goVersion"`
+	CPUs               int               `json:"gomaxprocs"`
+	History            string            `json:"history"`
+	Warmup             string            `json:"warmup"`
+	BurstEvery         string            `json:"burstEvery"`
+	HTTPRequests       uint64            `json:"httpRequests"`
+	Attempts           uint64            `json:"pushAttempts"`
+	Accepted           uint64            `json:"acceptedPushes"`
+	Rejected           uint64            `json:"rejectedPushes"`
+	Busy               uint64            `json:"retryableBusyAdmissions"`
+	Late               uint64            `json:"arrivalsLateOver25ms"`
+	Delivered          uint64            `json:"consoleDeliveries"`
+	SteadyP95MS        int               `json:"steadyCommitP95MillisecondsUpperBound"`
+	BurstP95MS         int               `json:"burstCommitP95MillisecondsUpperBound"`
+	PeakRSS            int64             `json:"peakRSSBytes"`
+	GrowthPercent      float64           `json:"rssMedianGrowthPercent"`
+	Errors             map[string]uint64 `json:"errors"`
+	Samples            []sample          `json:"samples"`
+	Failures           []string          `json:"failures"`
 }
 
 func main() {
@@ -167,14 +169,17 @@ spec:
 	if _, err := a.Apply(context.Background(), watchrun.ApplyRequest{Manifest: manifest}); err != nil {
 		return err
 	}
-	record, err := a.Record(context.Background(), "push")
-	if err != nil {
-		return err
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	running := make(chan error, 1)
 	go func() { running <- a.Run(ctx) }()
+	runtimeStopped := false
+	defer func() {
+		cancel()
+		if !runtimeStopped {
+			<-running
+		}
+	}()
 	// The capacity phase begins once the 100 HTTP sources have each accepted
 	// their first poll. Startup's simultaneous poll burst is a separate overload
 	// case; counting it as steady-state capacity would conflate two workloads.
@@ -207,6 +212,17 @@ spec:
 	producer := make(chan struct{}, 256)
 	var id uint64
 	nextSample := started
+	failed := make(chan error, 1)
+	reject := func(err error) {
+		m.mu.Lock()
+		m.Rejected++
+		m.Errors[err.Error()]++
+		m.mu.Unlock()
+		select {
+		case failed <- err:
+		default:
+		}
+	}
 	push := func(scheduled time.Time, burst bool) {
 		id++
 		inputID := strconv.FormatUint(id, 10)
@@ -219,10 +235,7 @@ spec:
 		select {
 		case producer <- struct{}{}:
 		default:
-			m.mu.Lock()
-			m.Rejected++
-			m.Errors["producer backlog exceeded 256 requests"]++
-			m.mu.Unlock()
+			reject(fmt.Errorf("producer backlog exceeded 256 requests"))
 			return
 		}
 		work.Add(1)
@@ -239,24 +252,20 @@ spec:
 				m.Busy++
 				m.mu.Unlock()
 				if err != watchrun.ErrBusy || time.Since(begin) >= time.Second {
-					m.mu.Lock()
-					m.Rejected++
-					m.Errors[err.Error()]++
-					m.mu.Unlock()
+					reject(err)
 					return
 				}
 				time.Sleep(5 * time.Millisecond)
 			}
 			defer a.Release()
-			_, err := a.IngestReserved(ctx, record, []byte(`{"value":2}`), inputID)
+			err := ingestCurrent(ctx, a, []byte(`{"value":2}`), inputID)
 			elapsed := time.Since(begin)
-			m.mu.Lock()
-			defer m.mu.Unlock()
 			if err != nil {
-				m.Rejected++
-				m.Errors[err.Error()]++
+				reject(err)
 				return
 			}
+			m.mu.Lock()
+			defer m.mu.Unlock()
 			m.Accepted++
 			if burst {
 				m.Burst.add(elapsed)
@@ -266,7 +275,10 @@ spec:
 		}()
 	}
 	update := func() error {
-		r.ElapsedSeconds = time.Since(started).Seconds()
+		now := time.Now()
+		r.UpdatedAt = now.UTC()
+		r.ElapsedSeconds = now.Sub(started).Seconds()
+		r.WallElapsedSeconds = now.UTC().Sub(started.UTC()).Seconds()
 		r.HTTPRequests = polls.Load() - initialPolls
 		r.Delivered = deliveries.n.Load()
 		m.mu.Lock()
@@ -306,16 +318,29 @@ spec:
 	}
 	// Absolute arrival times expose driver lateness; they never silently reduce
 	// the target rate to the speed at which ingestion happens to complete.
+	previous := started
+load:
 	for next := started; next.Before(deadline); {
 		if delay := time.Until(next); delay > 0 {
 			time.Sleep(delay)
 		}
+		now := time.Now()
+		if err := checkContinuity(now.UTC().Sub(started.UTC()), now.Sub(started), now.Sub(previous)); err != nil {
+			r.Failures = append(r.Failures, err.Error())
+			break load
+		}
+		previous = now
 		select {
+		case err := <-failed:
+			r.Failures = append(r.Failures, "input rejected: "+err.Error())
+			break load
 		case err := <-running:
+			runtimeStopped = true
 			if err == nil {
 				err = fmt.Errorf("runtime stopped early")
 			}
-			return err
+			r.Failures = append(r.Failures, err.Error())
+			break load
 		default:
 		}
 		elapsed := next.Sub(started)
@@ -333,13 +358,19 @@ spec:
 			nextSample = time.Now().Add(*sampleEvery)
 		}
 	}
-	if remaining := time.Until(deadline); remaining > 0 {
+	if remaining := time.Until(deadline); remaining > 0 && len(r.Failures) == 0 {
 		time.Sleep(remaining)
+	}
+	if err := checkContinuity(time.Now().UTC().Sub(started.UTC()), time.Since(started), time.Since(previous)); err != nil && len(r.Failures) == 0 {
+		r.Failures = append(r.Failures, err.Error())
 	}
 	work.Wait()
 	cancel()
-	if err := <-running; err != nil {
-		return err
+	if !runtimeStopped {
+		if err := <-running; err != nil {
+			r.Failures = append(r.Failures, err.Error())
+		}
+		runtimeStopped = true
 	}
 	r.Finished = time.Now().UTC()
 	r.Status = "finished"
@@ -404,6 +435,9 @@ spec:
 		r.Status = "passed"
 	} else {
 		r.Status = "failed"
+	}
+	if err := update(); err != nil {
+		return err
 	}
 	data, err := json.MarshalIndent(r, "", "  ")
 	if err != nil {

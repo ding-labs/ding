@@ -157,13 +157,13 @@ retains the original trial revision label; the runtime changes were committed as
 the defects above and producer admission limits; the final driver records bounded
 admission retries and does not discard accepted events.
 
-## Active 24-hour run
+## Interrupted first 24-hour run
 
 - Tested source: `0029fcd9d608ccccee6c06370eec9a75dbfe8b25`.
 - Container/volume: `ding-soak-0029fcd-20261009011500`.
 - Actual capacity start: **2026-10-09 01:15:03 UTC** (October 8, 6:15 PM Pacific).
 - Earliest completion: **2026-10-10 01:15:03 UTC** (October 9, 6:15 PM Pacific),
-  followed by integrity/backup checks. It is not yet qualified.
+  followed by integrity/backup checks. **This run was interrupted and stopped; that ETA no longer applies.**
 - The host has a bounded 25-hour idle-sleep inhibitor for this run. Closing the
   laptop, stopping Docker, or forcing sleep can interrupt the fixture.
 
@@ -184,3 +184,40 @@ of the schema-3 fixture backup. It refused startup with the required compatible
 backup guidance; schema/data digests and integrity stayed unchanged. SQLite can
 update journal-mode header bytes on open, so this is logical data preservation,
 not a promise of bit-identical files after an attempted open.
+
+## Interruption diagnosis and driver repair
+
+The first long run is invalid. On October 9, its last checkpoint contained about
+six hours of monotonic runtime despite roughly nineteen and a half hours of wall
+time. The persisted push watch had advanced to generation 35 after clock
+continuity resets; the fixture had cached generation 1 at startup. Production
+HTTP ingestion already fetches the current record for every request. The driver
+now follows that path, and a pause/resume regression reproduces the old stale
+record failure before verifying successful ingestion through the repaired driver.
+
+All 17,668 accepted pushes had delivered; subsequent rejected pushes cannot be
+counted as valid offered load. The saved database passed integrity checking. See
+[the interrupted-run summary](https://github.com/ding-labs/ding/blob/codex/soak-driver-recovery/testdata/qualification/interrupted-24h-summary.json).
+The original container/volume and a local diagnostic copy remain available.
+
+A continuous capacity fixture now fails promptly if wall and monotonic elapsed
+time differ by more than two seconds, if the load loop is interrupted for more
+than ten seconds, or if an input is rejected after its bounded admission retries.
+Reports include both elapsed clocks and an explicit UTC update timestamp. A real
+15-second container pause produced a failed terminal report and exit status 1,
+while preserving all accepted deliveries; see
+[the pause result](https://github.com/ding-labs/ding/blob/codex/soak-driver-recovery/testdata/qualification/pause-rejection.json).
+These failures do not weaken the runtime's clock recovery semantics. They prevent
+an interrupted workload from being described as a continuous 24-hour soak.
+
+On a laptop, keep the lid open and the host/Docker running for the entire test.
+An idle-sleep inhibitor alone does not guarantee continuous execution when the
+lid is closed or the host is explicitly put to sleep. A replacement starts the
+full qualification duration from zero; elapsed time from this invalid run is
+not credited.
+
+The repaired driver's six-minute check passed: 18,270 accepted/delivered pushes,
+zero rejected inputs, 18 ms steady p95, 21 ms burst p95, 37.8 MiB peak RSS and
+6.2% post-warmup median RSS growth. It used the same short-fixture settings as
+the earlier six-minute check. This is regression/preflight evidence, not the
+24-hour gate; the raw result is `testdata/qualification/recovery-harness-6m.json`.
