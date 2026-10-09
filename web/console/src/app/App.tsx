@@ -20,6 +20,11 @@ import {
 import { api, connect, logout } from "../api/client";
 import type { ControlInfo } from "../api/contracts";
 
+import { Watches, WatchDetail } from "../pages/Watches";
+import { Events, EventDetail } from "../pages/Events";
+import { Deliveries, DeliveryDetail } from "../pages/Deliveries";
+import { TimeContext } from "../components/common";
+
 const nav = [
   { path: "/watches", label: "Watches", icon: Radio },
   { path: "/events", label: "Events", icon: Activity },
@@ -36,6 +41,9 @@ export function App() {
   const [error, setError] = useState("");
   const [theme, setTheme] = useState(
     () => localStorage.getItem("ding.theme") || "system",
+  );
+  const [timeMode, setTimeMode] = useState(
+    localStorage.getItem("ding.time") || "local",
   );
   const client = useQueryClient();
   const location = useLocation();
@@ -117,100 +125,121 @@ export function App() {
       </main>
     );
   return (
-    <div className="app-shell">
-      <a className="skip-link" href="#main">
-        Skip to content
-      </a>
-      <aside className="sidebar">
-        <NavLink to="/watches" className="brand" aria-label="Ding Console">
-          ding<span>.</span>
-        </NavLink>
-        <nav aria-label="Main navigation">
-          {nav.map((n) => (
-            <NavLink
-              key={n.path}
-              to={n.path}
-              className={({ isActive }) =>
-                isActive ? "nav-link active" : "nav-link"
-              }
-            >
-              <n.icon size={17} />
-              {n.label}
-            </NavLink>
-          ))}
-        </nav>
-        <div className="instance">
-          <span className={`status-dot ${info.isError ? "offline" : ""}`} />
-          <span>
-            {info.isError ? "Connection interrupted" : "Connected daemon"}
-          </span>
-          <code>{info.data?.listen || window.location.host}</code>
-          <small>{info.data?.version || "Ding"}</small>
-        </div>
-      </aside>
-      <div className="workspace">
-        <header className="location-bar">
-          <div>
-            Console <span>/</span> {current?.label || "Watches"}
-          </div>
-          <div className="toolbar">
-            <label className="theme-select">
-              <Monitor size={15} />
-              <select
-                aria-label="Appearance"
-                value={theme}
-                onChange={(e) => setTheme(e.target.value)}
-              >
-                <option value="system">System</option>
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-              </select>
-            </label>
-            <button
-              className="icon-button"
-              aria-label="Log out"
-              onClick={async () => {
-                await logout();
-                client.clear();
-                setSession("locked");
-              }}
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
-        </header>
-        {info.isError && (
-          <div className="connection-warning" role="status">
-            Connection interrupted. Displayed data may be stale. Last connected{" "}
-            {info.dataUpdatedAt
-              ? new Date(info.dataUpdatedAt).toLocaleTimeString()
-              : "unknown"}
-            .
-          </div>
-        )}
-        <main id="main" className="page">
-          <Routes>
-            <Route path="/" element={<Navigate to="/watches" replace />} />
+    <TimeContext.Provider value={timeMode}>
+      <div className="app-shell">
+        <a className="skip-link" href="#main">
+          Skip to content
+        </a>
+        <aside className="sidebar">
+          <NavLink to="/watches" className="brand" aria-label="Ding Console">
+            ding<span>.</span>
+          </NavLink>
+          <nav aria-label="Main navigation">
             {nav.map((n) => (
-              <Route
+              <NavLink
                 key={n.path}
-                path={n.path + "/*"}
-                element={<FoundationPage title={n.label} />}
-              />
+                to={n.path}
+                className={({ isActive }) =>
+                  isActive ? "nav-link active" : "nav-link"
+                }
+              >
+                <n.icon size={17} />
+                {n.label}
+              </NavLink>
             ))}
-            <Route
-              path="*"
-              element={
-                <div className="empty">
-                  <h1>Page not found</h1>
-                  <NavLink to="/watches">Return to watches</NavLink>
-                </div>
-              }
-            />
-          </Routes>
-        </main>
+          </nav>
+          <div className="instance">
+            <span className={`status-dot ${info.isError ? "offline" : ""}`} />
+            <span>
+              {info.isError ? "Connection interrupted" : "Connected daemon"}
+            </span>
+            <code>{info.data?.listen || window.location.host}</code>
+            <small>{info.data?.version || "Ding"}</small>
+          </div>
+        </aside>
+        <div className="workspace">
+          <header className="location-bar">
+            <div>
+              Console <span>/</span> {current?.label || "Watches"}
+            </div>
+            <div className="toolbar">
+              <select
+                aria-label="Display timezone"
+                value={timeMode}
+                onChange={(e) => {
+                  setTimeMode(e.target.value);
+                  localStorage.setItem("ding.time", e.target.value);
+                }}
+              >
+                <option value="local">Local time</option>
+                <option value="utc">UTC</option>
+                <option value="relative">Relative time</option>
+              </select>
+              <label className="theme-select">
+                <Monitor size={15} />
+                <select
+                  aria-label="Appearance"
+                  value={theme}
+                  onChange={(e) => setTheme(e.target.value)}
+                >
+                  <option value="system">System</option>
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                </select>
+              </label>
+              <button
+                className="icon-button"
+                aria-label="Log out"
+                onClick={async () => {
+                  await logout();
+                  client.clear();
+                  setSession("locked");
+                }}
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          </header>
+          {info.isError && (
+            <div className="connection-warning" role="status">
+              Connection interrupted. Displayed data may be stale. Last
+              connected{" "}
+              {info.dataUpdatedAt
+                ? new Date(info.dataUpdatedAt).toLocaleTimeString()
+                : "unknown"}
+              .
+            </div>
+          )}
+          <main id="main" className="page">
+            <Routes>
+              <Route path="/" element={<Navigate to="/watches" replace />} />
+              <Route path="/watches" element={<Watches />} />
+              <Route path="/watches/:id" element={<WatchDetail />} />
+              <Route path="/events" element={<Events />} />
+              <Route path="/events/:id" element={<EventDetail />} />
+              <Route path="/deliveries" element={<Deliveries />} />
+              <Route path="/deliveries/:id" element={<DeliveryDetail />} />
+              {nav.slice(3).map((n) => (
+                <Route
+                  key={n.path}
+                  path={n.path + "/*"}
+                  element={<FoundationPage title={n.label} />}
+                />
+              ))}
+              <Route
+                path="*"
+                element={
+                  <div className="empty">
+                    <h1>Page not found</h1>
+                    <NavLink to="/watches">Return to watches</NavLink>
+                  </div>
+                }
+              />
+            </Routes>
+          </main>
+        </div>
       </div>
-    </div>
+    </TimeContext.Provider>
   );
 }
 function FoundationPage({ title }: { title: string }) {

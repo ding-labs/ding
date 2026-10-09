@@ -92,10 +92,58 @@ export interface StoreAttempt {
   detail: string;
 }
 
+export interface StoreConsoleDelivery {
+  id: number;
+  eventId: string;
+  watchId: string;
+  destinationId: string;
+  destinationRevision: string;
+  status: string;
+  attempts: number;
+  nextAt: string;
+  createdAt: string;
+  lastError: string;
+}
+
+export interface StoreConsoleDestination {
+  definition: WatchDestination;
+  revision: string;
+  watches: number;
+}
+
+export interface StoreConsoleWatch {
+  id: string;
+  name: string;
+  revision: string;
+  status: string;
+  source: string;
+  trigger: string;
+  operator: string;
+  generation: number;
+  nextAt: string;
+  lastInputAt: string;
+  lastError: string;
+  entities: number;
+  open: number;
+  unhealthy: number;
+  failed: number;
+  pending: number;
+  missing: Array<string>;
+}
+
 export interface StoreDeliveryInspection {
   intent: StoreIntent;
   attempts: Array<StoreAttempt>;
   before: number;
+}
+
+export interface StoreDeliveryPage {
+  deliveries: Array<StoreConsoleDelivery>;
+  total: number;
+  counts: Record<string, number>;
+  cursor: string;
+  more: boolean;
+  at: string;
 }
 
 export interface StoreDeliverySummary {
@@ -107,6 +155,12 @@ export interface StoreDeliverySummary {
   attempts: number;
   nextAt: string;
   lastError?: string;
+}
+
+export interface StoreDestinationPage {
+  destinations: Array<StoreConsoleDestination>;
+  cursor: string;
+  more: boolean;
 }
 
 export interface StoreEntitySummary {
@@ -123,6 +177,26 @@ export interface StoreEventPage {
   events: Array<WatchEvent>;
   cursor: string;
   more: boolean;
+}
+
+export interface StoreEventSummary {
+  id: string;
+  sequence: number;
+  watchId: string;
+  revision: string;
+  type: string;
+  at: string;
+  message: string;
+  entity: string;
+}
+
+export interface StoreEventSummaryPage {
+  events: Array<StoreEventSummary>;
+  total: number;
+  cursor: string;
+  followCursor: string;
+  more: boolean;
+  at: string;
 }
 
 export interface StoreHealth {
@@ -163,6 +237,17 @@ export interface StoreUsage {
   events: number;
   entities: number;
   timers: number;
+}
+
+export interface StoreWatchPage {
+  watches: Array<StoreConsoleWatch>;
+  total: number;
+  all: number;
+  attention: number;
+  paused: number;
+  cursor: string;
+  more: boolean;
+  at: string;
 }
 
 export interface StoreWatchRecord {
@@ -354,5 +439,14 @@ export interface WatchrunSourceHealth {
   lastError?: string;
   unhealthyEntities: number;
   openIncidents: number;
+}
+
+export interface WatchrunStatus {
+  instance: string;
+  running: boolean;
+  closing: boolean;
+  acquisitions: number;
+  lastError: string;
+  at: string;
 }
 

@@ -40,3 +40,7 @@ Use the selected evidence-first concept's subdued rail, readable headings, four-
 ## Phase gates
 
 U01 is complete when the selected design, screen/error contracts, repository decisions and command inventory are recorded and the CLI inventory test passes. U02 must pass auth/static/deep-link tests and both build modes before U03 reads. U03 read/pagination tests precede U04 writes. Subsequent gates and browser/runtime qualification remain as specified in the product plan. Record actual checks in [console progress](console-progress.md).
+
+## Read consistency
+
+Watch summaries are live, timestamped snapshots with lexical-ID pagination. Aggregate counts cover the complete query, not the loaded page. A watch changing state may enter or leave a filtered view between pages; refreshing starts a current view. Event history fixes an upper sequence boundary when opened, pages newest first, and exposes a forward cursor for explicit live following. Cursors are bound to the store, query and page limit. Any intervening retention-floor change invalidates an event-history cursor with `410`; the reader must explicitly load available history. Summary responses exclude raw observation fields, intent payloads and replay checkpoints. Those are fetched only for the selected detail and rendered in bounded, expandable previews.

@@ -16,7 +16,10 @@ test("one-use launch, deep link, appearance and logout", async ({
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.goto(daemon.url + "/ui/events");
   await expect(
-    page.getByRole("heading", { name: "Events", exact: true }),
+    page.getByRole("heading", {
+      name: "The story, as it happened.",
+      exact: true,
+    }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Log out" }).click();
   await expect(
