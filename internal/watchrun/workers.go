@@ -72,7 +72,7 @@ func (a *App) DeliverOne(ctx context.Context) (bool, error) {
 			next = result.RetryAt
 		}
 		if intent.Attempts >= d.MaxAttempts || !next.Before(deadline) {
-			result = delivery.Result{Outcome: delivery.Exhausted, Detail: "delivery policy exhausted"}
+			result = delivery.Result{Outcome: delivery.Exhausted, Detail: "delivery policy exhausted", RetryAt: result.RetryAt}
 		}
 	}
 	// Cancellation of the daemon is not cancellation of durable work.

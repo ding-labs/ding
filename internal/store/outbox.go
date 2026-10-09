@@ -55,7 +55,7 @@ func (s *Store) Claim(ctx context.Context, now time.Time, lease time.Duration) (
 	var intent *Intent
 	err := s.Update(ctx, func(t *Tx) error {
 		var id int64
-		err := t.sql.QueryRowContext(ctx, `SELECT o.id FROM outbox o WHERE ((o.status='pending' AND o.next_at<=?) OR (o.status='leased' AND o.lease_until<=?)) AND NOT EXISTS (SELECT 1 FROM outbox p WHERE p.watch_id=o.watch_id AND p.destination_id=o.destination_id AND p.id<o.id AND p.status IN ('pending','leased')) ORDER BY o.next_at,o.id LIMIT 1`, timestamp(now), timestamp(now)).Scan(&id)
+		err := t.sql.QueryRowContext(ctx, `SELECT o.id FROM outbox o WHERE ((o.status='pending' AND o.next_at<=?) OR (o.status='leased' AND o.lease_until<=?)) AND NOT EXISTS (SELECT 1 FROM metadata m WHERE m.key='delivery_backoff:'||o.destination_id||':'||o.destination_revision AND CAST(m.value AS INTEGER)>?) AND NOT EXISTS (SELECT 1 FROM outbox p WHERE p.destination_id=o.destination_id AND p.destination_revision=o.destination_revision AND p.status='leased' AND p.lease_until>?) AND NOT EXISTS (SELECT 1 FROM outbox p WHERE p.watch_id=o.watch_id AND p.destination_id=o.destination_id AND p.id<o.id AND p.status IN ('pending','leased')) ORDER BY o.next_at,o.id LIMIT 1`, timestamp(now), timestamp(now), timestamp(now), timestamp(now)).Scan(&id)
 		if missing(err) == ErrNotFound {
 			return nil
 		}
@@ -100,6 +100,15 @@ func (s *Store) Finish(ctx context.Context, i Intent, result delivery.Result, ne
 		}
 		if count != 1 {
 			return ErrStale
+		}
+		until := result.RetryAt
+		if result.Outcome == delivery.Retryable && nextAt.After(until) {
+			until = nextAt
+		}
+		if until.After(now) {
+			if _, err := t.sql.ExecContext(ctx, `INSERT INTO metadata(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=CAST(MAX(CAST(metadata.value AS INTEGER),CAST(excluded.value AS INTEGER)) AS TEXT)`, "delivery_backoff:"+i.DestinationID+":"+i.DestinationRevision, fmt.Sprint(timestamp(until))); err != nil {
+				return err
+			}
 		}
 		_, err = t.sql.ExecContext(ctx, `INSERT INTO delivery_attempts(outbox_id,attempt,at,outcome,detail) VALUES(?,?,?,?,?)`, i.ID, i.Attempts, timestamp(now), string(result.Outcome), result.Detail)
 		return err

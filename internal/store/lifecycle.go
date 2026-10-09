@@ -134,6 +134,7 @@ func (t *Tx) Retain(cutoff, now time.Time, pins []int64, eventPins []string) err
 		arg any
 	}{
 		{"DELETE FROM input_receipts WHERE expires_at<=?", timestamp(now)},
+		{"DELETE FROM metadata WHERE key LIKE 'delivery_backoff:%' AND CAST(value AS INTEGER)<=?", timestamp(now)},
 		{"DELETE FROM outbox WHERE created_at<? AND status NOT IN ('pending','leased')", timestamp(cutoff)},
 		{"DELETE FROM events WHERE at<? AND NOT EXISTS (SELECT 1 FROM outbox WHERE event_id=events.id) AND NOT EXISTS (SELECT 1 FROM retained_events WHERE retained_events.id=events.id)", timestamp(cutoff)},
 		{"DELETE FROM observations WHERE accepted_at<? AND NOT EXISTS (SELECT 1 FROM event_evidence WHERE observation_sequence=observations.sequence) AND NOT EXISTS (SELECT 1 FROM retained_inputs WHERE sequence=observations.sequence)", timestamp(cutoff)},

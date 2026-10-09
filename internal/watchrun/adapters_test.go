@@ -107,3 +107,45 @@ func TestSignalStateSurvivesRestartAndRetention(t *testing.T) {
 		})
 	}
 }
+
+func TestDestinationBackoffIsSharedAndDurable(t *testing.T) {
+	a, dir := setup(t)
+	m := strings.Replace(manifest("https://example.com"), "consecutive: 3, recoverAfter: 2", "consecutive: 1, recoverAfter: 1", 1)
+	if _, err := a.Apply(ctx, ApplyRequest{Manifest: m}); err != nil {
+		t.Fatal(err)
+	}
+	second := strings.Replace(m, "id: api}", "id: second}", 1)
+	if _, err := a.Apply(ctx, ApplyRequest{Manifest: second}); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"api", "second"} {
+		r, err := a.Record(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := a.Accept(ctx, r, source.Batch{Observations: []watch.Observation{{Health: "ok", Fields: map[string]any{"http.status": 500}}}}, "input", start); err != nil {
+			t.Fatal(err)
+		}
+	}
+	receiver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Header().Set("Retry-After", "60"); w.WriteHeader(429) }))
+	defer receiver.Close()
+	a.Lookup = func(string) (string, bool) { return receiver.URL, true }
+	a.Now = func() time.Time { return start }
+	if _, err := a.DeliverOne(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if worked, err := a.DeliverOne(ctx); err != nil || worked {
+		t.Fatal("another watch bypassed destination backoff", worked, err)
+	}
+	a.Store.Close()
+	reopened, err := store.Open(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	a = New(reopened)
+	a.Now = func() time.Time { return start.Add(30 * time.Second) }
+	if worked, err := a.DeliverOne(ctx); err != nil || worked {
+		t.Fatal("restart lost destination backoff", worked, err)
+	}
+}

@@ -84,7 +84,11 @@ unexpired dedup state remain pinned through idle retention.
 ## Slack and Discord
 
 Provider renderers create immutable outbox payloads. They share webhook leases,
-retry policy, provider backoff, and acknowledgment classification. Slack uses
+retry policy, provider backoff, and acknowledgment classification. Destination backoff is durable and shared by
+all watches using that destination revision, with at most one live lease per
+revision. Old queued endpoint revisions remain independent of replacements.
+Discord fractional `retry_after` values are honored according to its
+[rate-limit contract](https://docs.discord.com/developers/topics/rate-limits). Slack uses
 plain-text blocks, bounded descriptions, and explicit event IDs; only its `ok`
 response is success. Discord uses bounded embeds and disables allowed mentions;
 a successful webhook HTTP response is accepted. Formatting and delivery follow

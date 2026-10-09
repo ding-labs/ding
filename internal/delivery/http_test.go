@@ -78,3 +78,16 @@ func TestRetryAfterAndBackoff(t *testing.T) {
 		t.Fatal("backoff")
 	}
 }
+
+func TestDiscordFractionalRetryDeadline(t *testing.T) {
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(429)
+		w.Write([]byte(`{"retry_after":2.75,"global":false}`))
+	}))
+	defer server.Close()
+	result := HTTP(context.Background(), server.Client(), Request{URL: server.URL, Provider: "discord"}, now)
+	if result.Outcome != Retryable || !result.RetryAt.Equal(now.Add(2750*time.Millisecond)) {
+		t.Fatal(result)
+	}
+}

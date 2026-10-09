@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -61,6 +62,18 @@ func HTTP(ctx context.Context, client *http.Client, request Request, now time.Ti
 		result.Outcome = Retryable
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		if request.Provider == "discord" && resp.StatusCode == 429 && err == nil && len(body) <= 64*1024 {
+			var envelope struct {
+				Retry float64 `json:"retry_after"`
+			}
+			if json.Unmarshal(body, &envelope) == nil && envelope.Retry > 0 && !math.IsNaN(envelope.Retry) && !math.IsInf(envelope.Retry, 0) {
+				seconds := math.Min(envelope.Retry, 365*24*3600)
+				at := now.Add(time.Duration(math.Ceil(seconds * float64(time.Second))))
+				if at.After(result.RetryAt) {
+					result.RetryAt = at
+				}
+			}
+		}
 		if request.Provider == "telegram" && err == nil && len(body) <= 64*1024 {
 			var envelope struct {
 				Parameters struct {
