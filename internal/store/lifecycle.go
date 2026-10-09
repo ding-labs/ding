@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/ding-labs/ding/internal/watch"
 )
 
 func (t *Tx) ResetState(id string) error {
@@ -165,7 +167,16 @@ func (t *Tx) Observations(id string, sequences []int64) ([]json.RawMessage, erro
 		if err != nil {
 			return nil, missing(err)
 		}
-		out = append(out, json.RawMessage(body))
+		var o watch.Observation
+		if err := json.Unmarshal(body, &o); err != nil {
+			return nil, err
+		}
+		o.Sequence = seq
+		encoded, err := json.Marshal(o)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, json.RawMessage(encoded))
 	}
 	return out, nil
 }

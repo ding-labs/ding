@@ -15,6 +15,7 @@ import (
 
 	"github.com/ding-labs/ding/internal/condition"
 	"github.com/ding-labs/ding/internal/plan"
+	"github.com/ding-labs/ding/internal/replay"
 	"github.com/ding-labs/ding/internal/source"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watch"
@@ -340,7 +341,7 @@ func (a *App) Accept(ctx context.Context, record store.WatchRecord, batch source
 				}
 				delete(states, condition.SourceEntity)
 				if bootstrap.SourceUnhealthy {
-					if err := a.appendEvent(tx, current, evaluator.SourceRecovered(o), now); err != nil {
+					if err := a.appendEvaluated(tx, current, evaluator.SourceRecovered(o), now, replay.Checkpoint{Prior: bootstrap, Input: o, SourceRecovered: true}); err != nil {
 						return err
 					}
 				}
@@ -372,7 +373,7 @@ func (a *App) Accept(ctx context.Context, record store.WatchRecord, batch source
 					return err
 				}
 				for _, event := range result.Events {
-					if err := a.appendEvent(tx, current, event, now); err != nil {
+					if err := a.appendEvaluated(tx, current, event, now, replay.Checkpoint{Prior: state, Input: o}); err != nil {
 						return err
 					}
 				}

@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -63,7 +64,7 @@ func runtimeCommands(root *cobra.Command) {
 		app := watchrun.New(database)
 		app.Limits = limits
 		app.Output = cmd.OutOrStdout()
-		server := &http.Server{Handler: control.Handler(app, credentials), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
+		server := &http.Server{Handler: control.Handler(app, credentials), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 2 * time.Minute, IdleTimeout: 60 * time.Second}
 		served := make(chan error, 1)
 		go func() { served <- server.Serve(listener) }()
 		running := make(chan error, 1)
@@ -124,16 +125,20 @@ func runtimeCommands(root *cobra.Command) {
 	watchCmd := &cobra.Command{Use: "watch", Short: "Inspect and manage watches"}
 	for _, name := range []string{"list", "inspect"} {
 		var structured bool
+		var entitiesAfter string
+		var deliveriesBefore int64
 		command := &cobra.Command{Use: name, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/v1/watches"
 			if cmd.Name() == "inspect" {
-				path += "/" + url.PathEscape(args[0])
+				path += "/" + url.PathEscape(args[0]) + "?" + url.Values{"entitiesAfter": {entitiesAfter}, "deliveriesBefore": {strconv.FormatInt(deliveriesBefore, 10)}}.Encode()
 			}
 			return call(cmd, dir, structured, http.MethodGet, path, nil)
 		}}
 		if name == "inspect" {
 			command.Use = "inspect ID"
 			command.Args = cobra.ExactArgs(1)
+			command.Flags().StringVar(&entitiesAfter, "entities-after", "", "entity cursor from the previous inspection")
+			command.Flags().Int64Var(&deliveriesBefore, "deliveries-before", 0, "delivery cursor from the previous inspection")
 		}
 		command.Flags().BoolVar(&structured, "json", false, "emit a versioned JSON response")
 		watchCmd.AddCommand(command)
@@ -152,19 +157,12 @@ func runtimeCommands(root *cobra.Command) {
 		watchCmd.AddCommand(command)
 	}
 	root.AddCommand(watchCmd)
+	inspectionCommands(root, &dir)
 }
-func call(cmd *cobra.Command, dir string, structured bool, method, path string, request any) error {
-	client, err := control.Connect(dir)
+func call(cmd *cobra.Command, dir string, structured bool, method, path string, body any) error {
+	result, err := request(cmd, dir, structured, method, path, body)
 	if err != nil {
-		return Fail(cmd.ErrOrStderr(), structured, "daemon_unavailable", err.Error())
-	}
-	result, err := client.Call(cmd.Context(), method, path, request)
-	if err != nil {
-		var api *control.APIError
-		if errors.As(err, &api) {
-			return Fail(cmd.ErrOrStderr(), structured, api.Code, api.Message)
-		}
-		return Fail(cmd.ErrOrStderr(), structured, "daemon_unavailable", err.Error())
+		return err
 	}
 	if structured {
 		return Write(cmd.OutOrStdout(), result)

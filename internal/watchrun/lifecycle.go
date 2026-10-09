@@ -9,6 +9,7 @@ import (
 
 	"github.com/ding-labs/ding/internal/condition"
 	"github.com/ding-labs/ding/internal/delivery"
+	"github.com/ding-labs/ding/internal/replay"
 	"github.com/ding-labs/ding/internal/source"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watch"
@@ -187,7 +188,7 @@ func (a *App) Lifecycle(ctx context.Context, id string, request LifecycleRequest
 					return err
 				}
 				for _, event := range result.Events {
-					if err := a.appendEvent(tx, record, event, now); err != nil {
+					if err := a.appendEvaluated(tx, record, event, now, replay.Checkpoint{Prior: old, Input: o}); err != nil {
 						return err
 					}
 				}

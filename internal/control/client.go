@@ -60,8 +60,8 @@ func (c Client) Call(ctx context.Context, method, path string, request any) (jso
 		return nil, fmt.Errorf("cannot reach daemon")
 	}
 	defer response.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(response.Body, 16<<20+1))
-	if err != nil || len(body) > 16<<20 {
+	body, err := io.ReadAll(io.LimitReader(response.Body, 64<<20+1))
+	if err != nil || len(body) > 64<<20 {
 		return nil, fmt.Errorf("invalid daemon response")
 	}
 	var envelope struct {

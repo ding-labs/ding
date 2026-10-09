@@ -51,6 +51,7 @@ func (t *Tx) Watch(id string) (WatchRecord, error) {
 	if err = json.Unmarshal(data, &r.Plan.Definition); err != nil {
 		return r, fmt.Errorf("invalid stored definition: %w", err)
 	}
+	r.Plan.Permissions = plan.ExecutionPermissions(r.Plan.Definition.Spec.Source.Type)
 	r.NextAt = instant(next)
 	r.LastInputAt = instant(last)
 	return r, nil

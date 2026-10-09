@@ -194,7 +194,6 @@ func Compile(d watch.Definition) (Compiled, error) {
 	}
 	d = normalized
 	s := &d.Spec.Source
-	permissions := []string{}
 	switch s.Type {
 	case "http":
 		if (s.URL == "") == (s.URLRef == nil) {
@@ -209,7 +208,6 @@ func Compile(d watch.Definition) (Compiled, error) {
 		if len(s.Argv) > 0 || s.Directory != "" || len(s.Env) > 0 {
 			return Compiled{}, fmt.Errorf("command fields are invalid for HTTP source")
 		}
-		permissions = append(permissions, "http-read")
 	case "command":
 		if len(s.Argv) == 0 || len(s.Argv) > 100 || s.Argv[0] == "" || s.Directory == "" || !filepath.IsAbs(s.Directory) {
 			return Compiled{}, fmt.Errorf("command requires explicit argv and absolute directory")
@@ -230,12 +228,10 @@ func Compile(d watch.Definition) (Compiled, error) {
 				return Compiled{}, fmt.Errorf("invalid environment name")
 			}
 		}
-		permissions = append(permissions, "local-command (trusted configuration; not sandboxed)")
 	case "push":
 		if s.URL != "" || s.URLRef != nil || len(s.Argv) > 0 || s.Directory != "" || s.Every != "" || s.Timeout != "" || len(s.Env) > 0 || len(s.Headers) > 0 {
 			return Compiled{}, fmt.Errorf("push does not accept polling or command fields")
 		}
-		permissions = append(permissions, "authenticated-ingest")
 	default:
 		return Compiled{}, fmt.Errorf("unsupported source type %q", s.Type)
 	}
@@ -460,7 +456,7 @@ func Compile(d watch.Definition) (Compiled, error) {
 	if err != nil {
 		return Compiled{}, err
 	}
-	return Compiled{d, rev, fingerprint, permissions}, nil
+	return Compiled{d, rev, fingerprint, ExecutionPermissions(d.Spec.Source.Type)}, nil
 }
 func ValidEventType(s string) bool {
 	switch s {
@@ -557,4 +553,16 @@ func validateNumeric(expr string) error {
 		}
 	}
 	return nil
+}
+
+func ExecutionPermissions(sourceType string) []string {
+	switch sourceType {
+	case "http":
+		return []string{"http-read"}
+	case "command":
+		return []string{"local-command (trusted configuration; not sandboxed)"}
+	case "push":
+		return []string{"authenticated-ingest"}
+	}
+	return []string{}
 }

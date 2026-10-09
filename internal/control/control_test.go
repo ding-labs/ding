@@ -96,7 +96,7 @@ func TestAPIAuthApplyInspectAndErrors(t *testing.T) {
 	if _, err := client.Call(ctx, "POST", "/v1/apply", watchrun.ApplyRequest{Manifest: example}); err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{"/v1/watches", "/v1/watches/api", "/v1/events?watch=api&after=0"} {
+	for _, path := range []string{"/v1/watches", "/v1/watches/api", "/v1/events?watch=api"} {
 		data, err := client.Call(ctx, "GET", path, nil)
 		if err != nil || !json.Valid(data) {
 			t.Fatal(path, string(data), err)

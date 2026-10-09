@@ -7,7 +7,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/ding-labs/ding/internal/store"
@@ -54,7 +53,17 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 		write(w, 200, result, nil)
 	})
 	mux.HandleFunc("GET /v1/watches/{id}", func(w http.ResponseWriter, r *http.Request) {
-		result, err := app.Inspect(r.Context(), r.PathValue("id"))
+		before, err := nonnegative(r.URL.Query().Get("deliveriesBefore"))
+		if err != nil {
+			fail(w, 400, "invalid_request", "invalid delivery cursor")
+			return
+		}
+		var result store.WatchSummary
+		err = app.Store.View(r.Context(), func(tx *store.Tx) error {
+			var err error
+			result, err = tx.InspectSummary(r.PathValue("id"), r.URL.Query().Get("entitiesAfter"), before)
+			return err
+		})
 		if errors.Is(err, store.ErrNotFound) {
 			fail(w, 404, "not_found", "watch not found")
 			return
@@ -126,28 +135,8 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 			write(w, 202, receipt, nil)
 		}
 	})
-	mux.HandleFunc("GET /v1/events", func(w http.ResponseWriter, r *http.Request) {
-		after := int64(0)
-		var err error
-		if value := r.URL.Query().Get("after"); value != "" {
-			after, err = strconv.ParseInt(value, 10, 64)
-		}
-		if err != nil || after < 0 {
-			fail(w, 400, "invalid_cursor", "cursor must be nonnegative")
-			return
-		}
-		var events []watch.Event
-		err = app.Store.View(r.Context(), func(tx *store.Tx) error {
-			var err error
-			events, err = tx.Events(r.URL.Query().Get("watch"), after, 1000)
-			return err
-		})
-		if err != nil {
-			fail(w, 503, "store_unavailable", "cannot read events")
-			return
-		}
-		write(w, 200, events, nil)
-	})
+	inspectionRoutes(mux, app)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { fail(w, 404, "not_found", "route or method not found") })
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store")

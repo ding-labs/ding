@@ -21,6 +21,7 @@ type Intent struct {
 	Status              string                   `json:"status"`
 	Attempts            int                      `json:"attempts"`
 	NextAt              time.Time                `json:"nextAt"`
+	CycleStartedAt      time.Time                `json:"cycleStartedAt"`
 	CreatedAt           time.Time                `json:"createdAt"`
 	LeaseToken          string                   `json:"-"`
 	Destination         plan.CompiledDestination `json:"-"`
@@ -35,13 +36,14 @@ func (t *Tx) Enqueue(i Intent) (int64, error) {
 }
 func (t *Tx) Intent(id int64) (Intent, error) {
 	var i Intent
-	var next, created int64
-	err := t.sql.QueryRowContext(t.ctx, `SELECT id,event_id,watch_id,destination_id,destination_revision,payload,status,attempts,next_at,created_at,lease_token FROM outbox WHERE id=?`, id).Scan(&i.ID, &i.EventID, &i.WatchID, &i.DestinationID, &i.DestinationRevision, &i.Payload, &i.Status, &i.Attempts, &next, &created, &i.LeaseToken)
+	var next, created, retry int64
+	err := t.sql.QueryRowContext(t.ctx, `SELECT id,event_id,watch_id,destination_id,destination_revision,payload,status,attempts,next_at,created_at,lease_token,retry_started_at FROM outbox WHERE id=?`, id).Scan(&i.ID, &i.EventID, &i.WatchID, &i.DestinationID, &i.DestinationRevision, &i.Payload, &i.Status, &i.Attempts, &next, &created, &i.LeaseToken, &retry)
 	if err != nil {
 		return i, missing(err)
 	}
 	i.NextAt = instant(next)
 	i.CreatedAt = instant(created)
+	i.CycleStartedAt = instant(retry)
 	i.Destination, err = t.Destination(i.DestinationID, i.DestinationRevision)
 	return i, err
 }

@@ -17,10 +17,13 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const SchemaVersion = 1
+const SchemaVersion = 2
 
 //go:embed schema.sql
 var initialSchema string
+
+//go:embed schema2.sql
+var inspectionSchema string
 var ErrClosed = errors.New("store closed")
 var ErrNotFound = errors.New("not found")
 var ErrConflict = errors.New("revision conflict")
@@ -94,7 +97,7 @@ func Open(ctx context.Context, dir string) (s *Store, err error) {
 		return nil, err
 	}
 	s = &Store{db: db, lock: lock, dir: dir}
-	if err = s.migrate(ctx, SchemaVersion, []string{initialSchema}); err != nil {
+	if err = s.migrate(ctx, SchemaVersion, []string{initialSchema, inspectionSchema}); err != nil {
 		return nil, err
 	}
 	return s, nil

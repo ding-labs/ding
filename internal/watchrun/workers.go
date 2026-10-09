@@ -24,7 +24,11 @@ func (a *App) DeliverOne(ctx context.Context) (bool, error) {
 	}
 	d := intent.Destination.Definition.Spec
 	maxAge, _ := time.ParseDuration(d.MaxAge)
-	deadline := intent.CreatedAt.Add(maxAge)
+	cycle := intent.CreatedAt
+	if !intent.CycleStartedAt.IsZero() {
+		cycle = intent.CycleStartedAt
+	}
+	deadline := cycle.Add(maxAge)
 	result := delivery.Result{Outcome: delivery.Exhausted, Detail: "delivery policy exhausted"}
 	if intent.Attempts <= d.MaxAttempts && now.Before(deadline) {
 		if d.Type == "console" {
