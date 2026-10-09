@@ -1,0 +1,11 @@
+{
+  "complete": true,
+  "source": "a213185e0e72e3602b254844869a932feea619fa",
+  "archives": [
+    {
+      "ref": "v0.14.0",
+      "path": "legacy/v0.14.0",
+      "channel": "legacy"
+    }
+  ]
+}

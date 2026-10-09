@@ -1,0 +1,24 @@
+apiVersion: ding.ing/v1alpha1
+kind: Destination
+metadata: {id: console}
+spec: {type: console}
+---
+apiVersion: ding.ing/v1alpha1
+kind: Watch
+metadata: {id: provider-events}
+spec:
+  source:
+    type: push
+    jq: .events[]
+    fields:
+      id: id
+      status: status
+      time: timestamp
+    observedAtField: time
+  condition:
+    field: id
+    operator: new-event
+    dedupFor: 24h
+  policy: {trigger: level, interval: 0s}
+  message: '{{.Watch}} saw {{.Value}}'
+  destinations: [{ref: console, events: [new-event]}]

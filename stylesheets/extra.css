@@ -1,0 +1,153 @@
+:root,
+[data-md-color-scheme] {
+  --md-text-font-family: var(--ding-font);
+  --md-code-font-family: var(--ding-mono);
+  --md-primary-fg-color: var(--ding-surface);
+  --md-primary-bg-color: var(--ding-text);
+  --md-accent-fg-color: var(--ding-brand);
+  --md-default-fg-color: var(--ding-text);
+  --md-default-fg-color--light: var(--ding-muted);
+  --md-default-bg-color: var(--ding-bg);
+  --md-code-bg-color: var(--ding-subtle);
+  --md-code-fg-color: var(--ding-text);
+  --md-typeset-a-color: var(--ding-brand);
+  --md-footer-bg-color: var(--ding-subtle);
+  --md-footer-fg-color: var(--ding-text);
+  --md-footer-fg-color--light: var(--ding-muted);
+}
+[data-md-color-scheme="slate"] {
+  --md-hue: 138;
+  --md-default-bg-color: var(--ding-bg);
+  --md-default-fg-color: var(--ding-text);
+  --md-default-fg-color--light: var(--ding-muted);
+  --md-code-bg-color: var(--ding-subtle);
+  --md-code-fg-color: var(--ding-text);
+  --md-typeset-a-color: var(--ding-brand);
+}
+.md-header {
+  box-shadow: none;
+  border-bottom: 1px solid var(--ding-border);
+}
+.md-header__title {
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+.md-header__button.md-logo img {
+  width: 1.7rem;
+  height: 1.7rem;
+}
+.md-typeset {
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3 {
+  color: var(--ding-text);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+.md-typeset h1 {
+  font-size: 2rem;
+  line-height: 1.15;
+}
+.md-typeset h2 {
+  margin-top: 2rem;
+}
+.md-typeset .md-button {
+  border-radius: 5px;
+  border: 1px solid var(--ding-brand);
+  color: var(--ding-brand);
+  font-size: 0.75rem;
+}
+.md-typeset .md-button--primary {
+  background: var(--ding-brand);
+  color: var(--ding-on-brand);
+}
+.md-typeset code {
+  border-radius: 3px;
+}
+.md-typeset table:not([class]) {
+  background: var(--ding-surface);
+  border-color: var(--ding-border);
+  font-size: 0.7rem;
+}
+.md-typeset table:not([class]) th {
+  background: var(--ding-subtle);
+}
+.md-banner {
+  background: var(--ding-brand-soft);
+  color: var(--ding-text);
+  font-size: 0.65rem;
+}
+.md-banner a {
+  color: var(--ding-brand);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ding-channels {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+}
+.ding-channels strong {
+  margin-right: auto;
+}
+.md-nav__link--active,
+.md-nav__link:hover {
+  color: var(--ding-brand);
+}
+.md-search__form {
+  background: var(--ding-subtle);
+}
+.md-search__input::placeholder {
+  color: var(--ding-muted);
+}
+:focus-visible {
+  outline: 2px solid var(--ding-brand);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Material defines link colors at the theme scope, below :root. */
+[data-md-color-scheme] {
+  --md-typeset-a-color: var(--ding-brand);
+  --md-accent-fg-color: var(--ding-brand);
+}
+.md-typeset a:not(.md-button),
+.md-nav__link--active,
+.md-nav__item--active > .md-nav__link {
+  color: var(--ding-brand);
+}
+.md-nav__link:focus-visible,
+.md-nav__link:hover {
+  color: var(--ding-brand);
+}
+.md-typeset a:not(.md-button) {
+  text-decoration: underline;
+  text-underline-offset: .15em;
+}
+.highlight .nv, .highlight .vc, .highlight .vg, .highlight .vi {
+  color: var(--ding-brand);
+}
+.md-footer-meta {
+  background: var(--ding-subtle);
+}
+.md-copyright, .md-copyright__highlight {
+  color: var(--ding-muted);
+}
+.md-copyright a {
+  color: var(--ding-brand);
+}
+.md-copyright a:not(:focus):not(:hover) {
+  color: var(--ding-brand);
+}

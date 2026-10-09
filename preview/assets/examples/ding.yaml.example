@@ -1,0 +1,14 @@
+apiVersion: ding.ing/v1alpha1
+kind: Destination
+metadata: {id: console}
+spec: {type: console}
+---
+apiVersion: ding.ing/v1alpha1
+kind: Watch
+metadata: {id: latency, name: Request latency}
+spec:
+  source: {type: push, fields: {latency_ms: latency_ms}}
+  condition: {field: latency_ms, operator: gt, value: 300}
+  policy: {trigger: transition, consecutive: 1, recoverAfter: 1, onUnknown: hold-incident}
+  message: '{{ .Name }}: {{ .Type }} ({{ .Value }} ms)'
+  destinations: [{ref: console, events: [firing, recovered, source_error, source_recovered]}]

@@ -1,0 +1,8 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+/preview/*
+  X-Robots-Tag: noindex, follow
+/legacy/*
+  X-Robots-Tag: noindex, follow

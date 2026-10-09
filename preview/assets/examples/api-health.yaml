@@ -1,0 +1,31 @@
+apiVersion: ding.ing/v1alpha1
+kind: Destination
+metadata:
+  id: ops-webhook
+spec:
+  type: webhook
+  urlRef: {env: OPS_WEBHOOK_URL}
+---
+apiVersion: ding.ing/v1alpha1
+kind: Watch
+metadata:
+  id: api-health
+  name: API health
+spec:
+  source:
+    type: http
+    url: https://api.example.com/health
+    every: 5s
+    timeout: 2s
+  condition:
+    field: http.status
+    operator: gte
+    value: 500
+  policy:
+    trigger: transition
+    consecutive: 3
+    recoverAfter: 2
+    onUnknown: hold-incident
+  destinations:
+    - ref: ops-webhook
+      events: [firing, recovered, source_error, source_recovered]

@@ -1,0 +1,13 @@
+apiVersion: ding.ing/v1alpha1
+kind: Destination
+metadata: {id: console}
+spec: {type: console}
+---
+apiVersion: ding.ing/v1alpha1
+kind: Watch
+metadata: {id: deployed-version, name: Deployed version}
+spec:
+  source: {type: push, fields: {version: version}}
+  condition: {field: version, operator: changed}
+  policy: {trigger: level, interval: 0s}
+  destinations: [{ref: console, events: [changed]}]

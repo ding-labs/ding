@@ -1,0 +1,2636 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Persistent watches and durable alerts for developers and agents">
+      
+      
+      
+        <link rel="canonical" href="https://docs.ding.ing/development/qualification/">
+      
+      
+        <link rel="prev" href="../../releases/watch-preview/">
+      
+      
+        <link rel="next" href="../../releases/watch-checklist/">
+      
+      
+      <link rel="icon" href="../../assets/mark.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.22">
+    
+    
+      
+        <title>Qualification - Ding</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.84d31ad4.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/tokens.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+
+<meta name="robots" content="noindex,follow">
+<meta property="og:title" content="Qualification — Ding docs">
+<meta property="og:description" content="Persistent watches and durable alerts for developers and agents">
+<meta property="og:image" content="https://ding.ing/assets/social.png">
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#watch-release-qualification" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+        <aside class="md-banner">
+          <div class="md-banner__inner md-grid md-typeset">
+            
+            
+<div class="ding-channels">
+  <strong>Watch source preview · 1275a45 · source build required</strong>
+  <a href="https://docs.ding.ing/">Current docs</a>
+  <a href="https://docs.ding.ing/preview/">Development preview</a>
+  <a href="https://docs.ding.ing/legacy/v0.14.0/">Legacy v0.14.0</a>
+  <a href="https://ding.ing">Ding website ↗</a>
+</div>
+
+          </div>
+          
+        </aside>
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Ding" class="md-header__button md-logo" aria-label="Ding" data-md-component="logo">
+      
+  <img src="../../assets/mark.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Ding
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Qualification
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark theme"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark theme" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light theme"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light theme" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search documentation">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ding-labs/ding" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ding-labs/ding
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Ding" class="md-nav__button md-logo" aria-label="Ding" data-md-component="logo">
+      
+  <img src="../../assets/mark.svg" alt="logo">
+
+    </a>
+    Ding
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ding-labs/ding" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ding-labs/ding
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../.." class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Start
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_1" id="__nav_1_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            Start
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Install
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/first-watch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    First watch
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../concepts/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Concepts
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Concepts
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/states/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    State glossary
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Configuration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Guides
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/http/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    HTTP monitoring
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/push/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Receive JSON
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/command/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Command checks
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/missing-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Missing heartbeats
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/changes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Changes and provider events
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/grouping/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Grouped watches
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/investigate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Investigate an alert
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Notifications and retry
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../console/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Console
+    
+  </span>
+  
+
+            </a>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Console
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../operate/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Operate
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Operate
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operate/backup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Backup and upgrade
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operate/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Troubleshooting
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/manifest/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Watch manifest
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    HTTP API
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Migration and releases
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Migration and releases
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../legacy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Legacy migration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../releases/watch-preview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Watch preview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Qualification
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Qualification
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#fault-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fault matrix
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#native-artifact-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      Native artifact gate
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#capacity-fixture" class="md-nav__link">
+    <span class="md-ellipsis">
+      Capacity fixture
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#measured-packaging-baseline" class="md-nav__link">
+    <span class="md-ellipsis">
+      Measured packaging baseline
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#completed-short-harness-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      Completed short harness check
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interrupted-first-24-hour-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      Interrupted first 24-hour run
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interruption-diagnosis-and-driver-repair" class="md-nav__link">
+    <span class="md-ellipsis">
+      Interruption diagnosis and driver repair
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../releases/watch-checklist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Release checklist
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../contribute/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Contribute
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            Contribute
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../watch-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Watch contract
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evaluation-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Evaluation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adapter-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Sources and destinations
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lifecycle-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Lifecycle and limits
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inspection-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Inspection and replay
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../store-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Transactional store
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../http-runtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    HTTP runtime milestone
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    CLI Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            CLI Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_apply/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding apply
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_backup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding backup
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_daemon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding daemon
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_delivery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding delivery
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_delivery_inspect/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding delivery inspect
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_delivery_retry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding delivery retry
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_doctor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding doctor
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding events
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_events_inspect/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding events inspect
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_events_observations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding events observations
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_explain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding explain
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_export/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding export
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_migrate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding migrate
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_replay/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding replay
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding test
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_validate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding validate
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding version
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_watch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding watch
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_watch_delete/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding watch delete
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_watch_inspect/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding watch inspect
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_watch_list/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding watch list
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_watch_pause/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding watch pause
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/ding_watch_resume/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ding watch resume
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#fault-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fault matrix
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#native-artifact-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      Native artifact gate
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#capacity-fixture" class="md-nav__link">
+    <span class="md-ellipsis">
+      Capacity fixture
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#measured-packaging-baseline" class="md-nav__link">
+    <span class="md-ellipsis">
+      Measured packaging baseline
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#completed-short-harness-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      Completed short harness check
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interrupted-first-24-hour-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      Interrupted first 24-hour run
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interruption-diagnosis-and-driver-repair" class="md-nav__link">
+    <span class="md-ellipsis">
+      Interruption diagnosis and driver repair
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="watch-release-qualification">Watch release qualification</h1>
+<p>P14 is in progress. A real 24-hour soak and all six native artifact jobs must
+finish before the stable gate can be marked complete. Short fixture runs are
+harness checks, not substitutes for elapsed soak time.</p>
+<h2 id="fault-matrix">Fault matrix</h2>
+<table>
+<thead>
+<tr>
+<th>Fault</th>
+<th>Executable evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Transaction crash/commit boundary</td>
+<td><code>store.TestCrashTransactionBoundaries</code> subprocess termination</td>
+</tr>
+<tr>
+<td>Physical disk full</td>
+<td><code>scripts/filesystem-faults.sh</code>: isolated 8 MiB tmpfs filled to ENOSPC; rollback, 503, same-key retry after freeing space</td>
+</tr>
+<tr>
+<td>Read-only filesystem</td>
+<td>Same script: real read-only mount refuses startup, committed observations/events/outbox and integrity preserved</td>
+</tr>
+<tr>
+<td>Migration failure and backup restore</td>
+<td><code>store.TestBackupAndFailedMigration</code>; native executable qualification restores a verified backup into a fresh directory</td>
+</tr>
+<tr>
+<td>Single writer</td>
+<td>Store lock tests, including subprocess and canonical/symlink paths</td>
+</tr>
+<tr>
+<td>Ambiguous remote receipt</td>
+<td><code>watchrun.TestReceiverAcceptsThenProcessDiesBeforeAcknowledgment</code>: kill after receipt, expire lease, retry same event ID</td>
+</tr>
+<tr>
+<td>Credential rotation</td>
+<td><code>watchrun.TestCredentialRotationUsesPinnedReferenceOnManualRetry</code>: resolve updated secret with immutable destination revision</td>
+</tr>
+<tr>
+<td>Rate limit/order/slow destination</td>
+<td>Delivery provider tests, durable destination backoff tests, five-second restart demonstration</td>
+</tr>
+<tr>
+<td>Blocked console</td>
+<td><code>watchrun.TestBlockedConsoleHasOneOutstandingWriteAndBoundedShutdown</code>: one outstanding write, bounded worker shutdown, retained delivery</td>
+</tr>
+<tr>
+<td>Process-tree cancellation</td>
+<td>Native command adapter tests on Linux, macOS and Windows</td>
+</tr>
+<tr>
+<td>Apply/ingest/shutdown races</td>
+<td>Lifecycle and control tests under the race detector where supported</td>
+</tr>
+<tr>
+<td>Wall-clock discontinuity</td>
+<td>Forward/backward tests distinguish monotonic scheduler delay from wall-time jumps, fence acquisitions, replay unknown state and rearm deadlines</td>
+</tr>
+</tbody>
+</table>
+<p>Clock detection compares wall and monotonic elapsed time while the runtime is
+running, with a two-second tolerance. It cannot reconstruct monotonic elapsed
+time across process restarts. A jump preserves open incidents, resets streaks,
+rearms missing-data deadlines, and requires a fresh full numeric window. Active
+dedup IDs and cooldowns conservatively receive their full duration again.</p>
+<p>A generic embedded <code>io.Writer</code> cannot be forcibly canceled. Console delivery
+allows at most one outstanding write per App; workers stop on cancellation, but
+that single goroutine needs the writer to unblock/close. The standalone process
+exits normally. A late write can duplicate remote receipt. Filesystem syscalls
+that never return are outside the ordinary five-second delivery drain guarantee.</p>
+<h2 id="native-artifact-gate">Native artifact gate</h2>
+<p>CI executes adapter/persistence/lifecycle contracts and an actual stripped
+executable on Linux amd64/arm64, macOS amd64/arm64, Windows amd64/arm64. It checks
+the executable's reported OS/architecture against the runner, then performs
+fresh daemon startup, validation, dry-run/apply, authenticated push, event
+inspection/replay, forced restart, export, verified backup and offline restore.
+Go 1.26 does not support the race detector on Windows ARM64; that runner executes
+the same contracts without <code>-race</code>. Other native runners use it.</p>
+<p>Run a local artifact drill with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>go<span class="w"> </span>build<span class="w"> </span>-trimpath<span class="w"> </span>-ldflags<span class="o">=</span><span class="s1">'-s -w'</span><span class="w"> </span>-o<span class="w"> </span>/tmp/ding-native<span class="w"> </span>./cmd/ding
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nv">DING_BINARY</span><span class="o">=</span>/tmp/ding-native<span class="w"> </span>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-v<span class="w"> </span>-count<span class="o">=</span><span class="m">1</span><span class="w"> </span>./internal/qualification
+</code></pre></div>
+<p>The first local Darwin ARM64 drill passed and measured 14,715,922 executable
+bytes. This is a development build measurement, not a published release size.</p>
+<p>CI <a href="https://github.com/ding-labs/ding/actions/runs/37867026684">37867026684</a>
+passed all six native targets and the physical filesystem faults on commit
+<code>a94a47b</code>. Later runtime changes must pass the same jobs again.</p>
+<h2 id="capacity-fixture">Capacity fixture</h2>
+<p><code>cmd/ding-soak</code> runs 100 real local HTTP sources at five-second intervals, one
+steady push per second outside bursts, and a 30-second burst of 200 individual
+pushed observations per second each hour. Every accepted push must fire and
+deliver exactly one console event to a counting sink. Startup waits for each HTTP
+watch's first committed poll before the capacity clock begins; simultaneous
+startup can return retryable busy responses.</p>
+<p>The producer holds at most 256 outstanding requests and retries a busy admission
+every 5 ms for at most one second. The report counts those retries separately
+from lost/rejected inputs. This models a producer honoring backpressure; it does
+not promise every first HTTP attempt is accepted. Its push calls use the same
+production projection/acceptance path directly, avoiding source/destination
+network time. Measured latency includes projection, admission retries, database
+contention, evaluation and durable commit. Admission/auth HTTP behavior is tested
+separately. The driver uses absolute arrival times and fails if more than 1% are
+over 25 ms late, so a slow producer cannot silently lower the offered load.</p>
+<p>Linux <code>/proc/self/status</code> supplies current RSS and the high-water mark. The
+memory budget includes the embedded driver and fixture HTTP server. Growth
+compares median RSS after the 15-minute warmup with the final ten-minute window;
+the peak gate uses the kernel high-water mark, not just periodic samples. Latency
+uses bounded one-millisecond histogram buckets (the reported p95 is an upper
+bound). Counts, live database pages, retained rows and database/WAL bytes are
+sampled each minute. A verified backup and integrity check finish the run.</p>
+<p>The planned machine is an Apple M3 host with 16 GiB RAM, running Docker Linux
+ARM64 with a <strong>four-CPU quota</strong> and 1 GiB memory ceiling. The target remains below
+250 MiB process RSS; the container ceiling does not relax it. Data resides on a
+Docker volume, not a shared host filesystem. Ordinary history is explicitly
+<strong>one hour</strong> for this fixture, so cleanup can be observed. Input receipts retain
+their normal 24-hour dedup horizon. The default seven-day history setting is not
+a claim that this workload fits seven days inside the default 1 GiB store.
+Report actual growth and capacity implications before recommending defaults.</p>
+<p>From a clean, committed checkout:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>scripts/start-soak.sh
+</code></pre></div>
+<p>It starts a detached container and prints its exact name and collection commands.
+Keep the host and Docker awake for the full run. No external provider or alert
+recipient is contacted. <code>progress.json</code> is a checkpoint, not a passed result.
+Only <code>result.json</code> with <code>status: passed</code>, 86,400 seconds of requested/elapsed time,
+zero final failures and a successful container exit satisfies the soak gate.
+Retain the initial failed trials as diagnostic evidence; they are not releases.</p>
+<p>The first trial found two real defects: a queue predecessor lookup scanned
+delivered history, and concurrently acquired timestamps could commit out of order
+and create false clock reversals. Schema 3 adds live-queue/retention indexes, and
+live ingestion now samples accepted time inside the transaction. Regression
+tests cover query plans, migration backups and concurrent firing counts.</p>
+<h2 id="measured-packaging-baseline">Measured packaging baseline</h2>
+<p>GoReleaser 2.18.2, Go 1.26.1, CGO disabled, <code>-s -w</code>, snapshot of runtime
+commit <code>68d52a3</code>. These are exact bytes; archive metadata/version strings can
+change sizes slightly between releases. Adopt an initial review budget of
+18 MiB per stripped executable and 8 MiB per compressed archive; investigate
+increases rather than repeating the old unsupported 5 MB claim.</p>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th style="text-align: right;">Executable bytes</th>
+<th style="text-align: right;">Archive bytes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Linux amd64</td>
+<td style="text-align: right;">15,524,002</td>
+<td style="text-align: right;">6,467,480</td>
+</tr>
+<tr>
+<td>Linux arm64</td>
+<td style="text-align: right;">14,680,226</td>
+<td style="text-align: right;">5,969,956</td>
+</tr>
+<tr>
+<td>macOS amd64</td>
+<td style="text-align: right;">15,581,680</td>
+<td style="text-align: right;">6,446,255</td>
+</tr>
+<tr>
+<td>macOS arm64</td>
+<td style="text-align: right;">14,748,962</td>
+<td style="text-align: right;">6,079,082</td>
+</tr>
+<tr>
+<td>Windows amd64</td>
+<td style="text-align: right;">15,728,640</td>
+<td style="text-align: right;">6,519,050</td>
+</tr>
+<tr>
+<td>Windows arm64</td>
+<td style="text-align: right;">14,579,200</td>
+<td style="text-align: right;">5,924,773</td>
+</tr>
+</tbody>
+</table>
+<p>All six archives include the example, README, license and checksums. The native
+macOS ARM64 archive passes the exact README manifest, one firing after repeated
+high samples, recovery, event replay, forced restart and backup restore. The
+Linux ARM64 release container passes real HTTPS polling with CA verification and
+a negative control without CA roots. No snapshot is published as a stable release.
+The release container measures 14,861,950 uncompressed image bytes; use a 20 MiB
+image review budget for this baseline. Registry transfer sizes are different.</p>
+<p>CI <a href="https://github.com/ding-labs/ding/actions/runs/37868321420">37868321420</a> passes
+the schema-3 runtime (<code>68d52a3</code>), including all six native targets, full race tests,
+vet, module consistency, containers and physical filesystem faults. The local
+integrated race profile reports 81.2% overall statement coverage; fault assertions
+and subprocess outcomes supplement coverage percentages.</p>
+<h2 id="completed-short-harness-check">Completed short harness check</h2>
+<p>The six-minute preflight passed on 2026-10-09 UTC: 18,270 accepted/delivered
+pushes, zero lost/rejected inputs, 12 ms steady p95, 6 ms burst p95, 29.2 MiB
+peak RSS and -0.8% post-warmup median RSS growth. This short run uses a two-minute
+warmup, one-minute history and a burst every two minutes to exercise cleanup
+quickly. It is not the 24-hour gate or a published capacity guarantee.</p>
+<p>The <a href="https://github.com/ding-labs/ding/blob/codex/ding-watch-runtime/testdata/qualification/harness-6m.json">raw six-minute result</a>
+retains the original trial revision label; the runtime changes were committed as
+<code>68d52a3</code>. The driver is committed with this report. Failed early trials exposed
+the defects above and producer admission limits; the final driver records bounded
+admission retries and does not discard accepted events.</p>
+<h2 id="interrupted-first-24-hour-run">Interrupted first 24-hour run</h2>
+<ul>
+<li>Tested source: <code>0029fcd9d608ccccee6c06370eec9a75dbfe8b25</code>.</li>
+<li>Container/volume: <code>ding-soak-0029fcd-20261009011500</code>.</li>
+<li>Actual capacity start: <strong>2026-10-09 01:15:03 UTC</strong> (October 8, 6:15 PM Pacific).</li>
+<li>Earliest completion: <strong>2026-10-10 01:15:03 UTC</strong> (October 9, 6:15 PM Pacific),
+  followed by integrity/backup checks. <strong>This run was interrupted and stopped; that ETA no longer applies.</strong></li>
+<li>The host has a bounded 25-hour idle-sleep inhibitor for this run. Closing the
+  laptop, stopping Docker, or forcing sleep can interrupt the fixture.</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>ding-soak-0029fcd-20261009011500<span class="w"> </span>cat<span class="w"> </span>/results/run/progress.json
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>docker<span class="w"> </span>inspect<span class="w"> </span>ding-soak-0029fcd-20261009011500<span class="w"> </span>--format<span class="w"> </span><span class="s1">'{{.State.Status}} {{.State.ExitCode}}'</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>docker<span class="w"> </span>cp<span class="w"> </span>ding-soak-0029fcd-20261009011500:/results/run<span class="w"> </span>./qualification-result
+</code></pre></div>
+<p>After it exits, review <code>result.json</code>, timing/cadence, all failure counters, memory
+medians/high-water mark, live pages versus allocated disk and retained-row
+stabilization. Preserve the verified database backup outside Git; commit only
+the nonsecret metrics/report. If a runtime defect causes failure, fix it with a
+regression and repeat the full-duration gate. Do not mark P14 complete early.</p>
+<p>An additional rollback drill ran the actual schema-2 executable against a copy
+of the schema-3 fixture backup. It refused startup with the required compatible
+backup guidance; schema/data digests and integrity stayed unchanged. SQLite can
+update journal-mode header bytes on open, so this is logical data preservation,
+not a promise of bit-identical files after an attempted open.</p>
+<h2 id="interruption-diagnosis-and-driver-repair">Interruption diagnosis and driver repair</h2>
+<p>The first long run is invalid. On October 9, its last checkpoint contained about
+six hours of monotonic runtime despite roughly nineteen and a half hours of wall
+time. The persisted push watch had advanced to generation 35 after clock
+continuity resets; the fixture had cached generation 1 at startup. Production
+HTTP ingestion already fetches the current record for every request. The driver
+now follows that path, and a pause/resume regression reproduces the old stale
+record failure before verifying successful ingestion through the repaired driver.</p>
+<p>All 17,668 accepted pushes had delivered; subsequent rejected pushes cannot be
+counted as valid offered load. The saved database passed integrity checking. See
+<a href="https://github.com/ding-labs/ding/blob/codex/soak-driver-recovery/testdata/qualification/interrupted-24h-summary.json">the interrupted-run summary</a>.
+The original container/volume and a local diagnostic copy remain available.</p>
+<p>A continuous capacity fixture now fails promptly if wall and monotonic elapsed
+time differ by more than two seconds, if the load loop is interrupted for more
+than ten seconds, or if an input is rejected after its bounded admission retries.
+Reports include both elapsed clocks and an explicit UTC update timestamp. A real
+15-second container pause produced a failed terminal report and exit status 1,
+while preserving all accepted deliveries; see
+<a href="https://github.com/ding-labs/ding/blob/codex/soak-driver-recovery/testdata/qualification/pause-rejection.json">the pause result</a>.
+These failures do not weaken the runtime's clock recovery semantics. They prevent
+an interrupted workload from being described as a continuous 24-hour soak.</p>
+<p>On a laptop, keep the lid open and the host/Docker running for the entire test.
+An idle-sleep inhibitor alone does not guarantee continuous execution when the
+lid is closed or the host is explicitly put to sleep. A replacement starts the
+full qualification duration from zero; elapsed time from this invalid run is
+not credited.</p>
+<p>The repaired driver's six-minute check passed: 18,270 accepted/delivered pushes,
+zero rejected inputs, 18 ms steady p95, 21 ms burst p95, 37.8 MiB peak RSS and
+6.2% post-warmup median RSS growth. It used the same short-fixture settings as
+the earlier six-minute check. This is regression/preflight evidence, not the
+24-hour gate; the raw result is <code>testdata/qualification/recovery-harness-6m.json</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Ding · Apache-2.0
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.sections", "navigation.indexes", "content.code.copy", "search.suggest"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /preview/
+Disallow: /legacy/v0.14.0/
+Disallow: /development/
+Disallow: /console/
+Sitemap: https://docs.ding.ing/sitemap.xml
