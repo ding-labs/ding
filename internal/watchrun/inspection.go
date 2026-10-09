@@ -21,7 +21,7 @@ func (a *App) appendEvaluated(tx *store.Tx, r store.WatchRecord, e watch.Event, 
 	// A new-event firing depends only on this ID's absence and available
 	// capacity. Copying every unrelated ID into every firing checkpoint would
 	// make durable history quadratic in the dedup horizon.
-	if r.Plan.Definition.Spec.Condition.Operator == "new-event" && e.Type == "firing" {
+	if r.Plan.Definition.Spec.Condition.Operator == "new-event" && e.Type == "new-event" {
 		active := 0
 		for _, expiry := range c.Prior.Seen {
 			if now.Before(expiry) {

@@ -119,7 +119,7 @@ func TestEvidenceForSignalTimerAndSourceRecovery(t *testing.T) {
 					t.Fatal(event.Type, err)
 				}
 				if proof.Checkpoint != nil {
-					if kind == "new-event" && event.Type == "firing" && len(proof.Checkpoint.Prior.Seen) != 0 {
+					if kind == "new-event" && event.Type == "new-event" && len(proof.Checkpoint.Prior.Seen) != 0 {
 						t.Fatal("unrelated IDs copied into firing checkpoint")
 					}
 					count++
