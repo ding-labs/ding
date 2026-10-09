@@ -1,0 +1,12 @@
+{
+  "/recipes": "https://docs.ding.ing/legacy/v0.14.0/recipes/",
+  "/recipes/gitlab-ci": "https://docs.ding.ing/legacy/v0.14.0/recipes/gitlab-ci/",
+  "/recipes/jenkins": "https://docs.ding.ing/legacy/v0.14.0/recipes/jenkins/",
+  "/recipes/buildkite": "https://docs.ding.ing/legacy/v0.14.0/recipes/buildkite/",
+  "/recipes/kubernetes-jobs": "https://docs.ding.ing/legacy/v0.14.0/recipes/kubernetes-jobs/",
+  "/recipes/argo-workflows": "https://docs.ding.ing/legacy/v0.14.0/recipes/argo-workflows/",
+  "/recipes/mlflow": "https://docs.ding.ing/legacy/v0.14.0/recipes/mlflow/",
+  "/recipes/ray": "https://docs.ding.ing/legacy/v0.14.0/recipes/ray/",
+  "/recipes/modal": "https://docs.ding.ing/legacy/v0.14.0/recipes/modal/",
+  "/recipes/circleci": "https://docs.ding.ing/legacy/#retired-recipes"
+}

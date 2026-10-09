@@ -9,6 +9,21 @@ routes = [
 ]
 
 [assets]
-directory = "./site"
+directory = "./dist"
 binding = "ASSETS"
 run_worker_first = true
+
+html_handling = "auto-trailing-slash"
+not_found_handling = "404-page"
+
+[env.preview]
+name = "ding-website-preview"
+routes = []
+workers_dev = true
+
+[env.preview.assets]
+directory = "./dist"
+binding = "ASSETS"
+run_worker_first = true
+html_handling = "auto-trailing-slash"
+not_found_handling = "404-page"

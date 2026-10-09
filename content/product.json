@@ -1,0 +1,13 @@
+{
+  "name": "Ding",
+  "description": "Persistent watches and durable alerts for developers and agents",
+  "license": "Apache-2.0",
+  "websiteUrl": "https://ding.ing",
+  "docsUrl": "https://docs.ding.ing",
+  "repositoryUrl": "https://github.com/ding-labs/ding",
+  "runtime": { "channel": "source-preview", "version": null, "sourceRef": "1275a45" },
+  "console": { "status": "design-preview", "minimumVersion": null },
+  "legacy": { "version": "v0.14.0" },
+  "installPath": "/install/",
+  "quickstartPath": "/guides/first-watch/"
+}

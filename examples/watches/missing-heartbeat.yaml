@@ -1,0 +1,13 @@
+apiVersion: ding.ing/v1alpha1
+kind: Destination
+metadata: {id: console}
+spec: {type: console}
+---
+apiVersion: ding.ing/v1alpha1
+kind: Watch
+metadata: {id: heartbeat, name: Job heartbeat}
+spec:
+  source: {type: push, fields: {alive: alive}}
+  condition: {missingFor: 10m}
+  policy: {trigger: transition, consecutive: 1, recoverAfter: 1}
+  destinations: [{ref: console, events: [firing, recovered]}]

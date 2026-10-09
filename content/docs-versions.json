@@ -1,0 +1,5 @@
+{
+  "archives": [
+    { "ref": "v0.14.0", "path": "legacy/v0.14.0", "channel": "legacy" }
+  ]
+}

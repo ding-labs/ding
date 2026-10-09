@@ -1,1008 +1,178 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>DING — Don't store it. Stream it. DING it.</title>
-        <style>
-            * {
-                box-sizing: border-box;
-                margin: 0;
-                padding: 0;
-            }
-
-            body {
-                background: #0e0e0e;
-                color: #e8e8e8;
-                font-family: "Courier New", Courier, monospace;
-                font-size: 16px;
-                line-height: 1.6;
-            }
-
-            a {
-                color: #7ee787;
-                text-decoration: none;
-            }
-            a:hover {
-                text-decoration: underline;
-            }
-
-            .wrap {
-                max-width: 720px;
-                margin: 0 auto;
-                padding: 60px 24px 120px;
-            }
-
-            /* ── Hero ── */
-            .hero {
-                margin-bottom: 64px;
-            }
-
-            .hero-row {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 20px;
-                margin-bottom: 16px;
-            }
-
-            .logo {
-                display: block;
-                width: 140px;
-                height: 140px;
-                flex-shrink: 0;
-            }
-
-            .hero-row h1 {
-                margin-bottom: 0;
-            }
-
-            .footer-logo {
-                display: block;
-                width: 40px;
-                height: 40px;
-                margin: 64px auto 16px;
-                opacity: 0.6;
-            }
-
-            .hero h1 {
-                font-size: clamp(2.4rem, 6vw, 3.6rem);
-                font-weight: bold;
-                letter-spacing: -1px;
-                color: #fff;
-                line-height: 1.1;
-                margin-bottom: 16px;
-            }
-
-            .hero h1 span {
-                color: #7ee787;
-            }
-
-            .tagline {
-                font-size: 1.1rem;
-                color: #999;
-                margin-bottom: 8px;
-            }
-
-            .subtagline {
-                font-size: 0.95rem;
-                color: #777;
-                margin-bottom: 32px;
-                max-width: 560px;
-            }
-
-            /* ── Install bar ── */
-            .install {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                background: #1a1a1a;
-                border: 1px solid #333;
-                border-radius: 6px;
-                padding: 14px 18px;
-                margin-bottom: 10px;
-            }
-
-            .install .prompt {
-                color: #555;
-                user-select: none;
-            }
-
-            .install code {
-                flex: 1;
-                color: #7ee787;
-                font-size: 0.95rem;
-            }
-
-            .install-note {
-                font-size: 0.8rem;
-                color: #555;
-            }
-
-            .install-note a {
-                color: #666;
-            }
-
-            /* ── Sections ── */
-            section {
-                margin-bottom: 56px;
-            }
-
-            h2 {
-                font-size: 0.75rem;
-                text-transform: uppercase;
-                letter-spacing: 3px;
-                color: #555;
-                margin-bottom: 20px;
-                border-bottom: 1px solid #222;
-                padding-bottom: 8px;
-            }
-
-            h3 {
-                font-size: 0.85rem;
-                color: #999;
-                margin: 28px 0 12px;
-                font-weight: normal;
-                text-transform: uppercase;
-                letter-spacing: 1.5px;
-            }
-
-            p {
-                color: #bbb;
-                margin-bottom: 16px;
-                max-width: 640px;
-            }
-
-            /* ── Code blocks ── */
-            pre {
-                background: #141414;
-                border: 1px solid #2a2a2a;
-                border-radius: 6px;
-                padding: 20px;
-                overflow-x: auto;
-                margin-bottom: 16px;
-                font-size: 0.875rem;
-                line-height: 1.7;
-            }
-
-            pre code {
-                color: #ccc;
-            }
-
-            pre .comment {
-                color: #555;
-            }
-            pre .key {
-                color: #7ee787;
-            }
-            pre .str {
-                color: #a5d6ff;
-            }
-            pre .num {
-                color: #f0883e;
-            }
-            pre .cmd {
-                color: #7ee787;
-            }
-            pre .flag {
-                color: #ccc;
-            }
-
-            /* ── Steps ── */
-            .steps {
-                counter-reset: step;
-                list-style: none;
-            }
-
-            .steps li {
-                counter-increment: step;
-                display: flex;
-                gap: 16px;
-                margin-bottom: 28px;
-            }
-
-            .steps li::before {
-                content: counter(step);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                flex-shrink: 0;
-                width: 28px;
-                height: 28px;
-                border: 1px solid #333;
-                border-radius: 50%;
-                font-size: 0.75rem;
-                color: #555;
-                margin-top: 2px;
-            }
-
-            .steps li .step-body {
-                flex: 1;
-            }
-
-            .steps li .step-label {
-                color: #e8e8e8;
-                margin-bottom: 8px;
-                font-size: 0.95rem;
-            }
-
-            /* ── Feature list ── */
-            .features {
-                list-style: none;
-            }
-
-            .features li {
-                padding: 12px 0;
-                border-bottom: 1px solid #1c1c1c;
-                color: #bbb;
-                display: flex;
-                gap: 12px;
-            }
-
-            .features li::before {
-                content: "·";
-                color: #7ee787;
-                flex-shrink: 0;
-            }
-
-            .features li strong {
-                color: #e8e8e8;
-            }
-
-            /* ── API table ── */
-            table {
-                width: 100%;
-                border-collapse: collapse;
-                font-size: 0.875rem;
-            }
-
-            th {
-                text-align: left;
-                color: #555;
-                font-weight: normal;
-                padding: 8px 12px 8px 0;
-                border-bottom: 1px solid #222;
-            }
-
-            td {
-                padding: 10px 12px 10px 0;
-                border-bottom: 1px solid #1c1c1c;
-                color: #bbb;
-                vertical-align: top;
-            }
-
-            td:first-child,
-            td:nth-child(2) {
-                white-space: nowrap;
-            }
-
-            td code {
-                color: #a5d6ff;
-                font-size: 0.85rem;
-            }
-
-            /* ── Stat grid ── */
-            .stats {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 1px;
-                background: #222;
-                border: 1px solid #222;
-                border-radius: 6px;
-                overflow: hidden;
-                margin-bottom: 20px;
-            }
-
-            .stat {
-                background: #141414;
-                padding: 24px 20px;
-            }
-
-            .stat .stat-num {
-                font-size: 2.2rem;
-                font-weight: bold;
-                color: #7ee787;
-                line-height: 1;
-                margin-bottom: 6px;
-            }
-
-            .stat .stat-label {
-                font-size: 0.75rem;
-                color: #555;
-                text-transform: uppercase;
-                letter-spacing: 2px;
-            }
-
-            .stat .stat-context {
-                font-size: 0.78rem;
-                color: #3a3a3a;
-                margin-top: 5px;
-            }
-
-            /* ── Where DING fits ── */
-            .fits {
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 1px;
-                background: #222;
-                border: 1px solid #222;
-                border-radius: 6px;
-                overflow: hidden;
-                margin-bottom: 20px;
-            }
-
-            .fit {
-                background: #141414;
-                padding: 20px;
-            }
-
-            .fit .fit-label {
-                font-size: 0.75rem;
-                color: #7ee787;
-                text-transform: uppercase;
-                letter-spacing: 2px;
-                margin-bottom: 10px;
-            }
-
-            .fit .fit-body {
-                font-size: 0.85rem;
-                color: #999;
-                line-height: 1.5;
-            }
-
-            @media (max-width: 600px) {
-                .fits {
-                    grid-template-columns: 1fr;
-                }
-            }
-
-            /* ── Recipes ── */
-            .recipes {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 1px;
-                background: #222;
-                border: 1px solid #222;
-                border-radius: 6px;
-                overflow: hidden;
-                margin-bottom: 16px;
-            }
-
-            .recipe {
-                background: #141414;
-                padding: 14px 18px;
-                font-size: 0.85rem;
-            }
-
-            .recipe a {
-                color: #e8e8e8;
-                font-weight: bold;
-            }
-
-            .recipe a:hover {
-                color: #7ee787;
-            }
-
-            .recipe .recipe-tag {
-                display: inline-block;
-                font-size: 0.65rem;
-                color: #555;
-                margin-left: 8px;
-                text-transform: uppercase;
-                letter-spacing: 1px;
-            }
-
-            .recipe .recipe-desc {
-                color: #777;
-                font-size: 0.8rem;
-                margin-top: 4px;
-            }
-
-            @media (max-width: 600px) {
-                .recipes {
-                    grid-template-columns: 1fr;
-                }
-            }
-
-            /* ── Callout ── */
-            .callout {
-                background: #111;
-                border-left: 3px solid #7ee787;
-                padding: 16px 20px;
-                margin-bottom: 24px;
-                font-size: 0.9rem;
-                color: #666;
-                line-height: 1.6;
-            }
-
-            .callout strong {
-                color: #e8e8e8;
-            }
-
-            /* ── Footer ── */
-            footer {
-                margin-top: 80px;
-                padding-top: 24px;
-                border-top: 1px solid #1c1c1c;
-                font-size: 0.8rem;
-                color: #444;
-                display: flex;
-                justify-content: space-between;
-                flex-wrap: wrap;
-                gap: 8px;
-            }
-
-            footer a {
-                color: #555;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="wrap">
-            <!-- Hero -->
-            <div class="hero">
-                <div class="hero-row">
-                    <h1>D<span>ING</span></h1>
-                    <img src="ding-logo-light.svg" alt="DING logo" class="logo" />
-                </div>
-                <p class="tagline">Don't store it. Stream it. DING it.</p>
-                <p class="subtagline">
-                    One binary that wraps your CI job, training run, or batch
-                    script — and pings you when it matters.
-                </p>
-                <div class="install">
-                    <span class="prompt">$</span>
-                    <code>brew install ding-labs/tap/ding</code>
-                </div>
-                <div class="install">
-                    <span class="prompt">$</span>
-                    <code>curl -sf https://start.ding.ing | sh</code>
-                </div>
-                <p class="install-note">
-                    or <a href="#install">Docker, GitHub Actions, binary</a>
-                </p>
-            </div>
-
-            <!-- 60-second example -->
-            <section>
-                <h2>The 60-second example</h2>
-                <p>
-                    Drop a <code>ding.yaml</code> next to your job. Two rules:
-                    one fires the moment a test fails, one fires once at the end
-                    with the totals.
-                </p>
-                <pre><code><span class="key">rules:</span>
-  <span class="comment"># during the run — ping Slack the second a test fails</span>
-  - <span class="key">name:</span> <span class="str">test_failed</span>
-    <span class="key">match:</span>
-      <span class="key">metric:</span> <span class="str">test.failed</span>
-    <span class="key">condition:</span> <span class="str">value > 0</span>
-    <span class="key">message:</span> <span class="str">"❌ {{ .test_name }} failed on {{ .branch }}"</span>
-    <span class="key">alert:</span>
-      - <span class="key">notifier:</span> <span class="str">slack</span>
-
-  <span class="comment"># at end-of-run — one summary alert with the totals</span>
-  - <span class="key">name:</span> <span class="str">run_summary</span>
-    <span class="key">mode:</span> <span class="str">end-of-run</span>
-    <span class="key">match:</span>
-      <span class="key">metric:</span> <span class="str">run.exit</span>
-    <span class="key">condition:</span> <span class="str">exit_code != 0</span>
-    <span class="key">message:</span> <span class="str">"Job failed in {{ .duration_seconds }}s on {{ .commit }}"</span>
-    <span class="key">alert:</span>
-      - <span class="key">notifier:</span> <span class="str">slack</span></code></pre>
-                <p>Then wrap your job:</p>
-                <pre><code><span class="cmd">ding run</span> -- npm test</code></pre>
-                <p>
-                    DING auto-detects GitHub Actions, GitLab CI, CircleCI,
-                    Jenkins, Buildkite, Argo, MLflow, and bare Kubernetes — and
-                    attaches <code>run_id</code>, <code>branch</code>,
-                    <code>commit</code>, <code>workflow</code>, <code>job</code>,
-                    and <code>actor</code> labels automatically. They're
-                    available in every alert message.
-                </p>
-            </section>
-
-            <!-- What -->
-            <section>
-                <h2>What</h2>
-                <p>
-                    DING is a streaming alert engine that ships <em>with</em>
-                    your workload, not next to it. The job emits events; DING
-                    evaluates rules in-process; alerts fire during the run
-                    <em>and</em> a summary fires when the job exits. Both die
-                    together.
-                </p>
-                <p>Two ways to run it:</p>
-                <ul class="features">
-                    <li>
-                        <strong><code>ding run -- &lt;cmd&gt;</code></strong> —
-                        wraps an ephemeral job (CI, training, batch). Captures
-                        its event stream, evaluates rules in real time, fires a
-                        summary at exit.
-                    </li>
-                    <li>
-                        <strong><code>ding serve</code></strong> — long-running
-                        HTTP daemon for steady-state apps. Accepts events on
-                        <code>POST /ingest</code>, hot-reloads config.
-                    </li>
-                </ul>
-                <p>
-                    Single static binary. No database, no agents, no cloud
-                    account. MIT licensed. No telemetry.
-                </p>
-            </section>
-
-            <!-- Where DING fits -->
-            <section>
-                <h2>Where DING fits</h2>
-                <div class="fits">
-                    <div class="fit">
-                        <div class="fit-label">Ephemeral compute</div>
-                        <div class="fit-body">
-                            CI jobs, ML training runs, batch ETL, scheduled
-                            tasks. Anything that starts, does work, exits.
-                        </div>
-                    </div>
-                    <div class="fit">
-                        <div class="fit-label">Single-server apps</div>
-                        <div class="fit-body">
-                            One VM, edge boxes, internal tools. The cases where
-                            standing up Prometheus and Alertmanager is more
-                            infra than the app itself.
-                        </div>
-                    </div>
-                    <div class="fit">
-                        <div class="fit-label">Inside an existing stack</div>
-                        <div class="fit-body">
-                            Drop into one job inside a Prometheus shop. DING
-                            doesn't replace your fleet metrics — it covers the
-                            workloads they miss.
-                        </div>
-                    </div>
-                </div>
-                <div class="callout">
-                    <strong>Prometheus assumes a fleet. DING assumes a
-                    4-minute CI job.</strong> Pull-based monitoring needs a
-                    target that lives long enough to be scraped. Most jobs
-                    don't.
-                </div>
-            </section>
-
-            <!-- Rules -->
-            <section>
-                <h2>Rules</h2>
-                <p>One YAML file. Lives in your repo. Ships with your code.</p>
-                <pre><code><span class="key">rules:</span>
-  <span class="comment"># during-run: fires whenever the condition is true</span>
-  - <span class="key">name:</span> <span class="str">cpu_spike</span>
-    <span class="key">match:</span>
-      <span class="key">metric:</span> <span class="str">cpu_usage</span>
-    <span class="key">condition:</span> <span class="str">value > 95</span>
-    <span class="key">cooldown:</span> <span class="str">1m</span>
-    <span class="key">message:</span> <span class="str">"CPU spike on {{ .host }}: {{ .value }}%"</span>
-    <span class="key">alert:</span>
-      - <span class="key">notifier:</span> <span class="str">stdout</span>
-
-  <span class="comment"># windowed: avg over 5m, fires while sustained</span>
-  - <span class="key">name:</span> <span class="str">cpu_sustained</span>
-    <span class="key">match:</span>
-      <span class="key">metric:</span> <span class="str">cpu_usage</span>
-    <span class="key">condition:</span> <span class="str">avg(value) over 5m > 80</span>
-    <span class="key">cooldown:</span> <span class="str">10m</span>
-    <span class="key">message:</span> <span class="str">"Sustained high CPU: {{ .avg }}% on {{ .host }}"</span>
-    <span class="key">alert:</span>
-      - <span class="key">notifier:</span> <span class="str">stdout</span>
-
-  <span class="comment"># end-of-run: fires once at exit, against accumulated state</span>
-  - <span class="key">name:</span> <span class="str">slow_run</span>
-    <span class="key">mode:</span> <span class="str">end-of-run</span>
-    <span class="key">match:</span>
-      <span class="key">metric:</span> <span class="str">request.latency</span>
-    <span class="key">condition:</span> <span class="str">avg(value) over 1h > 200</span>
-    <span class="key">message:</span> <span class="str">"Avg latency this run: {{ .avg }}ms"</span>
-    <span class="key">alert:</span>
-      - <span class="key">notifier:</span> <span class="str">slack</span></code></pre>
-
-                <p>All condition forms:</p>
-                <pre><code>value > 95                       <span class="comment"># single event</span>
-avg(value) over 5m > 80         <span class="comment"># average over window</span>
-max(value) over 1m >= 100
-min(value) over 10s < 10
-sum(value) over 30s > 0
-count(value) over 2m > 50       <span class="comment"># number of events, not sum of values</span>
-condition_a AND condition_b     <span class="comment"># compound</span>
-condition_a OR condition_b</code></pre>
-
-                <p>Template variables in <code>message:</code>:</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Variable</th>
-                            <th>When</th>
-                            <th>Description</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><code>.metric</code></td>
-                            <td>always</td>
-                            <td>metric name</td>
-                        </tr>
-                        <tr>
-                            <td><code>.value</code></td>
-                            <td>always</td>
-                            <td>raw event value</td>
-                        </tr>
-                        <tr>
-                            <td><code>.rule</code></td>
-                            <td>always</td>
-                            <td>rule name</td>
-                        </tr>
-                        <tr>
-                            <td><code>.fired_at</code></td>
-                            <td>always</td>
-                            <td>RFC3339 timestamp</td>
-                        </tr>
-                        <tr>
-                            <td><code>.host</code>, <code>.region</code>, …</td>
-                            <td>always</td>
-                            <td>any label from the event</td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <code>.run_id</code>, <code>.branch</code>,
-                                <code>.commit</code>, <code>.workflow</code>, …
-                            </td>
-                            <td><code>ding run</code></td>
-                            <td>auto-detected run-context labels</td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <code>.exit_code</code>,
-                                <code>.duration_seconds</code>
-                            </td>
-                            <td><code>run.exit</code> event</td>
-                            <td>synthetic event emitted at end of run</td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <code>.avg</code> <code>.max</code>
-                                <code>.min</code> <code>.sum</code>
-                                <code>.count</code>
-                            </td>
-                            <td>windowed only</td>
-                            <td>aggregate result</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </section>
-
-            <!-- Notifiers -->
-            <section>
-                <h2>Notifiers</h2>
-                <p>
-                    <code>stdout</code> and <code>github_actions</code> are
-                    built in — no config needed. Everything else is declared
-                    once and referenced by name.
-                </p>
-
-                <h3>Built-in</h3>
-                <ul class="features">
-                    <li>
-                        <strong><code>stdout</code></strong> — JSON line per
-                        alert. Pipe it anywhere.
-                    </li>
-                    <li>
-                        <strong><code>github_actions</code></strong> — writes
-                        <code>::warning::</code> annotations to the live log
-                        and appends markdown to
-                        <code>$GITHUB_STEP_SUMMARY</code>. Falls back to
-                        stdout outside Actions.
-                    </li>
-                </ul>
-
-                <h3>Configurable</h3>
-                <pre><code><span class="key">notifiers:</span>
-  <span class="key">slack:</span>
-    <span class="key">type:</span> <span class="str">slack</span>
-    <span class="key">url:</span> <span class="str">${SLACK_WEBHOOK_URL}</span>
-
-  <span class="key">on-call:</span>
-    <span class="key">type:</span> <span class="str">discord</span>
-    <span class="key">url:</span> <span class="str">${DISCORD_WEBHOOK_URL}</span>
-
-  <span class="key">custom:</span>
-    <span class="key">type:</span> <span class="str">webhook</span>
-    <span class="key">url:</span> <span class="str">https://example.com/hook</span>
-    <span class="key">max_attempts:</span> <span class="num">3</span>       <span class="comment"># retries on 5xx (default: 3)</span>
-    <span class="key">initial_backoff:</span> <span class="str">1s</span>   <span class="comment"># doubles each attempt (default: 1s)</span></code></pre>
-
-                <p>
-                    Also supported: <code>type: teams</code>,
-                    <code>type: pagerduty</code>, <code>type: telegram</code>.
-                    Slack, Discord, and Teams auto-surface run-context fields
-                    (exit code, duration, branch, commit, workflow, actor) so
-                    alerts from a CI job land actionable.
-                    <code>${VAR}</code> works in any string value — fail fast
-                    if unset.
-                </p>
-
-                <p>The generic webhook payload:</p>
-                <pre><code>{"rule":"cpu_spike","message":"CPU spike on web-01: 97%",
- "metric":"cpu_usage","value":97.0,"fired_at":"...","host":"web-01"}</code></pre>
-                <p>
-                    4xx responses are dropped. 5xx responses retry with
-                    exponential backoff.
-                </p>
-            </section>
-
-            <!-- Why -->
-            <section>
-                <h2>Why</h2>
-                <div class="callout">
-                    <strong>Fires alerts in 4ms.</strong> Prometheus default
-                    scrape + eval + Alertmanager dispatch: ~62 seconds minimum.
-                    That's not a knock on Prometheus — it's a pull-based system
-                    built for persistence and fleet-wide aggregation. DING is
-                    push-based and stateless. The architecture is the
-                    difference.
-                </div>
-                <ul class="features">
-                    <li>
-                        <strong>Zero infrastructure</strong> — no Prometheus, no
-                        Alertmanager, no storage, no agents
-                    </li>
-                    <li>
-                        <strong>Windowed aggregations</strong> —
-                        <code>avg(value) over 5m</code> works with no database,
-                        just memory
-                    </li>
-                    <li>
-                        <strong>Per-host cooldowns</strong> —
-                        <code>web-01</code> being loud doesn't silence
-                        <code>web-02</code>
-                    </li>
-                    <li>
-                        <strong>Composable</strong> — stdin in, JSON lines out,
-                        pipes into anything
-                    </li>
-                    <li>
-                        <strong>Config in your repo</strong> — 12 lines, 1 file
-                        vs 30 lines across 3 files for the Prometheus
-                        equivalent. Alerting is a dev artifact, not an ops
-                        artifact.
-                    </li>
-                    <li>
-                        <strong>5MB static binary, 9ms cold start</strong> —
-                        runs on linux/arm64, amd64, macOS, Windows. Prometheus
-                        cold start: 185ms.
-                    </li>
-                </ul>
-            </section>
-
-            <!-- Performance -->
-            <section>
-                <h2>Performance</h2>
-                <div class="stats">
-                    <div class="stat">
-                        <div class="stat-num">4ms</div>
-                        <div class="stat-label">Alert latency p50</div>
-                        <div class="stat-context">
-                            p99: 16ms &mdash; Prometheus default: ~62s
-                        </div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-num">116k</div>
-                        <div class="stat-label">Requests / second</div>
-                        <div class="stat-context">
-                            50 concurrent workers, 30s window
-                        </div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-num">9ms</div>
-                        <div class="stat-label">Cold start p50</div>
-                        <div class="stat-context">
-                            fork → first /health &mdash; Prometheus: 185ms
-                        </div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-num">106ns</div>
-                        <div class="stat-label">Per rule evaluation</div>
-                        <div class="stat-context">
-                            simple threshold &mdash; windowed: 157ns
-                        </div>
-                    </div>
-                </div>
-                <p>
-                    Benchmarked 2026-03-23 on Apple M3.
-                    <a
-                        href="https://github.com/ding-labs/ding/blob/main/BENCHMARKS.md"
-                        >Full methodology and raw results →</a
-                    >
-                </p>
-            </section>
-
-            <!-- Recipes -->
-            <section>
-                <h2>Recipes</h2>
-                <p>
-                    Ready-made configs for the platforms you already use. Drop
-                    them in, edit the rules, ship.
-                </p>
-                <div class="recipes">
-                    <div class="recipe">
-                        <a href="https://github.com/ding-labs/ding-action"
-                            >GitHub Actions</a
-                        ><span class="recipe-tag">action</span>
-                        <div class="recipe-desc">
-                            Marketplace action. One step in your workflow.
-                        </div>
-                    </div>
-                    <div class="recipe">
-                        <a href="https://ding.ing/recipes/gitlab-ci"
-                            >GitLab CI</a
-                        >
-                        <div class="recipe-desc">
-                            Pipeline job, artifacts upload, MR comments.
-                        </div>
-                    </div>
-                    <div class="recipe">
-                        <a href="https://ding.ing/recipes/circleci">CircleCI</a>
-                        <div class="recipe-desc">
-                            Orb-friendly. Wraps any step's command.
-                        </div>
-                    </div>
-                    <div class="recipe">
-                        <a href="https://ding.ing/recipes/jenkins">Jenkins</a>
-                        <div class="recipe-desc">
-                            Declarative + scripted pipelines.
-                        </div>
-                    </div>
-                    <div class="recipe">
-                        <a href="https://ding.ing/recipes/buildkite"
-                            >Buildkite</a
-                        >
-                        <div class="recipe-desc">
-                            Step plugin. Works with agent fleet.
-                        </div>
-                    </div>
-                    <div class="recipe">
-                        <a href="https://ding.ing/recipes/kubernetes-jobs"
-                            >Kubernetes Jobs</a
-                        >
-                        <div class="recipe-desc">
-                            initContainer pattern. Helm chart available.
-                        </div>
-                    </div>
-                    <div class="recipe">
-                        <a href="https://ding.ing/recipes/argo-workflows"
-                            >Argo Workflows</a
-                        >
-                        <div class="recipe-desc">
-                            Sidecar with downward API for run context.
-                        </div>
-                    </div>
-                    <div class="recipe">
-                        <a href="https://ding.ing/recipes/mlflow">MLflow</a>
-                        <div class="recipe-desc">
-                            Auto-attaches experiment ID and tracking URI.
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ding serve mode -->
-            <section>
-                <h2><code>ding serve</code> mode</h2>
-                <p>
-                    For steady-state apps — anything that runs longer than the
-                    workload it watches. Starts an HTTP server on
-                    <code>:8080</code>, accepts events, evaluates rules
-                    continuously, hot-reloads config without restarting.
-                </p>
-                <pre><code><span class="cmd">ding serve</span> --config ./ding.yaml
-
-<span class="comment"># or pipe stdin</span>
-your-app | <span class="cmd">ding serve</span>
-
-<span class="comment"># or POST events</span>
-<span class="cmd">curl</span> -X POST http://localhost:8080/ingest \
-  -H "Content-Type: application/json" \
-  -d '{"metric":"cpu_usage","value":97,"host":"web-01"}'</code></pre>
-
-                <p>Accepts JSON lines:</p>
-                <pre><code>{"metric": "cpu_usage", "value": 92.5, "host": "web-01"}</code></pre>
-                <p>or Prometheus text:</p>
-                <pre><code>cpu_usage{host="web-01"} 92.5</code></pre>
-
-                <h3>HTTP API</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Method</th>
-                            <th>Path</th>
-                            <th>Description</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><code>POST</code></td>
-                            <td><code>/ingest</code></td>
-                            <td>Send events</td>
-                        </tr>
-                        <tr>
-                            <td><code>GET</code></td>
-                            <td><code>/health</code></td>
-                            <td>Liveness probe</td>
-                        </tr>
-                        <tr>
-                            <td><code>GET</code></td>
-                            <td><code>/rules</code></td>
-                            <td>List rules + cooldown state</td>
-                        </tr>
-                        <tr>
-                            <td><code>POST</code></td>
-                            <td><code>/reload</code></td>
-                            <td>Hot-reload config</td>
-                        </tr>
-                        <tr>
-                            <td><code>GET</code></td>
-                            <td><code>/metrics</code></td>
-                            <td>Prometheus-format self-metrics</td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <h3>Operations</h3>
-                <p>Reload config without restarting:</p>
-                <pre><code><span class="cmd">kill</span> -HUP &lt;pid&gt;
-<span class="comment"># or</span>
-<span class="cmd">curl</span> -X POST http://localhost:8080/reload</code></pre>
-                <p>
-                    Survive restarts — persist cooldown state and windowed
-                    buffers to disk:
-                </p>
-                <pre><code><span class="key">persistence:</span>
-  <span class="key">state_file:</span> <span class="str">/var/lib/ding/state.json</span>
-  <span class="key">flush_interval:</span> <span class="str">30s</span></code></pre>
-                <p>
-                    SIGTERM / SIGINT — drains in-flight requests, flushes state,
-                    exits 0.
-                </p>
-            </section>
-
-            <!-- Install -->
-            <section id="install">
-                <h2>Install</h2>
-                <p>Homebrew:</p>
-                <pre><code><span class="cmd">brew install</span> ding-labs/tap/ding</code></pre>
-                <p>Binary:</p>
-                <pre><code><span class="cmd">curl</span> -sf https://start.ding.ing | sh</code></pre>
-                <p>Docker:</p>
-                <pre><code><span class="cmd">docker run</span> -v ./ding.yaml:/etc/ding/ding.yaml \
-  ghcr.io/ding-labs/ding</code></pre>
-                <p>
-                    GitHub Actions:
-                    <a href="https://github.com/ding-labs/ding-action"
-                        >ding-labs/ding-action</a
-                    >
-                    on the marketplace — one step in your workflow.
-                </p>
-                <p>Kubernetes initContainer (self-copy into a shared volume):</p>
-                <pre><code><span class="cmd">ding install</span> /shared/ding</code></pre>
-            </section>
-
-            <img
-                src="ding-logo.svg"
-                alt=""
-                class="footer-logo"
-                aria-hidden="true"
-            />
-
-            <footer>
-                <span>MIT license</span>
-                <span><a href="https://ding.ing">ding.ing</a></span>
-            </footer>
-        </div>
-    </body>
-</html>
+<section class="hero" id="product">
+  <div class="hero-copy">
+    <p class="eyebrow">
+      <span class="signal"></span> Persistent watches. Durable alerts.
+    </p>
+    <h1>Know what<br />happened.<br /><em>See why.</em></h1>
+    <p class="lede">
+      Watch an API, run a local check, or receive events from your software.
+      Ding keeps the state, records the evidence, and retries the notification.
+    </p>
+    <div class="actions">
+      <a class="button primary" href="{{installUrl}}"
+        >{{cta}} <span aria-hidden="true">↗</span></a
+      ><a class="text-link" href="{{quickstartUrl}}"
+        >Create your first watch <span aria-hidden="true">→</span></a
+      >
+    </div>
+    <p class="availability">
+      {{availability}}
+      <a href="{{docsUrl}}legacy/">Using the legacy runtime?</a>
+    </p>
+  </div>
+  <div class="hero-product">
+    {{evidence}}
+    <p class="figure-note">
+      Ding Console · design preview with sample data. CLI and API available in
+      the watch source preview.
+    </p>
+  </div>
+</section>
+<div class="principles">
+  <span>Runs on your infrastructure</span><span>State survives restarts</span
+  ><span>Apache-2.0</span><span>No model call on each check</span>
+</div>
+<section class="section" id="how-it-works">
+  <div class="section-heading">
+    <p class="eyebrow">01 / The whole story</p>
+    <h2>An alert with a reason<br />you can inspect.</h2>
+    <p>
+      From the first observation to the last delivery attempt, Ding keeps the
+      pieces connected.
+    </p>
+  </div>
+  <ol class="flow">
+    <li>
+      <span class="step">01</span>
+      <h3>Observe</h3>
+      <p>
+        Poll an HTTP endpoint, run an explicit command, or accept authenticated
+        JSON.
+      </p>
+      <span class="mono">HTTP · command · push</span>
+    </li>
+    <li>
+      <span class="step">02</span>
+      <h3>Evaluate</h3>
+      <p>
+        Apply a declared condition. Keep incident state and recovery progress
+        across restarts.
+      </p>
+      <span class="mono">One versioned manifest</span>
+    </li>
+    <li>
+      <span class="step">03</span>
+      <h3>Record</h3>
+      <p>
+        Commit the event and its evidence to local SQLite storage, with explicit
+        retention limits.
+      </p>
+      <span class="mono">State + evidence + outbox</span>
+    </li>
+    <li>
+      <span class="step">04</span>
+      <h3>Deliver</h3>
+      <p>
+        Send notifications with durable retries. Inspect failures and
+        deduplicate stable event IDs.
+      </p>
+      <span class="mono">Console · webhook · Slack · Discord</span>
+    </li>
+  </ol>
+</section>
+<section class="section use-cases">
+  <div class="section-heading">
+    <p class="eyebrow">02 / Small definitions. Real jobs.</p>
+    <h2>Watch what matters.</h2>
+    <p>Start with a supported source and a condition you can explain.</p>
+  </div>
+  <a class="use-row" href="{{docsUrl}}guides/http/"
+    ><span class="use-number">01</span>
+    <div>
+      <h3>Catch an API failure. Track its recovery.</h3>
+      <p>
+        Open an incident after three actual 5xx responses. Recover after two
+        nonmatching observations.
+      </p>
+    </div>
+    <span class="tag">HTTP</span><span aria-hidden="true">↗</span></a
+  >
+  <a class="use-row" href="{{docsUrl}}guides/missing-data/"
+    ><span class="use-number">02</span>
+    <div>
+      <h3>Notice when a heartbeat goes quiet.</h3>
+      <p>
+        A persistent deadline can fire even when no new measurement arrives.
+      </p>
+    </div>
+    <span class="tag">Push</span><span aria-hidden="true">↗</span></a
+  >
+  <a class="use-row" href="{{docsUrl}}guides/changes/"
+    ><span class="use-number">03</span>
+    <div>
+      <h3>Know when something changes.</h3>
+      <p>
+        Compare a value to its saved baseline or recognize a new provider event
+        ID.
+      </p>
+    </div>
+    <span class="tag">Events</span><span aria-hidden="true">↗</span></a
+  >
+</section>
+<section class="section definition">
+  <div>
+    <p class="eyebrow">03 / Your tools. One runtime.</p>
+    <h2>A definition you can<br />read, test, and keep.</h2>
+    <p>
+      Use the CLI, have an agent help write the manifest, and inspect the same
+      watch through the planned Console. The Go daemon owns evaluation and
+      durable state.
+    </p>
+    <p>
+      Validate before applying. Replay a fixture without source requests or
+      notifications. Review how an edit affects existing state.
+    </p>
+    <a class="text-link" href="{{docsUrl}}configuration/"
+      >Explore watch definitions <span aria-hidden="true">→</span></a
+    >
+  </div>
+  <div class="code-panel">
+    <div class="code-title">
+      api-health.yaml <span>Excerpt · replace the example endpoint</span>
+    </div>
+    <pre tabindex="0" aria-label="Code example"><code>{{manifest}}</code></pre>
+    <a href="/examples/">See complete, runnable examples →</a>
+  </div>
+</section>
+<section class="section operation">
+  <p class="eyebrow">04 / Keep it yours</p>
+  <h2>One daemon.<br />A durable memory.</h2>
+  <div>
+    <p class="lede">
+      Run Ding locally or on your own server. Its SQLite store keeps conditions,
+      evidence, and pending notifications together.
+    </p>
+    <p>
+      A running daemon is required. Delivery is at least once; receivers should
+      deduplicate event IDs. Retention and resource limits are explicit, and
+      unknown input never silently clears an open incident.
+    </p>
+    <a class="text-link" href="{{docsUrl}}operate/"
+      >Read the operating guide →</a
+    >
+  </div>
+</section>
+<section class="closing" id="install">
+  <div>
+    <p class="eyebrow">Start with one watch</p>
+    <h2>Make the next alert<br />make sense.</h2>
+  </div>
+  <div>
+    <a class="button primary" href="{{quickstartUrl}}"
+      >Create your first watch <span aria-hidden="true">↗</span></a
+    >
+    <p>
+      No external service required for the quickstart.<br />{{availability}}
+    </p>
+  </div>
+</section>

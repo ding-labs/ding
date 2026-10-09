@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block announce %}
+<div class="ding-channels">
+  <strong>{{ config.extra.channel_label }}</strong>
+  <a href="{{ config.extra.public_docs_url }}">Current docs</a>
+  <a href="{{ config.extra.public_docs_url }}preview/">Development preview</a>
+  <a href="{{ config.extra.public_docs_url }}legacy/v0.14.0/">Legacy v0.14.0</a>
+  <a href="https://ding.ing">Ding website ↗</a>
+</div>
+{% endblock %}
+{% block extrahead %}
+{{ super() }}
+{% if config.extra.noindex or page and (page.url.startswith('development/') or page.url.startswith('console/')) %}<meta name="robots" content="noindex,follow">{% endif %}
+<meta property="og:title" content="{{ page.title | default(config.site_name, true) }} — Ding docs">
+<meta property="og:description" content="{{ config.site_description }}">
+<meta property="og:image" content="https://ding.ing/assets/social.png">
+{% endblock %}

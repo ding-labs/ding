@@ -1,0 +1,16 @@
+{
+  "name": "ding-docs",
+  "private": true,
+  "scripts": {
+    "check": "node ../../scripts/web/check-publication.mjs",
+    "deploy": "npm run check && wrangler deploy --env=\"\"",
+    "deploy:preview": "npm run check && wrangler deploy --env preview"
+  },
+  "devDependencies": {
+    "wrangler": "4.149.0"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  }
+}

@@ -84,3 +84,11 @@ immutable destination revision.
 The proposed legacy maintenance window is critical reliability/security fixes
 for 90 days after the first stable watch release. That stable release date has
 not been set; no maintenance end date is implied by this preview.
+
+## Retired recipes
+
+The [frozen v0.14.0 documentation](https://docs.ding.ing/legacy/v0.14.0/) preserves supported
+legacy commands and recipes. These use the workload-wrapper architecture; they
+are not instructions for persistent watches. CircleCI support was removed before
+this release. Use the legacy recipe index for the integrations actually present
+in v0.14.0, or write an explicit watch integration for your producer.

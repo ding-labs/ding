@@ -1,0 +1,116 @@
+<section class="page-hero">
+  <p class="eyebrow">Examples / Watch source preview</p>
+  <h1>Small watches.<br /><em>Useful answers.</em></h1>
+  <p class="lede">
+    Each example uses a supported source and an explicit condition. Validate the
+    manifest, try a fixture, and apply it to your daemon when you’re ready.
+  </p>
+</section>
+<section class="featured-example">
+  <div>
+    <span class="tag">Start here · no external service</span>
+    <h2>Your first firing.<br />Your first recovery.</h2>
+    <p>
+      Push a latency reading above 300 ms, inspect the event, then send a lower
+      reading to recover. Notifications print to your daemon’s console.
+    </p>
+    <a class="button primary" href="{{quickstartUrl}}"
+      >Follow the quickstart ↗</a
+    >
+  </div>
+  <div class="code-panel">
+    <div class="code-title">One input. A recorded decision.</div>
+    <pre tabindex="0" aria-label="Code example"><code>{"latency_ms": 350}
+
+condition: latency_ms &gt; 300
+     event: firing
+  delivery: console output
+
+{"latency_ms": 100}
+
+     event: recovered</code></pre>
+    <p class="figure-note">
+      Illustrated outcomes; the guide shows authenticated requests.
+    </p>
+  </div>
+</section>
+<section class="section">
+  <div class="section-heading">
+    <p class="eyebrow">Choose a source and a condition</p>
+    <h2>A few good starting points.</h2>
+  </div>
+  <div class="example-grid">
+    <article>
+      <span class="tag">HTTP</span>
+      <h3>API health</h3>
+      <p>
+        Check every five seconds. Fire after three server errors and recover
+        after two nonmatching observations.
+      </p>
+      <a href="{{docsUrl}}guides/http/">Build an HTTP watch →</a>
+    </article>
+    <article>
+      <span class="tag">Push</span>
+      <h3>Missing heartbeat</h3>
+      <p>
+        Record an incident when ten minutes pass without fresh input. A new
+        observation recovers it.
+      </p>
+      <a href="{{docsUrl}}guides/missing-data/">Watch for missing data →</a>
+    </article>
+    <article>
+      <span class="tag">Command</span>
+      <h3>A local status check</h3>
+      <p>
+        Run an explicit, trusted command returning JSON. Select the fields the
+        condition needs.
+      </p>
+      <a href="{{docsUrl}}guides/command/">Run a local check →</a>
+    </article>
+    <article>
+      <span class="tag">Change</span>
+      <h3>A new version or event</h3>
+      <p>
+        Keep a typed baseline or deduplicate provider IDs within a declared
+        horizon.
+      </p>
+      <a href="{{docsUrl}}guides/changes/">Recognize a change →</a>
+    </article>
+  </div>
+</section>
+<section class="section definition">
+  <div>
+    <p class="eyebrow">Try it without source requests</p>
+    <h2>Replay the failure.<br />Then the recovery.</h2>
+    <p>
+      The API-health fixture contains three 5xx responses followed by two 200
+      responses. Replay evaluates those recorded inputs without sending a
+      notification.
+    </p>
+    <a
+      class="text-link"
+      href="{{docsUrl}}guides/http/#test-without-a-live-service"
+      >Follow the fixture walkthrough →</a
+    >
+  </div>
+  <div class="code-panel">
+    <div class="code-title">From a built source checkout</div>
+    <pre tabindex="0" aria-label="Code example"><code>./ding test examples/watches/api-health.yaml \
+  --events testdata/watches/api-health.jsonl \
+  --json</code></pre>
+    <div class="fixture-data">{{fixture}}</div>
+  </div>
+</section>
+<section class="closing">
+  <div>
+    <p class="eyebrow">Bring your own data</p>
+    <h2>Explicit inputs.<br />Inspectable behavior.</h2>
+  </div>
+  <p>
+    Sports, prices, flights, and traffic need a real feed and any upstream
+    calculations. Ding does not bundle provider access or invent an
+    integration.<br /><a class="text-link" href="{{docsUrl}}examples/"
+      >Browse the documentation →</a
+    >
+  </p>
+</section>
