@@ -6,7 +6,7 @@ Evidence-first is the chosen layout. This document freezes the U01 decisions for
 
 Use `web/console` for the static React/TypeScript app and `internal/webui` for Go embedding. A `console` Go build tag embeds the production build; ordinary Go development and tests remain headless. Release/container builds explicitly enable the tag after a locked frontend install/build. Missing assets fail a console build instead of producing a broken release. `ding ui --no-open` prints a one-use launch URL; `ding ui` also opens the browser.
 
-Keep `workers/website` in place. Preserve the primary checkout's existing website deployment draft. The current docs publisher is MkDocs/GitHub Pages; the untracked `workers/docs` draft is not activated by the console work. This avoids two independent publishers for the same documentation. Component-scoped CI belongs in U07.
+Keep `workers/website` and the independent public-site workflows in place. The merged website/docs work builds versioned documentation into `workers/docs/site` and selects one production publisher through `DOCS_PUBLISHER`. GitHub Pages remains the default until an explicit Cloudflare cutover; console integration does not change that setting or deploy a site. Use the staged documentation build and generated CLI navigation described in the [publishing guide](../contribute/index.md).
 
 ## Browser boundary
 

@@ -1,5 +1,14 @@
 # Ding Console
 
+Ding Console is available in **console-enabled source builds** from this checkout.
+Published legacy v0.14.0 binaries do not include the Console or `ding ui`. Human
+usability review and a fresh continuous soak remain release gates; see the
+[qualification record](../development/console-qualification.md).
+
+The interface follows the evidence: what was observed, how the condition was
+evaluated, what event was recorded, and what happened to delivery. For a headless
+installation, use the [first-watch CLI walkthrough](../guides/first-watch.md).
+
 The console is served by the same daemon as the versioned API. Its browser session can inspect and manage that instance; the public `ding.ing` website is a separate deployment.
 
 ## Build and open
@@ -37,11 +46,11 @@ Launch links returned by `ding ui` use the configured origin. SameSite cookies, 
 
 These screenshots use an isolated local fixture with clearly labeled preview watches.
 
-![Watch attention list](images/console/watches-light.png)
+![Watch attention list](../images/console/watches-light.png)
 
-![Event-time evidence and delivery outcome](images/console/event-evidence.png)
+![Event-time evidence and delivery outcome](../images/console/event-evidence.png)
 
-For design and implementation status, see the [console plan](development/console-plan.md) and [phase progress](development/console-progress.md).
+For design and implementation status, see the [console plan](../development/console-plan.md) and [phase progress](../development/console-progress.md).
 
 ## Operating the console
 
@@ -69,4 +78,4 @@ docker build -f web/console/Dockerfile.test -t ding-console-browser-check .
 docker run --rm ding-console-browser-check
 ```
 
-Use `DING_VISUAL_CAPTURE=1 npx playwright test --project=chromium tests/visual.spec.ts` inside `web/console` to regenerate the documentation fixtures. Inspect the resulting screenshots before committing them. See the [qualification report](development/console-qualification.md) for measured results and remaining release gates.
+Use `DING_VISUAL_CAPTURE=1 npx playwright test --project=chromium tests/visual.spec.ts` inside `web/console` to regenerate the documentation fixtures. Inspect the resulting screenshots before committing them. See the [qualification report](../development/console-qualification.md) for measured results and remaining release gates.

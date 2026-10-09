@@ -133,7 +133,7 @@ func ConsoleHandler(app *watchrun.App, c Credentials, cfg ConsoleConfig) http.Ha
 		}
 		if r.URL.Path == "/ui" || strings.HasPrefix(r.URL.Path, "/ui/") {
 			if !enabled {
-				http.Error(w, "Console unavailable. Build Ding with console assets; see docs/console.md.", 404)
+				http.Error(w, "Console unavailable. Build Ding with console assets; see docs/console/index.md.", 404)
 				return
 			}
 			if r.Host != b.host {

@@ -1,45 +1,108 @@
 name: Docs
-
 on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'workers/docs/**'
+      - 'scripts/web/**'
+      - 'design/**'
+      - 'content/**'
+      - 'cmd/docgen/**'
+      - 'cmd/ding/**'
+      - 'internal/watchcli/**'
+      - 'internal/control/**'
+      - 'internal/watch/**'
+      - 'internal/plan/**'
+      - 'schemas/**'
+      - 'examples/**'
+      - 'ding.yaml.example'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/docs.yml'
+      - '.github/workflows/public-checks.yml'
   push:
     branches: [main]
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
+      - 'workers/docs/**'
+      - 'scripts/web/**'
+      - 'design/**'
+      - 'content/**'
       - 'cmd/docgen/**'
+      - 'cmd/ding/**'
       - 'internal/watchcli/**'
-      - 'internal/plan/**'
       - 'internal/control/**'
+      - 'internal/watch/**'
+      - 'internal/plan/**'
+      - 'schemas/**'
+      - 'examples/**'
+      - 'ding.yaml.example'
       - 'go.mod'
       - 'go.sum'
       - '.github/workflows/docs.yml'
+      - '.github/workflows/public-checks.yml'
   workflow_dispatch:
-
+    inputs:
+      target:
+        description: Deployment target
+        type: choice
+        options: [preview, production]
+        default: preview
 permissions:
-  contents: write
-
+  contents: read
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
+  check:
+    uses: ./.github/workflows/public-checks.yml
   deploy:
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-node@v4
         with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Generate CLI reference
-        run: go run ./cmd/docgen docs/cli
-
+          node-version: '24'
+      - uses: actions/download-artifact@v4
+        with:
+          name: public-surfaces
+          path: workers
+      - run: npm ci --prefix workers/docs
+      - run: npm run check --prefix workers/docs
+      - name: Validate publisher setting
+        env:
+          DOCS_PUBLISHER: ${{ vars.DOCS_PUBLISHER }}
+        run: |
+          case "$DOCS_PUBLISHER" in
+            ''|github-pages|cloudflare) ;;
+            *) echo 'DOCS_PUBLISHER must be github-pages or cloudflare'; exit 1 ;;
+          esac
+      - name: Publish Cloudflare review preview
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'preview'
+        working-directory: workers/docs
+        run: npm run deploy:preview
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Publish verified artifact to Cloudflare
+        if: vars.DOCS_PUBLISHER == 'cloudflare' && (github.event_name == 'push' || inputs.target == 'production')
+        working-directory: workers/docs
+        run: npx wrangler deploy --env=""
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - uses: actions/setup-python@v5
+        if: vars.DOCS_PUBLISHER != 'cloudflare' && (github.event_name == 'push' || inputs.target == 'production')
         with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: docs/requirements.txt
-
-      - name: Install MkDocs
-        run: pip install -r docs/requirements.txt
-
-      - name: Deploy docs
-        run: mkdocs gh-deploy --force
+          python-version: '3.11'
+      - name: Preserve the existing GitHub Pages publisher until cutover
+        if: vars.DOCS_PUBLISHER != 'cloudflare' && (github.event_name == 'push' || inputs.target == 'production')
+        run: |
+          python -m pip install -r docs/requirements.txt
+          python -m ghp_import -n -p -f workers/docs/site

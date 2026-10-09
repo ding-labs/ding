@@ -148,7 +148,7 @@ the results.
 ## Documentation and development
 
 - [Configuration](docs/configuration.md) and [examples](docs/examples.md)
-- [Ding Console](docs/console.md): watch state, event evidence, delivery history, and reviewed changes
+- [Ding Console](docs/console/index.md): watch state, event evidence, delivery history, and reviewed changes
 - [Local API](docs/api.md) and [inspection/replay contracts](docs/development/inspection-contract.md)
 - [Watch preview release notes](docs/releases/watch-preview.md) and [release qualification](docs/development/qualification.md)
 

@@ -1,0 +1,69 @@
+name: Website
+on:
+  pull_request:
+    paths:
+      - 'workers/website/**'
+      - 'design/**'
+      - 'content/**'
+      - 'scripts/web/**'
+      - 'examples/watches/**'
+      - 'testdata/watches/**'
+      - '.github/workflows/website.yml'
+      - '.github/workflows/public-checks.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'workers/website/**'
+      - 'design/**'
+      - 'content/**'
+      - 'scripts/web/**'
+      - 'examples/watches/**'
+      - 'testdata/watches/**'
+      - '.github/workflows/website.yml'
+      - '.github/workflows/public-checks.yml'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Deployment target
+        type: choice
+        options: [preview, production]
+        default: preview
+permissions:
+  contents: read
+concurrency:
+  group: website-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  check:
+    uses: ./.github/workflows/public-checks.yml
+  deploy:
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@v4
+        with:
+          name: public-surfaces
+          path: workers
+      - run: npm ci --prefix workers/website
+      - name: Confirm documentation is available before publishing links
+        if: github.event_name == 'push' || inputs.target == 'production'
+        run: node scripts/web/check-live-docs.mjs
+      - name: Publish verified production artifact
+        if: github.event_name == 'push' || inputs.target == 'production'
+        working-directory: workers/website
+        run: npx wrangler deploy --env=""
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Publish review preview
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'preview'
+        working-directory: workers/website
+        run: npm run deploy:preview
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

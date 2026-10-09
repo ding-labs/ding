@@ -1,0 +1,24 @@
+{
+  "website": {
+    "/": "rewritten in place",
+    "/#install": "preserved anchor",
+    "/console/": "new, explicitly labeled design preview",
+    "/examples/": "new, links to canonical guides",
+    "/recipes/*": "explicit redirects in content/redirects.json; unknown recipes return 404",
+    "/ding-logo.svg": "preserved original asset",
+    "/ding-logo-light.svg": "preserved original asset",
+    "www.ding.ing/*": "301 to ding.ing, path and query retained"
+  },
+  "docs": {
+    "/": "rewritten in place with release banner",
+    "/install/": "preserved source-preview installation",
+    "/configuration/": "preserved manifest overview",
+    "/api/": "expanded implemented endpoint reference",
+    "/examples/": "expanded guide index",
+    "/legacy/": "preserved migration, with retired-recipes anchor",
+    "/cli/*": "generated full current command tree",
+    "/preview/*": "development channel, noindex",
+    "/legacy/v0.14.0/*": "frozen source tag, full legacy command tree and recipes",
+    "/v/<tag>/*": "reserved for verified future release tags"
+  }
+}

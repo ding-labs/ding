@@ -26,7 +26,12 @@ tmp/
 
 # Docs (generated)
 docs/cli/
-site/
+/site/
+/workers/docs/site/
+/workers/docs/.build/
+/.venv/
+node_modules/
+/artifacts/
 
 # Claude Code local config (settings, scheduled tasks, etc.)
 .claude/
@@ -39,8 +44,11 @@ docs/superpowers/
 /ding-state-*/
 /qualification-result/
 
+# Python build helpers
+__pycache__/
+*.pyc
+
 # Console build and browser-test artifacts
-node_modules/
 /web/console/playwright-report/
 /web/console/test-results/
 /web/console/*.tsbuildinfo

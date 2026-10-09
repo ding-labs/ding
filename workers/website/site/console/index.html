@@ -1,0 +1,87 @@
+<section class="page-hero">
+  <p class="eyebrow">Ding Console / Design preview</p>
+  <h1>The evidence,<br /><em>in plain sight.</em></h1>
+  <p class="lede">
+    See what is being watched, why an event happened, and whether its
+    notification arrived. An operational interface for the same daemon and
+    definitions you use from the CLI.
+  </p>
+  <p class="notice">
+    The Console is being implemented. These are planned workflows and an
+    illustrative layout, not a released interface.
+    <a href="{{docsUrl}}console/">Read the availability notes.</a>
+  </p>
+</section>
+<section class="console-showcase">
+  {{evidence}}
+  <p class="figure-note">
+    Design preview · sample data based on the repository’s API-health fixture.
+  </p>
+</section>
+<section class="section">
+  <div class="section-heading">
+    <p class="eyebrow">Designed around the investigation</p>
+    <h2>What happened?<br />Why? What happened next?</h2>
+  </div>
+  <ol class="flow three">
+    <li>
+      <span class="step">01</span>
+      <h3>Find the watch</h3>
+      <p>
+        See lifecycle, incident, source health, and delivery state separately. A
+        running watch is not automatically a healthy one.
+      </p>
+    </li>
+    <li>
+      <span class="step">02</span>
+      <h3>Follow the evidence</h3>
+      <p>
+        Inspect the definition used for that event, retained observations, and
+        replay status. Gaps stay visible.
+      </p>
+    </li>
+    <li>
+      <span class="step">03</span>
+      <h3>Review before changing</h3>
+      <p>
+        Validate a definition, test a fixture, and review state impact before
+        applying. Keep CLI and interface behavior consistent.
+      </p>
+    </li>
+  </ol>
+</section>
+<section class="section definition">
+  <div>
+    <p class="eyebrow">Built into Ding</p>
+    <h2>Your daemon.<br />Your interface.</h2>
+    <p>
+      The planned Console ships as static assets in the Go executable and is
+      served by your daemon. It does not require a Ding account or a production
+      Node server.
+    </p>
+  </div>
+  <div class="plain-panel">
+    <h3>Five places to work</h3>
+    <dl class="screen-list">
+      <dt>Watches</dt>
+      <dd>Understand state and what needs attention.</dd>
+      <dt>Events</dt>
+      <dd>Read the retained history and evidence.</dd>
+      <dt>Deliveries</dt>
+      <dd>Inspect attempts and notification failures.</dd>
+      <dt>Workbench</dt>
+      <dd>Validate, test, review, and apply YAML.</dd>
+      <dt>System</dt>
+      <dd>Diagnose, export, and back up your daemon.</dd>
+    </dl>
+  </div>
+</section>
+<section class="closing">
+  <div>
+    <p class="eyebrow">Available in the source preview today</p>
+    <h2>Start with the CLI.</h2>
+  </div>
+  <a class="button primary" href="{{quickstartUrl}}"
+    >Try a persistent watch ↗</a
+  >
+</section>
