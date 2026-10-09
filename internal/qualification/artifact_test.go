@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -89,6 +91,35 @@ func TestNativeArtifact(t *testing.T) {
 		return stop
 	}
 	stop := start(dir)
+	if os.Getenv("DING_EXPECT_CONSOLE") == "1" {
+		client, err := control.Connect(dir)
+		must(t, err)
+		read := func(path string) []byte {
+			t.Helper()
+			req, err := http.NewRequestWithContext(ctx, "GET", client.URL+path, nil)
+			must(t, err)
+			res, err := http.DefaultClient.Do(req)
+			must(t, err)
+			defer res.Body.Close()
+			if res.StatusCode != 200 {
+				t.Fatalf("console artifact %s: %d", path, res.StatusCode)
+			}
+			data, err := io.ReadAll(io.LimitReader(res.Body, 2<<20))
+			must(t, err)
+			return data
+		}
+		page := read("/ui/watches/artifact")
+		assets := regexp.MustCompile(`(?:src|href)="(/ui/assets/[^" ]+)"`).FindAllSubmatch(page, -1)
+		if len(assets) < 2 {
+			t.Fatal("embedded console did not reference CSS and JavaScript")
+		}
+		for _, asset := range assets {
+			if len(read(string(asset[1]))) < 100 {
+				t.Fatal("empty embedded asset")
+			}
+		}
+	}
+
 	manifest := filepath.Join(t.TempDir(), "watch.yaml")
 	must(t, os.WriteFile(manifest, []byte(`apiVersion: ding.ing/v1alpha1
 kind: Watch

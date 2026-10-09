@@ -297,6 +297,7 @@ export function Watches() {
 }
 export function WatchDetail() {
   const draft = useDraft();
+  const location = useLocation();
   const { id = "" } = useParams();
   const [p, set] = useSearchParams();
   const tab = p.get("tab") || "Overview";
@@ -375,7 +376,7 @@ export function WatchDetail() {
         onChange={(t) => {
           const n = new URLSearchParams();
           n.set("tab", t);
-          set(n);
+          set(n, { state: location.state });
         }}
       />
       {tab === "Overview" && (
@@ -522,7 +523,7 @@ export function WatchDetail() {
               onClick={() => {
                 const n = new URLSearchParams(p);
                 n.set("entitiesAfter", query.data!.entitiesAfter);
-                set(n);
+                set(n, { state: location.state });
               }}
             >
               Next entities

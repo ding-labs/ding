@@ -28,6 +28,7 @@ nav:
   - Home: index.md
   - Install: install.md
   - Configuration: configuration.md
+  - Console: console.md
   - HTTP API: api.md
   - Examples: examples.md
   - Legacy migration: legacy.md
@@ -41,6 +42,7 @@ nav:
     - events: cli/ding_events.md
     - migrate: cli/ding_migrate.md
     - doctor: cli/ding_doctor.md
+    - ui: cli/ding_ui.md
     - replay: cli/ding_replay.md
     - version: cli/ding_version.md
 

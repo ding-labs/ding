@@ -38,6 +38,17 @@ test("capture the isolated evidence-first fixture for visual review", async ({
     page.getByRole("heading", { name: "Incident opened", exact: true }),
   ).toBeVisible();
   await page.screenshot({ path: resolve(dir, "evidence-light.png") });
+  await page.getByRole("link", { name: "Inspect event" }).click();
+  await expect(
+    page.getByRole("button", { name: "Download evidence", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Replayed result" }),
+  ).toBeVisible();
+  await page
+    .locator(".evidence")
+    .screenshot({ path: resolve(dir, "event-evidence.png") });
+  await page.goBack();
   await page.getByLabel("Appearance").selectOption("dark");
   await page.screenshot({ path: resolve(dir, "evidence-dark.png") });
   await page.setViewportSize({ width: 375, height: 900 });

@@ -12,15 +12,15 @@ Keep `workers/website` in place. Preserve the primary checkout's existing websit
 
 The daemon serves `/ui/` and `/v1/`. The CLI obtains a 60-second single-use handoff using its existing admin bearer credential. The browser exchanges the URL-fragment handoff for an HttpOnly, SameSite=Strict session; the fragment is cleared before any request. Sessions last at most eight hours, are memory-only and bounded, and disappear on restart. Responses expose a per-session CSRF value, never the admin or ingest token.
 
-Cookie requests require an exact configured Host; mutations additionally require the configured Origin and CSRF header. The exchange also requires Origin. Ingest routes never accept session cookies. Bearer API behavior stays compatible. Remote browser access requires an explicitly configured HTTPS UI origin; forwarded headers are not trusted. Browser access is optional for existing remote API deployments. Logout revokes the session.
+Cookie requests require an exact configured Host; mutations additionally require the configured Origin and CSRF header. The exchange also requires Origin. Ingest routes never accept session cookies. Bearer API behavior stays compatible. Remote browser access requires an explicitly configured HTTPS UI origin; forwarded headers are not trusted. Browser access is optional for existing remote API deployments. Logout revokes the session. Cookie names include an origin hash so two daemon ports on the same host remain independently usable.
 
 Static assets get correct types, content hashes, CSP and framing protection. Only recognized console navigation paths receive the SPA fallback; missing assets and `/v1` errors remain errors. Tool uploads, heavy proof inspection, diagnostics and backup are bounded independently from ordinary list polling.
 
 ## Contracts and evidence
 
-Existing API shapes stay stable. Add `/v1/info`, `/v1/status`, `/v1/watch-summaries`, `/v1/event-summaries`, `/v1/deliveries`, `/v1/destinations`, and bounded retained-observation access. Lists use a default 100 rows and an explicit maximum; cursors include store identity, filter scope, snapshot boundary and order. Retention invalidation returns an explicit gap. Counts are complete server counts, not counts of the displayed page. Definitions/evidence are lazy detail requests.
+Existing API shapes stay stable. Add `/v1/info`, `/v1/status`, `/v1/console/watches`, `/v1/console/events`, `/v1/console/deliveries`, `/v1/console/destinations`, and bounded retained-observation access. Lists use 50 rows by default and a hard maximum of 100; cursors include store identity, filter scope, snapshot boundary and order. Retention invalidation returns an explicit gap. Counts are complete server counts, not counts of the displayed page. Definitions/evidence are lazy detail requests.
 
-Add bounded `/v1/tools/compile`, `/test`, `/replay`, `/migrate` and backup downloads. Reuse Go compiler/replay/converter/store functions. Generate frontend contracts from Go types and check drift. Whole-bundle apply review includes destination changes and atomic watch/destination revision preconditions. No JavaScript evaluator and no arbitrary shell endpoint.
+Add bounded `/v1/tools/compile`, `/v1/tools/test`, `/v1/tools/replay`, `/v1/tools/migrate`, `/v1/console/doctor`, and `/v1/console/backup` creation/download. Reuse Go compiler/replay/converter/store functions. Generate frontend contracts from Go types and check drift. Whole-bundle apply review includes destination changes and atomic watch/destination revision preconditions. No JavaScript evaluator and no arbitrary shell endpoint.
 
 ## Screen/state contract
 
@@ -44,3 +44,11 @@ U01 is complete when the selected design, screen/error contracts, repository dec
 ## Read consistency
 
 Watch summaries are live, timestamped snapshots with lexical-ID pagination. Aggregate counts cover the complete query, not the loaded page. A watch changing state may enter or leave a filtered view between pages; refreshing starts a current view. Event history fixes an upper sequence boundary when opened, pages newest first, and exposes a forward cursor for explicit live following. Cursors are bound to the store, query and page limit. Any intervening retention-floor change invalidates an event-history cursor with `410`; the reader must explicitly load available history. Summary responses exclude raw observation fields, intent payloads and replay checkpoints. Those are fetched only for the selected detail and rendered in bounded, expandable previews.
+
+## Editing and resource decisions
+
+The authoritative editor is an accessible plain textarea. Users may enable a lazily loaded CodeMirror 6 editor (exact component versions in `web/console/package-lock.json`); it shares the draft and supports undo, YAML highlighting, line numbers and keyboard navigation. The plain editor remains available for assistive technology and diagnostic line selection. Syntax colors use the same tested light/dark tokens. This keeps the initial bundle below 250 KiB gzip and avoids making a code editor a prerequisite for creating a watch.
+
+Visible watch/list polling runs every five seconds, live event follow every three seconds, and instance summaries every fifteen seconds. Background polling is disabled. Proof verification occurs only for selected evidence, after immutable evidence has been read and the database transaction released; the handler admits at most two concurrent proof inspections. Doctor and backup each have their own concurrency limits. SQLite remains the sole authoritative evaluator/store.
+
+Mutations are never automatically retried. A lost or unreadable response requires inspecting committed state or comparing current definitions before a further submission. Drafts survive the reconciliation. Backup artifacts are bound to authenticated session identity and are not transferable between browser sessions.

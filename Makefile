@@ -8,7 +8,7 @@ headless:
 	go build -o ding ./cmd/ding
 
 test-console:
-	go run ./cmd/console-contract
+	go test ./internal/consolecontract
 	cd web/console && npm ci && npm run build
 	go test -race -tags console ./...
-	cd web/console && npm run test:e2e
+	cd web/console && npm test && npm run test:e2e

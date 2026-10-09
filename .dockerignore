@@ -8,3 +8,8 @@
 node_modules
 workers
 dist
+
+**/node_modules
+**/playwright-report
+**/test-results
+internal/webui/dist
