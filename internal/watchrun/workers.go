@@ -32,14 +32,9 @@ func (a *App) DeliverOne(ctx context.Context) (bool, error) {
 	result := delivery.Result{Outcome: delivery.Exhausted, Detail: "delivery policy exhausted"}
 	if intent.Attempts <= d.MaxAttempts && now.Before(deadline) {
 		if d.Type == "console" {
-			a.outputMu.Lock()
-			_, err := fmt.Fprintln(a.Output, string(intent.Payload))
-			a.outputMu.Unlock()
-			if err == nil {
-				result = delivery.Result{Outcome: delivery.Delivered}
-			} else {
-				result = delivery.Result{Outcome: delivery.Retryable, Detail: "console write failed"}
-			}
+			attempt, cancel := context.WithTimeout(ctx, 10*time.Second)
+			result = a.console(attempt, intent.Payload)
+			cancel()
 		} else {
 			endpoint, err := source.Resolve(d.URLRef, a.Lookup)
 			headers := http.Header{"Idempotency-Key": []string{intent.EventID}, "X-Ding-Event-Id": []string{intent.EventID}}
@@ -146,8 +141,18 @@ func (a *App) Run(ctx context.Context) error {
 	tick := time.NewTicker(100 * time.Millisecond)
 	defer tick.Stop()
 	lastMaintenance := time.Time{}
+	var previousWall, previousTick time.Time
 	schedule := func() {
 		now := a.Now()
+		tickNow := time.Now()
+		if !previousTick.IsZero() && clockDiscontinuity(previousWall, now, tickNow.Sub(previousTick)) {
+			if err := a.clockShift(ctx, now); err != nil {
+				a.note(err)
+				return
+			}
+			lastMaintenance = time.Time{}
+		}
+		previousWall, previousTick = now, tickNow
 		if lastMaintenance.IsZero() || now.Sub(lastMaintenance) >= time.Minute {
 			if err := a.Maintain(ctx, now); err != nil {
 				a.note(err)

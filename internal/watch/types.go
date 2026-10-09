@@ -135,7 +135,7 @@ type Observation struct {
 	AcceptedAt time.Time      `json:"acceptedAt"`
 	ObservedAt *time.Time     `json:"observedAt,omitempty"`
 	Fields     map[string]any `json:"fields,omitempty"`
-	Health     string         `json:"health"`           // ok, unknown, unchanged, gap, timer
+	Health     string         `json:"health"`           // ok, unknown, unchanged, gap, timer, clock
 	Detail     string         `json:"detail,omitempty"` // redacted diagnostic code
 }
 

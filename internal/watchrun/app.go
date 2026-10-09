@@ -30,6 +30,7 @@ type App struct {
 	AcquisitionWorkers, DeliveryWorkers int
 	mu                                  sync.Mutex
 	outputMu                            sync.Mutex
+	outputPermit                        chan struct{}
 	running                             bool
 	lastError                           string
 	closing                             bool
@@ -398,6 +399,11 @@ func (a *App) Accept(ctx context.Context, record store.WatchRecord, batch source
 		_ = a.Store.Update(ctx, func(tx *store.Tx) error {
 			return tx.LastError(record.Plan.Definition.Metadata.ID, record.Generation, detail, time.Time{})
 		})
+	}
+	if err == nil && !receipt.Duplicate && receipt.Last > 0 {
+		a.mu.Lock()
+		a.lastError = ""
+		a.mu.Unlock()
 	}
 	return receipt, err
 }

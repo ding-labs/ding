@@ -34,6 +34,7 @@ type State struct {
 	SourceUnhealthy  bool      `json:"sourceUnhealthy"`
 	Samples          []Sample  `json:"samples,omitempty"`
 	OverflowUntil    time.Time `json:"overflowUntil,omitempty"`
+	ClockWindowUntil time.Time `json:"clockWindowUntil,omitempty"`
 	Evidence         []int64   `json:"evidence,omitempty"`
 	// Baseline and Seen are populated by change/new-event adapters in P11.
 	Baseline json.RawMessage      `json:"baseline,omitempty"`
@@ -200,6 +201,34 @@ func (e *Evaluator) Evaluate(previous State, o watch.Observation, now time.Time)
 		}
 		result.State = state
 		return result, nil
+	}
+	if o.Health == "clock" {
+		// A detected discontinuity starts a new time baseline, preserving the
+		// incident but refusing to infer elapsed evidence from the wall jump.
+		state.Samples = nil
+		state.OverflowUntil = time.Time{}
+		if e.maxWindow > 0 {
+			state.ClockWindowUntil = now.Add(e.maxWindow)
+		}
+		if !state.LastFired.IsZero() {
+			state.LastFired = now
+		}
+		if c := e.definition.Spec.Condition; c.MissingFor != "" {
+			duration, _ := time.ParseDuration(c.MissingFor)
+			state.MissingAt = now.Add(duration)
+			state.FreshSequence = 0
+		} else if c.Operator == "new-event" {
+			duration, _ := time.ParseDuration(c.DedupFor)
+			for id, expiry := range state.Seen {
+				if !state.LastAt.Before(expiry) {
+					delete(state.Seen, id)
+				} else {
+					state.Seen[id] = now.Add(duration)
+				}
+			}
+		}
+		state.LastAt = now
+		return unknown("clock_discontinuity")
 	}
 	if !state.LastAt.IsZero() && now.Before(state.LastAt) {
 		return unknown("clock_moved_backwards")
@@ -377,6 +406,10 @@ func (e *Evaluator) predicate(state *State, o watch.Observation, now time.Time) 
 		}
 		state.Samples = append(state.Samples, Sample{now, number, o.Sequence})
 	}
+	if now.Before(state.ClockWindowUntil) {
+		return false, false, "clock_window_incomplete"
+	}
+	state.ClockWindowUntil = time.Time{}
 	if now.Before(state.OverflowUntil) {
 		return false, false, "window_sample_budget"
 	}

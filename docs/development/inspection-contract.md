@@ -84,8 +84,10 @@ Doctor performs no source request or delivery. It reports SQLite integrity/WAL
 bytes, live pages and row counts, configured limits, acquisition usage and worker
 limits, per-source lifecycle/health, and open incident counts. Credential checks
 report only environment variable names and whether a nonempty value is present.
-`lastError` is a historical redacted runtime error; current readiness follows
-store integrity, quotas, source errors, missing credentials and terminal failures.
+`lastError` is a redacted runtime error that makes readiness unhealthy until a
+new durable input commits successfully. A duplicate receipt does not prove write
+recovery. Readiness also follows store integrity, quotas, source errors, missing
+credentials and terminal failures.
 A stopped/closing runtime is not healthy. Health is a point-in-time diagnostic,
 not a monitoring substitute. A firing condition is not itself a daemon failure.
 

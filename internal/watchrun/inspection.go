@@ -235,7 +235,7 @@ func (a *App) Doctor(ctx context.Context) (Doctor, error) {
 			d.Healthy = false
 		}
 	}
-	if !d.Running || d.Closing || d.Store.Integrity != "ok" || d.Usage.Bytes >= d.Limits.MaxBytes || d.Usage.Pending >= d.Limits.MaxPending || d.Deliveries["permanent"]+d.Deliveries["exhausted"] > 0 {
+	if !d.Running || d.Closing || d.LastError != "" || d.Store.Integrity != "ok" || d.Usage.Bytes >= d.Limits.MaxBytes || d.Usage.Pending >= d.Limits.MaxPending || d.Deliveries["permanent"]+d.Deliveries["exhausted"] > 0 {
 		d.Healthy = false
 	}
 	return d, nil
