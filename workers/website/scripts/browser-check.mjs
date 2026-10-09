@@ -113,20 +113,61 @@ try {
             fullPage: true,
           });
         report.pages.push({ name, theme, width, status: response.status() });
-        if (name === "home" && theme === "light" && width === 375)
-          report.performance = await page.evaluate(() =>
-            performance
-              .getEntriesByType("resource")
-              .map((r) => ({
-                name: new URL(r.name).pathname,
-                transferSize: r.transferSize,
-                duration: r.duration,
-              })),
-          );
         await page.close();
       }
       await context.close();
     }
+  // A repeatable cold mobile profile; record the origin to distinguish local and hosted runs.
+  for (const [name, url] of routes.filter(([name]) => ["home", "quickstart"].includes(name))) {
+    const context = await browser.newContext({
+      viewport: { width: 375, height: 812 },
+      deviceScaleFactor: 3,
+      isMobile: true,
+      hasTouch: true,
+      colorScheme: "light",
+    });
+    const mobilePage = await context.newPage();
+    const session = await context.newCDPSession(mobilePage);
+    await session.send("Network.enable");
+    await session.send("Network.setCacheDisabled", { cacheDisabled: true });
+    await session.send("Network.emulateNetworkConditions", {
+      offline: false,
+      latency: 150,
+      downloadThroughput: 1_600_000 / 8,
+      uploadThroughput: 750_000 / 8,
+    });
+    await session.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+    await mobilePage.addInitScript(() => {
+      window.pageVitals = { lcp: null, cls: 0 };
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) window.pageVitals.lcp = entry.startTime;
+      }).observe({ type: "largest-contentful-paint", buffered: true });
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries())
+          if (!entry.hadRecentInput) window.pageVitals.cls += entry.value;
+      }).observe({ type: "layout-shift", buffered: true });
+    });
+    await mobilePage.goto(url, { waitUntil: "networkidle" });
+    const metrics = await mobilePage.evaluate(() => {
+      const requests = [...performance.getEntriesByType("navigation"), ...performance.getEntriesByType("resource")];
+      return {
+        transferBytes: requests.reduce((sum, entry) => sum + entry.transferSize, 0),
+        unmeasuredCrossOriginRequests: requests.filter((entry) => new URL(entry.name).origin !== location.origin && !entry.transferSize).map((entry) => entry.name),
+        requests: requests.map((entry) => ({ path: new URL(entry.name).pathname, transferBytes: entry.transferSize })),
+        firstContentfulPaintMs: performance.getEntriesByName("first-contentful-paint")[0]?.startTime,
+        largestContentfulPaintMs: window.pageVitals.lcp,
+        cumulativeLayoutShift: window.pageVitals.cls,
+      };
+    });
+    report.performance.push({
+      name,
+      origin: new URL(url).origin,
+      profile: "375x812 CSS px, DPR 3, cold cache, 4x CPU, 150ms latency, 1.6Mbps down / 750Kbps up",
+      ...metrics,
+    });
+    if (name === "home") assert.ok(metrics.transferBytes <= 1024 * 1024, "Website initial transfer exceeds 1 MiB");
+    await context.close();
+  }
   const page = await browser.newPage({
     viewport: { width: 1024, height: 900 },
   });

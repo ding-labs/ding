@@ -7,6 +7,7 @@ import {
 } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
+import { gzipSync } from "node:zlib";
 import { loadProduct, escapeHtml as e } from "../../../scripts/web/product.mjs";
 const root = new URL("../../../", import.meta.url);
 const base = new URL("../", import.meta.url);
@@ -19,7 +20,8 @@ if (product.console.status !== "design-preview")
   );
 const preview = process.argv.includes("--preview");
 const websiteUrl = product.websiteUrl;
-const docsUrl = product.docsUrl + "/";
+const docsOrigin = preview ? product.previewDocsUrl : product.docsUrl;
+const docsUrl = docsOrigin + "/";
 const source = execFileSync("git", ["rev-parse", "HEAD"], {
   cwd: root,
   encoding: "utf8",
@@ -76,8 +78,8 @@ const manifest = readFileSync(
 ).split("---\n")[1];
 const values = {
   docsUrl,
-  installUrl: product.docsUrl + product.installPath,
-  quickstartUrl: product.docsUrl + product.quickstartPath,
+  installUrl: docsOrigin + product.installPath,
+  quickstartUrl: docsOrigin + product.quickstartPath,
   cta,
   availability,
   evidence,
@@ -97,6 +99,9 @@ for (const name of ["ding-logo.svg", "ding-logo-light.svg"]) {
 }
 for (const name of ["style.css", "site.js"])
   cpSync(new URL(`site/${name}`, base), new URL(`assets/${name}`, out));
+const scriptBytes = gzipSync(readFileSync(new URL("assets/site.js", out))).length;
+if (scriptBytes > 50 * 1024)
+  throw new Error(`Website JavaScript exceeds the 50 KiB gzip budget: ${scriptBytes} bytes`);
 for (const [filename, path, title, description] of pages) {
   let content = readFileSync(new URL(`site/${filename}`, base), "utf8").replace(
     /\{\{(\w+)\}\}/g,

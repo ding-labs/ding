@@ -38,6 +38,13 @@ available, then publishes the exact checked artifact. Publish docs before the
 first website cutover; rerun Website if it correctly waits on that dependency. Manual local production publication uses
 `npm run deploy --prefix workers/website` after the full checks above.
 
+Review builds link to `content/product.json`'s `previewDocsUrl`, including legacy
+recipe redirects. Production builds retain `docsUrl`. The browser report records
+a cold mobile profile (375×812, 4× CPU, 150 ms latency, 1.6 Mbps downstream),
+including separately measured docs transfer and unmeasured cross-origin requests.
+The website build enforces 50 KiB gzip JavaScript, and browser checks enforce
+1 MiB initial website transfer. Local Worker timings are not production CDN timings.
+
 The separate `ding-labs/ding-web` repository still has an active `Deploy to
 Cloudflare` workflow targeting the same `ding-website` Worker and domains. Once
 the new preview and docs origin pass verification, disable that publisher before

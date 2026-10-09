@@ -50,6 +50,10 @@ test("missing assets keep their 404 instead of becoming an application page", as
   });
   assert.equal(r.status, 404);
 });
+test("review recipe redirects stay on the documentation preview", async () => {
+  const r = await worker.fetch(new Request("https://ding-website-preview.zuchka.workers.dev/recipes/mlflow?from=review"), { PREVIEW: "true" });
+  assert.equal(r.headers.get("location"), `${product.previewDocsUrl}/legacy/v0.14.0/recipes/mlflow/?from=review`);
+});
 test("availability cannot advertise a console in a legacy or preview binary", () => {
   assert.doesNotThrow(() => validateProduct(product));
   const p = structuredClone(product);
@@ -82,6 +86,9 @@ test("built pages have metadata, truthful preview labels, and no unresolved temp
     /not a released interface/,
   );
   assert.ok(existsSync(new URL("assets/social.png", dist)));
+  const info = JSON.parse(readFileSync(new URL("build-info.json", dist)));
+  const docsOrigin = info.preview ? product.previewDocsUrl : product.docsUrl;
+  assert.ok(readFileSync(new URL("index.html", dist), "utf8").includes(`href="${docsOrigin}${product.installPath}"`));
   assert.ok(
     gzipSync(readFileSync(new URL("assets/site.js", dist))).length < 50 * 1024,
   );

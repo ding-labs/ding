@@ -1,4 +1,5 @@
 import redirects from '../../../content/redirects.json' with { type: 'json' };
+import product from '../../../content/product.json' with { type: 'json' };
 
 export default {
   async fetch(request, env) {
@@ -11,6 +12,7 @@ export default {
     const destination = redirects[url.pathname.replace(/\/+$/, '')];
     if (destination) {
       const target = new URL(destination);
+      if (env.PREVIEW === 'true') target.host = new URL(product.previewDocsUrl).host;
       target.search = url.search;
       return Response.redirect(target.toString(), 301);
     }

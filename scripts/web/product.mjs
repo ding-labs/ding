@@ -7,12 +7,13 @@ export function validateProduct(p) {
     "license",
     "websiteUrl",
     "docsUrl",
+    "previewDocsUrl",
     "repositoryUrl",
   ]) {
     if (typeof p[key] !== "string" || !p[key])
       throw new Error(`Missing product ${key}`);
   }
-  for (const key of ["websiteUrl", "docsUrl", "repositoryUrl"]) {
+  for (const key of ["websiteUrl", "docsUrl", "previewDocsUrl", "repositoryUrl"]) {
     if (new URL(p[key]).protocol !== "https:")
       throw new Error(`${key} must use HTTPS`);
   }

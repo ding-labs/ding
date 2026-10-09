@@ -4,6 +4,7 @@
   "license": "Apache-2.0",
   "websiteUrl": "https://ding.ing",
   "docsUrl": "https://docs.ding.ing",
+  "previewDocsUrl": "https://ding-docs-preview.zuchka.workers.dev",
   "repositoryUrl": "https://github.com/ding-labs/ding",
   "runtime": { "channel": "source-preview", "version": null, "sourceRef": "1275a45" },
   "console": { "status": "design-preview", "minimumVersion": null },
