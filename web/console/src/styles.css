@@ -1485,3 +1485,99 @@ a:hover {
   background: var(--red-soft);
   color: var(--red);
 }
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: #07120db3;
+  backdrop-filter: blur(3px);
+  z-index: 50;
+}
+.dialog-content {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(540px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  padding: 30px;
+  box-shadow: 0 24px 90px #0003;
+  z-index: 51;
+}
+.dialog-content h2 {
+  padding-right: 25px;
+}
+.dialog-content > p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.75;
+  margin: 14px 0;
+}
+.dialog-close {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 25px;
+  flex-wrap: wrap;
+}
+.radio-options {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 15px;
+  margin: 20px 0;
+  font-size: 12px;
+}
+.radio-options legend {
+  color: var(--muted);
+  padding: 0 5px;
+}
+.radio-options label {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.stack-label {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+}
+.stack-label code {
+  display: inline;
+}
+.button.danger {
+  background: var(--red);
+  color: var(--panel);
+  border-color: var(--red);
+}
+.dropdown {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px;
+  z-index: 40;
+  box-shadow: 0 6px 28px #0002;
+  min-width: 180px;
+}
+.dropdown [role="menuitem"] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  outline: 0;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.dropdown [data-highlighted] {
+  background: var(--red-soft);
+}

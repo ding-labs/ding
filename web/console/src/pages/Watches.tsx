@@ -28,6 +28,7 @@ import {
   Tabs,
   Raw,
 } from "../components/common";
+import { WatchActions } from "../components/Actions";
 import { Events, Evidence } from "./Events";
 import { Deliveries } from "./Deliveries";
 export function Watches() {
@@ -345,7 +346,7 @@ export function WatchDetail() {
         <button className="button" onClick={() => void exportIt(true)}>
           <Pencil size={15} /> Edit in Workbench
         </button>
-        <div id="watch-actions" data-watch={id} />
+        <WatchActions watch={w} />
       </Heading>
       <ErrorBox error={query.error || exportError} />
       <Tabs

@@ -8,7 +8,7 @@ The [plan](console-plan.md) and [architecture decisions](console-architecture.md
 | U02 Foundation/auth | Complete | Race-tested browser boundary (origin, Host, CSRF, one-use/expired handoffs, logout, session expiry, quotas, ingest isolation); static/deep-link tests; generated contract drift test; headless and embedded builds; Chromium real-daemon launch/deep-link/theme/logout test |
 | U03 Operational reads | Complete | Bounded watch/event/delivery/destination reads, complete attention counts, filter-bound cursors and retention-gap tests; evidence from event-time definitions; real-daemon Chromium firing/evidence/delivery journey; race-tested store/control/runtime and generated contracts |
 | U04 Workbench/apply | Complete | Shared compiler explanations; bounded authenticated compile/test/replay tools; cancellable simulation; in-memory drafts; full bundle review with destination-only changes and atomic watch/destination/lifecycle preconditions; race tests and real-daemon validation/simulation/apply/conflict browser journeys |
-| U05 Lifecycle/delivery | Pending | |
+| U05 Lifecycle/delivery | Complete | Accessible focused confirmations; explicit delete queue choice; expected-revision lifecycle actions; original-intent retry with duplicate warning; real-daemon pause/resume/delete and HTTP-rejected delivery retry browser tests |
 | U06 Complete parity | Pending | |
 | U07 Qualification | Pending | |
 

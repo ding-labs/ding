@@ -1,4 +1,5 @@
 import { useSearchParams, useParams, Link } from "react-router-dom";
+import { RetryAction } from "../components/Actions";
 import { useState } from "react";
 import type {
   StoreDeliveryPage,
@@ -157,7 +158,7 @@ export function DeliveryDetail() {
         eyebrow={`Intent #${d.intent.id}`}
         description={<Badge value={d.intent.status} />}
       >
-        <div id="delivery-actions" data-delivery={id} />
+        <RetryAction intent={d.intent} />
       </Heading>
       <ErrorBox error={query.error} />
       <div className="overview-grid">

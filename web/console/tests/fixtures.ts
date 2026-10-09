@@ -1,6 +1,7 @@
 import { test as base, expect } from "@playwright/test";
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, existsSync } from "node:fs";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 const root = resolve(import.meta.dirname, "../../..");
@@ -31,10 +32,23 @@ export const test = base.extend<{ daemon: Daemon }, { binary: string }>({
   ],
   daemon: async ({ binary }, use) => {
     const state = mkdtempSync(join(tmpdir(), "ding-console-test-"));
+    const hook = createServer((req, res) => {
+      req.resume();
+      res.writeHead(400);
+      res.end("test destination rejected request");
+    });
+    await new Promise<void>((resolve) => hook.listen(0, "127.0.0.1", resolve));
+    const hookPort = (hook.address() as { port: number }).port;
     const child: ChildProcess = spawn(
       binary,
       ["daemon", "--listen", "127.0.0.1:0", "--state-dir", state],
-      { stdio: "ignore" },
+      {
+        stdio: "ignore",
+        env: {
+          ...process.env,
+          DING_TEST_WEBHOOK_URL: `http://127.0.0.1:${hookPort}`,
+        },
+      },
     );
     try {
       await expect
@@ -68,6 +82,7 @@ export const test = base.extend<{ daemon: Daemon }, { binary: string }>({
         if (child.exitCode !== null) resolve();
         else child.once("exit", () => resolve());
       });
+      await new Promise<void>((resolve) => hook.close(() => resolve()));
       rmSync(state, { recursive: true, force: true });
     }
   },
