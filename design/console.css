@@ -1,0 +1,19 @@
+/* Integration adapter for the Console branch. Import this instead of theme.css. */
+@import './tokens.css';
+:root {
+  --bg: var(--ding-bg);
+  --rail: light-dark(#f2f3ef, #111412);
+  --panel: var(--ding-surface);
+  --soft: var(--ding-subtle);
+  --ink: var(--ding-text);
+  --muted: var(--ding-muted);
+  --line: var(--ding-border);
+  --green: var(--ding-brand);
+  --green-soft: var(--ding-brand-soft);
+  --amber: var(--ding-attention);
+  --amber-soft: light-dark(#fbf1dd, #362d1e);
+  --red: var(--ding-incident);
+  --red-soft: var(--ding-incident-soft);
+  --primary: light-dark(#244e36, #b1e6b9);
+  --primary-ink: light-dark(#fff, #15291b);
+}

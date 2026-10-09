@@ -1,5 +1,8 @@
 # HTTP runtime milestone
 
+> Historical P09 milestone. The default source CLI has since switched to watches.
+> Use [installation](../install.md) and the [current API](../api.md) for present behavior.
+
 The experimental `ding` daemon runs applied HTTP watches with a durable
 SQLite outbox. The shipped legacy `ding` command remains unchanged until cutover.
 Run the temporary binary from the repository:

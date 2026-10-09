@@ -1,0 +1,31 @@
+name = "ding-docs"
+main = "src/worker.js"
+compatibility_date = "2026-05-01"
+account_id = "b5a19010c0fa72255f749f63b2ec0962"
+
+routes = [
+  { pattern = "docs.ding.ing", custom_domain = true },
+]
+
+[assets]
+directory = "./site"
+binding = "ASSETS"
+run_worker_first = true
+
+html_handling = "auto-trailing-slash"
+not_found_handling = "404-page"
+
+[env.preview]
+name = "ding-docs-preview"
+routes = []
+workers_dev = true
+
+[env.preview.assets]
+directory = "./site"
+binding = "ASSETS"
+run_worker_first = true
+html_handling = "auto-trailing-slash"
+not_found_handling = "404-page"
+
+[env.preview.vars]
+PREVIEW = "true"
