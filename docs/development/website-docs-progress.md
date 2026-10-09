@@ -8,7 +8,7 @@ plan were preserved and incorporated into this isolated change.
 | Phase | Status | Evidence or remaining gate |
 | --- | --- | --- |
 | W00 Inventory | Complete for repository and current origin | `content/url-inventory.json`; GitHub Pages reports `https://ding-labs.github.io/ding/`, no custom domain. `docs.ding.ing` did not resolve. Restored Cloudflare access confirms the configured account and existing website Worker; production docs routing still needs verification at cutover. |
-| W01 Shared brand | Implemented for public surfaces | Shared light/dark tokens, bell mark, social art, brand guide, availability metadata. Values follow the Console's U03 theme. `design/console.css` is ready for integration into the separate UI branch. |
+| W01 Shared brand | Implemented for public surfaces | Shared light/dark tokens, bell mark, social art, brand guide, availability metadata. The original fire-alarm bell and green are shared by all three surfaces; the Console consumes `design/console.css`. Browser checks verify the built themes and assets. |
 | W02 Accuracy corrections | Implemented | Watch-first website and docs; source preview versus legacy release; correct license, sources, storage, delivery guarantees, and explicitly labeled Console preview. |
 | W03 Publishing | Implemented with live review deployments | Independent root workflows, pinned dependencies, clean staged builds, preserved Pages publisher, Cloudflare previews, complete-channel guard and publication runbook. Production cutover awaits repository deployment credentials. |
 | W04 User documentation | Implemented and verified | First watch, concepts, source/condition guides, delivery/evidence, operations/backup, full CLI generation, manifest schema, current API, frozen legacy archive. |

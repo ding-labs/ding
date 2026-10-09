@@ -1,10 +1,22 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { Raw, Rule, Time, TimeContext, ErrorBox } from "./common";
+import { Badge, Raw, Rule, Time, TimeContext, ErrorBox } from "./common";
 import { DefinitionDiff } from "./DefinitionDiff";
 import type { WatchDefinition } from "../api/contracts";
 import { APIError } from "../api/client";
 describe("evidence presentation", () => {
+  it("distinguishes unknown, paused and pending states without relying on color alone", () => {
+    render(
+      <>
+        <Badge value="unknown" />
+        <Badge value="paused" />
+        <Badge value="pending" />
+      </>,
+    );
+    expect(screen.getByText("Unknown")).toHaveClass("unknown");
+    expect(screen.getByText("Paused")).toHaveClass("neutral");
+    expect(screen.getByText("Queued / retry scheduled")).toHaveClass("warn");
+  });
   it("never implies incident recovery for a deduplicated provider event", () => {
     const d = {
       spec: {

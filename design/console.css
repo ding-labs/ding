@@ -1,5 +1,5 @@
 /* The console consumes the same identity and semantic colors as the public surfaces. */
-@import './tokens.css';
+@import "./tokens.css";
 :root {
   --bg: var(--ding-bg);
   --rail: var(--ding-rail);

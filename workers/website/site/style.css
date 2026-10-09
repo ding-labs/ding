@@ -11,6 +11,11 @@ body {
   font: 17px/1.65 var(--ding-font);
   -webkit-font-smoothing: antialiased;
 }
+code,
+pre,
+kbd {
+  font-family: var(--ding-mono);
+}
 a {
   color: var(--ding-brand);
   text-underline-offset: 4px;
@@ -30,8 +35,8 @@ button {
   display: none !important;
 }
 :focus-visible {
-  outline: 3px solid var(--ding-brand);
-  outline-offset: 5px;
+  outline: 2px solid var(--ding-focus);
+  outline-offset: 3px;
 }
 .skip-link {
   position: fixed;
@@ -123,7 +128,7 @@ footer {
   padding: 8px 11px;
   border: 1px solid var(--ding-border);
   background: transparent;
-  border-radius: 6px;
+  border-radius: var(--ding-radius-control);
   color: var(--ding-muted);
   font-size: 12px;
   white-space: nowrap;
@@ -175,7 +180,7 @@ footer {
   gap: 24px;
   min-height: 49px;
   padding: 12px 19px;
-  border-radius: 6px;
+  border-radius: var(--ding-radius-control);
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
@@ -185,7 +190,7 @@ footer {
   color: var(--ding-on-brand);
 }
 .primary:hover {
-  filter: brightness(0.92);
+  background: var(--ding-action-hover);
 }
 .text-link {
   font-size: 14px;
@@ -214,9 +219,8 @@ footer {
 }
 .evidence-window {
   border: 1px solid var(--ding-border);
-  border-radius: 12px;
+  border-radius: var(--ding-radius-panel);
   background: var(--ding-surface);
-  box-shadow: 0 24px 60px -32px #20352442;
   overflow: hidden;
   transform: rotate(-1deg);
 }
@@ -957,11 +961,41 @@ footer a {
 }
 
 /* Bell restoration draft: the original green, with warm neutral foundations. */
-.wordmark img, .mini-brand img { background: #f7f6f2; border-radius: 5px; padding: 2px; }
-.hero h1 em { color: #17251c; background: var(--ding-green); padding: 0 .09em .04em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
-.hero-product { background: var(--ding-violet-soft); border-radius: 16px; padding: 20px; }
-.evidence-window { transform: none; box-shadow: none; }
-.figure-note { color: var(--ding-text); margin-bottom: 0; }
-.signal { background: var(--ding-green); border: 1px solid var(--ding-brand); width: 9px; height: 9px; }
-.flow .step { color: var(--ding-violet); }
-.code-panel { border-top: 3px solid var(--ding-green); }
+.wordmark img,
+.mini-brand img {
+  background: var(--ding-logo-surface);
+  border-radius: 5px;
+  padding: 2px;
+}
+.hero h1 em {
+  color: var(--ding-on-brand);
+  background: var(--ding-green);
+  padding: 0 0.09em 0.04em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.hero-product {
+  background: var(--ding-violet-soft);
+  border-radius: 16px;
+  padding: 20px;
+}
+.evidence-window {
+  transform: none;
+  box-shadow: none;
+}
+.figure-note {
+  color: var(--ding-text);
+  margin-bottom: 0;
+}
+.signal {
+  background: var(--ding-green);
+  border: 1px solid var(--ding-brand);
+  width: 9px;
+  height: 9px;
+}
+.flow .step {
+  color: var(--ding-violet);
+}
+.code-panel {
+  border-top: 3px solid var(--ding-green);
+}

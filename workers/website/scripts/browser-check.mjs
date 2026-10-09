@@ -5,6 +5,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { createServer } from "node:net";
 import assert from "node:assert/strict";
+import { assertSharedDesign } from "../../../design/check-browser.mjs";
 const root = new URL("../../../", import.meta.url);
 const artifacts = new URL("artifacts/public-surfaces/", root);
 await mkdir(artifacts, { recursive: true });
@@ -74,6 +75,8 @@ try {
     ["quickstart", docs + "/guides/first-watch/"],
     ["reference", docs + "/reference/manifest/"],
     ["console-help", docs + "/console/"],
+    ["preview-docs", docs + "/preview/"],
+    ["legacy-docs", docs + "/legacy/v0.14.0/"],
   ];
   for (const theme of ["light", "dark"])
     for (const width of [375, 768, 1024, 1440]) {
@@ -89,6 +92,10 @@ try {
         );
         const response = await page.goto(url, { waitUntil: "networkidle" });
         assert.equal(response.status(), 200);
+        await assertSharedDesign(
+          page,
+          url.startsWith(docs) ? "docs" : "website",
+        );
         const overflow = await page.evaluate(
           () => document.documentElement.scrollWidth > innerWidth + 1,
         );
@@ -118,7 +125,9 @@ try {
       await context.close();
     }
   // A repeatable cold mobile profile; record the origin to distinguish local and hosted runs.
-  for (const [name, url] of routes.filter(([name]) => ["home", "quickstart"].includes(name))) {
+  for (const [name, url] of routes.filter(([name]) =>
+    ["home", "quickstart"].includes(name),
+  )) {
     const context = await browser.newContext({
       viewport: { width: 375, height: 812 },
       deviceScaleFactor: 3,
@@ -140,7 +149,8 @@ try {
     await mobilePage.addInitScript(() => {
       window.pageVitals = { lcp: null, cls: 0 };
       new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) window.pageVitals.lcp = entry.startTime;
+        for (const entry of list.getEntries())
+          window.pageVitals.lcp = entry.startTime;
       }).observe({ type: "largest-contentful-paint", buffered: true });
       new PerformanceObserver((list) => {
         for (const entry of list.getEntries())
@@ -149,12 +159,29 @@ try {
     });
     await mobilePage.goto(url, { waitUntil: "networkidle" });
     const metrics = await mobilePage.evaluate(() => {
-      const requests = [...performance.getEntriesByType("navigation"), ...performance.getEntriesByType("resource")];
+      const requests = [
+        ...performance.getEntriesByType("navigation"),
+        ...performance.getEntriesByType("resource"),
+      ];
       return {
-        transferBytes: requests.reduce((sum, entry) => sum + entry.transferSize, 0),
-        unmeasuredCrossOriginRequests: requests.filter((entry) => new URL(entry.name).origin !== location.origin && !entry.transferSize).map((entry) => entry.name),
-        requests: requests.map((entry) => ({ path: new URL(entry.name).pathname, transferBytes: entry.transferSize })),
-        firstContentfulPaintMs: performance.getEntriesByName("first-contentful-paint")[0]?.startTime,
+        transferBytes: requests.reduce(
+          (sum, entry) => sum + entry.transferSize,
+          0,
+        ),
+        unmeasuredCrossOriginRequests: requests
+          .filter(
+            (entry) =>
+              new URL(entry.name).origin !== location.origin &&
+              !entry.transferSize,
+          )
+          .map((entry) => entry.name),
+        requests: requests.map((entry) => ({
+          path: new URL(entry.name).pathname,
+          transferBytes: entry.transferSize,
+        })),
+        firstContentfulPaintMs: performance.getEntriesByName(
+          "first-contentful-paint",
+        )[0]?.startTime,
         largestContentfulPaintMs: window.pageVitals.lcp,
         cumulativeLayoutShift: window.pageVitals.cls,
       };
@@ -162,10 +189,15 @@ try {
     report.performance.push({
       name,
       origin: new URL(url).origin,
-      profile: "375x812 CSS px, DPR 3, cold cache, 4x CPU, 150ms latency, 1.6Mbps down / 750Kbps up",
+      profile:
+        "375x812 CSS px, DPR 3, cold cache, 4x CPU, 150ms latency, 1.6Mbps down / 750Kbps up",
       ...metrics,
     });
-    if (name === "home") assert.ok(metrics.transferBytes <= 1024 * 1024, "Website initial transfer exceeds 1 MiB");
+    if (name === "home")
+      assert.ok(
+        metrics.transferBytes <= 1024 * 1024,
+        "Website initial transfer exceeds 1 MiB",
+      );
     await context.close();
   }
   const page = await browser.newPage({
@@ -194,11 +226,20 @@ try {
   await page.keyboard.press("Tab");
   // A 1024px physical display at 200% zoom exposes 512 CSS pixels.
   // CSS body.zoom does not update media queries and is not browser zoom.
-  const zoomContext = await browser.newContext({viewport:{width:512,height:450},deviceScaleFactor:2});
+  const zoomContext = await browser.newContext({
+    viewport: { width: 512, height: 450 },
+    deviceScaleFactor: 2,
+  });
   const zoomPage = await zoomContext.newPage();
   for (const url of [website + "/", docs + "/guides/first-watch/"]) {
     await zoomPage.goto(url);
-    assert.equal(await zoomPage.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `200% zoom reflow: ${url}`);
+    assert.equal(
+      await zoomPage.evaluate(
+        () => document.documentElement.scrollWidth > innerWidth + 1,
+      ),
+      false,
+      `200% zoom reflow: ${url}`,
+    );
   }
   await zoomContext.close();
   const noJS = await browser.newContext({
@@ -230,15 +271,26 @@ try {
     legacy.headers.get("location"),
     /legacy\/v0\.14\.0\/recipes\/mlflow\//,
   );
-  await page.emulateMedia({colorScheme: 'dark'});
+  await page.emulateMedia({ colorScheme: "dark" });
   await page.goto(docs + "/");
-  await page.getByTitle('Switch to light theme', {exact:true}).click();
-  assert.equal(await page.locator('body').getAttribute('data-md-color-scheme'), 'default');
-  const lightBackground = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  await page.getByTitle("Switch to light theme", { exact: true }).click();
+  assert.equal(
+    await page.locator("body").getAttribute("data-md-color-scheme"),
+    "default",
+  );
+  const lightBackground = await page.evaluate(
+    () => getComputedStyle(document.body).backgroundColor,
+  );
   await page.reload();
-  assert.equal(await page.locator('body').getAttribute('data-md-color-scheme'), 'default');
-  await page.getByTitle('Switch to dark theme', {exact:true}).click();
-  assert.notEqual(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), lightBackground);
+  assert.equal(
+    await page.locator("body").getAttribute("data-md-color-scheme"),
+    "default",
+  );
+  await page.getByTitle("Switch to dark theme", { exact: true }).click();
+  assert.notEqual(
+    await page.evaluate(() => getComputedStyle(document.body).backgroundColor),
+    lightBackground,
+  );
   await page
     .getByRole("textbox", { name: "Search", exact: true })
     .fill("idempotency");
@@ -268,7 +320,10 @@ try {
     `Passed ${report.pages.length} page/theme/viewport checks; accessibility, search, routing, and interactions. Screenshots: ${fileURLToPath(artifacts)}`,
   );
 } finally {
-  await writeFile(new URL('report.json', artifacts), JSON.stringify(report, null, 2));
+  await writeFile(
+    new URL("report.json", artifacts),
+    JSON.stringify(report, null, 2),
+  );
   await browser?.close();
   for (const child of children) {
     try {

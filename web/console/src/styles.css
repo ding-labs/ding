@@ -6,11 +6,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font:
-    14px/1.6 -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font: 14px/1.6 var(--ding-font);
 }
 button,
 input,
@@ -37,7 +33,7 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid var(--green);
+  outline: 2px solid var(--ding-focus);
   outline-offset: 3px;
 }
 a {
@@ -67,7 +63,7 @@ h3 {
 }
 code,
 .mono {
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: var(--ding-mono);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
@@ -121,7 +117,7 @@ small {
   align-items: center;
   gap: 12px;
   color: var(--muted);
-  border-radius: 6px;
+  border-radius: var(--ding-radius-control);
   padding: 10px 13px;
 }
 .nav-link:hover {
@@ -132,7 +128,7 @@ small {
   background: var(--panel);
   color: var(--ink);
   font-weight: 550;
-  box-shadow: 0 1px 3px #00000009;
+  box-shadow: var(--ding-shadow-nav);
 }
 .instance {
   margin-top: auto;
@@ -239,7 +235,7 @@ small {
   justify-content: center;
   gap: 7px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--ding-radius-control);
   padding: 8px 12px;
   font-size: 13px;
   background: var(--panel);
@@ -253,6 +249,9 @@ small {
   background: var(--primary);
   color: var(--primary-ink);
   border-color: transparent;
+}
+.button.primary:hover {
+  background: var(--ding-action-hover);
 }
 .button.danger {
   color: var(--red);
@@ -283,7 +282,7 @@ small {
 .notice,
 .connection-warning {
   padding: 13px 16px;
-  border-radius: 6px;
+  border-radius: var(--ding-radius-control);
   background: var(--amber-soft);
   color: var(--amber);
   font-size: 13px;
@@ -319,7 +318,7 @@ small {
   padding: 40px;
   background: var(--bg);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--ding-radius-panel);
 }
 .connect-card .brand {
   padding: 0;
@@ -441,7 +440,7 @@ small {
 }
 .mono,
 code {
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: var(--ding-mono);
 }
 .subtitle {
   max-width: 760px;
@@ -496,7 +495,7 @@ code {
 .panel {
   border: 1px solid var(--line);
   background: var(--panel);
-  border-radius: 12px;
+  border-radius: var(--ding-radius-panel);
   padding: 24px;
   min-width: 0;
 }
@@ -534,8 +533,12 @@ h3 {
   flex-shrink: 0;
 }
 .badge.good {
-  background: var(--green-soft);
-  color: var(--green);
+  background: var(--ding-success-soft);
+  color: var(--ding-success);
+}
+.badge.unknown {
+  background: var(--ding-unknown-soft);
+  color: var(--ding-unknown);
 }
 .badge.warn {
   background: var(--amber-soft);
@@ -600,7 +603,7 @@ select {
   color: var(--ink);
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--ding-radius-control);
   padding: 9px 11px;
   font: inherit;
   max-width: 100%;
@@ -722,7 +725,7 @@ a:hover {
   text-align: center;
   padding: 64px 25px;
   border: 1px dashed var(--line);
-  border-radius: 12px;
+  border-radius: var(--ding-radius-panel);
   background: var(--panel);
 }
 .empty-state h2 {
@@ -890,7 +893,7 @@ a:hover {
 }
 .evidence {
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--ding-radius-panel);
   background: var(--panel);
   margin-bottom: 26px;
   overflow: hidden;
@@ -984,7 +987,7 @@ a:hover {
   gap: 6px;
 }
 .value-card > span {
-  font-family: monospace;
+  font-family: var(--ding-mono);
   color: var(--muted);
   font-size: 12px;
 }
@@ -1032,7 +1035,7 @@ a:hover {
   background: var(--soft);
   border: 1px solid var(--line);
   padding: 15px;
-  border-radius: 6px;
+  border-radius: var(--ding-radius-control);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   max-height: 350px;
@@ -1259,7 +1262,7 @@ a:hover {
   text-align: left;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--ding-radius-panel);
   padding: 25px;
   color: var(--ink);
 }
@@ -1316,7 +1319,7 @@ a:hover {
   font-size: 11px;
 }
 .editor-panel textarea {
-  font-family: ui-monospace, monospace;
+  font-family: var(--ding-mono);
   font-size: 12px;
   line-height: 1.9;
   resize: vertical;
@@ -1363,9 +1366,7 @@ a:hover {
   display: none;
 }
 .fixture-editor {
-  font:
-    12px/1.9 ui-monospace,
-    monospace;
+  font: 12px/1.9 var(--ding-mono);
   width: 100%;
   min-height: 230px;
   resize: vertical;
@@ -1418,9 +1419,7 @@ a:hover {
 .definition-diff pre {
   background: var(--soft);
   border: 1px solid var(--line);
-  font:
-    11px/1.8 ui-monospace,
-    monospace;
+  font: 11px/1.8 var(--ding-mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   max-height: 500px;
@@ -1491,7 +1490,7 @@ a:hover {
 .dialog-overlay {
   position: fixed;
   inset: 0;
-  background: #07120db3;
+  background: var(--ding-overlay);
   backdrop-filter: blur(3px);
   z-index: 50;
 }
@@ -1507,7 +1506,7 @@ a:hover {
   border: 1px solid var(--line);
   border-radius: 15px;
   padding: 30px;
-  box-shadow: 0 24px 90px #0003;
+  box-shadow: var(--ding-shadow-dialog);
   z-index: 51;
 }
 .dialog-content h2 {
@@ -1568,7 +1567,7 @@ a:hover {
   border-radius: 8px;
   padding: 5px;
   z-index: 40;
-  box-shadow: 0 6px 28px #0002;
+  box-shadow: var(--ding-shadow-popover);
   min-width: 180px;
 }
 .dropdown [role="menuitem"] {
@@ -1632,9 +1631,7 @@ a:hover {
   margin-top: 18px;
 }
 .command-block {
-  font:
-    12px/1.8 ui-monospace,
-    monospace;
+  font: 12px/1.8 var(--ding-mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   background: var(--soft);
@@ -1656,9 +1653,7 @@ a:hover {
   color: var(--muted);
   padding: 8px 12px;
   border-radius: 5px;
-  font:
-    12px ui-monospace,
-    monospace;
+  font: 12px var(--ding-mono);
   min-height: 34px;
 }
 .command-list button.active {
@@ -1720,7 +1715,7 @@ a:hover {
 .command-results button {
   background: var(--soft);
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--ding-radius-control);
   padding: 12px;
   color: var(--ink);
   text-align: left;
@@ -1804,5 +1799,12 @@ a:hover {
 }
 
 /* Keep the recovered light bell legible on both theme surfaces. */
-.brand-bell { flex-shrink: 0; background: #f7f6f2; border-radius: 5px; padding: 3px; }
-.brand strong { font: inherit; }
+.brand-bell {
+  flex-shrink: 0;
+  background: var(--ding-logo-surface);
+  border-radius: 5px;
+  padding: 3px;
+}
+.brand strong {
+  font: inherit;
+}

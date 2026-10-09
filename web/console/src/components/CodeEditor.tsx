@@ -44,11 +44,19 @@ export default function CodeEditor({
           syntaxHighlighting(
             HighlightStyle.define([
               {
-                tag: [tags.keyword, tags.bool, tags.null, tags.number],
-                color: "var(--green)",
+                tag: [tags.keyword, tags.propertyName],
+                color: "var(--ding-code-key)",
               },
-              { tag: [tags.string, tags.propertyName], color: "var(--ink)" },
-              { tag: tags.comment, color: "var(--muted)", fontStyle: "italic" },
+              {
+                tag: [tags.string, tags.bool, tags.null],
+                color: "var(--ding-code-value)",
+              },
+              { tag: tags.number, color: "var(--ding-code-number)" },
+              {
+                tag: tags.comment,
+                color: "var(--ding-code-comment)",
+                fontStyle: "italic",
+              },
             ]),
           ),
           keymap.of([...defaultKeymap, ...historyKeymap]),
@@ -66,7 +74,7 @@ export default function CodeEditor({
               color: "var(--ink)",
             },
             ".cm-scroller": {
-              fontFamily: "ui-monospace,monospace",
+              fontFamily: "var(--ding-mono)",
               lineHeight: "1.9",
               overflow: "auto",
             },
@@ -76,10 +84,13 @@ export default function CodeEditor({
               color: "var(--muted)",
               borderRight: "1px solid var(--line)",
             },
-            ".cm-activeLineGutter": { backgroundColor: "var(--green-soft)" },
+            ".cm-activeLineGutter": { backgroundColor: "var(--soft)" },
+            "&.cm-focused .cm-selectionBackground, .cm-selectionBackground": {
+              backgroundColor: "var(--ding-selection)",
+            },
             ".cm-cursor": { borderLeftColor: "var(--ink)" },
             "&.cm-focused": {
-              outline: "2px solid var(--green)",
+              outline: "2px solid var(--ding-focus)",
               outlineOffset: "-2px",
             },
           }),

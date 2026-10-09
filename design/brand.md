@@ -35,23 +35,22 @@ current website illustration is explicitly a design preview, not a released
 console screenshot. Update `content/product.json` only after verifying the
 runtime artifacts and console minimum version.
 
-
 ## Original-green design draft — October 9, 2026
 
 Review `draft/index.html` for light and dark captures of all three working surfaces.
 These captures use isolated console fixtures; they are not live operational data.
 The draft is based on main `dd4715e` and is not a production deployment.
 
-| Role | Color | Use |
-| --- | --- | --- |
-| Original Ding green | `#7EE787` | Unchanged bell, primary action backgrounds, hero highlight |
-| Warm ivory | `#F7F6F2` | Light canvas, light logo backing |
-| Graphite | `#222B25` | Light text; nearby `#171C19` is the dark canvas |
-| Soft violet | `#ECE5F3` | Marketing product surround and informational accents |
-| Violet ink | `#68538B` / `#C2ADDF` | Readable light/dark informational and unknown labels |
-| Amber | `#80530F` / `#EBBC74` | Attention and pending states, always labeled |
-| Pine | `#246239` | Readable links on light surfaces |
-| Coral | `#A33C33` / `#F0A398` | Incidents and failures, always labeled |
+| Role                | Color                 | Use                                                        |
+| ------------------- | --------------------- | ---------------------------------------------------------- |
+| Original Ding green | `#7EE787`             | Unchanged bell, primary action backgrounds, hero highlight |
+| Warm ivory          | `#F7F6F2`             | Light canvas, light logo backing                           |
+| Graphite            | `#222B25`             | Light text; nearby `#171C19` is the dark canvas            |
+| Soft violet         | `#ECE5F3`             | Marketing product surround and informational accents       |
+| Violet ink          | `#68538B` / `#C2ADDF` | Readable light/dark informational and unknown labels       |
+| Amber               | `#80530F` / `#EBBC74` | Attention and pending states, always labeled               |
+| Pine                | `#246239`             | Readable links on light surfaces                           |
+| Coral               | `#A33C33` / `#F0A398` | Incidents and failures, always labeled                     |
 
 Green buttons use dark `#17251C` text (10.4:1 contrast). Do not use the original
 bright green as small text on ivory. Dark-theme links use the original green;
@@ -65,3 +64,22 @@ pine links, a green heading rule, quiet code backgrounds, and violet notes.
 For local review, build the website and docs with their existing scripts and build
 `web/console`. Open `design/draft/index.html` directly, or serve `design/` with a
 local static server. The review sheet needs no framework, account, or daemon.
+
+## Keeping the three surfaces aligned
+
+`tokens.css` owns body and code font families, theme colors, primary action and
+hover colors, focus, selection, control/panel radii, logo backing, and overlays.
+`console.css` maps those tokens to the Console's existing component variables.
+The website copies the same foundation at build time. Every documentation channel,
+including the legacy archive, stages it and maps it into Material's variables.
+
+Use the semantic tokens for statuses: unknown is violet, paused/canceled neutral,
+queued/sending amber, incidents coral, and successful results green. Preserve the
+text label. Code keys use violet, values green, numbers amber, and comments muted
+text, in both the Console editor and documentation. Documentation callouts also
+map to the semantic palette rather than Material's unrelated defaults.
+
+The existing browser suites call `check-browser.mjs` against built pages to verify
+fonts, canvas/text colors, primary controls, exact original SVGs, and favicons.
+The public suite includes current, preview, and legacy documentation. Shared
+`design/` changes trigger all three consumers' CI checks.
