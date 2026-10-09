@@ -218,6 +218,11 @@ export function Events({ watch }: { watch?: string }) {
                 </p>
               </Empty>
             )}
+            <Raw
+              value={query.data}
+              title="History response and resume cursor"
+              name="ding-events.json"
+            />
             <Pager
               more={query.data.more}
               cursor={query.data.cursor}

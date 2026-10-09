@@ -28,6 +28,13 @@ export interface ConditionState {
   seen?: Record<string, string>;
 }
 
+export interface ControlBackupArtifact {
+  id: string;
+  bytes: number;
+  expiresAt: string;
+  verified: boolean;
+}
+
 export interface ControlBrowserSession {
   csrf: string;
   expiresAt: string;
@@ -39,6 +46,17 @@ export interface ControlCompileResult {
   descriptions: Array<PlanDescription>;
   diagnostics: Array<ControlDiagnostic>;
   credentials: Array<WatchrunCredentialHealth>;
+}
+
+export interface ControlConversion {
+  report: MigrateReport;
+  files: Array<ControlConvertedFile>;
+  archive: string;
+}
+
+export interface ControlConvertedFile {
+  name: string;
+  content: string;
 }
 
 export interface ControlDiagnostic {
@@ -66,6 +84,36 @@ export interface ControlInfo {
 export interface ControlVerification {
   status: string;
   message: string;
+}
+
+export interface MigrateBinding {
+  notifier: string;
+  environment: string;
+  from: string;
+}
+
+export interface MigrateIssue {
+  code: string;
+  message: string;
+}
+
+export interface MigrateReport {
+  converted: number;
+  unsupported: number;
+  reviewRequired: boolean;
+  state: string;
+  warnings: Array<MigrateIssue>;
+  bindings: Array<MigrateBinding>;
+  rules: Array<MigrateRuleReport>;
+}
+
+export interface MigrateRuleReport {
+  name: string;
+  id: string;
+  status: string;
+  file?: string;
+  issues: Array<MigrateIssue>;
+  warnings: Array<MigrateIssue>;
 }
 
 export interface PlanBundle {

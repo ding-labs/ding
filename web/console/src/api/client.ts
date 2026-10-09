@@ -75,7 +75,7 @@ export async function logout() {
 }
 export function download(
   name: string,
-  data: string,
+  data: BlobPart,
   type = "application/json",
 ) {
   const url = URL.createObjectURL(new Blob([data], { type }));

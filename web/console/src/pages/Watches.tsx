@@ -274,6 +274,11 @@ export function Watches() {
                 )}
               </Empty>
             )}
+            <Raw
+              value={query.data}
+              title="Watch summary response"
+              name="ding-watches.json"
+            />
             <Pager
               more={query.data.more}
               cursor={query.data.cursor}
@@ -515,6 +520,26 @@ export function WatchDetail() {
           )}
         </section>
       )}
+      {tab === "Overview" && d.spec.source.type === "push" && (
+        <section className="panel">
+          <h3>Send an observation</h3>
+          <p>
+            Use the daemon's ingest credential in your producer. The browser
+            session cannot ingest. Replace the JSON body with the source data
+            expected by this definition.
+          </p>
+          <pre className="command-block">{`curl --request POST '${window.location.origin}/v1/ingest/${encodeURIComponent(id)}' \\\n  --header "Authorization: Bearer $DING_INGEST_TOKEN" \\\n  --header 'Content-Type: application/json' \\\n  --data '{}'`}</pre>
+          <p className="muted">
+            Keep the ingest credential in your producer's secret store. Add an
+            Idempotency-Key header when retrying an input.
+          </p>
+        </section>
+      )}
+      <Raw
+        value={query.data}
+        title="Watch inspection response"
+        name={`${id}-inspection.json`}
+      />
       {tab === "Definition" && (
         <section className="panel">
           <Rule definition={d} />

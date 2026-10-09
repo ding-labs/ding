@@ -128,6 +128,11 @@ export function Deliveries({ watch }: { watch?: string }) {
                 </p>
               </Empty>
             )}
+            <Raw
+              value={query.data}
+              title="Delivery summary response"
+              name="ding-deliveries.json"
+            />
             <Pager
               more={query.data.more}
               cursor={query.data.cursor}

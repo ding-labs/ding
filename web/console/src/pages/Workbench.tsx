@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -30,6 +30,7 @@ import {
   Tabs,
   useRead,
 } from "../components/common";
+import { LegacyImport } from "./LegacyImport";
 import { DefinitionDiff } from "../components/DefinitionDiff";
 import { useDraft, setDraft } from "../app/draft";
 const base = `apiVersion: ding.ing/v1alpha1\nkind: Destination\nmetadata: {id: console}\nspec: {type: console}\n---\napiVersion: ding.ing/v1alpha1\nkind: Watch\n`;
@@ -64,7 +65,9 @@ async function readFile(file: File, max: number) {
 }
 export function Workbench() {
   const draft = useDraft();
-  const [tab, setTab] = useState("Definition");
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab") || "Definition";
+  const setTab = (tab: string) => setParams({ tab });
   const [compiled, setCompiled] = useState<ControlCompileResult>();
   const [compiledText, setCompiledText] = useState("");
   const [compiling, setCompiling] = useState(false);
@@ -424,11 +427,14 @@ export function Workbench() {
         </section>
       )}
       <Tabs
-        items={["Definition", "Simulation", "Verify evidence"]}
+        items={["Definition", "Simulation", "Verify evidence", "Legacy import"]}
         active={tab}
         onChange={setTab}
       />
       <ErrorBox error={error || compileError} />
+      {tab === "Legacy import" && (
+        <LegacyImport onEdit={() => setTab("Definition")} />
+      )}
       {tab === "Definition" && (
         <>
           <div className="editor-toolbar">

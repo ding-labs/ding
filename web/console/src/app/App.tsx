@@ -20,6 +20,7 @@ import {
 import { api, connect, logout } from "../api/client";
 import type { ControlInfo } from "../api/contracts";
 
+import { System } from "../pages/System";
 import { Workbench } from "../pages/Workbench";
 import "./draft";
 import { Watches, WatchDetail } from "../pages/Watches";
@@ -222,13 +223,7 @@ export function App() {
               <Route path="/deliveries" element={<Deliveries />} />
               <Route path="/deliveries/:id" element={<DeliveryDetail />} />
               <Route path="/workbench" element={<Workbench />} />
-              {nav.slice(4).map((n) => (
-                <Route
-                  key={n.path}
-                  path={n.path + "/*"}
-                  element={<FoundationPage title={n.label} />}
-                />
-              ))}
+              <Route path="/system" element={<System />} />
               <Route
                 path="*"
                 element={
@@ -243,22 +238,5 @@ export function App() {
         </div>
       </div>
     </TimeContext.Provider>
-  );
-}
-function FoundationPage({ title }: { title: string }) {
-  return (
-    <>
-      <div className="page-heading">
-        <div>
-          <p className="eyebrow">Ding Console</p>
-          <h1>{title}</h1>
-        </div>
-      </div>
-      <div className="empty">
-        <Radio size={30} />
-        <h2>The console is connected.</h2>
-        <p>This foundation is ready for the operational views.</p>
-      </div>
-    </>
   );
 }

@@ -177,7 +177,7 @@ func (t *Tx) SecretNames() (map[string][]string, error) {
 }
 
 const watchView = `WITH entity AS (SELECT watch_id,count(*) entities,coalesce(sum(json_extract(state,'$.open')),0) opened,coalesce(sum(json_extract(state,'$.sourceUnhealthy')),0) unhealthy FROM entities GROUP BY watch_id), delivery AS (SELECT watch_id,sum(status IN ('permanent','exhausted')) failed,sum(status IN ('pending','leased')) pending FROM outbox GROUP BY watch_id), summary AS (
- SELECT w.*,coalesce(json_extract(r.definition,'$.metadata.name'),'') name,json_extract(r.definition,'$.spec.source.type') source,json_extract(r.definition,'$.spec.policy.trigger') trigger,coalesce(json_extract(r.definition,'$.spec.condition.operator'),'') operator,coalesce(e.entities,0) entities,coalesce(e.opened,0) opened,coalesce(e.unhealthy,0) unhealthy,coalesce(d.failed,0) failed,coalesce(d.pending,0) pending,
+ SELECT w.*,json_extract(r.definition,'$.spec.destinations') targets,coalesce(json_extract(r.definition,'$.metadata.name'),'') name,json_extract(r.definition,'$.spec.source.type') source,json_extract(r.definition,'$.spec.policy.trigger') trigger,coalesce(json_extract(r.definition,'$.spec.condition.operator'),'') operator,coalesce(e.entities,0) entities,coalesce(e.opened,0) opened,coalesce(e.unhealthy,0) unhealthy,coalesce(d.failed,0) failed,coalesce(d.pending,0) pending,
  (coalesce(e.opened,0)>0 OR coalesce(e.unhealthy,0)>0 OR w.last_error!='' OR coalesce(d.failed,0)>0 OR w.id IN (SELECT value FROM json_each(?))) attention
  FROM watches w JOIN watch_revisions r ON r.watch_id=w.id AND r.revision=w.revision LEFT JOIN entity e ON e.watch_id=w.id LEFT JOIN delivery d ON d.watch_id=w.id)
  `
@@ -195,8 +195,8 @@ func (t *Tx) ConsoleWatches(q ConsoleQuery, missing map[string][]string) (WatchP
 		}
 	}
 	raw, _ := json.Marshal(ids)
-	where := ` WHERE (?='' OR instr(lower(id||' '||name),lower(?))>0) AND (?='' OR status=?) AND (?='' OR source=?) AND (?='' OR attention=1) AND (?='' OR id=?) AND (?='' OR (?='open' AND opened>0) OR (?='none' AND opened=0)) AND (?='' OR (?='error' AND (unhealthy>0 OR last_error!='')) OR (?='clear' AND unhealthy=0 AND last_error='')) AND (?='' OR (?='failed' AND failed>0) OR (?='pending' AND pending>0))`
-	args := []any{string(raw), q.Search, q.Search, q.Status, q.Status, q.Source, q.Source, q.Attention, q.Watch, q.Watch, q.Incident, q.Incident, q.Incident, q.Health, q.Health, q.Health, q.Delivery, q.Delivery, q.Delivery}
+	where := ` WHERE (?='' OR instr(lower(id||' '||name),lower(?))>0) AND (?='' OR status=?) AND (?='' OR source=?) AND (?='' OR attention=1) AND (?='' OR id=?) AND (?='' OR (?='open' AND opened>0) OR (?='none' AND opened=0)) AND (?='' OR (?='error' AND (unhealthy>0 OR last_error!='')) OR (?='clear' AND unhealthy=0 AND last_error='')) AND (?='' OR (?='failed' AND failed>0) OR (?='pending' AND pending>0)) AND (?='' OR EXISTS(SELECT 1 FROM json_each(targets) target WHERE json_extract(target.value,'$.ref')=?))`
+	args := []any{string(raw), q.Search, q.Search, q.Status, q.Status, q.Source, q.Source, q.Attention, q.Watch, q.Watch, q.Incident, q.Incident, q.Incident, q.Health, q.Health, q.Health, q.Delivery, q.Delivery, q.Delivery, q.Destination, q.Destination}
 	if err = t.sql.QueryRowContext(t.ctx, watchView+"SELECT count(*) FROM summary"+where, args...).Scan(&out.Total); err != nil {
 		return out, err
 	}
