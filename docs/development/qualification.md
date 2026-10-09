@@ -215,3 +215,9 @@ An idle-sleep inhibitor alone does not guarantee continuous execution when the
 lid is closed or the host is explicitly put to sleep. A replacement starts the
 full qualification duration from zero; elapsed time from this invalid run is
 not credited.
+
+The repaired driver's six-minute check passed: 18,270 accepted/delivered pushes,
+zero rejected inputs, 18 ms steady p95, 21 ms burst p95, 37.8 MiB peak RSS and
+6.2% post-warmup median RSS growth. It used the same short-fixture settings as
+the earlier six-minute check. This is regression/preflight evidence, not the
+24-hour gate; the raw result is `testdata/qualification/recovery-harness-6m.json`.
