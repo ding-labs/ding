@@ -1,0 +1,1178 @@
+[
+  {
+    "name": "gt",
+    "condition": "value \u003e 50",
+    "message": "{{ .metric }} {{ .value }} on {{ .host }}",
+    "match": {
+      "metric": "cpu"
+    },
+    "inputs": [
+      {
+        "second": 0,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 20
+        }
+      },
+      {
+        "second": 10,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      },
+      {
+        "second": 20,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 90
+        }
+      },
+      {
+        "second": 67,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 10
+        }
+      },
+      {
+        "second": 78,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 100
+        }
+      },
+      {
+        "second": 91,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      }
+    ],
+    "legacy": [
+      {
+        "input": 2,
+        "message": "cpu 90 on a"
+      },
+      {
+        "input": 4,
+        "message": "cpu 100 on a"
+      }
+    ]
+  },
+  {
+    "name": "gte",
+    "condition": "value \u003e= 50",
+    "message": "{{ .metric }} {{ .value }} on {{ .host }}",
+    "match": {
+      "metric": "cpu"
+    },
+    "inputs": [
+      {
+        "second": 0,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 20
+        }
+      },
+      {
+        "second": 10,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      },
+      {
+        "second": 20,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 90
+        }
+      },
+      {
+        "second": 67,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 10
+        }
+      },
+      {
+        "second": 78,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 100
+        }
+      },
+      {
+        "second": 91,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      }
+    ],
+    "legacy": [
+      {
+        "input": 1,
+        "message": "cpu 50 on a"
+      },
+      {
+        "input": 2,
+        "message": "cpu 90 on a"
+      },
+      {
+        "input": 4,
+        "message": "cpu 100 on a"
+      },
+      {
+        "input": 5,
+        "message": "cpu 50 on a"
+      }
+    ]
+  },
+  {
+    "name": "lt",
+    "condition": "value \u003c 50",
+    "message": "{{ .metric }} {{ .value }} on {{ .host }}",
+    "match": {
+      "metric": "cpu"
+    },
+    "inputs": [
+      {
+        "second": 0,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 20
+        }
+      },
+      {
+        "second": 10,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      },
+      {
+        "second": 20,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 90
+        }
+      },
+      {
+        "second": 67,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 10
+        }
+      },
+      {
+        "second": 78,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 100
+        }
+      },
+      {
+        "second": 91,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      }
+    ],
+    "legacy": [
+      {
+        "input": 0,
+        "message": "cpu 20 on a"
+      },
+      {
+        "input": 3,
+        "message": "cpu 10 on a"
+      }
+    ]
+  },
+  {
+    "name": "lte",
+    "condition": "value \u003c= 50",
+    "message": "{{ .metric }} {{ .value }} on {{ .host }}",
+    "match": {
+      "metric": "cpu"
+    },
+    "inputs": [
+      {
+        "second": 0,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 20
+        }
+      },
+      {
+        "second": 10,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      },
+      {
+        "second": 20,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 90
+        }
+      },
+      {
+        "second": 67,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 10
+        }
+      },
+      {
+        "second": 78,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 100
+        }
+      },
+      {
+        "second": 91,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      }
+    ],
+    "legacy": [
+      {
+        "input": 0,
+        "message": "cpu 20 on a"
+      },
+      {
+        "input": 1,
+        "message": "cpu 50 on a"
+      },
+      {
+        "input": 3,
+        "message": "cpu 10 on a"
+      },
+      {
+        "input": 5,
+        "message": "cpu 50 on a"
+      }
+    ]
+  },
+  {
+    "name": "eq",
+    "condition": "value == 50",
+    "message": "{{ .metric }} {{ .value }} on {{ .host }}",
+    "match": {
+      "metric": "cpu"
+    },
+    "inputs": [
+      {
+        "second": 0,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 20
+        }
+      },
+      {
+        "second": 10,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      },
+      {
+        "second": 20,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 90
+        }
+      },
+      {
+        "second": 67,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 10
+        }
+      },
+      {
+        "second": 78,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 100
+        }
+      },
+      {
+        "second": 91,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      }
+    ],
+    "legacy": [
+      {
+        "input": 1,
+        "message": "cpu 50 on a"
+      },
+      {
+        "input": 5,
+        "message": "cpu 50 on a"
+      }
+    ]
+  },
+  {
+    "name": "ne",
+    "condition": "value != 50",
+    "message": "{{ .metric }} {{ .value }} on {{ .host }}",
+    "match": {
+      "metric": "cpu"
+    },
+    "inputs": [
+      {
+        "second": 0,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 20
+        }
+      },
+      {
+        "second": 10,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      },
+      {
+        "second": 20,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 90
+        }
+      },
+      {
+        "second": 67,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 10
+        }
+      },
+      {
+        "second": 78,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 100
+        }
+      },
+      {
+        "second": 91,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      }
+    ],
+    "legacy": [
+      {
+        "input": 0,
+        "message": "cpu 20 on a"
+      },
+      {
+        "input": 2,
+        "message": "cpu 90 on a"
+      },
+      {
+        "input": 3,
+        "message": "cpu 10 on a"
+      },
+      {
+        "input": 4,
+        "message": "cpu 100 on a"
+      }
+    ]
+  },
+  {
+    "name": "avg",
+    "condition": "avg(value) over 1m \u003e 50",
+    "message": "{{ .metric }} {{ .value }} on {{ .host }}",
+    "match": {
+      "metric": "cpu"
+    },
+    "inputs": [
+      {
+        "second": 0,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 20
+        }
+      },
+      {
+        "second": 10,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      },
+      {
+        "second": 20,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 90
+        }
+      },
+      {
+        "second": 67,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 10
+        }
+      },
+      {
+        "second": 78,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 100
+        }
+      },
+      {
+        "second": 91,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      }
+    ],
+    "legacy": [
+      {
+        "input": 2,
+        "message": "cpu 90 on a"
+      },
+      {
+        "input": 4,
+        "message": "cpu 100 on a"
+      },
+      {
+        "input": 5,
+        "message": "cpu 50 on a"
+      }
+    ]
+  },
+  {
+    "name": "min",
+    "condition": "min(value) over 1m \u003c 50",
+    "message": "{{ .metric }} {{ .value }} on {{ .host }}",
+    "match": {
+      "metric": "cpu"
+    },
+    "inputs": [
+      {
+        "second": 0,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 20
+        }
+      },
+      {
+        "second": 10,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      },
+      {
+        "second": 20,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 90
+        }
+      },
+      {
+        "second": 67,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 10
+        }
+      },
+      {
+        "second": 78,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 100
+        }
+      },
+      {
+        "second": 91,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      }
+    ],
+    "legacy": [
+      {
+        "input": 0,
+        "message": "cpu 20 on a"
+      },
+      {
+        "input": 1,
+        "message": "cpu 50 on a"
+      },
+      {
+        "input": 2,
+        "message": "cpu 90 on a"
+      },
+      {
+        "input": 3,
+        "message": "cpu 10 on a"
+      },
+      {
+        "input": 4,
+        "message": "cpu 100 on a"
+      },
+      {
+        "input": 5,
+        "message": "cpu 50 on a"
+      }
+    ]
+  },
+  {
+    "name": "max",
+    "condition": "max(value) over 1m \u003e 50",
+    "message": "{{ .metric }} {{ .value }} on {{ .host }}",
+    "match": {
+      "metric": "cpu"
+    },
+    "inputs": [
+      {
+        "second": 0,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 20
+        }
+      },
+      {
+        "second": 10,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      },
+      {
+        "second": 20,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 90
+        }
+      },
+      {
+        "second": 67,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 10
+        }
+      },
+      {
+        "second": 78,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 100
+        }
+      },
+      {
+        "second": 91,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      }
+    ],
+    "legacy": [
+      {
+        "input": 2,
+        "message": "cpu 90 on a"
+      },
+      {
+        "input": 3,
+        "message": "cpu 10 on a"
+      },
+      {
+        "input": 4,
+        "message": "cpu 100 on a"
+      },
+      {
+        "input": 5,
+        "message": "cpu 50 on a"
+      }
+    ]
+  },
+  {
+    "name": "sum",
+    "condition": "sum(value) over 1m \u003e= 100",
+    "message": "{{ .metric }} {{ .value }} on {{ .host }}",
+    "match": {
+      "metric": "cpu"
+    },
+    "inputs": [
+      {
+        "second": 0,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 20
+        }
+      },
+      {
+        "second": 10,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      },
+      {
+        "second": 20,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 90
+        }
+      },
+      {
+        "second": 67,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 10
+        }
+      },
+      {
+        "second": 78,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 100
+        }
+      },
+      {
+        "second": 91,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      }
+    ],
+    "legacy": [
+      {
+        "input": 2,
+        "message": "cpu 90 on a"
+      },
+      {
+        "input": 3,
+        "message": "cpu 10 on a"
+      },
+      {
+        "input": 4,
+        "message": "cpu 100 on a"
+      },
+      {
+        "input": 5,
+        "message": "cpu 50 on a"
+      }
+    ]
+  },
+  {
+    "name": "count",
+    "condition": "count(value) over 1m \u003e 1",
+    "message": "{{ .metric }} {{ .value }} on {{ .host }}",
+    "match": {
+      "metric": "cpu"
+    },
+    "inputs": [
+      {
+        "second": 0,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 20
+        }
+      },
+      {
+        "second": 10,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      },
+      {
+        "second": 20,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 90
+        }
+      },
+      {
+        "second": 67,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 10
+        }
+      },
+      {
+        "second": 78,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 100
+        }
+      },
+      {
+        "second": 91,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      }
+    ],
+    "legacy": [
+      {
+        "input": 1,
+        "message": "cpu 50 on a"
+      },
+      {
+        "input": 2,
+        "message": "cpu 90 on a"
+      },
+      {
+        "input": 3,
+        "message": "cpu 10 on a"
+      },
+      {
+        "input": 4,
+        "message": "cpu 100 on a"
+      },
+      {
+        "input": 5,
+        "message": "cpu 50 on a"
+      }
+    ]
+  },
+  {
+    "name": "and",
+    "condition": "value \u003e 50 AND avg(value) over 1m \u003e 30",
+    "message": "{{ .metric }} {{ .value }} on {{ .host }}",
+    "match": {
+      "metric": "cpu"
+    },
+    "inputs": [
+      {
+        "second": 0,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 20
+        }
+      },
+      {
+        "second": 10,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      },
+      {
+        "second": 20,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 90
+        }
+      },
+      {
+        "second": 67,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 10
+        }
+      },
+      {
+        "second": 78,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 100
+        }
+      },
+      {
+        "second": 91,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      }
+    ],
+    "legacy": [
+      {
+        "input": 2,
+        "message": "cpu 90 on a"
+      },
+      {
+        "input": 4,
+        "message": "cpu 100 on a"
+      }
+    ]
+  },
+  {
+    "name": "or",
+    "condition": "min(value) over 1m \u003c 25 OR max(value) over 1m \u003e 80",
+    "message": "{{ .metric }} {{ .value }} on {{ .host }}",
+    "match": {
+      "metric": "cpu"
+    },
+    "inputs": [
+      {
+        "second": 0,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 20
+        }
+      },
+      {
+        "second": 10,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      },
+      {
+        "second": 20,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 90
+        }
+      },
+      {
+        "second": 67,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 10
+        }
+      },
+      {
+        "second": 78,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 100
+        }
+      },
+      {
+        "second": 91,
+        "data": {
+          "host": "a",
+          "metric": "cpu",
+          "value": 50
+        }
+      }
+    ],
+    "legacy": [
+      {
+        "input": 0,
+        "message": "cpu 20 on a"
+      },
+      {
+        "input": 1,
+        "message": "cpu 50 on a"
+      },
+      {
+        "input": 2,
+        "message": "cpu 90 on a"
+      },
+      {
+        "input": 3,
+        "message": "cpu 10 on a"
+      },
+      {
+        "input": 4,
+        "message": "cpu 100 on a"
+      },
+      {
+        "input": 5,
+        "message": "cpu 50 on a"
+      }
+    ]
+  },
+  {
+    "name": "cooldown-groups",
+    "condition": "value \u003e 0",
+    "cooldown": "20s",
+    "message": "{{ .value }} {{ .host }} {{ .other }}",
+    "inputs": [
+      {
+        "second": 0,
+        "data": {
+          "host": "a",
+          "ignored_numeric": 1,
+          "metric": "cpu",
+          "other": "x",
+          "value": 1
+        }
+      },
+      {
+        "second": 5,
+        "data": {
+          "host": "a",
+          "ignored_numeric": 2,
+          "metric": "cpu",
+          "other": "x",
+          "value": 1
+        }
+      },
+      {
+        "second": 6,
+        "data": {
+          "host": "b",
+          "ignored_numeric": 1,
+          "metric": "cpu",
+          "other": "x",
+          "value": 1
+        }
+      },
+      {
+        "second": 7,
+        "data": {
+          "host": "a",
+          "ignored_numeric": 1,
+          "metric": "cpu",
+          "other": "y",
+          "value": 1
+        }
+      },
+      {
+        "second": 20,
+        "data": {
+          "host": "a",
+          "ignored_numeric": 5,
+          "metric": "cpu",
+          "other": "x",
+          "value": 1
+        }
+      },
+      {
+        "second": 21,
+        "data": {
+          "host": "a",
+          "ignored_numeric": 6,
+          "metric": "cpu",
+          "other": "x",
+          "value": 1
+        }
+      },
+      {
+        "second": 40,
+        "data": {
+          "host": "a",
+          "ignored_numeric": 7,
+          "metric": "cpu",
+          "other": "x",
+          "value": 1
+        }
+      }
+    ],
+    "legacy": [
+      {
+        "input": 0,
+        "message": "1 a x"
+      },
+      {
+        "input": 2,
+        "message": "1 b x"
+      },
+      {
+        "input": 3,
+        "message": "1 a y"
+      },
+      {
+        "input": 4,
+        "message": "1 a x"
+      },
+      {
+        "input": 6,
+        "message": "1 a x"
+      }
+    ]
+  },
+  {
+    "name": "empty-selector-and-missing-message",
+    "condition": "value \u003e 0",
+    "message": "{{ .value }} {{ .missing }} {{ .rule }}",
+    "match": {
+      "host": ""
+    },
+    "inputs": [
+      {
+        "second": 0,
+        "data": {
+          "metric": "cpu",
+          "value": 1
+        }
+      },
+      {
+        "second": 1,
+        "data": {
+          "host": 9,
+          "metric": "cpu",
+          "value": 1
+        }
+      },
+      {
+        "second": 2,
+        "data": {
+          "host": "",
+          "metric": "cpu",
+          "rule": "label overrides name",
+          "value": 1
+        }
+      },
+      {
+        "second": 3,
+        "data": {
+          "host": "b",
+          "metric": "cpu",
+          "value": 1
+        }
+      }
+    ],
+    "legacy": [
+      {
+        "input": 0,
+        "message": "1 \u003cno value\u003e empty-selector-and-missing-message"
+      },
+      {
+        "input": 1,
+        "message": "1 \u003cno value\u003e empty-selector-and-missing-message"
+      },
+      {
+        "input": 2,
+        "message": "1 \u003cno value\u003e label overrides name"
+      }
+    ]
+  },
+  {
+    "name": "default-message",
+    "condition": "value \u003e 0",
+    "message": "",
+    "inputs": [
+      {
+        "second": 0,
+        "data": {
+          "metric": "cpu",
+          "value": 9
+        }
+      }
+    ],
+    "legacy": [
+      {
+        "input": 0,
+        "message": "rule \"default-message\" fired (metric=cpu value=9)"
+      }
+    ]
+  },
+  {
+    "name": "boundary-change",
+    "condition": "count(value) over 10s \u003e 1",
+    "message": "count exceeded",
+    "inputs": [
+      {
+        "second": 0,
+        "data": {
+          "metric": "cpu",
+          "value": 1
+        }
+      },
+      {
+        "second": 10,
+        "data": {
+          "metric": "cpu",
+          "value": 1
+        }
+      }
+    ],
+    "legacy": [
+      {
+        "input": 1,
+        "message": "count exceeded"
+      }
+    ],
+    "changed": true
+  }
+]

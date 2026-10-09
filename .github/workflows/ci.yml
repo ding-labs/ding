@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, "codex/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Module metadata
+        run: go mod tidy -diff
+      - name: Vet
+        run: go vet ./...
+      - name: Tests with race detection and coverage
+        run: go test -race -count=1 -coverpkg=./... -coverprofile=coverage.out ./...
+      - name: Coverage summary
+        run: go tool cover -func=coverage.out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build advertised release target
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          go build -trimpath -ldflags='-s -w' -o dist/ding ./cmd/ding
+          go test -c -o dist/store-check ./internal/store
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build source image and verify HTTPS trust
+        run: |
+          docker build -t ding-ci .
+          scripts/container-smoke.sh ding-ci
+      - name: Build release image and verify HTTPS trust
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o ding ./cmd/ding
+          docker build -f Dockerfile.release -t ding-release-ci .
+          scripts/container-smoke.sh ding-release-ci
+      - name: Physical full and read-only filesystem faults
+        run: scripts/filesystem-faults.sh
+
+  adapters:
+    name: Native artifact (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-24.04, goos: linux, goarch: amd64, race: '-race'}
+          - {os: ubuntu-24.04-arm, goos: linux, goarch: arm64, race: '-race'}
+          - {os: macos-15-intel, goos: darwin, goarch: amd64, race: '-race'}
+          - {os: macos-15, goos: darwin, goarch: arm64, race: '-race'}
+          - {os: windows-latest, goos: windows, goarch: amd64, race: '-race'}
+          # Go's race detector does not support Windows ARM64.
+          - {os: windows-11-arm, goos: windows, goarch: arm64, race: ''}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Native source, persistence, and lifecycle contracts
+        run: go test ${{ matrix.race }} -count=1 ./internal/source ./internal/transform ./internal/control ./internal/watchrun
+      - name: Build and exercise the native executable
+        shell: bash
+        env:
+          CGO_ENABLED: '0'
+          DING_BINARY: ${{ runner.temp }}/ding-native${{ matrix.goos == 'windows' && '.exe' || '' }}
+        run: |
+          test "$(go env GOOS)" = '${{ matrix.goos }}'
+          test "$(go env GOARCH)" = '${{ matrix.goarch }}'
+          go build -trimpath -ldflags='-s -w' -o "$DING_BINARY" ./cmd/ding
+          go test -v -count=1 ./internal/qualification

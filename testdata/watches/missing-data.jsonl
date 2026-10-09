@@ -1,0 +1,4 @@
+{"sequence":1,"inputId":"seen","acceptedAt":"2026-01-01T00:00:00Z","health":"ok"}
+{"sequence":2,"inputId":"timeout","acceptedAt":"2026-01-01T00:00:05Z","health":"unknown"}
+{"sequence":3,"inputId":"deadline","acceptedAt":"2026-01-01T00:00:10Z","health":"timer","entity":"[]","deadline":"2026-01-01T00:00:10Z"}
+{"sequence":4,"inputId":"back","acceptedAt":"2026-01-01T00:00:15Z","health":"ok"}

@@ -1,0 +1,10 @@
+{
+  "name": "ding-website",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.90.0"
+  }
+}

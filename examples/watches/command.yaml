@@ -1,0 +1,15 @@
+apiVersion: ding.ing/v1alpha1
+kind: Watch
+metadata: {id: local-status}
+spec:
+  source:
+    type: command
+    argv: [/usr/local/bin/status-tool, --json]
+    directory: /tmp
+    every: 30s
+    timeout: 3s
+    fields: {healthy: service.healthy}
+    env:
+      SERVICE_TOKEN: {env: SERVICE_TOKEN}
+  condition: {field: healthy, operator: eq, value: false}
+  policy: {consecutive: 2, recoverAfter: 2}

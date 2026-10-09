@@ -20,7 +20,13 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Run tests
-        run: go test ./...
+        run: |
+          go vet ./...
+          go test -race ./...
+      - name: Container TLS gate
+        run: |
+          docker build -t ding-release-check .
+          scripts/container-smoke.sh ding-release-check
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
@@ -30,8 +36,8 @@ jobs:
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: latest
-          args: release --clean
+          version: v2.18.2
+          args: release --clean --release-notes docs/releases/watch-preview.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}

@@ -1,0 +1,5 @@
+{"sequence":1,"inputId":"one","acceptedAt":"2026-01-01T00:00:00Z","health":"ok","fields":{"http.status":500}}
+{"sequence":2,"inputId":"two","acceptedAt":"2026-01-01T00:00:05Z","health":"ok","fields":{"http.status":502}}
+{"sequence":3,"inputId":"three","acceptedAt":"2026-01-01T00:00:10Z","health":"ok","fields":{"http.status":503}}
+{"sequence":4,"inputId":"four","acceptedAt":"2026-01-01T00:00:15Z","health":"ok","fields":{"http.status":200}}
+{"sequence":5,"inputId":"five","acceptedAt":"2026-01-01T00:00:20Z","health":"ok","fields":{"http.status":200}}

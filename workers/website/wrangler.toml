@@ -1,0 +1,14 @@
+name = "ding-website"
+main = "src/worker.js"
+compatibility_date = "2026-05-01"
+account_id = "b5a19010c0fa72255f749f63b2ec0962"
+
+routes = [
+  { pattern = "ding.ing", custom_domain = true },
+  { pattern = "www.ding.ing", custom_domain = true },
+]
+
+[assets]
+directory = "./site"
+binding = "ASSETS"
+run_worker_first = true
