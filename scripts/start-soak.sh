@@ -27,4 +27,5 @@ echo "Started $name at $(date -u +%FT%TZ) on Linux/$arch, capped at four CPUs an
 echo "Progress: docker exec $name cat /results/run/progress.json"
 echo "Finish: docker inspect $name --format '{{.State.Status}} {{.State.ExitCode}}'"
 echo "Collect: docker cp $name:/results/run ./qualification-result"
-echo 'Keep Docker and the host running. The 250 MiB RSS target includes the fixture driver.'
+echo 'Keep the laptop lid open and Docker/host awake; an interruption invalidates the run.'
+echo 'The 250 MiB RSS target includes the fixture driver.'
