@@ -156,3 +156,31 @@ retains the original trial revision label; the runtime changes were committed as
 `68d52a3`. The driver is committed with this report. Failed early trials exposed
 the defects above and producer admission limits; the final driver records bounded
 admission retries and does not discard accepted events.
+
+## Active 24-hour run
+
+- Tested source: `0029fcd9d608ccccee6c06370eec9a75dbfe8b25`.
+- Container/volume: `ding-soak-0029fcd-20261009011500`.
+- Actual capacity start: **2026-10-09 01:15:03 UTC** (October 8, 6:15 PM Pacific).
+- Earliest completion: **2026-10-10 01:15:03 UTC** (October 9, 6:15 PM Pacific),
+  followed by integrity/backup checks. It is not yet qualified.
+- The host has a bounded 25-hour idle-sleep inhibitor for this run. Closing the
+  laptop, stopping Docker, or forcing sleep can interrupt the fixture.
+
+```sh
+docker exec ding-soak-0029fcd-20261009011500 cat /results/run/progress.json
+docker inspect ding-soak-0029fcd-20261009011500 --format '{{.State.Status}} {{.State.ExitCode}}'
+docker cp ding-soak-0029fcd-20261009011500:/results/run ./qualification-result
+```
+
+After it exits, review `result.json`, timing/cadence, all failure counters, memory
+medians/high-water mark, live pages versus allocated disk and retained-row
+stabilization. Preserve the verified database backup outside Git; commit only
+the nonsecret metrics/report. If a runtime defect causes failure, fix it with a
+regression and repeat the full-duration gate. Do not mark P14 complete early.
+
+An additional rollback drill ran the actual schema-2 executable against a copy
+of the schema-3 fixture backup. It refused startup with the required compatible
+backup guidance; schema/data digests and integrity stayed unchanged. SQLite can
+update journal-mode header bytes on open, so this is logical data preservation,
+not a promise of bit-identical files after an attempted open.

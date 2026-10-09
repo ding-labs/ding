@@ -25,7 +25,7 @@ for a watch beta; choose the actual number/date at release time.
 - [x] Record runtime commit's six archive sizes, container size and CI run.
 - [ ] Publish only capacity claims supported by the fixture, including its history
   setting, admission retries, machine, payload and delivery assumptions.
-- [ ] Review schema compatibility and preserve the verified pre-upgrade backup.
+- [x] Verify schema compatibility/refusal and pre-upgrade backup preservation.
 
 ## Publishing
 
