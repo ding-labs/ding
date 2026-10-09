@@ -87,8 +87,8 @@ func newBackupManager(state string) *backupManager {
 }
 func artifactOwner(r *http.Request) string {
 	value := r.Header.Get("Authorization")
-	if c, err := r.Cookie("ding_console"); err == nil {
-		value = c.Value
+	if session, ok := r.Context().Value(browserOwnerKey{}).(string); ok {
+		value = session
 	}
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(value)))
 }

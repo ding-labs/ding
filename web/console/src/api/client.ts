@@ -1,3 +1,4 @@
+import { setConnection } from "./connection";
 import type { ControlBrowserSession } from "./contracts";
 export class APIError extends Error {
   constructor(
@@ -15,16 +16,23 @@ export async function api<T>(
   options: { method?: string; body?: unknown; signal?: AbortSignal } = {},
 ): Promise<T> {
   const method = options.method || "GET";
-  const res = await fetch("/v1" + path, {
-    method,
-    credentials: "same-origin",
-    signal: options.signal,
-    headers: {
-      "Content-Type": "application/json",
-      ...(csrf ? { "X-Ding-CSRF": csrf } : {}),
-    },
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-  });
+  let res: Response;
+  try {
+    res = await fetch("/v1" + path, {
+      method,
+      credentials: "same-origin",
+      signal: options.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrf ? { "X-Ding-CSRF": csrf } : {}),
+      },
+      body:
+        options.body === undefined ? undefined : JSON.stringify(options.body),
+    });
+  } catch (error) {
+    if (!options.signal?.aborted) setConnection(false);
+    throw error;
+  }
   let result: {
     apiVersion?: string;
     data?: T;
@@ -40,6 +48,12 @@ export async function api<T>(
     );
   }
   if (!res.ok || result.error) {
+    if (
+      res.status === 401 ||
+      result.error?.code === "shutting_down" ||
+      result.error?.code === "store_unavailable"
+    )
+      setConnection(false);
     if (res.status === 401)
       window.dispatchEvent(new Event("ding:unauthorized"));
     throw new APIError(
@@ -54,6 +68,7 @@ export async function api<T>(
       "This console and daemon use different API versions.",
       res.status,
     );
+  setConnection(true);
   return result.data as T;
 }
 export async function connect(): Promise<ControlBrowserSession> {
@@ -84,4 +99,12 @@ export function download(
   link.download = name;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export function unknownOutcome(error: unknown) {
+  return (
+    !(error instanceof APIError) ||
+    error.status >= 500 ||
+    error.code === "invalid_response"
+  );
 }

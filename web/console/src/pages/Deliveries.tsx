@@ -1,4 +1,9 @@
-import { useSearchParams, useParams, Link } from "react-router-dom";
+import {
+  useSearchParams,
+  useParams,
+  useLocation,
+  Link,
+} from "react-router-dom";
 import { RetryAction } from "../components/Actions";
 import { useState } from "react";
 import type {
@@ -19,6 +24,7 @@ import {
   Raw,
 } from "../components/common";
 export function Deliveries({ watch }: { watch?: string }) {
+  const location = useLocation();
   const [p, set] = useSearchParams();
   const q = new URLSearchParams();
   for (const k of ["watch", "status", "event", "destination", "cursor"])
@@ -90,6 +96,9 @@ export function Deliveries({ watch }: { watch?: string }) {
                           <Link
                             className="row-title"
                             to={`/deliveries/${d.id}`}
+                            state={{
+                              returnTo: location.pathname + location.search,
+                            }}
                           >
                             {d.destinationId}{" "}
                             <span className="muted">#{d.id}</span>

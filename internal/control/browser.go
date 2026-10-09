@@ -1,9 +1,12 @@
 package control
 
 import (
+	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -50,9 +53,11 @@ type BrowserHandoff struct {
 	ExpiresAt time.Time `json:"expiresAt"`
 }
 type browserSession struct{ BrowserSession }
+type browserOwnerKey struct{}
 type browserAccess struct {
 	mu           sync.Mutex
 	origin, host string
+	cookieName   string
 	secure       bool
 	handoffs     map[string]time.Time
 	sessions     map[string]browserSession
@@ -81,7 +86,7 @@ func ValidUIOrigin(raw string) bool {
 // ConsoleHandler adds browser authentication without changing bearer API access.
 func ConsoleHandler(app *watchrun.App, c Credentials, cfg ConsoleConfig) http.Handler {
 	u, _ := url.Parse(cfg.Origin)
-	b := &browserAccess{origin: cfg.Origin, handoffs: map[string]time.Time{}, sessions: map[string]browserSession{}, now: time.Now}
+	b := &browserAccess{cookieName: fmt.Sprintf("ding_console_%x", sha256.Sum256([]byte(cfg.Origin)))[:29], origin: cfg.Origin, handoffs: map[string]time.Time{}, sessions: map[string]browserSession{}, now: time.Now}
 	if cfg.now != nil {
 		b.now = cfg.now
 	}
@@ -174,7 +179,7 @@ func ConsoleHandler(app *watchrun.App, c Credentials, cfg ConsoleConfig) http.Ha
 			token := randomToken()
 			s := browserSession{BrowserSession{randomToken(), b.now().Add(8 * time.Hour)}}
 			b.sessions[token] = s
-			http.SetCookie(w, &http.Cookie{Name: "ding_console", Value: token, Path: "/v1", HttpOnly: true, Secure: b.secure, SameSite: http.SameSiteStrictMode, Expires: s.ExpiresAt})
+			http.SetCookie(w, &http.Cookie{Name: b.cookieName, Value: token, Path: "/v1", HttpOnly: true, Secure: b.secure, SameSite: http.SameSiteStrictMode, Expires: s.ExpiresAt})
 			write(w, 200, s.BrowserSession, nil)
 			return
 		}
@@ -186,7 +191,7 @@ func ConsoleHandler(app *watchrun.App, c Credentials, cfg ConsoleConfig) http.Ha
 			fail(w, 401, "unauthorized", "launch Ding Console with ding ui")
 			return
 		}
-		cookie, err := r.Cookie("ding_console")
+		cookie, err := r.Cookie(b.cookieName)
 		if err != nil {
 			fail(w, 401, "unauthorized", "launch Ding Console with ding ui")
 			return
@@ -215,7 +220,7 @@ func ConsoleHandler(app *watchrun.App, c Credentials, cfg ConsoleConfig) http.Ha
 				b.mu.Lock()
 				delete(b.sessions, cookie.Value)
 				b.mu.Unlock()
-				http.SetCookie(w, &http.Cookie{Name: "ding_console", Value: "", Path: "/v1", HttpOnly: true, Secure: b.secure, SameSite: http.SameSiteStrictMode, MaxAge: -1})
+				http.SetCookie(w, &http.Cookie{Name: b.cookieName, Value: "", Path: "/v1", HttpOnly: true, Secure: b.secure, SameSite: http.SameSiteStrictMode, MaxAge: -1})
 				write(w, 200, map[string]bool{"loggedOut": true}, nil)
 			default:
 				fail(w, 405, "method_not_allowed", "use GET, POST or DELETE")
@@ -226,7 +231,7 @@ func ConsoleHandler(app *watchrun.App, c Credentials, cfg ConsoleConfig) http.Ha
 			fail(w, 403, "bearer_required", "launch Ding Console with ding ui")
 			return
 		}
-		forwarded := r.Clone(r.Context())
+		forwarded := r.Clone(context.WithValue(r.Context(), browserOwnerKey{}, cookie.Value))
 		forwarded.Header = r.Header.Clone()
 		forwarded.Header.Set("Authorization", "Bearer "+c.Admin)
 		api.ServeHTTP(w, forwarded)

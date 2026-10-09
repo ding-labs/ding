@@ -1,9 +1,19 @@
 import { test, expect } from "./fixtures";
 import { call, manifest } from "./data";
-import { readFileSync } from "node:fs";
+import {
+  readFileSync,
+  mkdtempSync,
+  copyFileSync,
+  existsSync,
+  rmSync,
+} from "node:fs";
+import { spawn, execFileSync } from "node:child_process";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 test("doctor, destinations, help, completion and verified backup", async ({
   page,
   daemon,
+  binary,
 }) => {
   await call(daemon, "/apply", { manifest });
   await page.goto(await daemon.launch());
@@ -40,6 +50,39 @@ test("doctor, destinations, help, completion and verified backup", async ({
     "SQLite format 3",
   );
   await expect(page.getByRole("status")).toContainText("Verified");
+  const restored = mkdtempSync(join(tmpdir(), "ding-browser-backup-"));
+  copyFileSync(file!, join(restored, "ding.db"));
+  const process = spawn(
+    binary,
+    ["daemon", "--state-dir", restored, "--listen", "127.0.0.1:0"],
+    { stdio: "ignore" },
+  );
+  try {
+    await expect
+      .poll(() => existsSync(join(restored, "connection.json")))
+      .toBe(true);
+    const doctor = JSON.parse(
+      execFileSync(binary, ["doctor", "--state-dir", restored, "--json"], {
+        encoding: "utf8",
+      }),
+    );
+    expect(doctor.data.healthy).toBe(true);
+    const watches = JSON.parse(
+      execFileSync(
+        binary,
+        ["watch", "list", "--state-dir", restored, "--json"],
+        { encoding: "utf8" },
+      ),
+    );
+    expect(JSON.stringify(watches.data)).toContain("api-health");
+  } finally {
+    process.kill("SIGTERM");
+    await new Promise<void>((resolve) => {
+      if (process.exitCode !== null) resolve();
+      else process.once("exit", () => resolve());
+    });
+    rmSync(restored, { recursive: true, force: true });
+  }
 });
 test("legacy import returns a report and archive without applying", async ({
   page,

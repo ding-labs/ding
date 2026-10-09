@@ -44,3 +44,5 @@ node_modules/
 /web/console/playwright-report/
 /web/console/test-results/
 /web/console/*.tsbuildinfo
+
+!web/console/Dockerfile.test

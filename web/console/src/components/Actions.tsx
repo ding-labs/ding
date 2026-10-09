@@ -10,7 +10,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { api } from "../api/client";
+import { useConnection } from "../api/connection";
+import { api, unknownOutcome } from "../api/client";
 import type { StoreWatchRecord, StoreIntent } from "../api/contracts";
 import { ErrorBox } from "./common";
 function Confirm({
@@ -66,6 +67,7 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
   const [typed, setTyped] = useState("");
   const [cancelPending, setCancelPending] = useState(false);
   const client = useQueryClient();
+  const connected = useConnection();
   const id = watch.plan.definition.metadata.id;
   const change = useMutation({
     mutationFn: () =>
@@ -100,6 +102,7 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
     <>
       <button
         className="button"
+        disabled={!connected}
         onClick={() => start(watch.status === "paused" ? "resume" : "pause")}
       >
         {watch.status === "paused" ? <Play size={15} /> : <Pause size={15} />}{" "}
@@ -107,7 +110,11 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
       </button>
       <Menu.Root>
         <Menu.Trigger asChild>
-          <button className="icon-button" aria-label="More watch actions">
+          <button
+            className="icon-button"
+            aria-label="More watch actions"
+            disabled={!connected}
+          >
             <MoreHorizontal size={18} />
           </button>
         </Menu.Trigger>
@@ -174,6 +181,29 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
           </>
         )}
         <ErrorBox error={change.error} />
+        {change.isError && unknownOutcome(change.error) && (
+          <div className="notice">
+            <strong>The outcome is unknown.</strong>
+            <p>
+              The operation may have committed. This confirmation will not
+              submit it again.
+            </p>
+            <button
+              className="button"
+              onClick={async () => {
+                try {
+                  await api(`/watches/${encodeURIComponent(id)}`);
+                  await client.invalidateQueries();
+                  setAction("");
+                } catch {
+                  /* Keep the uncertain action visible until a read succeeds. */
+                }
+              }}
+            >
+              Inspect current state
+            </button>
+          </div>
+        )}
         {change.isError && (
           <p className="muted">
             Close this confirmation and refresh the watch before trying again if
@@ -186,11 +216,18 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
             disabled={change.isPending}
             onClick={() => setAction("")}
           >
-            Keep current state
+            {change.isError && unknownOutcome(change.error)
+              ? "Close"
+              : "Keep current state"}
           </button>
           <button
             className={`button ${action === "delete" ? "danger" : "primary"}`}
-            disabled={change.isPending || (action === "delete" && typed !== id)}
+            disabled={
+              change.isPending ||
+              !connected ||
+              (change.isError && unknownOutcome(change.error)) ||
+              (action === "delete" && typed !== id)
+            }
             onClick={() => change.mutate()}
           >
             {change.isPending
@@ -209,6 +246,7 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
 export function RetryAction({ intent }: { intent: StoreIntent }) {
   const [open, setOpen] = useState(false);
   const client = useQueryClient();
+  const connected = useConnection();
   const retry = useMutation({
     mutationFn: () =>
       api(`/deliveries/${intent.id}/retry`, { method: "POST", body: {} }),
@@ -223,6 +261,7 @@ export function RetryAction({ intent }: { intent: StoreIntent }) {
     <>
       <button
         className="button"
+        disabled={!connected}
         onClick={() => {
           retry.reset();
           setOpen(true);
@@ -257,6 +296,29 @@ export function RetryAction({ intent }: { intent: StoreIntent }) {
           </div>
         </dl>
         <ErrorBox error={retry.error} />
+        {retry.isError && unknownOutcome(retry.error) && (
+          <div className="notice">
+            <strong>The outcome is unknown.</strong>
+            <p>
+              The retry may already be queued. This confirmation will not submit
+              it again.
+            </p>
+            <button
+              className="button"
+              onClick={async () => {
+                try {
+                  await api(`/deliveries/${intent.id}`);
+                  await client.invalidateQueries();
+                  setOpen(false);
+                } catch {
+                  /* Retain the uncertain state. */
+                }
+              }}
+            >
+              Inspect current state
+            </button>
+          </div>
+        )}
         <div className="dialog-actions">
           <button
             className="button"
@@ -267,7 +329,11 @@ export function RetryAction({ intent }: { intent: StoreIntent }) {
           </button>
           <button
             className="button primary"
-            disabled={retry.isPending}
+            disabled={
+              retry.isPending ||
+              !connected ||
+              (retry.isError && unknownOutcome(retry.error))
+            }
             onClick={() => retry.mutate()}
           >
             {retry.isPending ? "Queueing…" : "Retry original notification"}

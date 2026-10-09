@@ -146,7 +146,19 @@ export interface ReplayCheckpoint {
   sourceRecovered?: boolean;
 }
 
+export interface ReplayEvaluation {
+  known: boolean;
+  matched: boolean;
+  reason: string;
+  matches: number;
+  recoveries: number;
+  open: boolean;
+  sourceUnhealthy: boolean;
+  windows: Array<ReplayWindowSummary>;
+}
+
 export interface ReplayEvidence {
+  evaluation?: ReplayEvaluation | null;
   definition: WatchDefinition;
   event: WatchEvent;
   checkpoint?: ReplayCheckpoint | null;
@@ -159,6 +171,15 @@ export interface ReplayReport {
   observations: number;
   events: Array<WatchEvent>;
   states: Record<string, ConditionState>;
+}
+
+export interface ReplayWindowSummary {
+  function: string;
+  fromExclusive: string;
+  throughInclusive: string;
+  samples: number;
+  value: number | null;
+  available: boolean;
 }
 
 export interface StoreAttempt {

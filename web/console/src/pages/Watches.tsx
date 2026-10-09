@@ -4,6 +4,7 @@ import {
   useSearchParams,
   useParams,
   useNavigate,
+  useLocation,
 } from "react-router-dom";
 import { Plus, Search, ArrowUpRight, Download, Pencil } from "lucide-react";
 import { api, download } from "../api/client";
@@ -28,18 +29,19 @@ import {
   Tabs,
   Raw,
 } from "../components/common";
+import { useDraft } from "../app/draft";
+import { savedViews, savePreference } from "../app/preferences";
 import { WatchActions } from "../components/Actions";
 import { Events, Evidence } from "./Events";
 import { Deliveries } from "./Deliveries";
 export function Watches() {
+  const location = useLocation();
   const [p, set] = useSearchParams();
   const query = useRead<StoreWatchPage>(`/console/watches?${p}`, 5000);
   const status = useRead<WatchrunStatus>("/status", 15000);
   const [saved, setSaved] = useState(0);
   const saveKey = `ding.views.${status.data?.instance}`;
-  const views: Record<string, string> = JSON.parse(
-    localStorage.getItem(saveKey) || "{}",
-  );
+  const views = savedViews(saveKey);
   const view = (key: string, value: string) => {
     const n = new URLSearchParams();
     if (value) n.set(key, value);
@@ -135,7 +137,7 @@ export function Watches() {
               const n = new URLSearchParams(p);
               n.delete("cursor");
               views[name.slice(0, 60)] = n.toString();
-              localStorage.setItem(saveKey, JSON.stringify(views));
+              savePreference(saveKey, JSON.stringify(views));
               setSaved(saved + 1);
             }
           }}
@@ -182,6 +184,9 @@ export function Watches() {
                           <Link
                             className="row-title"
                             to={`/watches/${encodeURIComponent(w.id)}`}
+                            state={{
+                              returnTo: location.pathname + location.search,
+                            }}
                           >
                             {w.name || w.id}
                             <ArrowUpRight size={14} />
@@ -291,6 +296,7 @@ export function Watches() {
   );
 }
 export function WatchDetail() {
+  const draft = useDraft();
   const { id = "" } = useParams();
   const [p, set] = useSearchParams();
   const tab = p.get("tab") || "Overview";
@@ -314,6 +320,15 @@ export function WatchDetail() {
         `/watches/${encodeURIComponent(id)}/export`,
       );
       if (edit) {
+        if (
+          draft.dirty &&
+          draft.manifest &&
+          draft.manifest !== d.manifest &&
+          !window.confirm(
+            "Replace your unsaved Workbench manifest with this watch?",
+          )
+        )
+          return;
         window.dispatchEvent(
           new CustomEvent("ding:draft", { detail: d.manifest }),
         );
@@ -388,8 +403,8 @@ export function WatchDetail() {
                     {!s?.entities
                       ? "Waiting for first input"
                       : d.spec.policy.trigger === "transition"
-                        ? `${s.open} open incidents across ${s.entities} entities`
-                        : `${s.entities} evaluated entities`}
+                        ? `${s.open} open incident${s.open === 1 ? "" : "s"} across ${s.entities} ${s.entities === 1 ? "entity" : "entities"}`
+                        : `${s.entities} evaluated ${s.entities === 1 ? "entity" : "entities"}`}
                   </dd>
                 </div>
                 <div>

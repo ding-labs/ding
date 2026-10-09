@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  useParams,
+  useSearchParams,
+  useLocation,
+} from "react-router-dom";
 import {
   ArrowRight,
   CheckCheck,
@@ -34,6 +39,7 @@ import {
   labels,
 } from "../components/common";
 export function Events({ watch }: { watch?: string }) {
+  const location = useLocation();
   const [p, set] = useSearchParams();
   const [following, follow] = useState(false);
   const [resume, setResume] = useState("");
@@ -62,8 +68,9 @@ export function Events({ watch }: { watch?: string }) {
           live.data.events.filter(
             (e) =>
               (!p.get("type") || e.type === p.get("type")) &&
-              (!p.get("from") || e.at >= p.get("from")!) &&
-              (!p.get("to") || e.at <= p.get("to")!),
+              (!p.get("from") ||
+                Date.parse(e.at) >= Date.parse(p.get("from")!)) &&
+              (!p.get("to") || Date.parse(e.at) <= Date.parse(p.get("to")!)),
           ).length,
       );
     }
@@ -184,6 +191,9 @@ export function Events({ watch }: { watch?: string }) {
                       <Link
                         className="event-row"
                         to={`/events/${encodeURIComponent(e.id)}`}
+                        state={{
+                          returnTo: location.pathname + location.search,
+                        }}
                       >
                         <span
                           className={`event-symbol ${e.type === "firing" ? "firing" : ""}`}
@@ -287,13 +297,15 @@ export function Evidence({
             <Time value={d.event.at} />
           </p>
           <h2>{eventName}</h2>
-          <p>{d.event.message}</p>
+          <p>{(d.event.message || d.event.type).replaceAll("_", " ")}</p>
           <div className="subtle">
             <Link to={`/watches/${encodeURIComponent(d.event.watchId)}`}>
               {d.event.watchId}
             </Link>
             <span>Revision {d.event.revision.slice(0, 12)}</span>
-            {d.event.entity && <code>{d.event.entity}</code>}
+            {d.event.entity && d.event.entity !== "[]" && (
+              <code>{d.event.entity}</code>
+            )}
           </div>
         </div>
         {compact ? (
@@ -442,6 +454,40 @@ export function Evidence({
                 </p>
               )}
             </>
+          )}
+          {d.evaluation && (
+            <div className="evaluation-result">
+              <h3>Replayed result</h3>
+              <p>
+                {d.evaluation.reason === "source_recovered" ? (
+                  "The source recovered. No condition was evaluated for this event."
+                ) : (
+                  <>
+                    {d.evaluation.known
+                      ? d.evaluation.matched
+                        ? "This input matched the condition."
+                        : "This input did not match the condition."
+                      : "This input could not produce a known condition result."}{" "}
+                    Matching count after this input:{" "}
+                    <strong>{d.evaluation.matches}</strong>. Incident{" "}
+                    {d.evaluation.open ? "open" : "closed"}.
+                  </>
+                )}
+              </p>
+              {d.evaluation.windows.map((w, i) => (
+                <div className="window-summary" key={i}>
+                  <strong>
+                    {w.function}:{" "}
+                    {w.available ? String(w.value) : "Unavailable"}
+                  </strong>
+                  <p>
+                    {w.samples} retained sample{w.samples === 1 ? "" : "s"}{" "}
+                    between <Time value={w.fromExclusive} /> (exclusive) and{" "}
+                    <Time value={w.throughInclusive} /> (inclusive).
+                  </p>
+                </div>
+              ))}
+            </div>
           )}
           <Badge value={d.replayStatus === "verified" ? "verified" : "unknown"}>
             {d.replayStatus === "verified" ? (

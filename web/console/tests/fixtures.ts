@@ -10,11 +10,16 @@ export type Daemon = {
   state: string;
   token: string;
   ingest: string;
+  webhookURL: string;
   launch: () => Promise<string>;
 };
 export const test = base.extend<{ daemon: Daemon }, { binary: string }>({
   binary: [
     async ({}, use) => {
+      if (process.env.DING_TEST_BINARY) {
+        await use(process.env.DING_TEST_BINARY);
+        return;
+      }
       const dir = mkdtempSync(join(tmpdir(), "ding-console-bin-"));
       const bin = join(dir, process.platform === "win32" ? "ding.exe" : "ding");
       execFileSync(
@@ -75,7 +80,14 @@ export const test = base.extend<{ daemon: Daemon }, { binary: string }>({
         if (!r.ok) throw new Error(body.error?.message);
         return body.data.url as string;
       };
-      await use({ url, state, token: admin, ingest, launch });
+      await use({
+        url,
+        state,
+        token: admin,
+        ingest,
+        launch,
+        webhookURL: `http://127.0.0.1:${hookPort}`,
+      });
     } finally {
       child.kill("SIGTERM");
       await new Promise<void>((resolve) => {

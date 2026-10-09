@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useLocation } from "react-router-dom";
 import {
   ArrowDownToLine,
   ArrowLeft,
@@ -303,8 +303,13 @@ export function Pager({
   );
 }
 export function Back({ to, children }: { to: string; children: ReactNode }) {
+  const location = useLocation();
+  const previous = location.state?.returnTo as string | undefined;
   return (
-    <Link className="back" to={to}>
+    <Link
+      className="back"
+      to={previous?.startsWith(to + "?") || previous === to ? previous : to}
+    >
       <ArrowLeft size={14} />
       {children}
     </Link>
@@ -330,7 +335,7 @@ export function Rule({ definition: d }: { definition: WatchDefinition }) {
               ? `No observation for ${c.missingFor}`
               : c.operator === "new-event"
                 ? `New ${c.field} · deduplicate for ${c.dedupFor}`
-                : `${c.field} ${c.operator} ${c.operator === "changed" ? "" : JSON.stringify(c.value)}`)}
+                : `${c.field} ${{ eq: "equals", neq: "does not equal", gt: ">", gte: "≥", lt: "<", lte: "≤", contains: "contains", changed: "changes" }[c.operator || ""] || c.operator} ${c.operator === "changed" ? "" : JSON.stringify(c.value)}`)}
         </code>
       </div>
       <p className="muted">

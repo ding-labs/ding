@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -12,7 +12,8 @@ import {
   SquareTerminal,
   X,
 } from "lucide-react";
-import { api, download, APIError } from "../api/client";
+import { useConnection } from "../api/connection";
+import { api, download, APIError, unknownOutcome } from "../api/client";
 import type {
   ControlCompileResult,
   ControlVerification,
@@ -33,6 +34,7 @@ import {
 import { LegacyImport } from "./LegacyImport";
 import { DefinitionDiff } from "../components/DefinitionDiff";
 import { useDraft, setDraft } from "../app/draft";
+const CodeEditor = lazy(() => import("../components/CodeEditor"));
 const base = `apiVersion: ding.ing/v1alpha1\nkind: Destination\nmetadata: {id: console}\nspec: {type: console}\n---\napiVersion: ding.ing/v1alpha1\nkind: Watch\n`;
 const examples: Record<string, string> = {
   HTTP:
@@ -43,7 +45,7 @@ const examples: Record<string, string> = {
     `metadata: {id: pushed-status, name: Pushed status}\nspec:\n  source: {type: push}\n  condition: {field: status, operator: gte, value: 500}\n  policy: {trigger: transition, consecutive: 3, recoverAfter: 2}\n  destinations: [{ref: console, events: [firing, recovered]}]\n`,
   Command:
     base +
-    `metadata: {id: local-check, name: Local command}\nspec:\n  source:\n    type: command\n    argv: [echo, '{"status":503}']\n    every: 30s\n    timeout: 5s\n  condition: {field: status, operator: gte, value: 500}\n  policy: {trigger: transition, consecutive: 3, recoverAfter: 2}\n  destinations: [{ref: console, events: [firing, recovered]}]\n`,
+    `metadata: {id: local-check, name: Local command}\nspec:\n  source:\n    type: command\n    argv: [echo, '{"status":503}']\n    directory: /tmp\n    every: 30s\n    timeout: 5s\n  condition: {field: status, operator: gte, value: 500}\n  policy: {trigger: transition, consecutive: 3, recoverAfter: 2}\n  destinations: [{ref: console, events: [firing, recovered]}]\n`,
 };
 function sampleFixture(field: string) {
   return [503, 502, 500, 200, 200]
@@ -65,12 +67,14 @@ async function readFile(file: File, max: number) {
 }
 export function Workbench() {
   const draft = useDraft();
+  const connected = useConnection();
   const [params, setParams] = useSearchParams();
   const tab = params.get("tab") || "Definition";
   const setTab = (tab: string) => setParams({ tab });
   const [compiled, setCompiled] = useState<ControlCompileResult>();
   const [compiledText, setCompiledText] = useState("");
   const [compiling, setCompiling] = useState(false);
+  const [syntax, setSyntax] = useState(false);
   const [compileError, setCompileError] = useState<unknown>();
   const [validationRun, validate] = useState(0);
   const [selected, select] = useState("");
@@ -135,8 +139,20 @@ export function Workbench() {
       )
     )
       return;
+    let manifest = examples[kind];
+    if (kind === "Command") {
+      manifest = manifest.replace(
+        "directory: /tmp",
+        `directory: ${JSON.stringify(info.data?.stateDir || "/tmp")}`,
+      );
+      if (info.data?.os === "windows")
+        manifest = manifest.replace(
+          `argv: [echo, '{"status":503}']`,
+          `argv: ${JSON.stringify(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", "ConvertTo-Json -Compress @{status=503}"])}`,
+        );
+    }
     setDraft({
-      manifest: examples[kind],
+      manifest,
       fixture: sampleFixture(kind === "HTTP" ? "http.status" : "status"),
       dirty: true,
     });
@@ -265,7 +281,12 @@ export function Workbench() {
           </button>
           <button
             className="button primary"
-            disabled={commit.isPending}
+            disabled={
+              commit.isPending ||
+              preview.isPending ||
+              !connected ||
+              (commit.isError && unknownOutcome(commit.error))
+            }
             onClick={() => commit.mutate()}
           >
             {commit.isPending ? "Applying…" : "Apply reviewed changes"}
@@ -273,6 +294,25 @@ export function Workbench() {
           </button>
         </Heading>
         <ErrorBox error={error} />
+        {commit.isError && unknownOutcome(commit.error) && (
+          <div className="notice">
+            <strong>The outcome is unknown.</strong>
+            <p>
+              The apply may have committed. Compare current definitions before
+              submitting another change.
+            </p>
+            <button
+              className="button"
+              disabled={preview.isPending}
+              onClick={() => {
+                commit.reset();
+                preview.mutate(draft.manifest);
+              }}
+            >
+              Reconcile current definitions
+            </button>
+          </div>
+        )}
         {error instanceof APIError && error.status === 409 && (
           <div className="notice">
             <p>
@@ -391,7 +431,7 @@ export function Workbench() {
         </button>
         <button
           className="button primary"
-          disabled={!valid || preview.isPending}
+          disabled={!valid || preview.isPending || !connected}
           onClick={() => preview.mutate(draft.manifest)}
         >
           {preview.isPending ? "Reviewing…" : "Review changes"}
@@ -451,6 +491,14 @@ export function Workbench() {
                 ))}
               </select>
             </div>
+            <label className="subtle">
+              <input
+                type="checkbox"
+                checked={syntax}
+                onChange={(e) => setSyntax(e.target.checked)}
+              />
+              Syntax editor
+            </label>
             <span className="subtle">
               Draft stays in memory · {draft.manifest.length.toLocaleString()}{" "}
               characters
@@ -468,17 +516,26 @@ export function Workbench() {
                   Validate / explain
                 </button>
               </div>
-              <textarea
-                ref={editor}
-                id="manifest"
-                aria-label="Manifest"
-                spellCheck={false}
-                value={draft.manifest}
-                placeholder="Choose an example or import a definition…"
-                onChange={(e) =>
-                  setDraft({ manifest: e.target.value, dirty: true })
-                }
-              />
+              {syntax ? (
+                <Suspense fallback={<Loading />}>
+                  <CodeEditor
+                    value={draft.manifest}
+                    onChange={(manifest) => setDraft({ manifest, dirty: true })}
+                  />
+                </Suspense>
+              ) : (
+                <textarea
+                  ref={editor}
+                  id="manifest"
+                  aria-label="Manifest"
+                  spellCheck={false}
+                  value={draft.manifest}
+                  placeholder="Choose an example or import a definition…"
+                  onChange={(e) =>
+                    setDraft({ manifest: e.target.value, dirty: true })
+                  }
+                />
+              )}
             </section>
             <section className="panel preview-panel">
               <p className="eyebrow">Compiled by Ding</p>
@@ -550,6 +607,13 @@ export function Workbench() {
                                 .split("\n")
                                 .slice(0, d.line! - 1)
                                 .reduce((n, l) => n + l.length + 1, 0);
+                              if (syntax) {
+                                setSyntax(false);
+                                setTimeout(() => {
+                                  editor.current?.focus();
+                                  editor.current?.setSelectionRange(pos, pos);
+                                }, 0);
+                              }
                               editor.current?.focus();
                               editor.current?.setSelectionRange(pos, pos);
                             }}

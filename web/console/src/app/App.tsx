@@ -17,12 +17,16 @@ import {
   SlidersHorizontal,
   SquareTerminal,
 } from "lucide-react";
+import { useConnection } from "../api/connection";
 import { api, connect, logout } from "../api/client";
 import type { ControlInfo } from "../api/contracts";
 
+import { preference, savePreference } from "./preferences";
+import { CommandMenu } from "../components/CommandMenu";
 import { System } from "../pages/System";
 import { Workbench } from "../pages/Workbench";
 import "./draft";
+import { useNavigationContext } from "./scroll";
 import { Watches, WatchDetail } from "../pages/Watches";
 import { Events, EventDetail } from "../pages/Events";
 import { Deliveries, DeliveryDetail } from "../pages/Deliveries";
@@ -38,16 +42,17 @@ const nav = [
 // Module-level promise makes the single-use exchange safe under StrictMode.
 let sessionAttempt: ReturnType<typeof connect> | undefined;
 export function App() {
+  useNavigationContext();
+  const connected = useConnection();
+  const [density, setDensity] = useState(
+    preference("ding.density", "comfortable"),
+  );
   const [session, setSession] = useState<"loading" | "ready" | "locked">(
     "loading",
   );
   const [error, setError] = useState("");
-  const [theme, setTheme] = useState(
-    () => localStorage.getItem("ding.theme") || "system",
-  );
-  const [timeMode, setTimeMode] = useState(
-    localStorage.getItem("ding.time") || "local",
-  );
+  const [theme, setTheme] = useState(() => preference("ding.theme", "system"));
+  const [timeMode, setTimeMode] = useState(preference("ding.time", "local"));
   const client = useQueryClient();
   const location = useLocation();
   const establish = () => {
@@ -67,14 +72,19 @@ export function App() {
   };
   useEffect(() => {
     establish();
-    const lock = () => setSession("locked");
+    const lock = () => {
+      client.clear();
+      setSession("locked");
+    };
     window.addEventListener("ding:unauthorized", lock);
     return () => window.removeEventListener("ding:unauthorized", lock);
   }, []);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    localStorage.setItem("ding.theme", theme);
-  }, [theme]);
+    document.documentElement.dataset.density = density;
+    savePreference("ding.density", density);
+    savePreference("ding.theme", theme);
+  }, [theme, density]);
   const info = useQuery({
     queryKey: ["info"],
     queryFn: ({ signal }) => api<ControlInfo>("/info", { signal }),
@@ -152,9 +162,13 @@ export function App() {
             ))}
           </nav>
           <div className="instance">
-            <span className={`status-dot ${info.isError ? "offline" : ""}`} />
+            <span
+              className={`status-dot ${info.isError || !connected ? "offline" : ""}`}
+            />
             <span>
-              {info.isError ? "Connection interrupted" : "Connected daemon"}
+              {info.isError || !connected
+                ? "Connection interrupted"
+                : "Connected daemon"}
             </span>
             <code>{info.data?.listen || window.location.host}</code>
             <small>{info.data?.version || "Ding"}</small>
@@ -166,12 +180,21 @@ export function App() {
               Console <span>/</span> {current?.label || "Watches"}
             </div>
             <div className="toolbar">
+              <CommandMenu />
+              <select
+                aria-label="Display density"
+                value={density}
+                onChange={(e) => setDensity(e.target.value)}
+              >
+                <option value="comfortable">Comfortable</option>
+                <option value="compact">Compact</option>
+              </select>
               <select
                 aria-label="Display timezone"
                 value={timeMode}
                 onChange={(e) => {
                   setTimeMode(e.target.value);
-                  localStorage.setItem("ding.time", e.target.value);
+                  savePreference("ding.time", e.target.value);
                 }}
               >
                 <option value="local">Local time</option>
@@ -194,16 +217,31 @@ export function App() {
                 className="icon-button"
                 aria-label="Log out"
                 onClick={async () => {
-                  await logout();
-                  client.clear();
-                  setSession("locked");
+                  try {
+                    await logout();
+                    client.clear();
+                    setSession("locked");
+                  } catch (e) {
+                    setError((e as Error).message);
+                  }
                 }}
               >
                 <LogOut size={16} />
               </button>
             </div>
           </header>
-          {info.isError && (
+          {error && (
+            <div className="connection-warning" role="alert">
+              {error}
+            </div>
+          )}
+          <div className="mobile-instance">
+            <span
+              className={`status-dot ${info.isError || !connected ? "offline" : ""}`}
+            />
+            <code>{info.data?.listen || window.location.host}</code>
+          </div>
+          {(info.isError || !connected) && (
             <div className="connection-warning" role="status">
               Connection interrupted. Displayed data may be stale. Last
               connected{" "}

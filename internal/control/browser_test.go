@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -147,6 +148,50 @@ func TestUIOrigins(t *testing.T) {
 	for _, v := range []string{"http://0.0.0.0:7676", "http://192.168.1.1", "https://a/path", "https://a/", "https://user:pass@a", "https://a?token=x", "https://a#x", "//a"} {
 		if ValidUIOrigin(v) {
 			t.Fatal(v)
+		}
+	}
+}
+
+func TestBrowserCookiesAreScopedToDaemonOrigin(t *testing.T) {
+	s, err := store.Open(context.Background(), t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	cookies := []*http.Cookie{}
+	handlers := []http.Handler{}
+	for _, origin := range []string{"http://127.0.0.1:7676", "http://127.0.0.1:7677"} {
+		h := ConsoleHandler(watchrun.New(s), Credentials{Admin: "admin"}, ConsoleConfig{Origin: origin, Assets: http.NotFoundHandler()})
+		handlers = append(handlers, h)
+		r := httptest.NewRequest("POST", origin+"/v1/browser/handoff", strings.NewReader("{}"))
+		r.Header.Set("Authorization", "Bearer admin")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		var launch struct{ Data BrowserHandoff }
+		if err = json.Unmarshal(w.Body.Bytes(), &launch); err != nil {
+			t.Fatal(err)
+		}
+		r = httptest.NewRequest("POST", origin+"/v1/browser/session", strings.NewReader(`{"token":"`+launch.Data.Token+`"}`))
+		r.Header.Set("Origin", origin)
+		w = httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != 200 {
+			t.Fatal(w.Code, w.Body.String())
+		}
+		cookies = append(cookies, w.Result().Cookies()[0])
+	}
+	if cookies[0].Name == cookies[1].Name {
+		t.Fatal("two local daemons would overwrite each other's browser cookie")
+	}
+	for i, h := range handlers {
+		r := httptest.NewRequest("GET", fmt.Sprintf("http://127.0.0.1:%d/v1/info", 7676+i), nil)
+		for _, c := range cookies {
+			r.AddCookie(c)
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != 200 {
+			t.Fatal("one daemon invalidated the other", w.Code)
 		}
 	}
 }

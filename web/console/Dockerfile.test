@@ -1,0 +1,23 @@
+# Isolated browser qualification, including hosts where Firefox cannot launch.
+FROM mcr.microsoft.com/playwright:v1.64.0-noble AS frontend
+WORKDIR /work
+COPY web/console/package*.json web/console/
+RUN npm ci --prefix web/console
+COPY web/console web/console
+COPY testdata/console testdata/console
+RUN npm run build --prefix web/console
+
+FROM golang:1.26-alpine AS runtime
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY cmd cmd
+COPY internal internal
+COPY --from=frontend /work/internal/webui/dist internal/webui/dist
+RUN CGO_ENABLED=0 go build -tags console -o /ding ./cmd/ding
+
+FROM frontend
+COPY --from=runtime /ding /ding
+ENV DING_TEST_BINARY=/ding
+WORKDIR /work/web/console
+CMD ["npx", "playwright", "test", "--project=firefox"]

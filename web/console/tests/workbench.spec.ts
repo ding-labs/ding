@@ -85,3 +85,47 @@ test("invalid draft and destination conflicts retain edits and require new revie
     /consecutive: 4/,
   );
 });
+for (const kind of ["HTTP", "Command"]) {
+  test(`create and simulate ${kind} source through the UI`, async ({
+    page,
+    daemon,
+  }) => {
+    await page.goto(await daemon.launch());
+    await page.getByRole("link", { name: "Workbench", exact: true }).click();
+    await page.getByLabel("Choose example").selectOption(kind);
+    if (kind === "HTTP") {
+      const field = page.getByLabel("Manifest", { exact: true });
+      await field.fill(
+        (await field.inputValue()).replace(
+          "https://example.com/health",
+          daemon.webhookURL,
+        ),
+      );
+    }
+    await expect(
+      page.getByText("Valid definition", { exact: false }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Simulation", exact: true }).click();
+    await page.getByRole("button", { name: "Run simulation" }).click();
+    await expect(
+      page.getByRole("heading", {
+        name: "5 observations → 2 predicted events",
+      }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Review changes", exact: true })
+      .click();
+    await page.getByRole("button", { name: "Apply reviewed changes" }).click();
+    const id = kind === "HTTP" ? "api-health" : "local-check";
+    await expect(page).toHaveURL(new RegExp(`/watches/${id}$`));
+    await expect
+      .poll(
+        async () => (await call(daemon, `/watches/${id}`)).watch.lastInputAt,
+      )
+      .not.toMatch(/^0001/);
+    expect(
+      (await call(daemon, `/watches/${id}`)).watch.plan.definition.spec.source
+        .type,
+    ).toBe(kind.toLowerCase());
+  });
+}

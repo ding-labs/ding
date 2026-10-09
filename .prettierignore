@@ -1,0 +1,5 @@
+internal/webui/dist/
+web/console/src/api/contracts.ts
+web/console/node_modules/
+web/console/test-results/
+web/console/playwright-report/
