@@ -33,6 +33,22 @@ export interface ControlBrowserSession {
   expiresAt: string;
 }
 
+export interface ControlCompileResult {
+  valid: boolean;
+  bundle: PlanBundle;
+  descriptions: Array<PlanDescription>;
+  diagnostics: Array<ControlDiagnostic>;
+  credentials: Array<WatchrunCredentialHealth>;
+}
+
+export interface ControlDiagnostic {
+  code: string;
+  severity: string;
+  path: string;
+  message: string;
+  line?: number;
+}
+
 export interface ControlInfo {
   version: string;
   apiVersion: string;
@@ -45,6 +61,11 @@ export interface ControlInfo {
   stateDir: string;
   limits: WatchrunLimits;
   time: string;
+}
+
+export interface ControlVerification {
+  status: string;
+  message: string;
 }
 
 export interface PlanBundle {
@@ -62,6 +83,13 @@ export interface PlanCompiled {
 export interface PlanCompiledDestination {
   definition: WatchDestination;
   revision: string;
+}
+
+export interface PlanDescription {
+  id: string;
+  source: string;
+  condition: string;
+  policy: string;
 }
 
 export interface ReplayCheckpoint {
@@ -384,18 +412,32 @@ export interface WatchTarget {
   events: Array<string>;
 }
 
+export interface WatchrunApplyPreconditions {
+  instance: string;
+  manifestHash: string;
+  watches: Record<string, WatchrunWatchPrecondition>;
+  destinations: Record<string, string>;
+}
+
 export interface WatchrunApplyRequest {
+  review?: WatchrunApplyPreconditions | null;
   manifest: string;
   dryRun: boolean;
   expected?: Record<string, string>;
 }
 
 export interface WatchrunApplyResult {
+  destinationChanges: Array<WatchrunChange>;
+  review: WatchrunApplyPreconditions | null;
+  credentials: Array<WatchrunCredentialHealth>;
   changes: Array<WatchrunChange>;
   dryRun: boolean;
 }
 
 export interface WatchrunChange {
+  kind: string;
+  before?: string;
+  after?: string;
   permissions: Array<string>;
   id: string;
   revision: string;
@@ -448,5 +490,11 @@ export interface WatchrunStatus {
   acquisitions: number;
   lastError: string;
   at: string;
+}
+
+export interface WatchrunWatchPrecondition {
+  revision: string;
+  generation: number;
+  status: string;
 }
 

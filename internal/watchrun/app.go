@@ -44,6 +44,9 @@ func New(s *store.Store) *App {
 }
 
 type Change struct {
+	Kind        string   `json:"kind"`
+	Before      string   `json:"before,omitempty"`
+	After       string   `json:"after,omitempty"`
 	Permissions []string `json:"permissions"`
 	ID          string   `json:"id"`
 	Revision    string   `json:"revision"`
@@ -51,17 +54,21 @@ type Change struct {
 	State       string   `json:"state"`
 }
 type ApplyRequest struct {
-	Manifest string            `json:"manifest"`
-	DryRun   bool              `json:"dryRun"`
-	Expected map[string]string `json:"expected,omitempty"`
+	Review   *ApplyPreconditions `json:"review,omitempty"`
+	Manifest string              `json:"manifest"`
+	DryRun   bool                `json:"dryRun"`
+	Expected map[string]string   `json:"expected,omitempty"`
 }
 type ApplyResult struct {
-	Changes []Change `json:"changes"`
-	DryRun  bool     `json:"dryRun"`
+	DestinationChanges []Change            `json:"destinationChanges"`
+	Review             *ApplyPreconditions `json:"review"`
+	Credentials        []CredentialHealth  `json:"credentials"`
+	Changes            []Change            `json:"changes"`
+	DryRun             bool                `json:"dryRun"`
 }
 
 func (a *App) Apply(ctx context.Context, request ApplyRequest) (ApplyResult, error) {
-	result := ApplyResult{Changes: []Change{}, DryRun: request.DryRun}
+	result := ApplyResult{Changes: []Change{}, DestinationChanges: []Change{}, Credentials: []CredentialHealth{}, DryRun: request.DryRun}
 	bundle, err := plan.Parse([]byte(request.Manifest))
 	if err != nil {
 		return result, err
@@ -82,9 +89,43 @@ func (a *App) Apply(ctx context.Context, request ApplyRequest) (ApplyResult, err
 		if err != nil {
 			return err
 		}
+		result.Review, err = captureReview(tx, bundle, request.Manifest)
+		if err != nil {
+			return err
+		}
+		if request.Review != nil && !sameReview(request.Review, result.Review) {
+			return store.ErrConflict
+		}
+		extra := []watch.Destination{}
+		bundled := map[string]bool{}
+		for _, d := range bundle.Destinations {
+			bundled[d.Definition.Metadata.ID] = true
+		}
+		for id := range result.Review.Destinations {
+			if bundled[id] {
+				continue
+			}
+			if old, e := tx.Destination(id, ""); e == nil {
+				extra = append(extra, old.Definition)
+			}
+		}
+		result.Credentials = a.BundleCredentials(bundle, extra)
 		available := map[string]bool{}
 		for _, d := range bundle.Destinations {
 			available[d.Definition.Metadata.ID] = true
+			old, e := tx.Destination(d.Definition.Metadata.ID, "")
+			if e != nil && !errors.Is(e, store.ErrNotFound) {
+				return e
+			}
+			change := Change{Kind: "Destination", ID: d.Definition.Metadata.ID, Revision: d.Revision, Previous: old.Revision, State: "created", After: yamlDefinition(d.Definition), Permissions: []string{}}
+			if old.Revision != "" {
+				change.State = "updated"
+				change.Before = yamlDefinition(old.Definition)
+				if old.Revision == d.Revision {
+					change.State = "preserved"
+				}
+			}
+			result.DestinationChanges = append(result.DestinationChanges, change)
 			if !request.DryRun {
 				if err := tx.SaveDestination(d, now); err != nil {
 					return err
@@ -111,10 +152,11 @@ func (a *App) Apply(ctx context.Context, request ApplyRequest) (ApplyResult, err
 			if expected, ok := request.Expected[id]; ok && expected != previous {
 				return store.ErrConflict
 			}
-			change := Change{ID: id, Revision: p.Revision, Previous: previous, State: "created", Permissions: p.Permissions}
+			change := Change{Kind: "Watch", After: yamlDefinition(p.Definition), ID: id, Revision: p.Revision, Previous: previous, State: "created", Permissions: p.Permissions}
 			record := store.WatchRecord{Plan: p, Generation: 1, Status: "running", NextAt: now}
 			reset := false
 			if previous != "" {
+				change.Before = yamlDefinition(old.Plan.Definition)
 				record = old
 				record.Plan = p
 				if old.Status == "deleted" {
@@ -177,7 +219,7 @@ func (a *App) Apply(ctx context.Context, request ApplyRequest) (ApplyResult, err
 				return ErrQuota
 			}
 		}
-		return nil
+		return reviewSize(result)
 	}
 	if request.DryRun {
 		err = a.Store.View(ctx, apply)

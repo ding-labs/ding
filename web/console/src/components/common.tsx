@@ -334,10 +334,12 @@ export function Rule({ definition: d }: { definition: WatchDefinition }) {
         </code>
       </div>
       <p className="muted">
-        Trigger: {s.policy.trigger}. {s.policy.consecutive} consecutive match
-        {s.policy.consecutive === 1 ? "" : "es"}; recover after{" "}
-        {s.policy.recoverAfter} nonmatching inputs. Unknown inputs:{" "}
-        {s.policy.onUnknown}.
+        {c.operator === "changed" || c.operator === "new-event"
+          ? `Emit a ${c.operator} event for each qualifying input.`
+          : s.policy.trigger === "transition"
+            ? `Open after ${s.policy.consecutive} consecutive matches; recover after ${s.policy.recoverAfter} nonmatching inputs.`
+            : `Fire after ${s.policy.consecutive} consecutive matches; minimum interval ${s.policy.interval}.`}{" "}
+        Unknown inputs: {s.policy.onUnknown}.
       </p>
     </div>
   );

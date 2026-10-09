@@ -34,6 +34,8 @@ func Root(version string) *cobra.Command {
 			fmt.Fprintf(cmd.OutOrStdout(), "Valid: %d watches, %d destinations\n", len(bundle.Watches), len(bundle.Destinations))
 			if cmd.Name() == "explain" {
 				for _, w := range bundle.Watches {
+					description := plan.Describe(w)
+					fmt.Fprintf(cmd.OutOrStdout(), "%s\n%s\n%s\n", description.Source, description.Condition, description.Policy)
 					fmt.Fprintf(cmd.OutOrStdout(), "%s revision %s\n  Source: %s; policy: %s (%d matching / %d recovering)\n  Permissions: %v\n  Destination references must exist when applied.\n", w.Definition.Metadata.ID, w.Revision, w.Definition.Spec.Source.Type, w.Definition.Spec.Policy.Trigger, w.Definition.Spec.Policy.Consecutive, w.Definition.Spec.Policy.RecoverAfter, w.Permissions)
 				}
 			}

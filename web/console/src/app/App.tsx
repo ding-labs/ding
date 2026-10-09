@@ -20,6 +20,8 @@ import {
 import { api, connect, logout } from "../api/client";
 import type { ControlInfo } from "../api/contracts";
 
+import { Workbench } from "../pages/Workbench";
+import "./draft";
 import { Watches, WatchDetail } from "../pages/Watches";
 import { Events, EventDetail } from "../pages/Events";
 import { Deliveries, DeliveryDetail } from "../pages/Deliveries";
@@ -219,7 +221,8 @@ export function App() {
               <Route path="/events/:id" element={<EventDetail />} />
               <Route path="/deliveries" element={<Deliveries />} />
               <Route path="/deliveries/:id" element={<DeliveryDetail />} />
-              {nav.slice(3).map((n) => (
+              <Route path="/workbench" element={<Workbench />} />
+              {nav.slice(4).map((n) => (
                 <Route
                   key={n.path}
                   path={n.path + "/*"}
