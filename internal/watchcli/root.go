@@ -43,7 +43,7 @@ func Root(version string) *cobra.Command {
 		root.AddCommand(cmd)
 	}
 	runtimeCommands(root)
-	root.AddCommand(testCommand())
+	root.AddCommand(testCommand(), migrateCommand())
 	return root
 }
 func Write(w io.Writer, value any) error {
