@@ -47,3 +47,10 @@ docs/superpowers/
 # Python build helpers
 __pycache__/
 *.pyc
+
+# Console build and browser-test artifacts
+/web/console/playwright-report/
+/web/console/test-results/
+/web/console/*.tsbuildinfo
+
+!web/console/Dockerfile.test

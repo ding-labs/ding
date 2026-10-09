@@ -19,10 +19,23 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/console/package-lock.json
+      - name: Console build and browser gates
+        run: |
+          npm ci --prefix web/console
+          npm test --prefix web/console
+          npm run build --prefix web/console
+          cd web/console
+          npx playwright install --with-deps
+          npm run test:e2e
       - name: Run tests
         run: |
           go vet ./...
-          go test -race ./...
+          go test -race -tags console ./...
       - name: Container TLS gate
         run: |
           docker build -t ding-release-check .

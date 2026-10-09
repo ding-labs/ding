@@ -2,8 +2,10 @@ name: CI
 
 on:
   pull_request:
+    paths: ['**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'testdata/**', 'scripts/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
   push:
     branches: [main, "codex/**"]
+    paths: ['**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'testdata/**', 'scripts/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
   workflow_dispatch:
 
 permissions:
@@ -46,13 +48,19 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/console/package-lock.json
+      - run: npm ci --prefix web/console && npm run build --prefix web/console
       - name: Build advertised release target
         env:
           CGO_ENABLED: "0"
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
-          go build -trimpath -ldflags='-s -w' -o dist/ding ./cmd/ding
+          go build -tags console -trimpath -ldflags='-s -w' -o dist/ding ./cmd/ding
           go test -c -o dist/store-check ./internal/store
 
   container:
@@ -66,9 +74,13 @@ jobs:
         run: |
           docker build -t ding-ci .
           scripts/container-smoke.sh ding-ci
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --prefix web/console && npm run build --prefix web/console
       - name: Build release image and verify HTTPS trust
         run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o ding ./cmd/ding
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags console -trimpath -ldflags='-s -w' -o ding ./cmd/ding
           docker build -f Dockerfile.release -t ding-release-ci .
           scripts/container-smoke.sh ding-release-ci
       - name: Physical full and read-only filesystem faults
@@ -95,13 +107,51 @@ jobs:
           go-version-file: go.mod
       - name: Native source, persistence, and lifecycle contracts
         run: go test ${{ matrix.race }} -count=1 ./internal/source ./internal/transform ./internal/control ./internal/watchrun
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --prefix web/console && npm run build --prefix web/console
       - name: Build and exercise the native executable
         shell: bash
         env:
           CGO_ENABLED: '0'
+          DING_EXPECT_CONSOLE: '1'
           DING_BINARY: ${{ runner.temp }}/ding-native${{ matrix.goos == 'windows' && '.exe' || '' }}
         run: |
           test "$(go env GOOS)" = '${{ matrix.goos }}'
           test "$(go env GOARCH)" = '${{ matrix.goarch }}'
-          go build -trimpath -ldflags='-s -w' -o "$DING_BINARY" ./cmd/ding
+          go build -tags console -trimpath -ldflags='-s -w' -o "$DING_BINARY" ./cmd/ding
           go test -v -count=1 ./internal/qualification
+
+  console:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/console/package-lock.json
+      - name: Locked install, components, build and budgets
+        run: |
+          npm ci --prefix web/console
+          npm test --prefix web/console
+          npm run build --prefix web/console
+          npm run budget --prefix web/console
+          go test -race -tags console ./internal/webui ./internal/control ./internal/consolecontract
+          DING_CONSOLE_SCALE=1 go test ./internal/watchrun -run TestConsoleScaleQualification -count=1 -v
+      - name: Browser journeys and accessibility
+        working-directory: web/console
+        run: |
+          npx playwright install --with-deps
+          npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: console-browser-results
+          path: |
+            web/console/playwright-report
+            web/console/test-results

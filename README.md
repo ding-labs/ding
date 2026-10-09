@@ -148,8 +148,20 @@ the results.
 ## Documentation and development
 
 - [Configuration](docs/configuration.md) and [examples](docs/examples.md)
+- [Ding Console](docs/console/index.md): watch state, event evidence, delivery history, and reviewed changes
 - [Local API](docs/api.md) and [inspection/replay contracts](docs/development/inspection-contract.md)
 - [Watch preview release notes](docs/releases/watch-preview.md) and [release qualification](docs/development/qualification.md)
+
+Build the browser console with Go 1.26 and Node 24, then open it from a second terminal:
+
+```sh
+make console
+./ding daemon
+# In a second terminal:
+./ding ui
+```
+
+The console is embedded in the binary. Node is only needed to build it. Ordinary Go builds stay headless.
 
 Run the development checks with Go 1.26:
 

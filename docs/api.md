@@ -5,8 +5,9 @@ The daemon defaults to `127.0.0.1:7676`. Its private state directory contains
 these files without creating credentials. Use `--state-dir` consistently.
 
 Responses use `ding.ing/v1alpha1` envelopes with either `data` or a stable
-`error.code`. `/health` is public liveness. Every `/v1` route requires a bearer
-token; only `/v1/ingest/{watchId}` accepts the ingest token. The admin token cannot
+`error.code`. `/health` is public liveness. Control clients use an admin bearer token; the embedded console uses the
+[bounded browser session](console/index.md) with CSRF protection. Only
+`/v1/ingest/{watchId}` accepts the ingest token. The admin token cannot
 be substituted on that route. Push returns 202 only after durable commit and
 supports a bounded 24-hour `Idempotency-Key` receipt horizon.
 
@@ -23,8 +24,9 @@ requires `--allow-remote` and your own TLS reverse proxy/access policy.
 
 ## Endpoint reference
 
-All paths below require the admin bearer token except ingestion, which requires
-its separate ingest token. IDs and query values must be URL encoded.
+Control paths accept the admin bearer token or an authenticated console session.
+Cookie-authenticated mutations also require the configured Origin and CSRF header.
+Ingestion requires its separate ingest token. IDs and query values must be URL encoded.
 
 | Method and path | Operation |
 | --- | --- |
@@ -61,5 +63,20 @@ for exact field shapes, cursors, page budgets, and backup semantics.
 
 Use stable error codes rather than parsing human messages. A failed connection
 can leave a mutation's outcome uncertain: inspect current state before repeating
-it. Console-specific APIs and browser sessions will be documented with their
-matching release; they are not part of this snapshot's API.
+it. The console-specific APIs and browser session flow below are available in
+console-enabled source builds; published legacy binaries do not include them.
+
+## Console additions
+
+The console uses additive endpoints; existing CLI response shapes remain compatible:
+
+- `GET /v1/info` and `/v1/status`: safe instance settings and cheap runtime status.
+- `GET /v1/console/watches`, `/events`, `/deliveries`, `/destinations`: bounded read models (all four routes are under `/v1/console`). Defaults are 50 rows, maximum 100. Event history is newest first; existing `/v1/events` remains the forward cursor stream.
+- `POST /v1/tools/compile`, `/test`, `/replay`, `/migrate`: pure, size-limited developer tools (all four under `/v1/tools`). They do not run sources or send notifications.
+- `GET /v1/console/doctor`: explicit diagnostic work with an independent concurrency limit.
+- `POST /v1/console/backup` and `GET /v1/console/backup/{id}`: a verified, expiring, single-use download owned by the requesting session. `POST /v1/backup` retains its host-path contract.
+- `POST /v1/browser/handoff`: admin bearer only; obtains a one-use launch link. `POST`, `GET`, and `DELETE /v1/browser/session` establish, restore, and revoke a browser session.
+
+Whole-bundle dry runs return review preconditions covering the store, exact manifest, watch revisions/generations/status, and destination revisions. Supplying this review on apply checks all of them in the write transaction. Review conflicts leave definitions untouched. Existing CLI revision checks remain supported.
+
+The generated [TypeScript contracts](https://github.com/ding-labs/ding/blob/main/web/console/src/api/contracts.ts) are checked against Go types in CI. See [read consistency and browser boundaries](development/console-architecture.md) for cursor scope, retention invalidation and authentication details.

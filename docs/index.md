@@ -17,7 +17,7 @@ notifications through a durable outbox. The Go daemon runs on your infrastructur
 | Run a trusted local check | [Command sources](guides/command.md) |
 | Understand why an alert happened | [Investigate an event](guides/investigate.md) |
 | Operate a persistent daemon | [Operating Ding](operate/index.md) |
-| Use the forthcoming interface | [Console availability](console/index.md) |
+| Build the graphical source preview | [Ding Console](console/index.md) |
 | Keep or migrate an old installation | [Legacy v0.14.0](legacy.md) |
 
 ## One watch, four connected stages
@@ -38,4 +38,4 @@ same declaration; the daemon does not call a model on each check. Consumer data
 such as flights or sports needs an actual provider feed and credentials.
 
 Ding is self-hosted and Apache-2.0 licensed. [Ding Console](console/index.md) is
-being implemented as an interface bundled with the daemon.
+available in console-enabled source builds and is not yet a published release.

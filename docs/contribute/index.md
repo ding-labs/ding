@@ -6,7 +6,7 @@ have separate builds. A website deployment does not release a daemon.
 | Component | Source | Output |
 | --- | --- | --- |
 | Runtime and CLI | `cmd/`, `internal/` | Go executable and containers |
-| Console in development | `web/console/`, `internal/webui/` on its implementation branch | Static assets embedded in the matching executable |
+| Console source preview | `web/console/`, `internal/webui/` | Static assets embedded in the matching executable |
 | Public website | `workers/website/site/` | `workers/website/dist/` → Cloudflare |
 | Documentation | `docs/`, `cmd/docgen/`, `mkdocs.yml` | `workers/docs/site/` → independent publisher |
 | Brand | `design/` | Build-time tokens and assets for each consumer |
@@ -25,6 +25,8 @@ python3 -m venv .venv
 .venv/bin/python scripts/web/build_docs.py
 .venv/bin/python scripts/web/check_links.py
 ```
+
+Build and test the embedded interface using the [Console guide](../console/index.md).
 
 The docs build stages sources in a temporary directory, generates every CLI page,
 copies canonical examples/schema/assets, and builds current, development-preview,

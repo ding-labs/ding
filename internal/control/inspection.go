@@ -56,7 +56,15 @@ func inspectionRoutes(mux *http.ServeMux, app *watchrun.App) {
 		}
 		write(w, 200, page, nil)
 	})
+	proofSlots := make(chan struct{}, 2)
 	mux.HandleFunc("GET /v1/events/{id}", func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case proofSlots <- struct{}{}:
+			defer func() { <-proofSlots }()
+		default:
+			fail(w, 429, "evidence_busy", "two evidence inspections are already running; try again shortly")
+			return
+		}
 		proof, err := app.Evidence(r.Context(), r.PathValue("id"))
 		if err != nil {
 			inspectionError(w, err)

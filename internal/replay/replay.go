@@ -5,6 +5,7 @@ package replay
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,6 +24,11 @@ type Report struct {
 }
 
 func Run(p plan.Compiled, input io.Reader) (Report, error) {
+	return RunContext(context.Background(), p, input)
+}
+
+// RunContext shares CLI semantics while allowing HTTP callers to stop expensive fixtures.
+func RunContext(ctx context.Context, p plan.Compiled, input io.Reader) (Report, error) {
 	report := Report{WatchID: p.Definition.Metadata.ID, Revision: p.Revision, Events: []watch.Event{}, States: map[string]condition.State{}}
 	e, err := condition.New(p.Definition, p.Revision)
 	if err != nil {
@@ -31,7 +37,11 @@ func Run(p plan.Compiled, input io.Reader) (Report, error) {
 	scan := bufio.NewScanner(input)
 	scan.Buffer(make([]byte, 4096), p.Definition.Spec.Limits.MaxBytes+1)
 	var previous int64
+	eventBytes := 0
 	for scan.Scan() {
+		if err := ctx.Err(); err != nil {
+			return report, err
+		}
 		if len(bytes.TrimSpace(scan.Bytes())) == 0 {
 			continue
 		}
@@ -68,6 +78,9 @@ func Run(p plan.Compiled, input io.Reader) (Report, error) {
 		}
 
 		for _, key := range keys {
+			if err := ctx.Err(); err != nil {
+				return report, err
+			}
 			if _, exists := report.States[key]; !exists && len(report.States) >= p.Definition.Spec.Limits.MaxEntities {
 				return report, fmt.Errorf("entity budget exceeded")
 			}
@@ -80,6 +93,16 @@ func Run(p plan.Compiled, input io.Reader) (Report, error) {
 				return report, fmt.Errorf("observation %d: %w", report.Observations+1, err)
 			}
 			report.States[key] = r.State
+			for _, event := range r.Events {
+				raw, err := json.Marshal(event)
+				if err != nil {
+					return report, err
+				}
+				eventBytes += len(raw)
+				if eventBytes > 16<<20 {
+					return report, fmt.Errorf("predicted events exceed 16 MiB; use a smaller fixture")
+				}
+			}
 			report.Events = append(report.Events, r.Events...)
 		}
 		report.Observations++

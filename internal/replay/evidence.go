@@ -18,6 +18,7 @@ type Checkpoint struct {
 	SourceRecovered bool              `json:"sourceRecovered,omitempty"`
 }
 type Evidence struct {
+	Evaluation   *Evaluation      `json:"evaluation,omitempty"`
 	Definition   watch.Definition `json:"definition"`
 	Event        watch.Event      `json:"event"`
 	Checkpoint   *Checkpoint      `json:"checkpoint,omitempty"`

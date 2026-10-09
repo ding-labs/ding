@@ -1,0 +1,5 @@
+src/api/contracts.ts
+node_modules
+playwright-report
+test-results
+tsconfig.tsbuildinfo

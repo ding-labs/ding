@@ -41,6 +41,7 @@ func (a *App) appendEvaluated(tx *store.Tx, r store.WatchRecord, e watch.Event, 
 }
 func (a *App) Evidence(ctx context.Context, id string) (replay.Evidence, error) {
 	proof := replay.Evidence{}
+	var raw json.RawMessage
 	err := a.Store.View(ctx, func(tx *store.Tx) error {
 		var err error
 		proof.Event, err = tx.Event(id)
@@ -51,26 +52,33 @@ func (a *App) Evidence(ctx context.Context, id string) (replay.Evidence, error) 
 		if err != nil {
 			return err
 		}
-		raw, err := tx.Replay(id)
+		raw, err = tx.Replay(id)
 		if errors.Is(err, store.ErrNotFound) {
 			proof.ReplayStatus = "unavailable: lifecycle event or predates schema 2"
 			return nil
 		}
-		if err != nil {
-			return err
-		}
-		proof.Checkpoint = &replay.Checkpoint{}
-		if err := json.Unmarshal(raw, proof.Checkpoint); err != nil {
-			return err
-		}
-		if err := replay.Verify(proof); err != nil {
-			return err
-		}
-		proof.ReplayStatus = "verified"
-		return nil
+		return err
 	})
+	if err != nil || proof.ReplayStatus != "" {
+		return proof, err
+	}
+	// The immutable event, definition and checkpoint have been captured together.
+	// Replaying large evidence must not hold SQLite's only connection or writer lock.
+	if err = ctx.Err(); err != nil {
+		return proof, err
+	}
+	proof.Checkpoint = &replay.Checkpoint{}
+	if err = json.Unmarshal(raw, proof.Checkpoint); err != nil {
+		return proof, err
+	}
+	if err = replay.Verify(proof); err != nil {
+		return proof, err
+	}
+	proof.ReplayStatus = "verified"
+	proof.Evaluation, err = replay.Explain(proof)
 	return proof, err
 }
+
 func (a *App) Export(ctx context.Context, id string) (string, error) {
 	var out strings.Builder
 	enc := yaml.NewEncoder(&out)

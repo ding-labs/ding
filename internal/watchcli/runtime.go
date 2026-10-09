@@ -18,6 +18,7 @@ import (
 	"github.com/ding-labs/ding/internal/control"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watchrun"
+	"github.com/ding-labs/ding/internal/webui"
 	"github.com/spf13/cobra"
 )
 
@@ -27,10 +28,14 @@ func runtimeCommands(root *cobra.Command) {
 	root.PersistentFlags().StringVar(&dir, "state-dir", dir, "directory owned by the local daemon")
 	var address string
 	var remote bool
+	var uiOrigin string
 	limits := watchrun.DefaultLimits()
 	daemon := &cobra.Command{Use: "daemon", Short: "Run applied watches and durable delivery workers", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
 		if err := control.ValidateListen(address, remote); err != nil {
 			return err
+		}
+		if uiOrigin != "" && !control.ValidUIOrigin(uiOrigin) {
+			return fmt.Errorf("--ui-origin must be an HTTPS origin, or HTTP on loopback, without a path")
 		}
 		ctx, cancel := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 		defer cancel()
@@ -64,7 +69,12 @@ func runtimeCommands(root *cobra.Command) {
 		app := watchrun.New(database)
 		app.Limits = limits
 		app.Output = cmd.OutOrStdout()
-		server := &http.Server{Handler: control.Handler(app, credentials), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 2 * time.Minute, IdleTimeout: 60 * time.Second}
+		origin := uiOrigin
+		if origin == "" && control.ValidUIOrigin(endpoint) {
+			origin = endpoint
+		}
+		config := control.ConsoleConfig{Version: root.Version, Origin: origin, Listen: listener.Addr().String(), StateDir: dir, Assets: webui.Handler(), Reference: consoleReference}
+		server := &http.Server{Handler: control.ConsoleHandler(app, credentials, config), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 2 * time.Minute, IdleTimeout: 60 * time.Second}
 		served := make(chan error, 1)
 		go func() { served <- server.Serve(listener) }()
 		running := make(chan error, 1)
@@ -96,6 +106,7 @@ func runtimeCommands(root *cobra.Command) {
 	}}
 	daemon.Flags().StringVar(&address, "listen", "127.0.0.1:7676", "explicit listen IP:port")
 	daemon.Flags().BoolVar(&remote, "allow-remote", false, "allow remote binding; configure a TLS reverse proxy")
+	daemon.Flags().StringVar(&uiOrigin, "ui-origin", "", "explicit HTTPS console origin when using a reverse proxy")
 	daemon.Flags().IntVar(&limits.MaxWatches, "max-watches", limits.MaxWatches, "maximum active watches")
 	daemon.Flags().IntVar(&limits.MaxPending, "max-pending", limits.MaxPending, "maximum pending or leased deliveries")
 	daemon.Flags().Int64Var(&limits.MaxBytes, "max-store-bytes", limits.MaxBytes, "maximum live SQLite data bytes before backpressure")
@@ -158,6 +169,7 @@ func runtimeCommands(root *cobra.Command) {
 	}
 	root.AddCommand(watchCmd)
 	inspectionCommands(root, &dir)
+	root.AddCommand(uiCommand(&dir))
 }
 func call(cmd *cobra.Command, dir string, structured bool, method, path string, body any) error {
 	result, err := request(cmd, dir, structured, method, path, body)

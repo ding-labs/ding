@@ -75,7 +75,8 @@ nav:
     - Investigate an alert: guides/investigate.md
     - Notifications and retry: guides/notifications.md
   - Console:
-    - Availability and direction: console/index.md
+    - Build and use the Console: console/index.md
+    - Console qualification: development/console-qualification.md
   - Operate:
     - Run a daemon: operate/index.md
     - Backup and upgrade: operate/backup.md

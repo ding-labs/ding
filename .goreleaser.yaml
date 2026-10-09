@@ -4,12 +4,15 @@ project_name: ding
 
 before:
   hooks:
-    - go mod tidy
+    - go mod tidy -diff
+    - npm ci --prefix web/console
+    - npm run build --prefix web/console
 
 builds:
   - id: ding
     main: ./cmd/ding/
     binary: ding
+    tags: [console]
     ldflags:
       - -s -w -X main.version={{.Version}}
     env:
