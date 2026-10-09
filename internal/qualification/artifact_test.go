@@ -127,6 +127,25 @@ spec:
 	must(t, replay.Verify(proof))
 	must(t, os.WriteFile(proofFile, proofRaw, 0600))
 	cli(dir, "replay", proofFile)
+	// Exercise the exact manifest shipped beside the README quickstart.
+	quickstart, err := filepath.Abs(filepath.Join("..", "..", "ding.yaml.example"))
+	must(t, err)
+	cli(dir, "validate", quickstart)
+	cli(dir, "apply", quickstart, "--dry-run")
+	cli(dir, "apply", quickstart)
+	for _, value := range []int{350, 350, 100} {
+		_, err = client.Call(ctx, "POST", "/v1/ingest/latency", map[string]int{"latency_ms": value})
+		must(t, err)
+	}
+	var quickstartEvents store.EventPage
+	must(t, json.Unmarshal(cli(dir, "events", "--watch", "latency"), &quickstartEvents))
+	counts := map[string]int{}
+	for _, event := range quickstartEvents.Events {
+		counts[event.Type]++
+	}
+	if counts["firing"] != 1 || counts["recovered"] != 1 {
+		t.Fatal("quickstart transition/recovery", counts)
+	}
 	backup := filepath.Join(t.TempDir(), "verified.db")
 	cli(dir, "backup", "--out", backup)
 	cli(dir, "export", "--watch", "artifact")

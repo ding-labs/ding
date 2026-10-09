@@ -31,6 +31,8 @@ nav:
   - HTTP API: api.md
   - Examples: examples.md
   - Legacy migration: legacy.md
+  - Qualification: development/qualification.md
+  - Release checklist: releases/watch-checklist.md
   - CLI Reference:
     - ding: cli/ding.md
     - daemon: cli/ding_daemon.md
