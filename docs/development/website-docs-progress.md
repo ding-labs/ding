@@ -14,7 +14,7 @@ plan were preserved and incorporated into this isolated change.
 | W04 User documentation | Implemented and verified | First watch, concepts, source/condition guides, delivery/evidence, operations/backup, full CLI generation, manifest schema, current API, frozen legacy archive. |
 | W05 Website redesign | Implemented and verified | Home, Console preview, Examples, real 404s, theme preference, fixture illustration, metadata and legacy redirects. Browser screenshots and report are generated under `artifacts/public-surfaces/`. |
 | W06 Console release help | Gated by the UI release | Availability page and working CLI alternatives are present. Real screenshots and procedural UI guides await completed U04–U07 behavior and a selected executable version. No mockup is presented as released software. |
-| W07 Launch | Pending external prerequisites | Restore Cloudflare authentication, configure repository deployment credentials, verify account/domain routing, publish docs, then website. Keep previous deployment artifacts for rollback. Console launch additionally requires its release gates. |
+| W07 Launch | Pending external prerequisites | Restore Cloudflare authentication, configure repository deployment credentials, verify account/domain routing, publish docs, retire the old `ding-web` publisher, then publish website. Keep previous deployment artifacts for rollback. Console launch additionally requires its release gates. |
 
 ## Verification
 
@@ -41,6 +41,12 @@ No production deployment or domain change was performed. The Docs workflow keeps
 GitHub Pages as the selected publisher until `DOCS_PUBLISHER=cloudflare` is set
 for a deliberate, verified cutover. Website publication checks that the advertised
 documentation origin and runtime metadata are already available.
+
+The separate `ding-labs/ding-web` repository still has an active deployment
+workflow targeting the same website Worker and domains. It remains active until
+the replacement is ready; the publishing runbook records its retirement and
+rollback commands. Removing the nested workflow from this monorepo does not
+disable that independent publisher.
 
 Browser verification does not substitute for the plan's manual screen-reader task
 session or a real production rollback rehearsal. These remain launch checks.

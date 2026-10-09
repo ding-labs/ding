@@ -38,6 +38,21 @@ available, then publishes the exact checked artifact. Publish docs before the
 first website cutover; rerun Website if it correctly waits on that dependency. Manual local production publication uses
 `npm run deploy --prefix workers/website` after the full checks above.
 
+The separate `ding-labs/ding-web` repository still has an active `Deploy to
+Cloudflare` workflow targeting the same `ding-website` Worker and domains. Once
+the new preview and docs origin pass verification, disable that publisher before
+the first monorepo production deployment:
+
+```sh
+gh workflow disable deploy.yml --repo ding-labs/ding-web
+```
+
+Confirm no old deployment run remains in progress before publishing. Do not
+disable it during preview-only work. If the cutover is abandoned, re-enable the
+old publisher with `gh workflow enable deploy.yml --repo ding-labs/ding-web` after
+restoring the prior Worker version. Leave it disabled after a successful cutover
+so a later commit to the old repository cannot overwrite the new website.
+
 Save the current deployment/version identifier before publishing. `wrangler
 versions list` and `wrangler deployments list` expose it. Roll back using
 `wrangler rollback <verified-version-id>` in the component directory and check
@@ -66,8 +81,10 @@ Changing this setting is a hosting cutover, separate from merging content change
    restore the saved domain configuration and select `github-pages`, or restore
    the previous Cloudflare version if only the Worker deployment changed.
 
-Only one production publishing step runs. The old nested website workflow has
-been retired. A domain lookup alone does not verify account/domain ownership.
+Only one production documentation publishing step runs. The inert nested website
+workflow was removed from this repository; the active publisher in `ding-web`
+must be disabled during the website cutover above. A domain lookup alone does not
+verify account/domain ownership.
 The complete docs build regenerates retained archives from pinned source tags;
 `--current-only` artifacts are rejected by publication checks.
 
