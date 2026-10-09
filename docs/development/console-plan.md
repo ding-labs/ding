@@ -1,6 +1,6 @@
 # Ding Console: product, interface, and implementation plan
 
-Status: proposed; October 9, 2026. Audited against commit `3db426f` and the actual Cobra command tree. This document plans the console; it does not claim that these screens or new APIs exist. The current watch runtime and its qualification run remain separate work.
+Status: evidence-first direction selected by the user; implementation plan proposed. October 9, 2026. Audited against commit `3db426f` and the actual Cobra command tree. This document plans the console; it does not claim that these screens or new APIs exist. The current watch runtime and its qualification run remain separate work.
 
 ## Product promise
 
@@ -35,12 +35,11 @@ Call the interface **Ding Console**. Preserve the existing green brand, but give
 
 The signature component is a small four-stage evidence strip: **Observed / Evaluated / Recorded / Delivered**. Each stage shows its actual outcome and opens supporting detail. It must also work when only part of the chain exists: no event yet, lifecycle event without replay evidence, no configured delivery, pending delivery, or unavailable history.
 
-### Layout alternatives to resolve in the design phase
+### Selected layout: evidence first
 
-1. **Evidence first — recommended:** the watch detail leads with its current condition and an explanation of the selected event. A timeline and inspection panel sit beneath it. This makes a small watch installation approachable while retaining depth.
-2. **Timeline first:** the detail page leads with a dense chronology and an always-visible inspection pane. This favors sustained debugging sessions and many events, but can bury the basic explanation.
+The user selected **evidence first** after reviewing the two interactive concepts. The watch detail leads with its current condition and an explanation of the selected event. A timeline and inspection panel sit beneath it. This makes a small watch installation approachable while retaining depth.
 
-Prototype both arrangements with the same event and failure cases. Choose one default through task-based evaluation, rather than shipping a permanent layout preference solely to avoid making a design decision. The plan's navigation and API contract support either arrangement.
+Continue refining this layout with real evidence and failure cases during U01. The timeline-first concept remains a design reference; it is not an additional implementation requirement or a layout toggle for the first release.
 
 ## Information architecture
 
@@ -192,6 +191,24 @@ Pause stops acquisition and timers; committed deliveries continue. Delete retain
 
 ## Architecture and API work
 
+### Repository structure: one repository, distinct build and deployment boundaries
+
+Recommend keeping the Go runtime, console, public website, and documentation in the Ding repository. The public website already lives in `workers/website`, and documentation source lives in `docs`. Introduce the console at `web/console`; keep the existing Go package structure and website location rather than reorganizing unrelated code to accommodate the frontend.
+
+| Component | Source | Build and release boundary |
+| --- | --- | --- |
+| Runtime and CLI | `cmd/ding`, `internal` | Go executable, containers, existing platform releases |
+| Operational console | `web/console`, `internal/webui` | Static assets built and embedded into the matching Ding executable; served by that daemon |
+| Public website | `workers/website` | Independently deployed Cloudflare Worker/static site for `ding.ing` |
+| Product documentation | `docs`, `cmd/docgen`, `mkdocs.yml` | Independently published documentation; generated CLI reference stays aligned with the source |
+| Install endpoint | `workers/install` | Existing independent deployment |
+
+One change can update the runtime contract, generated frontend types, UI, examples, and documentation together. Share the brand assets and small design-token definitions where useful. Share runtime semantics through the Go API and generated contracts. Extract a shared UI package only when both consumers actually need the same components; marketing pages and operational screens have different interaction requirements.
+
+Use ordinary Go and npm builds with scoped CI. Console-enabled releases build and test the matching frontend assets. Runtime/API changes trigger Go, contract, and relevant console checks; console changes trigger frontend checks and binary embedding smoke tests; website-only changes run website checks and deployment. Documentation checks must also respond to changes in generated CLI/API inputs. Keep deployment credentials and workflows scoped to their component. A public-site deployment does not release the daemon, and the public site does not receive local daemon credentials.
+
+Reconcile the existing website/docs deployment work before editing those workflows. The primary checkout currently has in-progress website workflow and `workers/docs` hosting files; preserve them and establish the intended documentation deployment path instead of introducing a competing publisher. This repository recommendation does not itself move files or change hosting.
+
 ### Preserve the runtime boundary
 
 The browser talks to the Go control API, which calls the same application/compiler/replay/migration packages as the CLI. No subprocess execution of CLI text, no direct browser/database access, and no JavaScript implementation of the condition evaluator. Human explanations are deterministic presentations of definitions and evidence; runtime behavior requires no model call.
@@ -199,7 +216,7 @@ The browser talks to the Go control API, which calls the same application/compil
 Proposed layout:
 
 ```text
-web/                         TypeScript application and browser tests
+web/console/                 TypeScript application and browser tests
   src/app/                   Shell, routes, connection and preferences
   src/features/              Watches, events, deliveries, workbench, system
   src/components/            Shared interaction and evidence components
@@ -272,7 +289,7 @@ Complete each phase and its tests before building on it. Commit coherent working
 
 | Phase | Deliverables | Required exit gate |
 | --- | --- | --- |
-| **U01 — Interaction design and contracts** | Screen/route map; evidence-first and timeline-first prototypes; tokens; state fixtures; complete CLI map; API and session ADRs | Walk through create/test/apply, explain firing, investigate failed delivery, pause/resume, conflict and disconnection in the prototype. Choose the default layout. Every required datum is traced to an existing field or an explicit API task. |
+| **U01 — Interaction design and contracts** | Screen/route map; refinement of the selected evidence-first prototype; tokens; state fixtures; complete CLI map; repository/build, API and session ADRs | Walk through create/test/apply, explain firing, investigate failed delivery, pause/resume, conflict and disconnection in the prototype. Every required datum is traced to an existing field or an explicit API task. Reconcile the existing website/docs deployment work before adding or changing workflows. |
 | **U02 — Console foundation and browser access** | Static build/embedding; app shell; routes; generated contracts; `ding ui`; sessions, origin/CSRF controls; info endpoint | Released binary serves deep links without Node; headless build works; API semantics remain compatible; auth, static routing and security integration tests pass. |
 | **U03 — Readable operational views** | Watch summary queries; Watches, detail, Events and Deliveries; evidence inspector; paging and follow; retention/freshness states | Real daemon fixture supports watch → event → observation → delivery navigation. Complete counts, cursor gaps, pagination and disconnected state tested. No unbounded history fetches or per-row proof verification. |
 | **U04 — Workbench and reviewed apply** | Compile/diagnostics; editor/explanation; fixtures and test timeline; full-bundle dry run, diff, concurrency protection and apply | Valid definitions apply identically from CLI/UI. Invalid input never runs. All supported operators have honest explanations; destination-only changes and multi-watch conflicts are covered. Editing after review invalidates it. |
