@@ -102,6 +102,9 @@ func Parse(data []byte) (Bundle, error) {
 			id = d.Metadata.ID
 			bundle.Destinations = append(bundle.Destinations, compiled)
 		default:
+			if lookupNode(node.Content[0], "rules") != nil || lookupNode(node.Content[0], "notifiers") != nil {
+				return bundle, fmt.Errorf("legacy configuration: use ding migrate --config FILE --out NEW_DIRECTORY, or install legacy v0.14.0")
+			}
 			return bundle, fmt.Errorf("kind must be Watch or Destination")
 		}
 		key := header.Kind + ":" + id

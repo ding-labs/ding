@@ -1,8 +1,7 @@
 # Inspection, replay, and agent contract
 
-P12 adds these commands to the experimental `ding-watch` CLI. They use the same
-versioned local API as agents. The watch binary becomes `ding` at P13; this does
-not change the declaration or API version, `ding.ing/v1alpha1`.
+These commands use the same versioned local API as agents. The watch preview
+binary is `ding`; its declaration and API version remain `ding.ing/v1alpha1`.
 
 ## Responses and authentication
 
@@ -116,17 +115,17 @@ no partial backup.
 
 ## Authoring demonstration
 
-The repository skill is [ding-watch](../../skills/ding-watch/SKILL.md). Install it
+The repository skill is [ding](https://github.com/ding-labs/ding/blob/codex/ding-watch-runtime/skills/ding-watch/SKILL.md). Install it
 with the repository resources available, or use its self-contained instructions.
 It performs no automatic mutation beyond the user's requested scope. No LLM or
 provider SDK enters the runtime.
 
 The request “check my health URL every five seconds, notify after three actual
 5xx responses, and recover after two healthy responses” maps to
-[api-health.yaml](../../examples/watches/api-health.yaml). Its URL is an explicit
+[api-health.yaml](https://github.com/ding-labs/ding/blob/codex/ding-watch-runtime/examples/watches/api-health.yaml). Its URL is an explicit
 example; substitute the user's real endpoint and supply `OPS_WEBHOOK_URL` in the
 daemon environment. The authoring workflow validates and explains the manifest,
-replays [api-health.jsonl](../../testdata/watches/api-health.jsonl), dry-runs apply,
+replays [api-health.jsonl](https://github.com/ding-labs/ding/blob/codex/ding-watch-runtime/testdata/watches/api-health.jsonl), dry-runs apply,
 applies, inspects, exports, and verifies an emitted event offline. The CLI
 integration test executes this flow through an authenticated local API, checks
 that dry-run changes nothing, and verifies the exported revision remains equal.

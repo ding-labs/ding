@@ -1,15 +1,14 @@
 package main
 
 import (
+	"github.com/ding-labs/ding/internal/watchcli"
 	"os"
-
-	"github.com/ding-labs/ding/internal/cli"
 )
 
 var version = "dev"
 
 func main() {
-	if err := cli.BuildRoot(version).Execute(); err != nil {
+	if watchcli.Execute(version, os.Args[1:], os.Stdout, os.Stderr) != nil {
 		os.Exit(1)
 	}
 }

@@ -16,7 +16,7 @@ import (
 )
 
 func Root(version string) *cobra.Command {
-	root := &cobra.Command{Use: "ding-watch", Short: "Persistent watches for developers and agents (experimental)", Version: version, SilenceUsage: true, SilenceErrors: true}
+	root := &cobra.Command{Use: "ding", Short: "Persistent watches for developers and agents (experimental)", Version: version, SilenceUsage: true, SilenceErrors: true}
 	for _, name := range []string{"validate", "explain"} {
 		var structured bool
 		cmd := &cobra.Command{Use: name + " FILE", Short: "Compile a watch manifest without starting I/O", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
@@ -44,6 +44,7 @@ func Root(version string) *cobra.Command {
 	}
 	runtimeCommands(root)
 	root.AddCommand(testCommand(), migrateCommand())
+	compatibilityCommands(root, version)
 	return root
 }
 func Write(w io.Writer, value any) error {

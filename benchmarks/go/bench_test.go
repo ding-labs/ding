@@ -1,231 +1,95 @@
-// benchmarks/go/bench_test.go
 package bench_test
 
 import (
-	"fmt"
+	"context"
+	"strconv"
 	"testing"
 	"time"
 
-	"github.com/ding-labs/ding/internal/evaluator"
-	"github.com/ding-labs/ding/internal/ingester"
+	"github.com/ding-labs/ding/internal/condition"
+	"github.com/ding-labs/ding/internal/plan"
+	"github.com/ding-labs/ding/internal/source"
+	"github.com/ding-labs/ding/internal/store"
+	"github.com/ding-labs/ding/internal/transform"
+	"github.com/ding-labs/ding/internal/watch"
+	"github.com/ding-labs/ding/internal/watchrun"
 )
 
-// BenchmarkProcessSimpleRule measures throughput of Engine.Process() with a
-// single event-per-event threshold rule. Value is below threshold so no alert
-// fires — measures pure evaluation cost, not notifier dispatch.
-func BenchmarkProcessSimpleRule(b *testing.B) {
-	engine, err := evaluator.NewEngine([]evaluator.EngineRule{
-		{
-			Name:      "high_cpu",
-			Condition: "value > 95",
-			Cooldown:  0,
-			Alerts:    []string{},
-		},
-	}, 10000)
+func BenchmarkWatchEvaluation(b *testing.B) {
+	for _, numeric := range []string{"value > 95", "avg(value) over 1m > 95"} {
+		b.Run(numeric, func(b *testing.B) {
+			p, err := plan.Compile(watch.Definition{APIVersion: watch.APIVersion, Kind: "Watch", Metadata: watch.Metadata{ID: "bench"}, Spec: watch.Spec{Source: watch.Source{Type: "push"}, Condition: watch.Condition{Field: "value", Numeric: numeric}}})
+			if err != nil {
+				b.Fatal(err)
+			}
+			e, err := condition.New(p.Definition, p.Revision)
+			if err != nil {
+				b.Fatal(err)
+			}
+			now := time.Unix(1700000000, 0).UTC()
+			state := condition.State{}
+			sequence := int64(0)
+			evaluate := func() {
+				sequence++
+				at := now.Add(time.Duration(sequence) * time.Second)
+				r, err := e.Evaluate(state, watch.Observation{Sequence: sequence, AcceptedAt: at, Health: "ok", Fields: map[string]any{"value": 50.0}}, at)
+				if err != nil || !r.Known {
+					b.Fatalf("evaluation invalid: %s %v", r.Reason, err)
+				}
+				state = r.State
+			}
+			for n := 0; n < 60; n++ {
+				evaluate()
+			}
+			if numeric != "value > 95" && len(state.Samples) != 60 {
+				b.Fatal("invalid window warmup")
+			}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				evaluate()
+			}
+		})
+	}
+}
+func BenchmarkPushCommit(b *testing.B) {
+	ctx := context.Background()
+	s, err := store.Open(ctx, b.TempDir())
 	if err != nil {
 		b.Fatal(err)
 	}
-	event := ingester.Event{
-		Metric: "cpu_usage",
-		Value:  50.0, // below threshold: no alert fires, measures eval path only
-		Labels: map[string]string{"host": "web-01"},
-		At:     time.Now(),
+	defer s.Close()
+	a := watchrun.New(s)
+	m := `apiVersion: ding.ing/v1alpha1
+kind: Watch
+metadata: {id: bench}
+spec:
+  source: {type: push}
+  condition: {field: value, operator: gt, value: 95}
+  policy: {trigger: level, interval: 0s}
+`
+	if _, err := a.Apply(ctx, watchrun.ApplyRequest{Manifest: m}); err != nil {
+		b.Fatal(err)
 	}
-	now := time.Now()
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		engine.Process(event, now)
-	}
-}
-
-// BenchmarkProcessWindowedRule measures throughput with a windowed rule.
-// Each Process() call appends to a ring buffer then scans O(n) entries for the
-// aggregate — this is the more expensive path.
-func BenchmarkProcessWindowedRule(b *testing.B) {
-	engine, err := evaluator.NewEngine([]evaluator.EngineRule{
-		{
-			Name:      "high_cpu_avg",
-			Condition: "avg(value) over 5m > 80",
-			Cooldown:  0,
-			Alerts:    []string{},
-		},
-	}, 10000)
+	r, err := a.Record(ctx, "bench")
 	if err != nil {
 		b.Fatal(err)
 	}
-	event := ingester.Event{
-		Metric: "cpu_usage",
-		Value:  50.0, // below threshold
-		Labels: map[string]string{"host": "web-01"},
-		At:     time.Now(),
-	}
-	// Warm up ring buffer to 1000 entries before measuring
-	warmNow := time.Now()
-	for j := 0; j < 1000; j++ {
-		warmEvent := ingester.Event{
-			Metric: event.Metric,
-			Value:  event.Value,
-			Labels: event.Labels,
-			At:     warmNow.Add(time.Duration(j-1000) * time.Millisecond),
-		}
-		engine.Process(warmEvent, warmNow)
-	}
-	for _, buffer := range evaluator.SnapshotEngine(engine).Buffers {
-		if len(buffer.Entries) != 1000 {
-			b.Fatalf("warmup retained %d entries", len(buffer.Entries))
-		}
-	}
-	event.At = warmNow
-	now := warmNow
-	b.ResetTimer()
+	now := time.Now().UTC()
+	batch := source.Batch{Observations: []watch.Observation{{Health: "ok", Fields: map[string]any{"value": 100.0}}}}
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		engine.Process(event, now)
-	}
-}
-
-// BenchmarkProcess100Rules measures throughput when 100 rules are active —
-// the full rule-scan loop overhead. Each event is evaluated against all 100
-// rules; none fire (value below threshold).
-func BenchmarkProcess100Rules(b *testing.B) {
-	rules := make([]evaluator.EngineRule, 100)
-	for i := range rules {
-		rules[i] = evaluator.EngineRule{
-			Name:      fmt.Sprintf("rule_%03d", i),
-			Condition: "avg(value) over 5m > 80",
-			Cooldown:  0,
-			Alerts:    []string{},
-		}
-	}
-	engine, err := evaluator.NewEngine(rules, 10000)
-	if err != nil {
-		b.Fatal(err)
-	}
-	event := ingester.Event{
-		Metric: "cpu_usage",
-		Value:  50.0,
-		Labels: map[string]string{"host": "web-01"},
-		At:     time.Now(),
-	}
-	// Warm up ring buffer to 1000 entries before measuring
-	warmNow := time.Now()
-	for j := 0; j < 1000; j++ {
-		warmEvent := ingester.Event{
-			Metric: event.Metric,
-			Value:  event.Value,
-			Labels: event.Labels,
-			At:     warmNow.Add(time.Duration(j-1000) * time.Millisecond),
-		}
-		engine.Process(warmEvent, warmNow)
-	}
-	for _, buffer := range evaluator.SnapshotEngine(engine).Buffers {
-		if len(buffer.Entries) != 1000 {
-			b.Fatalf("warmup retained %d entries", len(buffer.Entries))
-		}
-	}
-	event.At = warmNow
-	now := warmNow
 	b.ResetTimer()
-	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		engine.Process(event, now)
-	}
-}
-
-// BenchmarkEngineInit measures the cost of creating a new Engine with 100 rules —
-// this is the hot path during both cold start and hot-reload (new engine is built
-// before the old one is swapped out).
-func BenchmarkEngineInit(b *testing.B) {
-	rules := make([]evaluator.EngineRule, 100)
-	for i := range rules {
-		rules[i] = evaluator.EngineRule{
-			Name:      fmt.Sprintf("rule_%03d", i),
-			Condition: "avg(value) over 5m > 80",
-			Cooldown:  0,
-			Alerts:    []string{},
-		}
-	}
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_, err := evaluator.NewEngine(rules, 10000)
-		if err != nil {
+		if _, err := a.Accept(ctx, r, batch, strconv.Itoa(i), now.Add(time.Duration(i)*time.Millisecond)); err != nil {
 			b.Fatal(err)
 		}
 	}
 }
-
-// BenchmarkEngineReinit measures the cost of building a replacement engine —
-// the dominant cost in a hot-reload where a new engine is created from an
-// existing rule set. The cost is dominated by NewEngine parsing all rules.
-func BenchmarkEngineReinit(b *testing.B) {
-	rules := make([]evaluator.EngineRule, 100)
-	for i := range rules {
-		rules[i] = evaluator.EngineRule{
-			Name:      fmt.Sprintf("rule_%03d", i),
-			Condition: "avg(value) over 5m > 80",
-			Cooldown:  0,
-			Alerts:    []string{},
-		}
-	}
-	engine, err := evaluator.NewEngine(rules, 10000)
-	if err != nil {
-		b.Fatal(err)
-	}
-	_ = engine // original engine; replacement is a new one built each iteration
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		newEngine, err := evaluator.NewEngine(rules, 10000)
-		if err != nil {
-			b.Fatal(err)
-		}
-		_ = newEngine // in production, server.mu.Lock(); server.engine = newEngine
-	}
-}
-
-func BenchmarkParseJSON(b *testing.B) {
-	data := []byte(`{"metric":"cpu","value":12.5,"host":"a"}`)
+func BenchmarkJSONProjection(b *testing.B) {
+	raw := []byte(`{"value":12.5,"host":"a"}`)
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := ingester.ParseJSONLine(data); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-func BenchmarkThousandGroups(b *testing.B) {
-	e, err := evaluator.NewEngine([]evaluator.EngineRule{{Name: "groups", Condition: "avg(value) over 5m > 80"}}, 1000)
-	if err != nil {
-		b.Fatal(err)
-	}
-	now := time.Now()
-	events := make([]ingester.Event, 1000)
-	for i := range events {
-		events[i] = ingester.Event{Metric: "cpu", Value: 1, Labels: map[string]string{"host": fmt.Sprint(i)}, At: now}
-		e.Process(events[i], now)
-	}
-	if e.StateStats().LabelSets != 1000 {
-		b.Fatal("cardinality warmup")
-	}
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		e.Process(events[i%1000], now)
-	}
-}
-func BenchmarkSnapshotPersistence(b *testing.B) {
-	e, _ := evaluator.NewEngine([]evaluator.EngineRule{{Name: "state", Condition: "avg(value) over 5m > 80"}}, 1000)
-	now := time.Now()
-	for i := 0; i < 1000; i++ {
-		e.Process(ingester.Event{Value: 1, At: now}, now)
-	}
-	snap := evaluator.SnapshotEngine(e)
-	path := b.TempDir() + "/state.json"
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		if err := evaluator.SaveSnapshot(path, snap); err != nil {
+		if _, err := transform.Project(context.Background(), raw, "", nil, 100, 1<<20); err != nil {
 			b.Fatal(err)
 		}
 	}

@@ -1,61 +1,19 @@
-# DING
+# Ding: persistent watches
 
-> Don't store it. Stream it. DING it.
+Ding runs conditions over HTTP, command and authenticated push sources. Its local
+SQLite store keeps incident state, evidence, timers and notification retries
+across process restarts. A developer or agent manages the same inspectable
+manifest and versioned CLI.
 
-DING is a stream-based alerting daemon. Pipe metrics into it. It evaluates rules. It fires alerts. That's it.
+The current checkout is a watch preview. The published v0.14.0 artifacts contain
+the legacy runtime. See [installation](install.md) before following watch commands.
+The [qualification progress](development/progress.md) records completed gates.
 
-**Single binary. No database. No agents. No cloud account.**
+Start with [configuration](configuration.md) and the [examples](examples.md).
+[The API](api.md) exposes the same lifecycle and inspection operations to tools.
+[Legacy migration](legacy.md) explains supported conversion and intentional changes.
 
-See the [hardening report](development/legacy-hardening.md) for current measurements and limitations.
-
----
-
-## Quickstart
-
-**1. Install**
-
-```bash
-brew install ding-labs/tap/ding
-# or
-curl -sf https://start.ding.ing | sh
-```
-
-**2. Create a config**
-
-```bash
-cp ding.yaml.example ding.yaml
-ding validate
-```
-
-**3. Start DING**
-
-```bash
-ding serve
-```
-
-**4. Send an event**
-
-```bash
-curl -H "Authorization: Bearer $DING_INGEST_TOKEN" -X POST http://localhost:8080/ingest \
-  -H "Content-Type: application/json" \
-  -d '{"metric":"cpu_usage","value":97,"host":"web-01"}'
-```
-
-If the value triggers a rule, the alert fires immediately. No scrape interval. No pipeline delay.
-
-**5. Or just pipe**
-
-```bash
-your-app | ding serve
-```
-
-DING detects piped stdin automatically and processes it alongside the HTTP server.
-
----
-
-## Next steps
-
-- [Install →](install.md) — Homebrew, binary script, Docker
-- [Configuration →](configuration.md) — full YAML reference
-- [HTTP API →](api.md) — ingest, rules, reload, metrics
-- [Examples →](examples.md) — Slack alerts, windowed conditions, jq transforms
+Unlike a scheduled agent prompt, a watch has explicit typed conditions, persistent
+state, durable evidence, resource limits and retryable delivery. A language model
+can help author the declaration; the daemon evaluates it without a model call.
+Data integrations still require an available feed and credentials.

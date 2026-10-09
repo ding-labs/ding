@@ -11,9 +11,9 @@ An expected revision rejects concurrent editing conflicts. Dry-run computes this
 decision without writing anything.
 
 ```sh
-ding-watch watch pause api-health --state-dir ./ding-state --json
-ding-watch watch resume api-health --state-dir ./ding-state --json
-ding-watch watch delete api-health --state-dir ./ding-state --cancel-pending --json
+ding watch pause api-health --state-dir ./ding-state --json
+ding watch resume api-health --state-dir ./ding-state --json
+ding watch delete api-health --state-dir ./ding-state --cancel-pending --json
 ```
 
 Pause cancels acquisition and removes deadlines while preserving incident state.

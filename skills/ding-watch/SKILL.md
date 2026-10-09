@@ -5,8 +5,8 @@ description: Translate alerting requests into inspectable Ding watch manifests, 
 
 Turn the user's condition into a versioned declaration. Ding's daemon handles
 acquisition, state, timers and delivery; this skill only authors and operates its
-public CLI. Use `ding-watch` while developing the alpha branch; at the watch
-cutover the same CLI becomes `ding`. Inspect `--help` for the installed version.
+public CLI. Use the `ding` watch binary. Legacy v0.14.0 has a different CLI; inspect
+`ding version` and `--help` before authoring a manifest.
 
 Supported sources are HTTP JSON/status polling, explicit local command argv
 returning JSON, and authenticated JSON push. Polling is at least one second.

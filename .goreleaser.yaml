@@ -65,7 +65,7 @@ brews:
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     homepage: https://ding.ing
-    description: Stream-based alerting daemon — single binary, zero infrastructure
+    description: Persistent watches and durable alerts for developers and agents
     license: Apache-2.0
     install: |
       bin.install "ding"

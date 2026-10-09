@@ -20,9 +20,13 @@ case "$ARCH" in
   *)              echo "Unsupported arch: $ARCH" && exit 1 ;;
 esac
 
-# Get latest version from GitHub API
+# Pin a legacy or preview version with DING_VERSION; otherwise use latest stable.
+VERSION="${DING_VERSION:-}"
+if [ -z "$VERSION" ]; then
 VERSION="$(curl -sf "https://api.github.com/repos/${REPO}/releases/latest" \
   | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\(.*\)".*/\1/')"
+
+fi
 
 if [ -z "$VERSION" ]; then
   echo "Could not determine latest release version." && exit 1

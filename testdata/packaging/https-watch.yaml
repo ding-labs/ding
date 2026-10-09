@@ -1,0 +1,6 @@
+apiVersion: ding.ing/v1alpha1
+kind: Watch
+metadata: {id: verified-https}
+spec:
+  source: {type: http, url: https://example.com, every: 1s, timeout: 10s}
+  condition: {field: http.status, operator: eq, value: 200}

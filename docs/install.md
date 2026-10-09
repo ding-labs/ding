@@ -1,59 +1,31 @@
-# Install
+# Installation
 
-## Homebrew (macOS / Linux)
+The watch runtime is a source preview. Released v0.14.0 installers still contain
+the legacy CLI. Do not use a legacy binary with a watch manifest.
 
-```bash
-brew install ding-labs/tap/ding
+From this checkout with Go 1.26:
+
+```sh
+go build -trimpath -ldflags='-s -w' -o ding ./cmd/ding
+./ding version
+./ding daemon --state-dir ./ding-state
 ```
 
-## Binary script
+The daemon owns one local state directory. Back it up through `ding backup`; a
+second daemon cannot share it. To stop, send SIGINT/SIGTERM. Pending delivery
+resumes on next start. No operating-system service installer is included yet;
+run the foreground command under your preferred service manager.
 
-Downloads and installs the latest release to `/usr/local/bin`:
+Build a local container with `docker build -t ding-watch .`. The default command
+is `daemon --state-dir /var/lib/ding`, binding loopback inside the container.
+Mount a persistent private volume at `/var/lib/ding`. For host access, explicitly
+pass `daemon --state-dir /var/lib/ding --listen 0.0.0.0:7676 --allow-remote`, map only
+the intended host interface, and configure TLS/authentication at your proxy.
+The image contains Ding and CA roots; command sources need executables supplied
+by your derived image or mounted into it.
 
-```bash
-curl -sf https://start.ding.ing | sh
-```
+The planned artifact matrix is Linux, macOS and Windows on amd64/arm64. Stable
+support claims require the native qualification results, not cross-compilation
+alone. Package sizes and measurements will be recorded at qualification.
 
-## Docker
-
-```bash
-docker run -v ./ding.yaml:/etc/ding/ding.yaml \
-  ghcr.io/ding-labs/ding
-```
-
-Runs on `linux/amd64` and `linux/arm64`.
-
-## Manual binary download
-
-Download a release from [GitHub Releases](https://github.com/ding-labs/ding/releases), extract, and place the binary on your `$PATH`.
-
-Available for:
-
-| OS | Architecture |
-|----|-------------|
-| Linux | amd64, arm64 |
-| macOS | amd64, arm64 |
-| Windows | amd64, arm64 |
-
-## Verify
-
-```bash
-ding version
-ding --help
-```
-
----
-
-## Requirements
-
-No runtime dependencies. DING is a statically linked binary. It runs anywhere.
-
-### Container network access
-
-The daemon binds loopback by default. A published container port requires a
-config with `server.listen: 0.0.0.0`, plus distinct `admin_token` and `ingest_token`
-values of at least 16 characters. Prefer `${DING_ADMIN_TOKEN}` and
-`${DING_INGEST_TOKEN}` references and pass the variables with Docker `--env`.
-Bind the host port to loopback (`-p 127.0.0.1:8080:8080`) for local use. Use a TLS
-proxy for remote access. `/health` is public; other routes require their role's
-bearer token. See [HTTP API](api.md).
+For existing installations, [legacy v0.14.0 and migration](legacy.md) remain available.

@@ -29,7 +29,7 @@ observation sequence. Message rendering is bounded while writing.
 Replay uses the same evaluator and recorded logical times:
 
 ```sh
-go run ./cmd/ding-watch test examples/watches/api-health.yaml \
+go run ./cmd/ding test examples/watches/api-health.yaml \
   --events testdata/watches/api-health.jsonl --json
 ```
 

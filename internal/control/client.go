@@ -28,7 +28,7 @@ func Connect(dir string) (Client, error) {
 	// Connecting is read-only: an absent daemon must not create credentials.
 	data, err := os.ReadFile(filepath.Join(dir, "connection.json"))
 	if err != nil || json.Unmarshal(data, &connection) != nil || source.URL(connection.URL) != nil {
-		return Client{}, fmt.Errorf("daemon unavailable; start ding-watch daemon with this state directory")
+		return Client{}, fmt.Errorf("daemon unavailable; start ding daemon with this state directory")
 	}
 	data, err = os.ReadFile(filepath.Join(dir, "tokens.json"))
 	if err != nil || json.Unmarshal(data, &credentials) != nil || len(credentials.Admin) < 32 {

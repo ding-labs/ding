@@ -1,16 +1,16 @@
 # HTTP runtime milestone
 
-The experimental `ding-watch` daemon runs applied HTTP watches with a durable
+The experimental `ding` daemon runs applied HTTP watches with a durable
 SQLite outbox. The shipped legacy `ding` command remains unchanged until cutover.
 Run the temporary binary from the repository:
 
 ```sh
-go build -o /tmp/ding-watch ./cmd/ding-watch
+go build -o /tmp/ding ./cmd/ding
 OPS_WEBHOOK_URL=https://your-receiver.example/events \
-  /tmp/ding-watch daemon --state-dir ./ding-state
-/tmp/ding-watch apply examples/watches/api-health.yaml --state-dir ./ding-state --dry-run --json
-/tmp/ding-watch apply examples/watches/api-health.yaml --state-dir ./ding-state --json
-/tmp/ding-watch watch inspect api-health --state-dir ./ding-state --json
+  /tmp/ding daemon --state-dir ./ding-state
+/tmp/ding apply examples/watches/api-health.yaml --state-dir ./ding-state --dry-run --json
+/tmp/ding apply examples/watches/api-health.yaml --state-dir ./ding-state --json
+/tmp/ding watch inspect api-health --state-dir ./ding-state --json
 ```
 
 Replace the example source URL with an endpoint you control. The daemon resolves

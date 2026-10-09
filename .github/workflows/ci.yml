@@ -53,7 +53,6 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
         run: |
           go build -trimpath -ldflags='-s -w' -o dist/ding ./cmd/ding
-          go build -trimpath -ldflags='-s -w' -o dist/ding-watch ./cmd/ding-watch
           go test -c -o dist/store-check ./internal/store
 
   container:
