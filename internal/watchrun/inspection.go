@@ -150,6 +150,8 @@ type SourceHealth struct {
 	LastError         string    `json:"lastError,omitempty"`
 	UnhealthyEntities int       `json:"unhealthyEntities"`
 	OpenIncidents     int       `json:"openIncidents"`
+	Acquisition       string    `json:"acquisition"`
+	OverdueSeconds    int64     `json:"overdueSeconds"`
 }
 type CredentialHealth struct {
 	Environment string `json:"environment"`
@@ -217,11 +219,12 @@ func (a *App) Doctor(ctx context.Context) (Doctor, error) {
 				add(&ref)
 			}
 			status := SourceHealth{ID: record.Plan.Definition.Metadata.ID, Status: record.Status, LastInputAt: record.LastInputAt, NextAt: record.NextAt, LastError: record.LastError}
+			status.Acquisition, status.OverdueSeconds = acquisitionHealth(record, a.Now())
 			status.UnhealthyEntities, status.OpenIncidents, err = tx.EntityHealth(status.ID)
 			if err != nil {
 				return err
 			}
-			if status.LastError != "" || status.UnhealthyEntities > 0 {
+			if status.LastError != "" || status.UnhealthyEntities > 0 || status.Acquisition == "waiting" || status.Acquisition == "overdue" {
 				d.Healthy = false
 			}
 			d.Sources = append(d.Sources, status)
@@ -258,4 +261,29 @@ func (a *App) Doctor(ctx context.Context) (Doctor, error) {
 		d.Healthy = false
 	}
 	return d, nil
+}
+
+// A stale observation identifies a monitoring gap, not its cause. Sleep, network
+// loss and a stopped process cannot be distinguished from this evidence alone.
+func acquisitionHealth(record store.WatchRecord, now time.Time) (string, int64) {
+	if record.Status != "running" {
+		return record.Status, 0
+	}
+	if record.LastInputAt.IsZero() {
+		return "waiting", 0
+	}
+	if record.LastError != "" {
+		return "source-error", 0
+	}
+	s := record.Plan.Definition.Spec.Source
+	every, err := time.ParseDuration(s.Every)
+	if err != nil || every <= 0 {
+		return "observed", 0
+	}
+	timeout, _ := time.ParseDuration(s.Timeout)
+	overdue := now.Sub(record.LastInputAt.Add(2*every + timeout))
+	if overdue > 0 {
+		return "overdue", int64(overdue.Seconds())
+	}
+	return "observed", 0
 }

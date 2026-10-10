@@ -25,6 +25,8 @@ type localStatus struct {
 	Installation *install.Record  `json:"installation,omitempty"`
 	Service      *service.Status  `json:"service,omitempty"`
 	Health       *watchrun.Doctor `json:"health,omitempty"`
+	Instance     *watchrun.Status `json:"instance,omitempty"`
+	Runtime      *control.Info    `json:"runtime,omitempty"`
 }
 
 func daemonHealth(ctx context.Context, dir string) (*watchrun.Doctor, error) {
@@ -65,6 +67,20 @@ func readLocalStatus(ctx context.Context, dir, version string) localStatus {
 		return s
 	}
 	s.Health = d
+	if c, e := control.Connect(dir); e == nil {
+		if raw, e := c.Call(ctx, "GET", "/v1/status", nil); e == nil {
+			var value watchrun.Status
+			if json.Unmarshal(raw, &value) == nil && value.Instance != "" {
+				s.Instance = &value
+			}
+		}
+		if raw, e := c.Call(ctx, "GET", "/v1/info", nil); e == nil {
+			var value control.Info
+			if json.Unmarshal(raw, &value) == nil && value.Version != "" {
+				s.Runtime = &value
+			}
+		}
+	}
 	s.Daemon = "ready"
 	if !d.Running || d.Closing {
 		s.Daemon = "starting-or-stopping"
@@ -85,10 +101,23 @@ func serviceCommands(root *cobra.Command, dir *string) {
 		if s.Service != nil {
 			fmt.Fprintf(cmd.OutOrStdout(), "Background service: %s (startup: %s)\n", s.Service.State, s.Service.Startup)
 		}
+		if s.Instance != nil {
+			fmt.Fprintf(cmd.OutOrStdout(), "Instance: %s\n", s.Instance.Instance)
+		}
+		if s.Runtime != nil {
+			fmt.Fprintf(cmd.OutOrStdout(), "Daemon version: %s\n", s.Runtime.Version)
+		}
 		if s.Health != nil {
 			fmt.Fprintf(cmd.OutOrStdout(), "Watches: %d; delivery states: %v\n", len(s.Health.Sources), s.Health.Deliveries)
 			for _, w := range s.Health.Sources {
-				fmt.Fprintf(cmd.OutOrStdout(), "  %s: %s; last input %s; source error %q\n", w.ID, w.Status, w.LastInputAt, w.LastError)
+				last := "none yet"
+				if !w.LastInputAt.IsZero() {
+					last = w.LastInputAt.Local().Format(time.RFC3339)
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "  %s: %s / %s; last input %s; source error %q\n", w.ID, w.Status, w.Acquisition, last, w.LastError)
+				if w.Acquisition == "overdue" {
+					fmt.Fprintf(cmd.OutOrStdout(), "    Observation overdue by %ds; cause unknown. Inspect source and daemon health.\n", w.OverdueSeconds)
+				}
 			}
 		}
 		if s.Advice != "" {

@@ -556,6 +556,8 @@ export interface WatchrunSourceHealth {
   lastError?: string;
   unhealthyEntities: number;
   openIncidents: number;
+  acquisition: string;
+  overdueSeconds: number;
 }
 
 export interface WatchrunStatus {

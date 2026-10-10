@@ -240,6 +240,7 @@ function Diagnostics() {
                       <th>Source issues</th>
                       <th>Open incidents</th>
                       <th>Latest accepted input</th>
+                      <th>Acquisition</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -260,6 +261,12 @@ function Diagnostics() {
                         <td>{s.openIncidents}</td>
                         <td>
                           <Time value={s.lastInputAt} />
+                        </td>
+                        <td>
+                          <Badge value={s.acquisition} />
+                          {s.acquisition === "overdue" && (
+                            <p className="subtle">Overdue by {s.overdueSeconds}s. The cause of this gap is unknown.</p>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -369,7 +376,7 @@ function Destinations() {
             {!query.data.destinations.length && (
               <Empty title="No destinations yet">
                 <p>
-                  A manifest can define a console, webhook, Slack, or Discord
+                  A manifest can define a console, desktop, webhook, Slack, or Discord
                   destination alongside its watches.
                 </p>
               </Empty>
