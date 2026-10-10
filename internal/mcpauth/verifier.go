@@ -34,7 +34,7 @@ type Verifier struct {
 }
 
 func New(config mcpconfig.HTTP, client *http.Client) (*Verifier, error) {
-	if err := config.Validate(); err != nil {
+	if err := config.ValidateAuthority(); err != nil {
 		return nil, err
 	}
 	if client == nil {
@@ -100,7 +100,18 @@ func (v *Verifier) Verify(ctx context.Context, raw string, _ *http.Request) (*au
 	if token.Get("scope", &scope) != nil {
 		return nil, invalid
 	}
-	return &auth.TokenInfo{Scopes: strings.Fields(scope), Expiration: expiry, UserID: v.config.Issuer + "\x00" + subject, Extra: map[string]any{"subject": subject, "issuer": v.config.Issuer}}, nil
+	var clientID, authorizedParty string
+	_ = token.Get("client_id", &clientID)
+	_ = token.Get("azp", &authorizedParty)
+	if clientID == "" {
+		clientID = authorizedParty
+	} else if authorizedParty != "" && authorizedParty != clientID {
+		return nil, invalid
+	}
+	if len(clientID) > 512 {
+		return nil, invalid
+	}
+	return &auth.TokenInfo{Scopes: strings.Fields(scope), Expiration: expiry, UserID: v.config.Issuer + "\x00" + subject, Extra: map[string]any{"subject": subject, "issuer": v.config.Issuer, "client_id": clientID}}, nil
 }
 
 // Fetches are bounded, serialized, and rate-limited even for unknown key IDs.

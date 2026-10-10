@@ -59,6 +59,22 @@ func (c *Connection) Validate() error {
 }
 
 func (h *HTTP) Validate() error {
+	if err := h.ValidateAuthority(); err != nil {
+		return err
+	}
+	if len(h.Subjects) == 0 {
+		return ErrConfig
+	}
+	for subject, path := range h.Subjects {
+		if subject == "" || !filepath.IsAbs(path) {
+			return ErrConfig
+		}
+	}
+	return nil
+}
+
+// ValidateAuthority validates a remote issuer without local pairing-file bindings.
+func (h *HTTP) ValidateAuthority() error {
 	u, err := Endpoint(h.PublicURL, true)
 	if err != nil {
 		return ErrConfig
@@ -70,7 +86,7 @@ func (h *HTTP) Validate() error {
 			return ErrConfig
 		}
 	}
-	if h.Audience == "" || len(h.Subjects) == 0 {
+	if h.Audience == "" {
 		return ErrConfig
 	}
 	if h.Algorithm == "" {
@@ -84,11 +100,7 @@ func (h *HTTP) Validate() error {
 	default:
 		return ErrConfig
 	}
-	for subject, path := range h.Subjects {
-		if subject == "" || !filepath.IsAbs(path) {
-			return ErrConfig
-		}
-	}
+
 	return nil
 }
 
