@@ -1,8 +1,6 @@
 name: Release
 
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
     inputs:
       version:
@@ -105,5 +103,7 @@ jobs:
             --target "$GITHUB_SHA" --draft --title "Ding ${RELEASE_VERSION#v}" \
             --notes-file "docs/releases/v${RELEASE_VERSION#v}.md"
 # This route prepares the Homebrew distribution. Publish after reviewing CI and
-# native installation evidence, then update the tap with the generated formula.
+# native installation evidence, then update the tap with the reviewed formula.
+# Run the tap's Homebrew bottles workflow and publish its bottle block before
+# advertising the Mac installation, so users do not need a matching compiler.
 # It does not publish signed standalone update channels or native installers.
