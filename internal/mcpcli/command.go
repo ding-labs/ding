@@ -16,6 +16,7 @@ import (
 	"github.com/ding-labs/ding/internal/mcpserver"
 	"github.com/ding-labs/ding/internal/mcpsetup"
 	"github.com/ding-labs/ding/internal/mcpui"
+	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 )
@@ -103,7 +104,7 @@ func Command(version string) *cobra.Command {
 		}
 		client := mcpclient.New(c)
 		defer client.Close()
-		s, err := mcpserver.New(mcpserver.Options{Version: version, HTML: mcpui.WorkspaceHTML, Resolve: func(context.Context, string) (*mcpclient.Client, error) { return client, nil }})
+		s, err := mcpserver.New(mcpserver.Options{Version: version, HTML: mcpui.WorkspaceHTML, Resolve: func(context.Context, string, *auth.TokenInfo) (*mcpclient.Client, error) { return client, nil }})
 		if err != nil {
 			return safe(err)
 		}

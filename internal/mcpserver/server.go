@@ -10,10 +10,11 @@ import (
 
 	"github.com/ding-labs/ding/internal/mcpclient"
 	"github.com/ding-labs/ding/internal/mcpcontract"
+	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-type Resolver func(context.Context, string) (*mcpclient.Client, error)
+type Resolver func(context.Context, string, *auth.TokenInfo) (*mcpclient.Client, error)
 type Options struct {
 	Version, HTML string
 	Resolve       Resolver
@@ -55,7 +56,11 @@ func New(options Options) (*mcp.Server, error) {
 			if err != nil {
 				return nil, mcpcontract.View{}, err
 			}
-			client, err := options.Resolve(ctx, r.scope)
+			var identity *auth.TokenInfo
+			if req.Extra != nil {
+				identity = req.Extra.TokenInfo
+			}
+			client, err := options.Resolve(ctx, r.scope, identity)
 			if err != nil {
 				return nil, mcpcontract.View{}, err
 			}

@@ -17,6 +17,7 @@ import (
 	"github.com/ding-labs/ding/internal/mcpsetup"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watchrun"
+	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -58,7 +59,7 @@ func TestRealDaemonPairingReviewLifecycleRevocation(t *testing.T) {
 	}
 	daemon := mcpclient.New(connection)
 	defer daemon.Close()
-	s, err := mcpserver.New(mcpserver.Options{Version: "test", HTML: "<title>Ding</title>", Resolve: func(context.Context, string) (*mcpclient.Client, error) { return daemon, nil }})
+	s, err := mcpserver.New(mcpserver.Options{Version: "test", HTML: "<title>Ding</title>", Resolve: func(context.Context, string, *auth.TokenInfo) (*mcpclient.Client, error) { return daemon, nil }})
 	if err != nil {
 		t.Fatal(err)
 	}
