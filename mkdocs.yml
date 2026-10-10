@@ -96,7 +96,9 @@ nav:
     - Implementation ledger: development/local-first-progress.md
     - Local experience plan: development/local-experience-plan.md
     - Desktop marketplace plan: development/desktop-marketplace-plan.md
+    - Desktop publisher proof: integrations/desktop-proof.md
     - Cloud and adoption plan: development/ding-cloud-plan.md
+    - Cloud topology evidence: development/cloud-topology.md
     - Watch contract: development/watch-contract.md
     - Evaluation: development/evaluation-contract.md
     - Sources and destinations: development/adapter-contract.md
