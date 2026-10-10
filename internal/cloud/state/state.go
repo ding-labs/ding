@@ -191,4 +191,6 @@ CREATE INDEX reservations_account ON reservations(account);
 CREATE TABLE sessions(hash TEXT PRIMARY KEY,account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,csrf TEXT NOT NULL,kind TEXT NOT NULL,expires_at INTEGER NOT NULL);
 CREATE INDEX sessions_account ON sessions(account);
 CREATE TABLE logins(hash TEXT PRIMARY KEY,ciphertext BLOB NOT NULL,expires_at INTEGER NOT NULL);
+`, `
+CREATE TABLE probes(account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,id TEXT NOT NULL,digest TEXT NOT NULL,outcome TEXT NOT NULL,at INTEGER NOT NULL,PRIMARY KEY(account,id));
 `}
