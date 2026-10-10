@@ -316,7 +316,7 @@ func StableExecutable() (string, string, error) {
 		return "", "", err
 	}
 	owner := "standalone"
-	if strings.Contains(filepath.ToSlash(resolved), "/Cellar/ding/") {
+	if strings.Contains(filepath.ToSlash(resolved), "/Cellar/ding/") || strings.Contains(filepath.ToSlash(resolved), "/Cellar/ding-preview/") {
 		owner = "homebrew"
 	} else if marker, err := os.ReadFile(filepath.Join(filepath.Dir(resolved), "installation-owner")); err == nil && string(marker) == "external\n" {
 		owner = "external"

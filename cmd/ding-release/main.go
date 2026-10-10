@@ -86,10 +86,14 @@ func sign(dir, out, version, channel, keyPath string) error {
 	if err != nil {
 		return err
 	}
+	formulaName, formula, err := releasebootstrap.Homebrew(m)
+	if err != nil {
+		return err
+	}
 	for _, file := range []struct {
 		name string
 		data []byte
-	}{{channel + ".json", data}, {channel + ".sig", sig}, {channel + ".install.sh", bootstrap}} {
+	}{{channel + ".json", data}, {channel + ".sig", sig}, {channel + ".install.sh", bootstrap}, {formulaName, formula}} {
 		f, err := os.OpenFile(filepath.Join(out, file.name), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 		if err != nil {
 			return err
