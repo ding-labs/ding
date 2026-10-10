@@ -1,71 +1,65 @@
+/* Ding's original bell green is the identity color in every theme.
+   Darker green is reserved for readable text on light surfaces. */
 :root,
-[data-md-color-scheme="default"] {
+[data-md-color-scheme] {
   color-scheme: light dark;
   --ding-font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --ding-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  --ding-bg: #fcfcfa;
-  --ding-surface: #ffffff;
-  --ding-subtle: #f5f6f2;
-  --ding-text: #252e29;
-  --ding-muted: #626d66;
-  --ding-border: #dce2d9;
-  --ding-brand: #246b45;
-  --ding-brand-soft: #e7f2e9;
   --ding-green: #7ee787;
-  --ding-on-brand: #ffffff;
-  --ding-incident: #a33c33;
-  --ding-incident-soft: #f9eae7;
-  --ding-success: #246b45;
-  --ding-attention: #81540f;
-  --ding-unknown: #66517c;
-  --ding-paused: #626d66;
+  --ding-action: var(--ding-green);
+  --ding-on-brand: #17251c;
+  --ding-logo-surface: #f7f6f2;
+  --ding-action-hover: color-mix(in srgb, var(--ding-action), #17251c 8%);
+  --ding-overlay: #07120db3;
+  --ding-shadow-nav: 0 1px 3px #00000009;
+  --ding-shadow-popover: 0 6px 28px #0002;
+  --ding-shadow-dialog: 0 24px 90px #0003;
+  --ding-bg: light-dark(#f7f6f2, #171c19);
+  --ding-surface: light-dark(#ffffff, #202722);
+  --ding-subtle: light-dark(#eeeee7, #29312b);
+  --ding-rail: light-dark(#eeeee7, #121713);
+  --ding-text: light-dark(#222b25, #f0f1e9);
+  --ding-muted: light-dark(#62695f, #acb6ab);
+  --ding-border: light-dark(#d9ddd2, #3b473c);
+  --ding-brand: light-dark(#246239, #7ee787);
+  --ding-brand-soft: light-dark(#e3f3df, #2a3c2c);
+  --ding-violet: light-dark(#68538b, #c2addf);
+  --ding-violet-soft: light-dark(#ece5f3, #332c40);
+  --ding-incident: light-dark(#a33c33, #f0a398);
+  --ding-incident-soft: light-dark(#f9eae7, #3d2826);
+  --ding-success-soft: var(--ding-brand-soft);
+  --ding-success: light-dark(#246239, #a2e4a3);
+  --ding-attention: light-dark(#80530f, #ebbc74);
+  --ding-attention-soft: light-dark(#fbf1dd, #362d1e);
+  --ding-unknown: var(--ding-violet);
+  --ding-unknown-soft: var(--ding-violet-soft);
+  --ding-paused: var(--ding-muted);
+  --ding-focus: var(--ding-brand);
+  --ding-code-key: var(--ding-violet);
+  --ding-code-value: var(--ding-brand);
+  --ding-code-number: var(--ding-attention);
+  --ding-code-comment: var(--ding-muted);
+  --ding-selection: var(--ding-violet-soft);
   --ding-radius: 10px;
+  --ding-radius-control: 6px;
+  --ding-radius-panel: 12px;
   --ding-space: 4px;
 }
-[data-theme="dark"],
-[data-md-color-scheme="slate"] {
-  --ding-bg: #171a18;
-  --ding-surface: #1c201d;
-  --ding-subtle: #242a25;
-  --ding-text: #e8ece7;
-  --ding-muted: #a5b0a8;
-  --ding-border: #343e37;
-  --ding-brand: #94dba8;
-  --ding-brand-soft: #273c2e;
-  --ding-on-brand: #16261b;
-  --ding-incident: #f0a398;
-  --ding-incident-soft: #3d2826;
-  --ding-success: #a2e4a3;
-  --ding-attention: #ebbc74;
-  --ding-unknown: #cab3e3;
-  --ding-paused: #a5b0a8;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]):not([data-md-color-scheme="default"]) {
-    --ding-bg: #171a18;
-    --ding-surface: #1c201d;
-    --ding-subtle: #242a25;
-    --ding-text: #e8ece7;
-    --ding-muted: #a5b0a8;
-    --ding-border: #343e37;
-    --ding-brand: #94dba8;
-    --ding-brand-soft: #273c2e;
-    --ding-on-brand: #16261b;
-    --ding-incident: #f0a398;
-    --ding-incident-soft: #3d2826;
-    --ding-success: #a2e4a3;
-    --ding-attention: #ebbc74;
-    --ding-unknown: #cab3e3;
-    --ding-paused: #a5b0a8;
-  }
-}
-
-:root[data-theme="light"] {
+:root[data-theme="light"],
+[data-md-color-scheme="default"] {
   color-scheme: light;
 }
-:root[data-theme="dark"] {
+:root[data-theme="dark"],
+[data-md-color-scheme="slate"] {
   color-scheme: dark;
 }
 
-[data-md-color-scheme="default"] { color-scheme: light; }
-[data-md-color-scheme="slate"] { color-scheme: dark; }
+::selection {
+  background: var(--ding-selection);
+  color: var(--ding-text);
+}
+input,
+select,
+textarea {
+  accent-color: var(--ding-brand);
+}

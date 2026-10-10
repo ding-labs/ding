@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import bell from "../../../../design/assets/mark.svg";
 import {
   NavLink,
   Navigate,
@@ -98,7 +99,7 @@ export function App() {
       <main className="connect-page">
         <div className="connect-card">
           <div className="brand">
-            ding<span>.</span>
+            <img className="brand-bell" src={bell} width="36" height="36" alt="" /><strong>Ding<span>.</span></strong>
           </div>
           <p className="eyebrow">Your signals, explained</p>
           <h1>
@@ -145,7 +146,7 @@ export function App() {
         </a>
         <aside className="sidebar">
           <NavLink to="/watches" className="brand" aria-label="Ding Console">
-            ding<span>.</span>
+            <img className="brand-bell" src={bell} width="36" height="36" alt="" /><strong>Ding<span>.</span></strong>
           </NavLink>
           <nav aria-label="Main navigation">
             {nav.map((n) => (

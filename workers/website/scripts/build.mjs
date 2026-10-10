@@ -94,14 +94,21 @@ cpSync(new URL("design/assets/", root), new URL("assets/", out), {
   recursive: true,
 });
 cpSync(new URL("design/tokens.css", root), new URL("assets/tokens.css", out));
-for (const name of ["ding-logo.svg", "ding-logo-light.svg"]) {
-  cpSync(new URL(`site/${name}`, base), new URL(name, out));
+for (const [name, asset] of [
+  ["ding-logo.svg", "bell-dark.svg"],
+  ["ding-logo-light.svg", "bell-light.svg"],
+]) {
+  cpSync(new URL(`design/assets/${asset}`, root), new URL(name, out));
 }
 for (const name of ["style.css", "site.js"])
   cpSync(new URL(`site/${name}`, base), new URL(`assets/${name}`, out));
-const scriptBytes = gzipSync(readFileSync(new URL("assets/site.js", out))).length;
+const scriptBytes = gzipSync(
+  readFileSync(new URL("assets/site.js", out)),
+).length;
 if (scriptBytes > 50 * 1024)
-  throw new Error(`Website JavaScript exceeds the 50 KiB gzip budget: ${scriptBytes} bytes`);
+  throw new Error(
+    `Website JavaScript exceeds the 50 KiB gzip budget: ${scriptBytes} bytes`,
+  );
 for (const [filename, path, title, description] of pages) {
   let content = readFileSync(new URL(`site/${filename}`, base), "utf8").replace(
     /\{\{(\w+)\}\}/g,
