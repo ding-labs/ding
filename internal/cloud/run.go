@@ -19,13 +19,14 @@ import (
 )
 
 type Config struct {
-	PublicURL string         `json:"publicURL"`
-	Listen    string         `json:"listen"`
-	DataDir   string         `json:"dataDir"`
-	KeyFile   string         `json:"keyFile"`
-	TLSCert   string         `json:"tlsCert,omitempty"`
-	TLSKey    string         `json:"tlsKey,omitempty"`
-	Identity  IdentityConfig `json:"identity"`
+	PublicURL string          `json:"publicURL"`
+	Listen    string          `json:"listen"`
+	DataDir   string          `json:"dataDir"`
+	KeyFile   string          `json:"keyFile"`
+	TLSCert   string          `json:"tlsCert,omitempty"`
+	TLSKey    string          `json:"tlsKey,omitempty"`
+	Identity  IdentityConfig  `json:"identity"`
+	MCP       *mcpconfig.HTTP `json:"mcp,omitempty"`
 }
 
 func (c *Config) Validate() error {
@@ -106,6 +107,17 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 		return err
 	}
 	app := &Server{DB: db, Vault: vault, Pool: pool, PublicURL: c.PublicURL, Version: version, Assets: assets, Login: LoginFlow{DB: db, Vault: vault, Provider: provider}}
+	if c.MCP != nil {
+		if c.MCP.Issuer != c.Identity.Issuer {
+			return fmt.Errorf("MCP and browser identity must use the same issuer and stable subject")
+		}
+		var closeMCP func()
+		app.MCP, closeMCP, err = app.MCPHandler(*c.MCP, nil)
+		if err != nil {
+			return err
+		}
+		defer closeMCP()
+	}
 	handler, err := app.Handler()
 	if err != nil {
 		return err

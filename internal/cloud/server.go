@@ -22,6 +22,7 @@ type Server struct {
 	Login              LoginFlow
 	PublicURL, Version string
 	Assets             http.Handler
+	MCP                http.Handler
 	TenantHandler      func(http.ResponseWriter, *http.Request, state.Session, *Tenant)
 	mu                 sync.Mutex
 	private            map[string]tenantAPI
@@ -75,6 +76,14 @@ func (s *Server) Handler() (http.Handler, error) {
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
 		r = r.WithContext(ctx)
+		if r.URL.Path == "/mcp" || r.URL.Path == "/.well-known/oauth-protected-resource/mcp" {
+			if s.MCP == nil {
+				http.NotFound(w, r)
+			} else {
+				s.MCP.ServeHTTP(w, r)
+			}
+			return
+		}
 		if r.Method == "GET" && r.URL.Path == "/" {
 			http.Redirect(w, r, "/ui/", 302)
 			return
