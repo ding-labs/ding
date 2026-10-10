@@ -1,5 +1,8 @@
 # Local control API
 
+ChatGPT and Claude use the separate [scoped integration API](integrations/api.md)
+with paired credentials, expiring previews, and transactional mutation receipts.
+
 The daemon defaults to `127.0.0.1:7676`. Its private state directory contains
 `tokens.json` (separate admin/ingest tokens) and `connection.json`. CLI clients read
 these files without creating credentials. Use `--state-dir` consistently.

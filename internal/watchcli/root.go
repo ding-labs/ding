@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/ding-labs/ding/internal/mcpcli"
 	"github.com/ding-labs/ding/internal/plan"
 	"github.com/ding-labs/ding/internal/watch"
 	"github.com/spf13/cobra"
@@ -46,6 +47,7 @@ func Root(version string) *cobra.Command {
 	}
 	runtimeCommands(root)
 	root.AddCommand(testCommand(), migrateCommand())
+	root.AddCommand(mcpcli.Command(version))
 	compatibilityCommands(root, version)
 	return root
 }

@@ -1,0 +1,108 @@
+name: LLM integrations
+
+on:
+  pull_request:
+    paths: ['integrations/**', 'plugins/**', 'web/mcp-app/**', 'web/console/src/theme.css', 'web/console/src/api/contracts.ts', 'design/**', '**/*.go', 'go.mod', 'go.sum', 'testdata/mcp/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'internal/store/*.sql', 'docs/integrations/**', 'Makefile', '.dockerignore', '.github/workflows/integrations.yml']
+  push:
+    branches: [main, 'codex/**']
+    paths: ['integrations/**', 'plugins/**', 'web/mcp-app/**', 'web/console/src/theme.css', 'web/console/src/api/contracts.ts', 'design/**', '**/*.go', 'go.mod', 'go.sum', 'testdata/mcp/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'internal/store/*.sql', 'docs/integrations/**', 'Makefile', '.dockerignore', '.github/workflows/integrations.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integrations-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    name: Native MCP (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-24.04, target: linux-amd64, extension: ''}
+          - {os: ubuntu-24.04-arm, target: linux-arm64, extension: ''}
+          - {os: macos-15-intel, target: darwin-amd64, extension: ''}
+          - {os: macos-15, target: darwin-arm64, extension: ''}
+          - {os: windows-latest, target: windows-amd64, extension: '.exe'}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/mcp-app/package-lock.json
+      - name: Build UI and native binaries
+        run: |
+          npm ci --prefix web/mcp-app
+          npm run build --prefix web/mcp-app
+          go build -tags mcpui -o dist/ding-test${{ matrix.extension }} ./cmd/ding
+          CGO_ENABLED=0 go build -tags mcpui -trimpath -ldflags='-s -w -X main.version=0.1.0' -o dist/runtime/ding-mcp${{ matrix.extension }} ./cmd/ding-mcp
+      - name: Contracts, auth, pairing, and component tests
+        run: |
+          go mod tidy -diff
+          go vet -tags mcpui ./...
+          go test -race -tags mcpui ./internal/mcp... ./internal/pluginpackage ./internal/store ./internal/watchrun ./internal/control ./internal/consolecontract ./internal/watchcli
+          npm test --prefix web/mcp-app
+      - name: Assemble unsigned qualification package
+        run: |
+          go run ./cmd/package-integrations --mode native-claude --target '${{ matrix.target }}' --runtime dist/runtime --version 0.1.0 --output dist/plugins/${{ matrix.target }}
+      - name: Extract package on Unix
+        if: runner.os != 'Windows'
+        run: unzip -q dist/plugins/${{ matrix.target }}/ding.zip -d dist/extracted
+      - name: Extract package on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Expand-Archive -Path dist/plugins/${{ matrix.target }}/ding.zip -DestinationPath dist/extracted
+      - name: Independent SDK exercises extracted native executable
+        run: |
+          test "$(dist/extracted/runtime/ding-mcp/ding-mcp${{ matrix.extension }} --version)" = '0.1.0'
+          DING_TEST_BINARY="$PWD/dist/ding-test${{ matrix.extension }}" DING_MCP_BINARY="$PWD/dist/extracted/runtime/ding-mcp/ding-mcp${{ matrix.extension }}" npm run test:interop --prefix web/mcp-app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ding-plugin-qualification-${{ matrix.target }}
+          path: |
+            dist/plugins/${{ matrix.target }}/ding.zip
+            dist/plugins/${{ matrix.target }}/SHA256SUMS
+            dist/plugins/${{ matrix.target }}/qualification.json
+
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --prefix web/mcp-app && npm run build --prefix web/mcp-app
+      - run: |
+          go build -tags mcpui -o dist/ding-test ./cmd/ding
+          go build -tags mcpui -o dist/ding-mcp ./cmd/ding-mcp
+      - run: npx playwright install --with-deps chromium
+        working-directory: web/mcp-app
+      - run: DING_TEST_BINARY="$PWD/dist/ding-test" DING_MCP_BINARY="$PWD/dist/ding-mcp" npm run test:e2e --prefix web/mcp-app
+      - name: Build and smoke-test self-hosted container
+        run: |
+          docker build -f integrations/mcp/Dockerfile -t ding-mcp-ci .
+          docker run --rm --network none --read-only ding-mcp-ci --version
+          if docker run --rm --network none --read-only ding-mcp-ci serve --transport http; then
+            echo 'HTTP unexpectedly started without authentication configuration'
+            exit 1
+          fi
+          DING_MCP_CONTAINER=ding-mcp-ci go test ./internal/mcpserver -run TestContainerTLSAndAuthentication -count=1 -v
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ding-mcp-browser-qualification
+          path: web/mcp-app/test-results

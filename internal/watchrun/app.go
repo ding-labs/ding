@@ -68,6 +68,10 @@ type ApplyResult struct {
 }
 
 func (a *App) Apply(ctx context.Context, request ApplyRequest) (ApplyResult, error) {
+	return a.apply(ctx, request, nil)
+}
+
+func (a *App) apply(ctx context.Context, request ApplyRequest, mutation *integrationMutation) (ApplyResult, error) {
 	result := ApplyResult{Changes: []Change{}, DestinationChanges: []Change{}, Credentials: []CredentialHealth{}, DryRun: request.DryRun}
 	bundle, err := plan.Parse([]byte(request.Manifest))
 	if err != nil {
@@ -82,6 +86,9 @@ func (a *App) Apply(ctx context.Context, request ApplyRequest) (ApplyResult, err
 	now := a.Now()
 	changed := map[string]int64{}
 	apply := func(tx *store.Tx) error {
+		if done, err := mutation.begin(tx, &result, a.Now()); done || err != nil {
+			return err
+		}
 		if a.isClosing() {
 			return ErrClosing
 		}
@@ -219,7 +226,10 @@ func (a *App) Apply(ctx context.Context, request ApplyRequest) (ApplyResult, err
 				return ErrQuota
 			}
 		}
-		return reviewSize(result)
+		if err := reviewSize(result); err != nil {
+			return err
+		}
+		return mutation.finish(tx, result, a.Now())
 	}
 	if request.DryRun {
 		err = a.Store.View(ctx, apply)

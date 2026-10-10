@@ -137,7 +137,12 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 	})
 	inspectionRoutes(mux, app)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { fail(w, 404, "not_found", "route or method not found") })
+	integration := integrationHandler(app, c, mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/v1/integrations/") {
+			integration.ServeHTTP(w, r)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store")
 		if r.URL.Path != "/health" {

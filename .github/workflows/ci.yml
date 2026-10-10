@@ -2,10 +2,10 @@ name: CI
 
 on:
   pull_request:
-    paths: ['**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'design/**', 'testdata/**', 'scripts/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
+    paths: ['**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'web/mcp-app/**', 'design/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'testdata/**', 'scripts/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
   push:
     branches: [main, "codex/**"]
-    paths: ['**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'design/**', 'testdata/**', 'scripts/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
+    paths: ['**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'web/mcp-app/**', 'design/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'testdata/**', 'scripts/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
   workflow_dispatch:
 
 permissions:
@@ -54,13 +54,14 @@ jobs:
           cache: npm
           cache-dependency-path: web/console/package-lock.json
       - run: npm ci --prefix web/console && npm run build --prefix web/console
+      - run: npm ci --prefix web/mcp-app && npm run build --prefix web/mcp-app
       - name: Build advertised release target
         env:
           CGO_ENABLED: "0"
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
-          go build -tags console -trimpath -ldflags='-s -w' -o dist/ding ./cmd/ding
+          go build -tags console,mcpui -trimpath -ldflags='-s -w' -o dist/ding ./cmd/ding
           go test -c -o dist/store-check ./internal/store
 
   container:
@@ -78,9 +79,10 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci --prefix web/console && npm run build --prefix web/console
+      - run: npm ci --prefix web/mcp-app && npm run build --prefix web/mcp-app
       - name: Build release image and verify HTTPS trust
         run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags console -trimpath -ldflags='-s -w' -o ding ./cmd/ding
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags console,mcpui -trimpath -ldflags='-s -w' -o ding ./cmd/ding
           docker build -f Dockerfile.release -t ding-release-ci .
           scripts/container-smoke.sh ding-release-ci
       - name: Physical full and read-only filesystem faults
@@ -111,6 +113,7 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci --prefix web/console && npm run build --prefix web/console
+      - run: npm ci --prefix web/mcp-app && npm run build --prefix web/mcp-app
       - name: Build and exercise the native executable
         shell: bash
         env:
@@ -120,7 +123,7 @@ jobs:
         run: |
           test "$(go env GOOS)" = '${{ matrix.goos }}'
           test "$(go env GOARCH)" = '${{ matrix.goarch }}'
-          go build -tags console -trimpath -ldflags='-s -w' -o "$DING_BINARY" ./cmd/ding
+          go build -tags console,mcpui -trimpath -ldflags='-s -w' -o "$DING_BINARY" ./cmd/ding
           go test -v -count=1 ./internal/qualification
 
   console:

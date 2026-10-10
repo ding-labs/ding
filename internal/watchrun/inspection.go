@@ -116,7 +116,15 @@ func (a *App) Export(ctx context.Context, id string) (string, error) {
 	return out.String(), nil
 }
 func (a *App) Retry(ctx context.Context, id int64) error {
+	return a.retry(ctx, id, nil)
+}
+
+func (a *App) retry(ctx context.Context, id int64, mutation *integrationMutation) error {
 	return a.Store.Update(ctx, func(tx *store.Tx) error {
+		result := map[string]any{"id": id, "status": "pending"}
+		if done, err := mutation.begin(tx, &result, a.Now()); done || err != nil {
+			return err
+		}
 		if a.isClosing() {
 			return ErrClosing
 		}
@@ -127,7 +135,10 @@ func (a *App) Retry(ctx context.Context, id int64) error {
 		if usage.Pending >= a.Limits.MaxPending || usage.Bytes >= a.Limits.MaxBytes {
 			return ErrQuota
 		}
-		return tx.Retry(id, a.Now())
+		if err := tx.Retry(id, a.Now()); err != nil {
+			return err
+		}
+		return mutation.finish(tx, result, a.Now())
 	})
 }
 

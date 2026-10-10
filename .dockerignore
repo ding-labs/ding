@@ -12,4 +12,10 @@ dist
 **/node_modules
 **/playwright-report
 **/test-results
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+integrations/mcp/build
 internal/webui/dist
+internal/mcpui/dist

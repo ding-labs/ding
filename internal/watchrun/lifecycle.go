@@ -99,15 +99,23 @@ func (a *App) appendEvent(tx *store.Tx, r store.WatchRecord, event watch.Event, 
 }
 
 type LifecycleRequest struct {
-	Action        string `json:"action"`
-	Expected      string `json:"expected,omitempty"`
-	CancelPending bool   `json:"cancelPending,omitempty"`
+	ExpectedGeneration *int64 `json:"expectedGeneration,omitempty"`
+	Action             string `json:"action"`
+	Expected           string `json:"expected,omitempty"`
+	CancelPending      bool   `json:"cancelPending,omitempty"`
 }
 
 func (a *App) Lifecycle(ctx context.Context, id string, request LifecycleRequest) (store.WatchRecord, error) {
+	return a.lifecycle(ctx, id, request, nil)
+}
+
+func (a *App) lifecycle(ctx context.Context, id string, request LifecycleRequest, mutation *integrationMutation) (store.WatchRecord, error) {
 	var record store.WatchRecord
 	now := a.Now()
 	err := a.Store.Update(ctx, func(tx *store.Tx) error {
+		if done, err := mutation.begin(tx, &record, a.Now()); done || err != nil {
+			return err
+		}
 		if a.isClosing() {
 			return ErrClosing
 		}
@@ -117,6 +125,9 @@ func (a *App) Lifecycle(ctx context.Context, id string, request LifecycleRequest
 			return err
 		}
 		if request.Expected != "" && request.Expected != record.Plan.Revision {
+			return store.ErrConflict
+		}
+		if request.ExpectedGeneration != nil && *request.ExpectedGeneration != record.Generation {
 			return store.ErrConflict
 		}
 		if request.CancelPending && request.Action != "delete" {
@@ -142,7 +153,7 @@ func (a *App) Lifecycle(ctx context.Context, id string, request LifecycleRequest
 			}
 		}
 		if record.Status == status {
-			return nil
+			return mutation.finish(tx, record, a.Now())
 		}
 		record.Status = status
 		record.Generation++
@@ -199,7 +210,10 @@ func (a *App) Lifecycle(ctx context.Context, id string, request LifecycleRequest
 				}
 			}
 		}
-		return lifecycleEvent(tx, record, request.Action, request.Action, now)
+		if err := lifecycleEvent(tx, record, request.Action, request.Action, now); err != nil {
+			return err
+		}
+		return mutation.finish(tx, record, a.Now())
 	})
 	if err == nil {
 		a.cancelBefore(id, record.Generation)
