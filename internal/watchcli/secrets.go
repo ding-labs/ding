@@ -3,6 +3,7 @@ package watchcli
 import (
 	"fmt"
 	"io"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -11,8 +12,12 @@ import (
 )
 
 func secretCommands(dir *string) *cobra.Command {
-	group := &cobra.Command{Use: "secret", Short: "Manage explicit private-file credentials for background operation"}
+	group := &cobra.Command{Use: "secret", Short: "Manage credentials for background operation without exposing their values"}
 	var stdin bool
+	backend := "private-file"
+	if runtime.GOOS == "darwin" {
+		backend = "keychain"
+	}
 	set := &cobra.Command{Use: "set NAME --stdin", Short: "Read a secret from stdin into the local private credential file", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		if !stdin {
 			return fmt.Errorf("use --stdin; never put a secret value in command arguments")
@@ -25,13 +30,22 @@ func secretCommands(dir *string) *cobra.Command {
 		if len(data) > 64<<10 {
 			return fmt.Errorf("secret exceeds 64 KiB")
 		}
-		if err := install.SetSecret(*dir, args[0], value); err != nil {
+		switch backend {
+		case "keychain":
+			err = install.SetKeychainSecret(cmd.Context(), *dir, args[0], value)
+		case "private-file":
+			err = install.SetSecret(*dir, args[0], value)
+		default:
+			return fmt.Errorf("choose keychain or private-file storage")
+		}
+		if err != nil {
 			return err
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), "Saved in private local secrets.json. Restart Ding to load the updated credential. Include this file separately in protected backups.")
+		fmt.Fprintf(cmd.OutOrStdout(), "Saved using %s storage. Restart Ding after adding a reference. Credentials need separate protected recovery; a database backup alone is insufficient.\n", backend)
 		return nil
 	}}
 	set.Flags().BoolVar(&stdin, "stdin", false, "read the value from standard input; private file storage is explicit")
+	set.Flags().StringVar(&backend, "store", backend, "keychain (macOS) or explicit private-file storage")
 	list := &cobra.Command{Use: "list", Short: "List credential names without their values", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		values, err := install.ReadSecrets(*dir)
 		if err != nil {
@@ -42,7 +56,16 @@ func secretCommands(dir *string) *cobra.Command {
 			names = append(names, name)
 		}
 		sort.Strings(names)
-		return Write(cmd.OutOrStdout(), map[string]any{"backend": "private-file", "names": names})
+		keychain, err := install.KeychainNames(*dir)
+		if err != nil {
+			return err
+		}
+		native := []string{}
+		for name := range keychain {
+			native = append(native, name)
+		}
+		sort.Strings(native)
+		return Write(cmd.OutOrStdout(), map[string]any{"privateFile": names, "keychain": native})
 	}}
 	group.AddCommand(set, list)
 	return group

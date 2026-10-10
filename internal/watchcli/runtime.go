@@ -75,16 +75,11 @@ func runtimeCommands(root *cobra.Command) {
 		}
 		app := watchrun.New(database)
 		app.Notify = notify.Send
-		secrets, err := install.ReadSecrets(dir)
+		lookup, err := install.CredentialLookup(dir)
 		if err != nil {
 			return err
 		}
-		app.Lookup = func(name string) (string, bool) {
-			if value, ok := secrets[name]; ok {
-				return value, true
-			}
-			return os.LookupEnv(name)
-		}
+		app.Lookup = lookup
 		app.HTTP.Lookup = app.Lookup
 		app.Limits = limits
 		app.Output = cmd.OutOrStdout()

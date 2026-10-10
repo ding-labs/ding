@@ -1,8 +1,6 @@
 package install
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,13 +36,18 @@ func SetSecret(dir, name, value string) error {
 	if !secretName.MatchString(name) || value == "" || len(value) > 64<<10 {
 		return fmt.Errorf("secret requires a valid environment name and 1–65536 bytes")
 	}
-	// Reserve a short-lived writer lock rather than lose concurrent edits.
-	lock, err := mcpconfig.CreatePrivate(filepath.Join(dir, "secrets.edit.lock"))
+	unlock, err := Lock(dir)
 	if err != nil {
-		return fmt.Errorf("secret update unavailable; another writer or an interrupted edit holds secrets.edit.lock: %w", err)
+		return err
 	}
-	defer os.Remove(lock.Name())
-	defer lock.Close()
+	defer unlock()
+	native, err := KeychainNames(dir)
+	if err != nil {
+		return err
+	}
+	if native[name] {
+		return fmt.Errorf("credential already uses Keychain; choose a new reference name for private-file storage")
+	}
 	values, err := ReadSecrets(dir)
 	if err != nil {
 		return err
@@ -57,21 +60,5 @@ func SetSecret(dir, name, value string) error {
 	if len(data) > 1<<20 {
 		return fmt.Errorf("secret store exceeds 1 MiB")
 	}
-	var nonce [16]byte
-	if _, err = rand.Read(nonce[:]); err != nil {
-		return err
-	}
-	f, err := mcpconfig.CreatePrivate(filepath.Join(dir, ".secrets-"+hex.EncodeToString(nonce[:])+".json"))
-	if err != nil {
-		return err
-	}
-	defer os.Remove(f.Name())
-	_, err = f.Write(data)
-	if err == nil {
-		err = f.Sync()
-	}
-	if err = errors.Join(err, f.Close()); err != nil {
-		return err
-	}
-	return os.Rename(f.Name(), filepath.Join(dir, "secrets.json"))
+	return AtomicJSON(filepath.Join(dir, "secrets.json"), values)
 }
