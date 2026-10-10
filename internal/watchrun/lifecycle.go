@@ -123,6 +123,9 @@ func (a *App) lifecycle(ctx context.Context, id string, request LifecycleRequest
 		if a.isClosing() {
 			return ErrClosing
 		}
+		if err := checkHandoffHold(tx, id, mutation); err != nil {
+			return err
+		}
 		var err error
 		record, err = tx.Watch(id)
 		if err != nil {

@@ -58,10 +58,11 @@ type Change struct {
 	State       string   `json:"state"`
 }
 type ApplyRequest struct {
-	Review   *ApplyPreconditions `json:"review,omitempty"`
-	Manifest string              `json:"manifest"`
-	DryRun   bool                `json:"dryRun"`
-	Expected map[string]string   `json:"expected,omitempty"`
+	startPaused bool
+	Review      *ApplyPreconditions `json:"review,omitempty"`
+	Manifest    string              `json:"manifest"`
+	DryRun      bool                `json:"dryRun"`
+	Expected    map[string]string   `json:"expected,omitempty"`
 }
 type ApplyResult struct {
 	DestinationChanges []Change            `json:"destinationChanges"`
@@ -176,6 +177,9 @@ func (a *App) apply(ctx context.Context, request ApplyRequest, mutation mutation
 					}
 				}
 			}
+			if err := checkHandoffHold(tx, id, mutation); err != nil {
+				return err
+			}
 			old, err := tx.Watch(id)
 			if err != nil && !errors.Is(err, store.ErrNotFound) {
 				return err
@@ -189,6 +193,12 @@ func (a *App) apply(ctx context.Context, request ApplyRequest, mutation mutation
 			}
 			change := Change{Kind: "Watch", After: yamlDefinition(p.Definition), ID: id, Revision: p.Revision, Previous: previous, State: "created", Permissions: p.Permissions}
 			record := store.WatchRecord{Plan: p, Generation: 1, Status: "running", NextAt: now}
+			if request.startPaused {
+				if previous != "" {
+					return store.ErrConflict
+				}
+				record.Status = "paused"
+			}
 			reset := false
 			if previous != "" {
 				change.Before = yamlDefinition(old.Plan.Definition)
