@@ -1,6 +1,7 @@
 package install
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/ding-labs/ding/internal/mcpconfig"
@@ -74,5 +75,9 @@ func SetDPAPISecret(dir, name, value string) error {
 		return err
 	}
 	values[name] = cipher
+	encoded, err := json.Marshal(values)
+	if err != nil || len(encoded) > 900<<10 {
+		return fmt.Errorf("protected credential storage is full; remove unused references before adding more")
+	}
 	return AtomicJSON(filepath.Join(dir, "dpapi.json"), values)
 }
