@@ -108,7 +108,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Native source, persistence, and lifecycle contracts
-        run: go test ${{ matrix.race }} -count=1 ./internal/source ./internal/transform ./internal/control ./internal/watchrun
+        run: go test ${{ matrix.race }} -count=1 ./internal/source ./internal/transform ./internal/control ./internal/watchrun ./internal/install ./internal/service ./internal/update
       - uses: actions/setup-node@v4
         with:
           node-version: '24'

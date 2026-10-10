@@ -16,6 +16,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Require qualified watch-runtime release route
+        run: |
+          echo 'The cross-compiled legacy release route cannot publish complete native watch-runtime packages.' >&2
+          echo 'Use Local package qualification, protected native signing hosts, and the reviewed release procedure in docs/releases/local-packages.md.' >&2
+          exit 1
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
