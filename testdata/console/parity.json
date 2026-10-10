@@ -50,5 +50,8 @@
   "notify test": "First-watch Console flow requests native notification permission and a labeled test.",
   "update check": "Host updater verifies signed release metadata independently of the daemon.",
   "update install": "Host updater preserves a backup, enforces installation ownership and waits for service readiness.",
-  "update recover": "Host updater reconciles its persistent journal even when the daemon cannot start."
+  "update recover": "Host updater reconciles its persistent journal even when the daemon cannot start.",
+  "cloud login": "Explicit host connection: browser approval, private device credential, and revocation; never enrolls during local setup.",
+  "cloud status": "Explicit host connection: browser approval, private device credential, and revocation; never enrolls during local setup.",
+  "cloud logout": "Explicit host connection: browser approval, private device credential, and revocation; never enrolls during local setup."
 }
