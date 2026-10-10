@@ -10,6 +10,10 @@ import (
 )
 
 type Handoff struct {
+	ProbeKey     string            `json:"probeKey,omitempty"`
+	ProbeDigest  string            `json:"probeDigest,omitempty"`
+	ProbeOutcome string            `json:"probeOutcome,omitempty"`
+	ProbeAt      time.Time         `json:"probeAt,omitempty"`
 	Instance     string            `json:"instance"`
 	ID           string            `json:"id"`
 	WatchID      string            `json:"watchId"`

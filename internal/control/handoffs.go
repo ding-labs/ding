@@ -60,6 +60,17 @@ func handoffRoutes(mux *http.ServeMux, app *watchrun.App) {
 		out, err := app.PauseForHandoff(r.Context(), input)
 		reply(w, out, err)
 	})
+	mux.HandleFunc("POST /v1/handoffs/{id}/test", func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			OperationKey string `json:"operationKey"`
+		}
+		if decode(w, r, &input) != nil {
+			fail(w, 400, "invalid_test", "provide a stable operation key")
+			return
+		}
+		out, err := app.TestHandoff(r.Context(), r.PathValue("id"), input.OperationKey)
+		reply(w, out, err)
+	})
 	for _, action := range []string{"activate", "release", "cancel"} {
 		mux.HandleFunc("POST /v1/handoffs/{id}/"+action, func(w http.ResponseWriter, r *http.Request) {
 			var proof store.Handoff
