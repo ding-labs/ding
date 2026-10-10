@@ -156,7 +156,7 @@ func TestExportAndDoctorNeverResolveSecretsIntoOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw, _ := json.Marshal(d)
-	if !d.Healthy || len(d.Credentials) != 1 || !d.Credentials[0].Present || strings.Contains(string(raw), secret) {
+	if d.Healthy || len(d.Sources) != 1 || d.Sources[0].Acquisition != "waiting" || len(d.Credentials) != 1 || !d.Credentials[0].Present || strings.Contains(string(raw), secret) {
 		t.Fatal(string(raw))
 	}
 	if len(r.Plan.Permissions) == 0 {
