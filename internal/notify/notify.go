@@ -25,11 +25,19 @@ type Message struct {
 	Title             string `json:"title"`
 	Body              string `json:"body"`
 	RequestPermission bool   `json:"requestPermission"`
+	Activation        string `json:"activation,omitempty"`
+}
+
+func validate(m Message) error {
+	if m.ID == "" || len(m.ID) > 256 || len(m.Title) > 512 || len(m.Body) > 4096 || strings.ContainsRune(m.Title+m.Body, '\x00') {
+		return fmt.Errorf("invalid notification")
+	}
+	return nil
 }
 
 func Send(ctx context.Context, m Message) error {
-	if m.ID == "" || len(m.ID) > 256 || len(m.Title) > 512 || len(m.Body) > 4096 || strings.ContainsRune(m.Title+m.Body, '\x00') {
-		return fmt.Errorf("invalid notification")
+	if err := validate(m); err != nil {
+		return err
 	}
 	switch runtime.GOOS {
 	case "linux":
@@ -55,6 +63,7 @@ func Send(ctx context.Context, m Message) error {
 		}
 		return helper(ctx, path, []string{"--deliver"}, m)
 	case "windows":
+		m.Activation = ActivationURL(Target{m.StateDir, m.WatchID})
 		path := filepath.Join(os.Getenv("SystemRoot"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
 		return helper(ctx, path, []string{"-NoLogo", "-NoProfile", "-NonInteractive", "-Command", windowsScript}, m)
 	default:
@@ -84,6 +93,10 @@ $m = [Console]::In.ReadToEnd() | ConvertFrom-Json
 [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType=WindowsRuntime] | Out-Null
 $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
 $xml.LoadXml('<toast><visual><binding template="ToastGeneric"><text/><text/></binding></visual></toast>')
+if ($m.activation) {
+  $xml.DocumentElement.SetAttribute('activationType', 'protocol')
+  $xml.DocumentElement.SetAttribute('launch', [string]$m.activation)
+}
 $nodes = $xml.GetElementsByTagName('text')
 $nodes.Item(0).AppendChild($xml.CreateTextNode([string]$m.title)) | Out-Null
 $nodes.Item(1).AppendChild($xml.CreateTextNode([string]$m.body)) | Out-Null
