@@ -53,5 +53,10 @@
   "update recover": "Host updater reconciles its persistent journal even when the daemon cannot start.",
   "cloud login": "Explicit host connection: browser approval, private device credential, and revocation; never enrolls during local setup.",
   "cloud status": "Explicit host connection: browser approval, private device credential, and revocation; never enrolls during local setup.",
-  "cloud logout": "Explicit host connection: browser approval, private device credential, and revocation; never enrolls during local setup."
+  "cloud logout": "Explicit host connection: browser approval, private device credential, and revocation; never enrolls during local setup.",
+  "cloud move prepare": "Availability flow: explicit local preflight, selected configuration transfer, delivery confirmation, and durable reconciliation.",
+  "cloud move status": "Availability flow: explicit local preflight, selected configuration transfer, delivery confirmation, and durable reconciliation.",
+  "cloud move test": "Availability flow: explicit local preflight, selected configuration transfer, delivery confirmation, and durable reconciliation.",
+  "cloud move finish": "Availability flow: explicit local preflight, selected configuration transfer, delivery confirmation, and durable reconciliation.",
+  "cloud move cancel": "Availability flow: explicit local preflight, selected configuration transfer, delivery confirmation, and durable reconciliation."
 }

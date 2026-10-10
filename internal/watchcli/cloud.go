@@ -111,6 +111,6 @@ func cloudCommands(dir *string) *cobra.Command {
 		fmt.Fprintln(cmd.OutOrStdout(), "Disconnected. Cloud and local watches keep their current execution state.")
 		return nil
 	}}
-	group.AddCommand(login, status, logout)
+	group.AddCommand(login, status, logout, cloudMoveCommands(dir))
 	return group
 }
