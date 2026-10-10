@@ -114,6 +114,8 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 	defer closeHTTP()
 	pool := NewPool(ctx, c.DataDir, db, vault, client)
 	defer pool.Close()
+	stopMaintenance := pool.Maintain(ctx, out)
+	defer stopMaintenance()
 	if err := pool.FinishPendingDeletes(ctx); err != nil {
 		return err
 	}
