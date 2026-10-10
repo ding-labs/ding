@@ -83,6 +83,10 @@ func (s *Server) serveTenant(w http.ResponseWriter, r *http.Request, session sta
 		s.cloudPreview(w, r, t)
 		return
 	}
+	if r.Method == "POST" && r.URL.Path == "/v1/cloud/destination-test" {
+		s.testDestination(w, r, t)
+		return
+	}
 	if !cloudRoute(r.Method, r.URL.Path) {
 		cloudFail(w, 404, "not_found", "This operation is not part of the hosted API.")
 		return

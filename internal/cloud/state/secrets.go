@@ -71,19 +71,24 @@ func (v *Vault) Put(ctx context.Context, account, name, value string) error {
 }
 
 func (v *Vault) Get(ctx context.Context, account, name string) (string, error) {
+	value, _, err := v.GetWithRevision(ctx, account, name)
+	return value, err
+}
+
+func (v *Vault) GetWithRevision(ctx context.Context, account, name string) (string, string, error) {
 	var encrypted []byte
 	if err := v.db.sql.QueryRowContext(ctx, "SELECT ciphertext FROM secrets WHERE account=? AND name=?", account, name).Scan(&encrypted); err != nil {
-		return "", err
+		return "", "", err
 	}
 	aead, err := v.aead(account)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	plain, err := aead.Open(nil, nil, encrypted, []byte(account+"\x00"+name))
 	if err != nil {
-		return "", fmt.Errorf("credential decryption failed")
+		return "", "", fmt.Errorf("credential decryption failed")
 	}
-	return string(plain), nil
+	return string(plain), TokenHash(string(encrypted)), nil
 }
 
 func (v *Vault) Names(ctx context.Context, account string) ([]string, error) {
