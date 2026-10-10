@@ -318,6 +318,8 @@ func StableExecutable() (string, string, error) {
 	owner := "standalone"
 	if strings.Contains(filepath.ToSlash(resolved), "/Cellar/ding/") {
 		owner = "homebrew"
+	} else if marker, err := os.ReadFile(filepath.Join(filepath.Dir(resolved), "installation-owner")); err == nil && string(marker) == "external\n" {
+		owner = "external"
 	}
 	if path, e := exec.LookPath("ding"); e == nil {
 		if real, e := filepath.EvalSymlinks(path); e == nil && real == resolved {

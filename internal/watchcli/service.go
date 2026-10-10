@@ -199,6 +199,24 @@ func recordInstallation(dir, version string) (install.Record, error) {
 	if err = install.Create(r); err != nil {
 		return r, err
 	}
+	if r.Owner != "standalone" {
+		unlock, err := install.Lock(dir)
+		if err != nil {
+			return r, err
+		}
+		defer unlock()
+		old, err := install.Load(dir)
+		if err != nil {
+			return r, err
+		}
+		if old.Executable != r.Executable || old.Owner != r.Owner {
+			return r, fmt.Errorf("installation ownership changed")
+		}
+		r.CreatedAt = old.CreatedAt
+		if err := install.Replace(r); err != nil {
+			return r, err
+		}
+	}
 	return install.Load(dir)
 }
 
@@ -232,10 +250,7 @@ func setupCommand(root *cobra.Command, dir *string) *cobra.Command {
 				return fmt.Errorf("setup canceled; use --yes for explicit noninteractive setup")
 			}
 		}
-		r, err := install.Load(*dir)
-		if errors.Is(err, os.ErrNotExist) {
-			r, err = recordInstallation(*dir, root.Version)
-		}
+		r, err := recordInstallation(*dir, root.Version)
 		if err != nil {
 			return err
 		}
