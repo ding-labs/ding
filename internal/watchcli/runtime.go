@@ -19,6 +19,7 @@ import (
 	"github.com/ding-labs/ding/internal/install"
 	"github.com/ding-labs/ding/internal/notify"
 	"github.com/ding-labs/ding/internal/store"
+	"github.com/ding-labs/ding/internal/update"
 	"github.com/ding-labs/ding/internal/watchrun"
 	"github.com/ding-labs/ding/internal/webui"
 	"github.com/spf13/cobra"
@@ -73,6 +74,8 @@ func runtimeCommands(root *cobra.Command) {
 		if err := control.SaveConnection(dir, endpoint); err != nil {
 			return err
 		}
+		stopChecks := update.WatchChecks(ctx, dir, store.SchemaVersion)
+		defer stopChecks()
 		app := watchrun.New(database)
 		app.Notify = notify.Send
 		lookup, err := install.CredentialLookup(dir)

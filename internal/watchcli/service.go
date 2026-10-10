@@ -13,20 +13,22 @@ import (
 	"github.com/ding-labs/ding/internal/control"
 	"github.com/ding-labs/ding/internal/install"
 	"github.com/ding-labs/ding/internal/service"
+	"github.com/ding-labs/ding/internal/update"
 	"github.com/ding-labs/ding/internal/watchrun"
 	"github.com/spf13/cobra"
 )
 
 type localStatus struct {
-	Version      string           `json:"version"`
-	StateDir     string           `json:"stateDir"`
-	Daemon       string           `json:"daemon"`
-	Advice       string           `json:"advice,omitempty"`
-	Installation *install.Record  `json:"installation,omitempty"`
-	Service      *service.Status  `json:"service,omitempty"`
-	Health       *watchrun.Doctor `json:"health,omitempty"`
-	Instance     *watchrun.Status `json:"instance,omitempty"`
-	Runtime      *control.Info    `json:"runtime,omitempty"`
+	Updates      *update.CheckStatus `json:"updates,omitempty"`
+	Version      string              `json:"version"`
+	StateDir     string              `json:"stateDir"`
+	Daemon       string              `json:"daemon"`
+	Advice       string              `json:"advice,omitempty"`
+	Installation *install.Record     `json:"installation,omitempty"`
+	Service      *service.Status     `json:"service,omitempty"`
+	Health       *watchrun.Doctor    `json:"health,omitempty"`
+	Instance     *watchrun.Status    `json:"instance,omitempty"`
+	Runtime      *control.Info       `json:"runtime,omitempty"`
 }
 
 func daemonHealth(ctx context.Context, dir string) (*watchrun.Doctor, error) {
@@ -47,6 +49,9 @@ func daemonHealth(ctx context.Context, dir string) (*watchrun.Doctor, error) {
 
 func readLocalStatus(ctx context.Context, dir, version string) localStatus {
 	s := localStatus{Version: version, StateDir: dir, Daemon: "unavailable"}
+	if check, err := update.ReadCheck(dir); err == nil {
+		s.Updates = &check
+	}
 	r, err := install.Load(dir)
 	if err == nil {
 		s.Installation = &r
