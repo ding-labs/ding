@@ -80,6 +80,10 @@ nav:
     - Console qualification: development/console-qualification.md
   - Operate:
     - Run a daemon: operate/index.md
+    - Always-on self-hosting: operate/always-on.md
+    - Optional cloud preview: operate/cloud-preview.md
+    - Cloud operations: operate/cloud-operations.md
+    - Cloud data boundaries: operate/cloud-privacy.md
     - Backup and upgrade: operate/backup.md
     - Troubleshooting: operate/troubleshooting.md
   - Reference:
@@ -90,6 +94,7 @@ nav:
     - Watch preview: releases/watch-preview.md
     - Qualification: development/qualification.md
     - Release checklist: releases/watch-checklist.md
+    - Native package release: releases/local-packages.md
   - Contribute:
     - Monorepo and publishing: contribute/index.md
     - Local-first roadmap: development/local-first-roadmap.md
@@ -99,6 +104,7 @@ nav:
     - Desktop publisher proof: integrations/desktop-proof.md
     - Cloud and adoption plan: development/ding-cloud-plan.md
     - Cloud topology evidence: development/cloud-topology.md
+    - Opt-in adoption pilot: development/adoption-pilot.md
     - Watch contract: development/watch-contract.md
     - Evaluation: development/evaluation-contract.md
     - Sources and destinations: development/adapter-contract.md

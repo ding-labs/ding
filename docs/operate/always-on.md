@@ -47,9 +47,9 @@ choose console evidence or a webhook/Slack/Discord destination.
 The Windows installer registers a notification identity and offers sign-in startup.
 Its managed task runs as the current, least-privileged interactive user; this is
 not an unattended Windows Service. DPAPI credentials are bound to that user and
-state path. A Windows boot service with a separate notification bridge remains
-an explicit native qualification gap. For a headless always-on machine, use the
-Linux service/container route rather than advertising sign-in startup as boot.
+state path. For unattended boot, use the generated SCM template below. The same Go daemon
+runs in-process under SCM, reports readiness and drains on stop/shutdown. A service
+account uses remote delivery; desktop notification bridging is not claimed.
 
 The repository's local `Dockerfile` runs `ding daemon`. Build it, pin the resulting
 image digest, bind a persistent owner-only directory at `/var/lib/ding`, and choose
@@ -74,3 +74,32 @@ Before considering cloud, verify terminal close, model-client close, service
 restart, loss/recovery of network, a real login/reboot and a failed delivery. Keep
 exports, database backups and credential recovery separately. These are also the
 acceptance checks for a Mac mini that developers operate continuously.
+
+## Generate an explicit boot registration
+
+`ding service boot-template --executable ABSOLUTE_DING_PATH --state-dir ABSOLUTE_NEW_STATE
+--user SERVICE_ACCOUNT` prints the native registration without installing it. Add
+`--group SERVICE_GROUP` on Unix when needed. Create an existing dedicated non-root
+account; this command does not elevate or create accounts. Choose a new state path
+and rebind credentials under that identity, with private-file storage when its
+native user credential store is unavailable.
+
+On Linux, review the generated system unit, create the private state directory
+owned by that account, install the unit as administrator and enable it through
+systemd. On macOS, review the LaunchDaemon plist, install it root-owned at its
+printed `/Library/LaunchDaemons` path with mode 0644, then bootstrap it in the
+`system` launchd domain. Use a dedicated account with access only to the required
+sources/state; FileVault boot-unlock requirements still apply.
+
+On Windows, review the generated PowerShell before running it as administrator.
+It prompts for an existing service account (passwords are not written into the
+script), creates a new private state directory/ACL and registers an automatic
+SCM service. Grant that account the OS's Log on as a service right according to
+local policy. Manage stop/start/removal through Windows Services or PowerShell.
+It uses `ding service host` internally, not an interactive scheduled task.
+
+These administrator-owned registrations are managed with their OS supervisor;
+`ding service repair/uninstall` manage Ding's separate user registration only.
+Never install both against the same state. Real boot/reboot, credential access,
+power recovery and native recovery policies must be qualified on each host before
+unattended operation is advertised. Templates do not establish those outcomes.

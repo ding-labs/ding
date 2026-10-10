@@ -53,12 +53,17 @@ does not count as a first useful watch.
 state, daemon readiness, acquisition freshness, credential presence, and delivery
 health. An overdue observation indicates an unexplained gap; it is not proof of
 sleep. Use `ding service start`, `stop`, `restart`, or `status` for this installation.
+`ding service repair` previews a narrow registration/start repair; add `--yes`
+to apply it. A conflicting definition is preserved for inspection.
 Private background logs rotate at 1 MiB with two retained files in the state
 directory. `ding service uninstall` removes startup registration and retains data.
 
 After a real watch works, run `ding mcp setup` for guided local pairing. Closing
 the model client or removing its adapter does not stop the background daemon.
 Pairing/revocation and tool grants remain separate from service ownership.
+Use `ding ui --watch WATCH_ID` to open an existing watch through a fresh one-use
+authenticated link. The macOS notification helper uses this path on clicks; native
+click/visibility qualification remains required.
 Public ChatGPT directory eligibility is [still unresolved](../development/desktop-marketplace-plan.md).
 
 Pass the same `--state-dir` on every command when choosing a custom directory.
@@ -73,8 +78,9 @@ Pipe credentials into `ding secret set NAME --stdin`; never put their values in
 command arguments or a model conversation. macOS defaults to Keychain using the
 bundled helper. A locked/missing Keychain reference fails closed and is retried
 without a background permission prompt. Headless operation can explicitly select
-`--store private-file`. Other platforms currently use the protected private file.
-Restart Ding after adding a new reference. `ding secret list` prints names only.
+`--store private-file`. Windows defaults to user-bound DPAPI. Linux headless installations explicitly
+use the protected private-file backend.
+Restart Ding after adding or replacing a reference. `ding secret list` prints names only.
 Moving a state directory to another machine requires rebinding native credentials.
 
 Use `ding backup --out /ABSOLUTE/NEW-FILE.db` for a verified database backup.
@@ -85,7 +91,14 @@ schema checks precede a backup, service stop, replacement, and readiness check.
 `ding update recover` reconciles an interrupted transaction. Development builds
 have no release trust key and refuse online updates. Schema changes require the
 release's migration procedure; an old executable must not reopen a newer schema.
-Windows in-place updates currently require the native installer path.
+Windows in-place updates use the native installer path.
+
+Signed update checks run at most daily and appear in `ding status` and Console →
+System → Instance. `ding update configure --checks=false` disables online checks.
+Qualified standalone stable macOS/Linux releases can explicitly opt into
+`ding update configure --automatic --hour-utc 3`. A separate native job checks
+that UTC maintenance hour; it attempts at most one compatible update per day.
+Development/preview, Homebrew and native-package installs do not use that mode.
 
 ## Verification recorded here
 
@@ -96,3 +109,6 @@ demo firing/recovery; signature, archive, transaction, and installer negative
 tests. These results do not establish login/reboot behavior, notification visibility,
 Windows/Linux native service behavior, or public package trust. See the
 [implementation ledger](../development/local-first-progress.md).
+
+See [always-on operation](always-on.md), [native packages](../releases/local-packages.md),
+and the optional [cloud preview](cloud-preview.md).

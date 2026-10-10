@@ -22,6 +22,14 @@ The monorepo also includes an [official Go SDK MCP integration for ChatGPT and C
 with embedded views and plugin packaging. It is under qualification; official
 marketplace publication has not yet happened.
 
+The [local setup preview](docs/operate/local-setup.md) adds background startup, a
+first-watch flow, desktop alerts, private credentials and signed-update tooling.
+Use an [always-on machine](docs/operate/always-on.md) without an account, or try the
+optional [cloud implementation](docs/operate/cloud-preview.md) for hosted public
+HTTP watches and reversible transfers. No public cloud service is announced;
+[implementation and release evidence](docs/development/local-first-progress.md)
+keep those boundaries explicit.
+
 ## What you can watch
 
 | Part | Supported capabilities |
@@ -29,7 +37,7 @@ marketplace publication has not yet happened.
 | Sources | HTTP polling, explicit local commands returning JSON, authenticated JSON push |
 | Conditions | Typed comparisons, numeric aggregates and windows, value changes, missing data, new provider IDs |
 | Alert policies | Fire on transitions or at configured intervals; consecutive checks, recovery counts, cooldowns, and provider-ID deduplication |
-| Destinations | Console, webhooks, Slack incoming webhooks, Discord webhooks |
+| Destinations | Console, native desktop notifications (source preview), webhooks, Slack incoming webhooks, Discord webhooks |
 | Local state | SQLite stores condition state, timers, retained evidence, events, and pending deliveries |
 
 A watch declares its source, condition, alert policy, and destinations. Ding
