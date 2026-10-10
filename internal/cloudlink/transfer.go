@@ -14,6 +14,8 @@ import (
 )
 
 type Transfer struct {
+	Returning    bool                         `json:"returning"`
+	ReturnOf     string                       `json:"returnOf,omitempty"`
 	ID           string                       `json:"id"`
 	URL          string                       `json:"url"`
 	Workspace    string                       `json:"workspace"`
@@ -57,7 +59,7 @@ func (t Transfer) Target(c Connection) (control.Client, error) {
 }
 
 func (t Transfer) Prepare(ctx context.Context, target control.Client) (store.Handoff, error) {
-	return Call[store.Handoff](ctx, target, "POST", "/v1/handoffs/prepare", watchrun.HandoffPrepare{ID: t.ID, Peer: t.Source.Instance, Manifest: t.Source.Manifest, Review: t.TargetReview})
+	return Call[store.Handoff](ctx, target, "POST", "/v1/handoffs/prepare", watchrun.HandoffPrepare{ReturnOf: t.ReturnOf, ID: t.ID, Peer: t.Source.Instance, Manifest: t.Source.Manifest, Review: t.TargetReview})
 }
 func (t Transfer) Test(ctx context.Context, target control.Client) (struct {
 	Outcome string `json:"outcome"`
@@ -73,6 +75,15 @@ func (t Transfer) Finish(ctx context.Context, source, target control.Client) (st
 	}
 	if prepared.Phase != "prepared" && prepared.Phase != "active" {
 		return prepared, fmt.Errorf("target is not prepared or active")
+	}
+	if prepared.Phase == "prepared" {
+		test, err := t.Test(ctx, target)
+		if err != nil {
+			return prepared, err
+		}
+		if test.Outcome != "accepted" {
+			return prepared, fmt.Errorf("destination test is not confirmed; source remains running")
+		}
 	}
 	proof, err := Call[store.Handoff](ctx, source, "POST", "/v1/handoffs/pause", watchrun.HandoffPause{ID: t.ID, Peer: prepared.Instance, WatchID: t.Source.Watch.Plan.Definition.Metadata.ID, Revision: t.Source.Watch.Plan.Revision, Generation: t.Source.Watch.Generation, Destinations: t.Source.Destinations})
 	if err != nil {

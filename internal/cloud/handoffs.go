@@ -129,6 +129,10 @@ func (s *Server) testHandoff(w http.ResponseWriter, r *http.Request, t *Tenant, 
 		return
 	}
 	if !run {
+		if probe.Outcome == "accepted" && s.verifyHandoffProof(r.Context(), t.Account.ID, h) != nil {
+			cloudFail(w, 409, "test_expired", "Test proof expired or changed; explicitly send a new labeled test.")
+			return
+		}
 		cloudWrite(w, 200, probe)
 		return
 	}
