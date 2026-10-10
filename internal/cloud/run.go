@@ -20,18 +20,26 @@ import (
 )
 
 type Config struct {
-	OperatorListen string          `json:"operatorListen,omitempty"`
-	PublicURL      string          `json:"publicURL"`
-	Listen         string          `json:"listen"`
-	DataDir        string          `json:"dataDir"`
-	KeyFile        string          `json:"keyFile"`
-	TLSCert        string          `json:"tlsCert,omitempty"`
-	TLSKey         string          `json:"tlsKey,omitempty"`
-	Identity       IdentityConfig  `json:"identity"`
-	MCP            *mcpconfig.HTTP `json:"mcp,omitempty"`
+	EnrollmentLimit *int            `json:"enrollmentLimit,omitempty"`
+	OperatorListen  string          `json:"operatorListen,omitempty"`
+	PublicURL       string          `json:"publicURL"`
+	Listen          string          `json:"listen"`
+	DataDir         string          `json:"dataDir"`
+	KeyFile         string          `json:"keyFile"`
+	TLSCert         string          `json:"tlsCert,omitempty"`
+	TLSKey          string          `json:"tlsKey,omitempty"`
+	Identity        IdentityConfig  `json:"identity"`
+	MCP             *mcpconfig.HTTP `json:"mcp,omitempty"`
 }
 
 func (c *Config) Validate() error {
+	if c.EnrollmentLimit == nil {
+		limit := MaxAccounts
+		c.EnrollmentLimit = &limit
+	}
+	if *c.EnrollmentLimit < 0 || *c.EnrollmentLimit > MaxAccounts {
+		return fmt.Errorf("enrollmentLimit must be 0–%d; zero closes new enrollment", MaxAccounts)
+	}
 	origin, err := mcpconfig.Endpoint(c.PublicURL, true)
 	if err != nil {
 		return fmt.Errorf("publicURL must be an HTTPS origin")
@@ -122,7 +130,7 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 	if err := pool.Start(ctx); err != nil {
 		return err
 	}
-	app := &Server{DB: db, Vault: vault, Pool: pool, PublicURL: c.PublicURL, Version: version, Assets: assets, Login: LoginFlow{DB: db, Vault: vault, Provider: provider}}
+	app := &Server{DB: db, Vault: vault, Pool: pool, PublicURL: c.PublicURL, Version: version, Assets: assets, Login: LoginFlow{DB: db, Vault: vault, Provider: provider, EnrollmentLimit: c.EnrollmentLimit}}
 	if c.MCP != nil {
 		if c.MCP.Issuer != c.Identity.Issuer {
 			return fmt.Errorf("MCP and browser identity must use the same issuer and stable subject")
@@ -161,7 +169,7 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 			done <- server.Serve(listener)
 		}
 	}()
-	fmt.Fprintf(out, "Ding Cloud listening on %s; public origin %s; cohort cap %d.\n", listener.Addr(), c.PublicURL, MaxAccounts)
+	fmt.Fprintf(out, "Ding Cloud listening on %s; public origin %s; new enrollment cap %d.\n", listener.Addr(), c.PublicURL, *c.EnrollmentLimit)
 	select {
 	case err = <-done:
 	case <-ctx.Done():

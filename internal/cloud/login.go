@@ -17,9 +17,10 @@ const csrfCookie = "__Host-ding-csrf"
 const loginCookie = "__Host-ding-login"
 
 type LoginFlow struct {
-	DB       *state.DB
-	Vault    *state.Vault
-	Provider IdentityProvider
+	EnrollmentLimit *int
+	DB              *state.DB
+	Vault           *state.Vault
+	Provider        IdentityProvider
 }
 
 func cloudWrite(w http.ResponseWriter, status int, value any) {
@@ -80,7 +81,11 @@ func (f LoginFlow) Callback(w http.ResponseWriter, r *http.Request) {
 		cloudFail(w, 401, "identity_failed", "Could not verify sign-in. Start a new sign-in.")
 		return
 	}
-	account, err := f.DB.Enroll(r.Context(), identity.Issuer, identity.Subject, MaxAccounts)
+	limit := MaxAccounts
+	if f.EnrollmentLimit != nil {
+		limit = *f.EnrollmentLimit
+	}
+	account, err := f.DB.Enroll(r.Context(), identity.Issuer, identity.Subject, limit)
 	if err != nil {
 		cloudFail(w, 503, "enrollment_unavailable", "Cloud enrollment is currently unavailable. Local and self-hosted Ding remain free and available.")
 		return

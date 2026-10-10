@@ -134,7 +134,7 @@ func scanAccount(r row) (Account, error) {
 // Enroll is called only after verifying issuer and immutable subject. A mutable
 // login or email is never used to merge accounts or authorize a workspace.
 func (d *DB) Enroll(ctx context.Context, issuer, subject string, cap int) (Account, error) {
-	if issuer == "" || subject == "" || len(issuer) > 1024 || len(subject) > 512 || cap < 1 || cap > 1000 {
+	if issuer == "" || subject == "" || len(issuer) > 1024 || len(subject) > 512 || cap < 0 || cap > 1000 {
 		return Account{}, fmt.Errorf("invalid enrollment")
 	}
 	tx, err := d.sql.BeginTx(ctx, nil)
