@@ -120,11 +120,15 @@ export function Badge({
     "error",
   ].includes(value)
     ? "danger"
-    : ["paused", "pending", "unknown", "warning", "canceled"].includes(value)
-      ? "warn"
-      : ["running", "delivered", "recovered", "verified", "ok"].includes(value)
-        ? "good"
-        : "neutral";
+    : value === "unknown"
+      ? "unknown"
+      : ["pending", "leased", "warning"].includes(value)
+        ? "warn"
+        : ["running", "delivered", "recovered", "verified", "ok"].includes(
+              value,
+            )
+          ? "good"
+          : "neutral";
   return (
     <span className={`badge ${tone}`}>
       <span className="badge-dot" />

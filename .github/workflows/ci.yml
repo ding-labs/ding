@@ -2,10 +2,10 @@ name: CI
 
 on:
   pull_request:
-    paths: ['**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'web/mcp-app/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'testdata/**', 'scripts/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
+    paths: ['**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'web/mcp-app/**', 'design/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'testdata/**', 'scripts/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
   push:
     branches: [main, "codex/**"]
-    paths: ['**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'web/mcp-app/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'testdata/**', 'scripts/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
+    paths: ['**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'web/mcp-app/**', 'design/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'testdata/**', 'scripts/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
   workflow_dispatch:
 
 permissions:

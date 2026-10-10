@@ -4,6 +4,7 @@ COPY web/mcp-app/package*.json web/mcp-app/
 RUN npm ci --prefix web/mcp-app
 COPY web/mcp-app web/mcp-app
 COPY web/console web/console
+COPY design design
 RUN npm run build --prefix web/mcp-app
 
 FROM golang:1.26-alpine AS build

@@ -55,13 +55,13 @@
   margin-top: 2rem;
 }
 .md-typeset .md-button {
-  border-radius: 5px;
+  border-radius: var(--ding-radius-control);
   border: 1px solid var(--ding-brand);
   color: var(--ding-brand);
   font-size: 0.75rem;
 }
 .md-typeset .md-button--primary {
-  background: var(--ding-brand);
+  background: var(--ding-action);
   color: var(--ding-on-brand);
 }
 .md-typeset code {
@@ -105,7 +105,7 @@
   color: var(--ding-muted);
 }
 :focus-visible {
-  outline: 2px solid var(--ding-brand);
+  outline: 2px solid var(--ding-focus);
   outline-offset: 3px;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -134,15 +134,19 @@
 }
 .md-typeset a:not(.md-button) {
   text-decoration: underline;
-  text-underline-offset: .15em;
+  text-underline-offset: 0.15em;
 }
-.highlight .nv, .highlight .vc, .highlight .vg, .highlight .vi {
+.highlight .nv,
+.highlight .vc,
+.highlight .vg,
+.highlight .vi {
   color: var(--ding-brand);
 }
 .md-footer-meta {
   background: var(--ding-subtle);
 }
-.md-copyright, .md-copyright__highlight {
+.md-copyright,
+.md-copyright__highlight {
   color: var(--ding-muted);
 }
 .md-copyright a {
@@ -150,4 +154,116 @@
 }
 .md-copyright a:not(:focus):not(:hover) {
   color: var(--ding-brand);
+}
+
+/* One recovered bell and one primary action color across all surfaces. */
+.md-header__button.md-logo img {
+  background: var(--ding-logo-surface);
+  border-radius: 4px;
+  padding: 2px;
+}
+.md-typeset .md-button--primary {
+  border-color: var(--ding-action);
+}
+.md-typeset h1 {
+  text-decoration: underline;
+  text-decoration-color: var(--ding-green);
+  text-decoration-thickness: 4px;
+  text-underline-offset: 0.25em;
+}
+.md-typeset .admonition.note,
+.md-typeset details.note {
+  border-color: var(--ding-violet);
+}
+.md-typeset .note > .admonition-title,
+.md-typeset .note > summary {
+  background: var(--ding-violet-soft);
+}
+.highlight .nt {
+  color: var(--ding-code-key);
+}
+.highlight .l,
+.highlight .s,
+.highlight .s1,
+.highlight .s2 {
+  color: var(--ding-code-value);
+}
+
+/* Override Material defaults at the theme scope, including search and code. */
+[data-md-color-scheme] {
+  --md-code-hl-keyword-color: var(--ding-code-key);
+  --md-code-hl-function-color: var(--ding-code-key);
+  --md-code-hl-special-color: var(--ding-code-key);
+  --md-code-hl-constant-color: var(--ding-code-value);
+  --md-code-hl-string-color: var(--ding-code-value);
+  --md-code-hl-number-color: var(--ding-code-number);
+  --md-code-hl-name-color: var(--ding-text);
+  --md-code-hl-comment-color: var(--ding-code-comment);
+  --md-code-hl-operator-color: var(--ding-muted);
+  --md-code-hl-punctuation-color: var(--ding-muted);
+  --md-code-hl-generic-color: var(--ding-muted);
+  --md-code-hl-variable-color: var(--ding-brand);
+  --md-code-hl-color: var(--ding-selection);
+  --md-code-hl-color--light: var(--ding-selection);
+  --md-typeset-mark-color: var(--ding-selection);
+  --md-typeset-kbd-color: var(--ding-subtle);
+  --md-typeset-kbd-accent-color: var(--ding-surface);
+  --md-typeset-kbd-border-color: var(--ding-border);
+  --md-typeset-table-color: var(--ding-border);
+  --md-typeset-table-color--light: var(--ding-subtle);
+  --md-admonition-bg-color: var(--ding-surface);
+  --md-admonition-fg-color: var(--ding-text);
+}
+.md-typeset .md-button--primary:is(:hover, :focus) {
+  background: var(--ding-action-hover);
+  border-color: var(--ding-action-hover);
+  color: var(--ding-on-brand);
+}
+.md-typeset .admonition,
+.md-typeset details {
+  --ding-callout: var(--ding-violet);
+  --ding-callout-soft: var(--ding-violet-soft);
+  border-color: var(--ding-callout);
+  border-radius: var(--ding-radius-control);
+  box-shadow: none;
+}
+.md-typeset
+  :is(.admonition, details):is(
+    .warning,
+    .caution,
+    .attention,
+    .question,
+    .help,
+    .faq
+  ) {
+  --ding-callout: var(--ding-attention);
+  --ding-callout-soft: var(--ding-attention-soft);
+}
+.md-typeset
+  :is(.admonition, details):is(
+    .danger,
+    .error,
+    .failure,
+    .fail,
+    .missing,
+    .bug
+  ) {
+  --ding-callout: var(--ding-incident);
+  --ding-callout-soft: var(--ding-incident-soft);
+}
+.md-typeset :is(.admonition, details):is(.success, .check, .done, .tip, .hint) {
+  --ding-callout: var(--ding-success);
+  --ding-callout-soft: var(--ding-success-soft);
+}
+.md-typeset :is(.admonition, details) > :is(.admonition-title, summary) {
+  background: var(--ding-callout-soft);
+  color: var(--ding-text);
+}
+.md-typeset
+  :is(.admonition, details)
+  > :is(.admonition-title, summary)::before {
+  background-color: var(--ding-callout);
+}
+.md-typeset details > summary::after {
+  color: var(--ding-callout);
 }

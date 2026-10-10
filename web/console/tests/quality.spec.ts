@@ -1,6 +1,7 @@
 import { test, expect } from "./fixtures";
 import { call, manifest } from "./data";
 import AxeBuilder from "@axe-core/playwright";
+import { assertSharedDesign } from "../../../design/check-browser.mjs";
 test("responsive themes, accessibility and keyboard navigation", async ({
   page,
   daemon,
@@ -17,6 +18,7 @@ test("responsive themes, accessibility and keyboard navigation", async ({
       await expect(
         page.getByRole("heading", { name: "Incident opened", exact: true }),
       ).toBeVisible();
+      await assertSharedDesign(page, "console");
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= window.innerWidth + 1,

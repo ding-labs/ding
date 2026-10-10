@@ -4,6 +4,7 @@ WORKDIR /src
 COPY web/console/package*.json web/console/
 RUN npm ci --prefix web/console
 COPY web/console web/console
+COPY design design
 COPY testdata/console testdata/console
 RUN npm run build --prefix web/console
 COPY web/mcp-app/package*.json web/mcp-app/

@@ -2,10 +2,10 @@ name: LLM integrations
 
 on:
   pull_request:
-    paths: ['integrations/**', 'plugins/**', 'web/mcp-app/**', 'web/console/src/theme.css', 'web/console/src/api/contracts.ts', '**/*.go', 'go.mod', 'go.sum', 'testdata/mcp/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'internal/store/*.sql', 'docs/integrations/**', 'Makefile', '.dockerignore', '.github/workflows/integrations.yml']
+    paths: ['integrations/**', 'plugins/**', 'web/mcp-app/**', 'web/console/src/theme.css', 'web/console/src/api/contracts.ts', 'design/**', '**/*.go', 'go.mod', 'go.sum', 'testdata/mcp/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'internal/store/*.sql', 'docs/integrations/**', 'Makefile', '.dockerignore', '.github/workflows/integrations.yml']
   push:
     branches: [main, 'codex/**']
-    paths: ['integrations/**', 'plugins/**', 'web/mcp-app/**', 'web/console/src/theme.css', 'web/console/src/api/contracts.ts', '**/*.go', 'go.mod', 'go.sum', 'testdata/mcp/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'internal/store/*.sql', 'docs/integrations/**', 'Makefile', '.dockerignore', '.github/workflows/integrations.yml']
+    paths: ['integrations/**', 'plugins/**', 'web/mcp-app/**', 'web/console/src/theme.css', 'web/console/src/api/contracts.ts', 'design/**', '**/*.go', 'go.mod', 'go.sum', 'testdata/mcp/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'internal/store/*.sql', 'docs/integrations/**', 'Makefile', '.dockerignore', '.github/workflows/integrations.yml']
   workflow_dispatch:
 
 permissions:
