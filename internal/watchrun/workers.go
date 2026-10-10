@@ -118,6 +118,13 @@ func (a *App) Run(ctx context.Context) error {
 	if a.AcquisitionWorkers < 1 || a.DeliveryWorkers < 1 {
 		return fmt.Errorf("worker counts must be positive")
 	}
+	poll := a.PollInterval
+	if poll == 0 {
+		poll = 100 * time.Millisecond
+	}
+	if poll < 100*time.Millisecond || poll > 5*time.Second {
+		return fmt.Errorf("poll interval must be between 100ms and 5s")
+	}
 	if err := a.Store.LimitBytes(context.WithoutCancel(ctx), a.Limits.MaxBytes); err != nil {
 		return err
 	}
@@ -128,7 +135,7 @@ func (a *App) Run(ctx context.Context) error {
 		deliveries.Add(1)
 		go func() {
 			defer deliveries.Done()
-			ticker := time.NewTicker(100 * time.Millisecond)
+			ticker := time.NewTicker(poll)
 			defer ticker.Stop()
 			for {
 				select {
@@ -153,7 +160,7 @@ func (a *App) Run(ctx context.Context) error {
 	active := map[string]bool{}
 	retry := map[string]time.Time{}
 	var activeMu sync.Mutex
-	tick := time.NewTicker(100 * time.Millisecond)
+	tick := time.NewTicker(poll)
 	defer tick.Stop()
 	lastMaintenance := time.Time{}
 	var previousWall, previousTick time.Time

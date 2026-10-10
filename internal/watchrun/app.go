@@ -31,6 +31,7 @@ type App struct {
 	Notify                              func(context.Context, notify.Message) error
 	ValidateBundle                      func(plan.Bundle) error // Optional execution policy; immutable after startup.
 	AcquisitionWorkers, DeliveryWorkers int
+	PollInterval                        time.Duration // Zero preserves the local 100ms scheduler cadence.
 	mu                                  sync.Mutex
 	outputMu                            sync.Mutex
 	outputPermit                        chan struct{}
