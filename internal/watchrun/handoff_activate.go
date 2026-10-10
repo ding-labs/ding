@@ -96,12 +96,36 @@ func (a *App) CancelPreparedHandoff(ctx context.Context, id string) (store.Hando
 			return store.ErrConflict
 		}
 		r.Status = "deleted"
+		if h.ReturnOf != "" {
+			r.Status = "paused"
+		}
 		r.Generation++
 		if err := tx.SaveWatch(r, a.Now()); err != nil {
 			return err
 		}
 		if err := tx.DeleteTimers(h.WatchID); err != nil {
 			return err
+		}
+		if h.ReturnOf != "" {
+			original, err := tx.Handoff(h.ReturnOf)
+			if err != nil {
+				return err
+			}
+			if original.Phase != "returned" || original.Held {
+				return store.ErrConflict
+			}
+			original.Phase = "paused"
+			original.Held = true
+			original.Generation = r.Generation
+			original.Revision = r.Plan.Revision
+			original.Destinations = h.Destinations
+			h.Held = false
+			if err := tx.SaveHandoff(h); err != nil {
+				return err
+			}
+			if err := tx.SaveHandoff(original); err != nil {
+				return err
+			}
 		}
 		h.Phase = "canceled"
 		h.Held = false

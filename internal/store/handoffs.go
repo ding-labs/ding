@@ -10,6 +10,7 @@ import (
 )
 
 type Handoff struct {
+	ReturnOf     string            `json:"returnOf,omitempty"`
 	ProbeKey     string            `json:"probeKey,omitempty"`
 	ProbeDigest  string            `json:"probeDigest,omitempty"`
 	ProbeOutcome string            `json:"probeOutcome,omitempty"`

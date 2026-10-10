@@ -99,7 +99,7 @@ func (a *App) PrepareHandoff(ctx context.Context, r HandoffPrepare) (store.Hando
 	if err != nil {
 		return store.Handoff{}, err
 	}
-	m := &handoffMutation{h: store.Handoff{ID: r.ID, Peer: r.Peer, WatchID: b.Watches[0].Definition.Metadata.ID, Digest: digest, Role: "target", Phase: "prepared", Held: true}, action: "prepare"}
+	m := &handoffMutation{h: store.Handoff{ReturnOf: r.ReturnOf, ID: r.ID, Peer: r.Peer, WatchID: b.Watches[0].Definition.Metadata.ID, Digest: digest, Role: "target", Phase: "prepared", Held: true}, action: "prepare"}
 	m.check = func(tx *store.Tx) error {
 		if r.ReturnOf != "" {
 			old, err := tx.Handoff(r.ReturnOf)
