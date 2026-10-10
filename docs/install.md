@@ -1,6 +1,23 @@
-# Install the watch preview
+# Install Ding
 
 {{ availability }}
+
+## Homebrew (recommended)
+
+On macOS 13+ or Linux, with an ARM64 or x86-64 machine:
+
+```sh
+brew install ding-labs/tap/ding
+ding setup
+```
+
+The package includes the Console, MCP adapter and Mac notification helper. You
+need no Go, Node, Python, model credentials or Ding account. Setup enables
+background startup after your confirmation and opens the first-watch flow.
+Follow [local setup](operate/local-setup.md) to create your watch and test an alert.
+
+Existing Homebrew users: stop Ding if it is running, then `brew update` and
+`brew upgrade ding-labs/tap/ding`. Run `ding setup` after the upgrade.
 
 ## Build from source
 
@@ -51,11 +68,9 @@ inside it or explicitly configure an authenticated API client. Do not assume a
 host CLI automatically reads a named container volume. Use [remote access](operate/index.md#remote-access)
 when exposing the daemon beyond your machine.
 
-## Existing releases
+## Earlier releases and other installers
 
-The published v0.14.0 binary, Homebrew package, and default installer currently
-provide the legacy runtime. They do not run watch manifests. Follow the
-[legacy installation and migration guide](legacy.md) for that version.
-
-The Console is not part of this documented source snapshot. Its installation
-instructions will be enabled when a matching release is verified.
+v0.14.0 and earlier contain the old job-wrapper runtime. Follow the
+[legacy installation and migration guide](legacy.md) only for those versions.
+The old shell installer is not the v0.15.0 installation route; use Homebrew above.
+Notarized Mac installers and signed Windows installers remain under qualification.
