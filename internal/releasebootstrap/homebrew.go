@@ -16,7 +16,7 @@ func Homebrew(m update.Manifest) (string, []byte, error) {
 	if !semver.IsValid(m.Version) || semver.Canonical(m.Version) != m.Version || (m.Channel != "stable" && m.Channel != "preview") || (m.Channel == "stable" && semver.Prerelease(m.Version) != "") {
 		return "", nil, fmt.Errorf("invalid Homebrew release")
 	}
-	name, class, conflict := "ding", "Ding", "ding-preview"
+	name, class, conflict := "ding", "Ding", ""
 	if m.Channel == "preview" {
 		name, class, conflict = "ding-preview", "DingPreview", "ding"
 	}
@@ -51,15 +51,16 @@ func Homebrew(m update.Manifest) (string, []byte, error) {
 	return name + ".rb", result.Bytes(), err
 }
 
-const homebrewFormula = `# Generated from qualified native archives; publication requires release review.
+const homebrewFormula = `# typed: false
+# frozen_string_literal: true
+
+# Generated from qualified native archives; publication requires release review.
 class {{.Class}} < Formula
   desc "Persistent watches and durable alerts for developers and agents"
   homepage "https://ding.ing"
   version "{{.Version}}"
   license "Apache-2.0"
-  depends_on arch: [:arm64, :x86_64]
   depends_on macos: :ventura if OS.mac?
-  conflicts_with "{{.Conflict}}", because: "both provide the ding executable"
 
 {{range $os := .OS}}  on_{{if eq $os "darwin"}}macos{{else}}linux{{end}} do
 {{range $arch := $.Arch}}    on_{{if eq $arch "arm64"}}arm{{else}}intel{{end}} do
@@ -68,6 +69,9 @@ class {{.Class}} < Formula
     end
 {{end}}  end
 {{end}}
+{{if .Conflict}}  conflicts_with "{{.Conflict}}", because: "both provide the ding executable"
+{{end}}
+
   def install
     libexec.install "ding"
     libexec.install "DingNotifications.app" if OS.mac?
