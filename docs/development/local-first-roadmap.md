@@ -1,6 +1,7 @@
 # Local Ding, marketplace distribution, and optional Ding Cloud
 
-Proposed October 10, 2026. **Implementation plan, not a description of shipped features.**
+Proposed October 10, 2026. **Roadmap, not a description of shipped features.**
+Source implementation and current evidence are tracked in the [implementation ledger](local-first-progress.md).
 
 Make Ding a complete, free developer tool on the user's machine. Earn adoption through a useful first watch, reliable operation, and a good local MCP experience. Offer hosted execution when someone chooses **“Keep this watch running when my computer is off.”** Keeping Ding on a personal server is an equally successful outcome.
 
@@ -57,7 +58,7 @@ Start L and the documentary/preflight work in M together. External review must n
 
 ## First implementation slice
 
-Build one end-to-end macOS Apple Silicon path first: correct watch-runtime artifact → install → `ding setup` → managed background daemon → real HTTP watch → visible test notification → terminal closed → reboot/login → watch resumes → `ding status` explains the result. The proposed setup/status commands do not exist yet.
+Build one end-to-end macOS Apple Silicon path first: correct watch-runtime artifact → install → `ding setup` → managed background daemon → real HTTP watch → visible test notification → terminal closed → reboot/login → watch resumes → `ding status` explains the result. Setup/status and this source slice are now implemented; native release acceptance remains separate.
 
 Then complete safe updates, Linux/Windows qualification, headless server setup, and supported host onboarding. Broader platform claims wait for native acceptance tests. A working thin slice is not permission to bypass the existing runtime and Console release gates.
 
@@ -67,6 +68,6 @@ The first PRs should cover release-channel correctness and service/status contra
 
 Already implemented: durable Go watch execution and SQLite state, scoped integration grants, reviewed mutations, receipts, an official Go SDK adapter with stdio and authenticated HTTP, a shared embedded MCP UI, and platform packaging scaffolding. See [verification evidence](../integrations/verification.md).
 
-Still planned: an integrated installer/service/updater experience, native desktop notifications, first-run guidance, offline status, public marketplace acceptance, and every part of the hosted account/execution service. Current public stable artifacts still represent the legacy runtime; the watch runtime remains a source preview. Preserve those availability labels until release qualification actually passes.
+Now implemented in source: installer/service/updater tooling, native desktop delivery, first-run guidance, offline status and optional hosted account/execution. Public marketplace acceptance and the release/pilot gates remain open. Current public stable artifacts still represent the legacy runtime; the watch runtime remains a source preview. Preserve those availability labels until release qualification actually passes.
 
 This planning change does not start services, publish packages, contact reviewers, or provision cloud resources.

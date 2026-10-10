@@ -72,3 +72,25 @@ accounts. Revisit placement/storage when representative measurements justify it.
 Provider selection, current quotations, an approved monthly budget, and named
 operational ownership remain deployment decisions. No infrastructure was created
 or paid service enabled by this implementation.
+
+## Refresh after per-host limiting and recovery work
+
+A ten-second initial-load run on the same macOS ARM64 host, after adding separate
+synthetic hosts and distinguishing failed from healthy observations, produced:
+
+| Measurement | Result |
+| --- | ---: |
+| Observed / healthy workspaces | 100 / 100 |
+| Synthetic successful HTTP checks | 100 |
+| First-observation p95 | 1,103.871 ms |
+| Sampled Go heap / runtime reserved | 6,191,480 / 27,805,960 bytes |
+| Goroutines | 304 |
+| Live / closed durable bytes | 39,318,312 / 24,365,512 |
+| Orderly close | 109.519 ms |
+
+Command: `go run ./cmd/ding-cloud-bench --accounts 100 --duration 10s`.
+Use `--same-host` to exercise the shared host rate limit; its failures must not be
+reported as healthy acquisition. First-observation latency is omitted for runs
+at least five minutes long, where the latest observation is no longer the first.
+Positive scheduling jitter never makes a check earlier than its reviewed interval.
+These measurements still exclude real network/provider costs and sustained load.
