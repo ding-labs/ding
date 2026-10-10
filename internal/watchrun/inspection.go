@@ -80,10 +80,15 @@ func (a *App) Evidence(ctx context.Context, id string) (replay.Evidence, error) 
 }
 
 func (a *App) Export(ctx context.Context, id string) (string, error) {
+	var out string
+	err := a.Store.View(ctx, func(tx *store.Tx) error { var err error; out, err = exportWatch(tx, id); return err })
+	return out, err
+}
+func exportWatch(tx *store.Tx, id string) (string, error) {
 	var out strings.Builder
 	enc := yaml.NewEncoder(&out)
 	enc.SetIndent(2)
-	err := a.Store.View(ctx, func(tx *store.Tx) error {
+	err := func() error {
 		record, err := tx.Watch(id)
 		if err != nil {
 			return err
@@ -106,7 +111,7 @@ func (a *App) Export(ctx context.Context, id string) (string, error) {
 			}
 		}
 		return nil
-	})
+	}()
 	if err != nil {
 		return "", err
 	}
