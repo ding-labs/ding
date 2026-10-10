@@ -3,6 +3,7 @@ module github.com/ding-labs/ding
 go 1.26.0
 
 require (
+	github.com/godbus/dbus/v5 v5.2.2
 	github.com/google/jsonschema-go v0.4.3
 	github.com/itchyny/gojq v0.12.18
 	github.com/lestrrat-go/jwx/v3 v3.3.0
