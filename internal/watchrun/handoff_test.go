@@ -33,9 +33,6 @@ func transferFixture(t *testing.T) (*App, *App, HandoffPrepare, HandoffPause) {
 }
 func TestHandoffLostRepliesRestartAndNoDuplicateExecution(t *testing.T) {
 	source, target, prepare, pause := transferFixture(t)
-	for _, app := range []*App{source, target} {
-		_ = app
-	}
 	record, _ := target.Record(ctx, "api")
 	if record.Status != "paused" || !record.LastInputAt.IsZero() {
 		t.Fatal("target executed before handoff")
@@ -87,6 +84,53 @@ func TestHandoffLostRepliesRestartAndNoDuplicateExecution(t *testing.T) {
 	restarted := New(source.Store)
 	if _, err := restarted.Lifecycle(ctx, "api", LifecycleRequest{Action: "resume"}); err == nil {
 		t.Fatal("restart lost ownership fence")
+	}
+}
+
+func TestCanceledReturnKeepsOriginalLocalCopyFenced(t *testing.T) {
+	local, cloud, original, pause := transferFixture(t)
+	proof, err := local.PauseForHandoff(ctx, pause)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cloud.ActivateHandoff(ctx, original.ID, proof); err != nil {
+		t.Fatal(err)
+	}
+	r, _ := cloud.Record(ctx, "api")
+	input(t, cloud, r, 1, 200)
+	cloud.Now = func() time.Time { return start.Add(6 * time.Second) }
+	back, err := cloud.PreflightHandoff(ctx, "api")
+	if err != nil || !back.Ready {
+		t.Fatal(back, err)
+	}
+	review, err := local.Apply(ctx, ApplyRequest{Manifest: back.Manifest, DryRun: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := strings.Repeat("c", 64)
+	if _, err := local.PrepareHandoff(ctx, HandoffPrepare{ID: id, ReturnOf: original.ID, Peer: back.Instance, Manifest: back.Manifest, Review: review.Review}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := local.CancelPreparedHandoff(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := local.CancelPreparedHandoff(ctx, id); err != nil {
+		t.Fatal("lost cancellation reply did not reconcile", err)
+	}
+	if _, err := local.Lifecycle(ctx, "api", LifecycleRequest{Action: "resume"}); err == nil {
+		t.Fatal("canceled return enabled dual execution")
+	}
+	r, _ = cloud.Record(ctx, "api")
+	if r.Status != "running" {
+		t.Fatal("canceling a prepared return stopped its source")
+	}
+	r, _ = local.Record(ctx, "api")
+	if r.Status != "paused" {
+		t.Fatal("original local watch was deleted or resumed")
+	}
+	h, err := local.Handoff(ctx, original.ID)
+	if err != nil || !h.Held || h.Phase != "paused" {
+		t.Fatal("original ownership fence lost", h, err)
 	}
 }
 func TestHandoffCanceledTargetAllowsExplicitSourceRecovery(t *testing.T) {
