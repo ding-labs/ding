@@ -197,4 +197,6 @@ CREATE TABLE probes(account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASC
 CREATE TABLE devices(id TEXT PRIMARY KEY,challenge TEXT NOT NULL,account TEXT REFERENCES accounts(id) ON DELETE CASCADE,expires_at INTEGER NOT NULL);
 `, `
 CREATE TABLE mcp_bindings(account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,client TEXT NOT NULL,ciphertext BLOB NOT NULL,PRIMARY KEY(account,client));
+`, `
+CREATE TABLE handoff_proofs(account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,id TEXT NOT NULL,body BLOB NOT NULL,PRIMARY KEY(account,id));
 `}
