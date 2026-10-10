@@ -100,6 +100,11 @@ func (m Manager) Inspect(ctx context.Context) Status {
 		// by the authenticated daemon probe, never by registration alone.
 		out, err = m.Run(ctx, "schtasks", "/Query", "/TN", d.Name, "/XML")
 	}
+	if m.OS == "windows" && err == nil && !sameTask(out, d.Content) {
+		s.State = "conflict"
+		s.Advice = "Registered task differs from this installation; inspect it in Task Scheduler."
+		return s
+	}
 	s.State = "registered"
 	if err != nil {
 		s.State = "unavailable"
@@ -142,7 +147,7 @@ func (m Manager) Install(ctx context.Context) error {
 	case "windows":
 		if owned {
 			if _, err := m.Run(ctx, "schtasks", "/Query", "/TN", m.Definition.Name, "/XML"); err == nil {
-				return nil
+				return m.checkRegisteredTask(ctx)
 			}
 		}
 		return m.command(ctx, "schtasks", "/Create", "/TN", m.Definition.Name, "/XML", m.Definition.Path)
@@ -189,6 +194,9 @@ func (m Manager) Action(ctx context.Context, action string) error {
 	case "linux":
 		return m.command(ctx, "systemctl", "--user", action, d.Name)
 	case "windows":
+		if err := m.checkRegisteredTask(ctx); err != nil {
+			return err
+		}
 		if action == "stop" || action == "restart" {
 			if m.StateDir == "" {
 				return fmt.Errorf("missing owned state directory")
@@ -199,6 +207,10 @@ func (m Manager) Action(ctx context.Context, action string) error {
 			if err := store.WaitWriterStopped(ctx, m.StateDir); err != nil {
 				return err
 			}
+		}
+		// The writer has drained; end only the residual task process before restart.
+		if action == "stop" || action == "restart" {
+			_, _ = m.Run(ctx, "schtasks", "/End", "/TN", d.Name)
 		}
 		if action != "stop" {
 			return m.command(ctx, "schtasks", "/Run", "/TN", d.Name)
