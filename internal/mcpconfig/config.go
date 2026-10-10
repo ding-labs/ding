@@ -158,6 +158,9 @@ func CheckPrivate(path string) error {
 	return f.Close()
 }
 
+// OpenPrivate opens an existing, owner-only regular file without following links.
+func OpenPrivate(path string) (*os.File, error) { return openPrivate(path, false) }
+
 func DefaultPath() string {
 	home, _ := os.UserHomeDir()
 	return configPath(runtime.GOOS, home, os.Getenv("XDG_CONFIG_HOME"), os.Getenv("LOCALAPPDATA"))
