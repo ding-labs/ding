@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os/exec"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -14,7 +16,16 @@ import (
 
 func uiCommand(dir *string) *cobra.Command {
 	var noOpen bool
+	var watchID string
 	cmd := &cobra.Command{Use: "ui", Short: "Open Ding Console with a single-use browser session link", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+		if watchID != "" {
+			if !regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$`).MatchString(watchID) {
+				return fmt.Errorf("invalid watch ID")
+			}
+			if _, err := request(cmd, *dir, false, "GET", "/v1/watches/"+url.PathEscape(watchID), nil); err != nil {
+				return err
+			}
+		}
 		raw, err := request(cmd, *dir, false, "POST", "/v1/browser/handoff", struct{}{})
 		if err != nil {
 			return err
@@ -22,6 +33,14 @@ func uiCommand(dir *string) *cobra.Command {
 		var h control.BrowserHandoff
 		if err := json.Unmarshal(raw, &h); err != nil {
 			return err
+		}
+		if watchID != "" {
+			link, err := url.Parse(h.URL)
+			if err != nil {
+				return err
+			}
+			link.Path = "/ui/watches/" + watchID
+			h.URL = link.String()
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Ding Console (link expires in 60 seconds):\n%s\n", h.URL)
 		if noOpen {
@@ -44,6 +63,7 @@ func uiCommand(dir *string) *cobra.Command {
 		return nil
 	}}
 	cmd.Flags().BoolVar(&noOpen, "no-open", false, "print a launch link without opening a browser")
+	cmd.Flags().StringVar(&watchID, "watch", "", "open an existing watch after a fresh authenticated handoff")
 	return cmd
 }
 func consoleReference(topic string) (string, error) {

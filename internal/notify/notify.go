@@ -19,6 +19,8 @@ import (
 )
 
 type Message struct {
+	WatchID           string `json:"watchId,omitempty"`
+	StateDir          string `json:"stateDir,omitempty"`
 	ID                string `json:"id"`
 	Title             string `json:"title"`
 	Body              string `json:"body"`
@@ -51,7 +53,7 @@ func Send(ctx context.Context, m Message) error {
 		if err != nil {
 			return err
 		}
-		return helper(ctx, path, nil, m)
+		return helper(ctx, path, []string{"--deliver"}, m)
 	case "windows":
 		path := filepath.Join(os.Getenv("SystemRoot"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
 		return helper(ctx, path, []string{"-NoLogo", "-NoProfile", "-NonInteractive", "-Command", windowsScript}, m)

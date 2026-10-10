@@ -77,7 +77,10 @@ func runtimeCommands(root *cobra.Command) {
 		stopChecks := update.WatchChecks(ctx, dir, store.SchemaVersion)
 		defer stopChecks()
 		app := watchrun.New(database)
-		app.Notify = notify.Send
+		app.Notify = func(ctx context.Context, message notify.Message) error {
+			message.StateDir, _ = filepath.Abs(dir)
+			return notify.Send(ctx, message)
+		}
 		lookup, err := install.CredentialLookup(dir)
 		if err != nil {
 			return err
