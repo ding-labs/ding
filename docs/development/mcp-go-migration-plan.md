@@ -1,14 +1,21 @@
 # Ding MCP adapter migration to Go
 
-Proposed October 10, 2026. Replace the Python FastMCP adapter with the official
+Implemented October 10, 2026. Replace the Python FastMCP adapter with the official
 `github.com/modelcontextprotocol/go-sdk` in the existing Ding monorepo. Preserve
 the local and self-hosted product, the 15-tool contract, guided pairing, embedded
 UI, and platform packages. Remove Python from integration development, build,
 test, and runtime requirements after the Go implementation passes qualification.
 
-This is an implementation plan. The current adapter still uses FastMCP. It
-supersedes the language and framework choice in the [original integration
-plan](llm-integration-plan.md); marketplace and product requirements remain.
+The six implementation phases below are complete: the Go adapter, shared CLI,
+authenticated HTTP, embedded UI, Go package assembler, and Python removal are
+in place. The official Go SDK is pinned to v1.8.0 and JWX to v3.3.0. This replaces
+the language/framework choice in the [original integration plan](llm-integration-plan.md).
+
+Local qualification covers the Go runtime, independent TypeScript client,
+browser bridge, macOS ARM64 package, and self-hosted container. Five platform
+builds cross-compile; the configured native CI jobs and actual host/provider
+qualification remain release gates. See [verification evidence](../integrations/verification.md).
+The sections below retain the implementation requirements for future maintenance.
 
 ## Architecture and scope
 
@@ -35,7 +42,7 @@ Use one implementation with two small command entry points:
 - `ding-mcp setup|pair|doctor|grants|serve` remains the plugin executable, compiled
   from the same command package. Keeping this narrow executable avoids bundling
   the full daemon and Console into each local plugin and preserves current
-  launcher commands. Both are Go binaries with the same behavior and version.
+  launcher commands. Both share command behavior and report their build version.
 
 Keep Node as a build/test dependency for the React UI. Ship only compiled Go
 executables and bundled static assets; users install neither Python nor Node.

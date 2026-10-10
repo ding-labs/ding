@@ -8,7 +8,7 @@ practical limits.
 
 ## Implemented
 
-- Shared Python FastMCP 4.1 server with 15 typed tools, stdio, authenticated
+- Shared native Go server using official MCP SDK v1.8.0 with 15 typed tools, stdio, authenticated
   self-hosted HTTP, and the same resource/UI contract on both transports.
 - Daemon integration API, hashed scoped grants, exact previews, revision and
   generation guards, transactional operation receipts, revocation, and explicit
@@ -19,7 +19,9 @@ practical limits.
   retry after transport failure.
 - Offline MCP Apps UI for watches, review/apply, event evidence, and deliveries;
   shared Console colors; light/dark and mobile layouts; text fallback.
-- Native runtime builder, Claude package assembly, OpenAI portable manifest,
+- Shared `ding mcp` / `ding-mcp` commands, unchanged pairing files and 15-tool
+  contracts, captured compatibility fixtures, and explicit headless fallback.
+- Native Go runtime builder, Claude package assembly, OpenAI portable manifest,
   fixed-endpoint remote package assembly, shared skills/assets, checksums,
   qualification metadata, and CI for independently released artifacts.
 
@@ -78,5 +80,5 @@ grants, and a general approved marketplace connection route remain future work.
   runtime behavior differs from ordinary chat; top-level `bin/` is unsupported.
 - [Claude directory publication](https://claude.com/docs/directory/publish): local
   MCP servers belong in plugin bundles; new standalone MCPB listings are deprecated.
-- [FastMCP custom HTML apps](https://gofastmcp.com/apps/low-level) and
-  [authentication](https://gofastmcp.com/servers/auth/authentication).
+- [Official MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk) and
+  [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview).

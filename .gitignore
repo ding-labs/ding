@@ -47,9 +47,9 @@ docs/superpowers/
 # Python build helpers
 __pycache__/
 *.pyc
-integrations/mcp/.venv/
-integrations/mcp/.pytest_cache/
-integrations/mcp/.ruff_cache/
+**/.venv/
+**/.pytest_cache/
+**/.ruff_cache/
 integrations/mcp/build/
 *.egg-info/
 /web/mcp-app/*.tsbuildinfo

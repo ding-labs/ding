@@ -33,7 +33,7 @@ transaction, preventing a revocation race between admission and commit.
 Fixture summaries include observation/event counts and the first 20 events, with
 `truncated` indicating more. The full CLI fixture report remains available.
 Requests allow a 1 MiB manifest and 8 MiB fixture, with two concurrent previews.
-The Python adapter caps responses at 16 MiB, refuses redirects, and never
+The Go adapter caps responses at 16 MiB, refuses redirects, and never
 automatically retries a write.
 
 Keys are 16–128 ASCII letters, digits, underscores, or hyphens. Generate a UUID
@@ -44,7 +44,7 @@ commit atomically. Errors roll back effects.
 
 Errors include `integration_denied` (403), `integration_limit` (429),
 `operation_conflict`/`revision_conflict` (409), `preview_expired` (410),
-`cursor_expired` (410), and `not_found` (404). The Python adapter reports
+`cursor_expired` (410), and `not_found` (404). The Go adapter reports
 `outcome_unknown` after an interrupted write. Reconcile/retry with the same key;
 never use a new key to bypass uncertainty.
 

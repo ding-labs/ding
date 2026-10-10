@@ -2,12 +2,12 @@
 
 Proposed October 9, 2026. Scope: local and self-hosted Ding, distributed through the official ChatGPT and Claude marketplaces. Implementation started October 10; see the [integration guide](../integrations/README.md) and [release qualification status](../integrations/release.md). Publication remains a separate external milestone.
 
-The [Go MCP adapter migration plan](mcp-go-migration-plan.md), proposed October 10,
-supersedes the Python/FastMCP implementation direction below. The current adapter
-still uses FastMCP; the migration has not been implemented. Product and marketplace
-requirements in this plan continue to apply.
+The [Go MCP adapter migration](mcp-go-migration-plan.md) was implemented October 10.
+The official Go SDK replaces the initial FastMCP adapter; the product and official
+marketplace requirements below continue to apply. See the dated
+[verification evidence](../integrations/verification.md) for tested boundaries.
 
-Build one Ding MCP implementation in Python with FastMCP, package it with workflow skills for each platform, and add a shared MCP Apps interface for the moments when people need to inspect or approve something. Keep the Go daemon responsible for acquisition, evaluation, persistence, and delivery. The model helps people define and understand watches; Ding keeps running independently of the conversation.
+Build one Ding MCP implementation with the official Go SDK, package it with workflow skills for each platform, and add a shared MCP Apps interface for the moments when people need to inspect or approve something. Keep the Go daemon responsible for acquisition, evaluation, persistence, and delivery. The model helps people define and understand watches; Ding keeps running independently of the conversation.
 
 The intended experience is: install Ding from the marketplace, connect a local or self-hosted instance through supported setup, describe a watch, inspect its preview, activate it, and later investigate an alert with its actual evidence. Marketplace publication and a polished connection flow are release requirements. A manually configured connector is useful for development but does not satisfy this product requirement.
 
@@ -15,7 +15,7 @@ The intended experience is: install Ding from the marketplace, connect a local o
 
 | Decision | Proposed direction |
 | --- | --- |
-| Integration foundation | One Python FastMCP server and tool contract, shared across clients |
+| Integration foundation | One official Go SDK server and tool contract, shared across clients |
 | Distribution | Official marketplace plugins containing MCP integration, skills, onboarding, and branded assets |
 | Execution and storage | User-controlled Ding daemon and SQLite state |
 | Ding-operated infrastructure | None under the current self-hosted-only constraint; a connection relay would require a separate product decision |
@@ -69,7 +69,7 @@ The current repository provides a substantial base, although the watch runtime i
 
 See the [API](../api.md), [console architecture](console-architecture.md), [console progress](console-progress.md), and [existing watch skill](../../skills/ding-watch/SKILL.md).
 
-The missing work is MCP transport and presentation, client packages, polished installation, connection authorization, scoped grants, durable mutation receipts, and optional event subscriptions. The existing admin/ingest bearer split is not an OAuth implementation or a per-client permission system. Do not present those proposed capabilities as already implemented.
+MCP transports and presentation, package assembly, scoped pairing/grants, and durable receipts are implemented. The remaining product work includes official marketplace acceptance, signed installation/update flows, actual client and identity-provider qualification, and optional event subscriptions. The full release gates below continue to apply.
 
 ## Architecture
 
@@ -77,8 +77,8 @@ The missing work is MCP transport and presentation, client packages, polished in
 flowchart TB
     C[ChatGPT marketplace plugin] --> G[Supported connection to user instance]
     A[Claude marketplace plugin] --> G
-    A --> L[Local FastMCP process]
-    G --> M[Self-hosted FastMCP service]
+    A --> L[Local Go MCP process]
+    G --> M[Self-hosted Go MCP service]
     L --> S[Ding control service]
     M --> S
     B[Ding Console] --> S
@@ -89,17 +89,17 @@ flowchart TB
     U -. UI resources and tool calls .-> L
 ```
 
-Implement the adapter in Python using the standalone `fastmcp` package, as requested. Use FastMCP 4 as the starting baseline: its GA announcement documents support for protocol `2026-07-28` and compatibility with older clients. Pin an exact tested release and its dependencies when implementation starts. [FastMCP 4 announcement](https://blog.gofastmcp.com/3mufbh2vcv22o).
+The adapter uses the official `github.com/modelcontextprotocol/go-sdk` pinned to v1.8.0. Explicit portable schemas preserve the original 15-tool contract and its validation constraints. The SDK handles protocol framing, negotiation, tools, resources, and transports. [Official Go SDK](https://github.com/modelcontextprotocol/go-sdk).
 
-Define a proposed `ding-mcp` executable with stdio and opt-in HTTP modes using FastMCP's transports. A `ding mcp` convenience launcher may locate the packaged adapter, but the server implementation remains FastMCP. The Go runtime remains independently installable; the complete plugin installation additionally includes an isolated Python runtime and locked dependencies. No system Python, `pip install`, development environment, or runtime dependency downloads should be required from end users. [FastMCP transports](https://gofastmcp.com/deployment/running-server).
+One shared Go command package powers `ding-mcp` and `ding mcp`, with stdio and opt-in authenticated HTTP modes. Plugin packages contain a native Go executable with embedded UI assets. Node is a frontend build/test dependency; end users need neither Python nor Node. The full Ding runtime remains independently installable.
 
 The stdio process connects to the existing daemon through the local control API. It does not start another evaluator, independently open the state database, or stop watches when its host conversation closes. Send protocol output to stdout and operational logs to stderr. A missing daemon produces an actionable connection state; installation and service startup belong to the setup flow.
 
 The HTTP adapter uses the same tool handlers, served on a separately controlled listener or route boundary. Make only the intended MCP and authentication discovery endpoints externally reachable. Do not expose the admin API, ingest credentials, backups, or browser handoff endpoints as a side effect of enabling MCP.
 
-For both modes, delegate domain work over the daemon's versioned control API using a bounded asynchronous HTTP client. Python cannot directly reuse Go internal functions; expose any missing operations through the Go service/API layer instead. Do not copy condition evaluation, YAML validation, or review logic into Python. Define explicit typed FastMCP tools and Pydantic result models, with contract fixtures generated or checked against Go structures. Do not automatically publish every control API route as an MCP tool.
+For both modes, delegate domain work over the daemon's closed, scoped integration API using a bounded HTTP client. The adapter must not import the store or privileged runtime packages, even though Go makes that technically possible. Keep condition evaluation, YAML validation, and review logic authoritative in the daemon. Explicit output validation preserves compatible new fields and rejects malformed responses. Do not automatically publish every control API route as an MCP tool.
 
-Use FastMCP lifespan management for the daemon connection pool, request timeouts, and cleanup. Keep connection state scoped to the authenticated instance/principal; never use a process-global mutable current user or current instance. Use FastMCP's test client for protocol and tool tests, followed by real-host tests. Pin Python and transitive dependencies in a lockfile and package prebuilt UI assets with the Python distribution. Operate the service locally or on user-owned infrastructure; FastMCP's hosted deployment products are not required.
+Use Go contexts, bounded HTTP transport, and SDK session lifecycles for cancellation and cleanup. Keep connection state scoped to the authenticated instance/principal; never use a process-global mutable current user. Test portable fixtures and real daemon calls through the Go SDK, an independent TypeScript client, and the official Apps bridge, followed by actual host qualification. Dependencies stay pinned in go.mod/go.sum; built UI assets are embedded in release executables.
 
 Target protocol `2026-07-28` with explicit compatibility testing for earlier clients. The current MCP core uses stateless requests and per-request capability negotiation; capabilities such as UI remain negotiated extensions. Maintain host capability detection rather than inferring features from a client name. [MCP specification](https://modelcontextprotocol.io/specification/2026-07-28).
 
@@ -159,7 +159,7 @@ Retain an audit trail of client identity, operation, target, revision, and outco
 
 Begin with a single-instance model. Add per-client grants such as inspect, preview, manage watches, and retry deliveries, with optional watch/destination restrictions. Keep local administrator authority distinct from plugin authority. A remote model should not obtain full admin access merely because the adapter uses a local connection underneath.
 
-For stdio, keep credentials in the user's protected Ding configuration and pass only a scoped connection into the adapter. For remote access, use FastMCP's authentication abstractions with a maintained authorization-server implementation or the user's identity provider. Configure explicit HTTP authentication: FastMCP's default is unauthenticated. A token verifier alone is not a complete OAuth discovery/login flow. Select and qualify the appropriate remote-auth or OAuth-proxy integration, and use persistent protected auth storage where required. [FastMCP authentication](https://gofastmcp.com/servers/auth/authentication).
+For stdio, keep scoped credentials in private user configuration. For remote access, use the official SDK's bearer authentication and protected-resource metadata with maintained JWX verification. HTTP cannot start without explicit issuer, audience, HTTPS JWKS, and subject-to-grant bindings. The user's identity provider owns login, consent, client registration, and token issuance. A token verifier alone is not the complete OAuth login flow; actual host/provider registration and refresh remain release gates. [SDK authentication](https://github.com/modelcontextprotocol/go-sdk/blob/v1.8.0/auth/auth.go).
 
 Do not invent a custom OAuth protocol. Verify issuer, audience/resource, expiry, scopes, and revocation; test discovery, client registration, PKCE, reconnect, and auth failures in each target host. [OpenAI authentication](https://developers.openai.com/plugins/build/auth), [Claude connector authentication](https://claude.com/docs/connectors/building/authentication).
 
@@ -181,7 +181,7 @@ Build three shared React views using MCP Apps: a watch card, a change preview, a
 | Change preview | Plain-language behavior, selected source/destination, fixture timeline, definition changes, state consequences, and activation result |
 | Event evidence | Observation → condition → event → delivery, event-time revision, replay status, retained history gaps, and inspection links |
 
-Reuse Console design tokens, formatting, status vocabulary, and suitable presentational components. Build a separate small UI bundle and data adapter, served through FastMCP's custom HTML MCP Apps path. This allows the existing React design to carry over while FastMCP handles the server. Use fixed, tested views for the initial product rather than model-generated interface code. [FastMCP custom HTML apps](https://gofastmcp.com/apps/low-level).
+Reuse Console design tokens, formatting, status vocabulary, and suitable presentational components. Build a separate compact React bundle and data adapter, embedded in Go and served as `ui://ding/workspace.html` through standard MCP Apps resource metadata. Use fixed, tested views for the initial product rather than model-generated interface code. [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview).
 
 The current Console deliberately sends `X-Frame-Options: DENY` and `frame-ancestors 'none'` and uses same-origin authenticated sessions. Do not remove those protections or embed the full `/ui/` application in a chat iframe. [Current browser boundary](console-architecture.md), [static serving implementation](../../internal/webui/serve.go).
 
@@ -201,11 +201,11 @@ Evaluate the host's current leading models and at least one faster available mod
 
 ## Background alerts and agent follow-up
 
-The portable baseline is Ding's existing console, webhook, Slack, and Discord delivery plus later evidence retrieval through MCP. Closing a chat must not stop the daemon. Laptop sleep or a stopped daemon still interrupts acquisition; recommend an always-on user-owned host for continuous monitoring. FastMCP background tasks are a separate optional mechanism for long-running tool calls; they must not replace Ding's persistent evaluator or outbox. Do not introduce a second scheduler or task broker for routine watches.
+The portable baseline is Ding's existing console, webhook, Slack, and Discord delivery plus later evidence retrieval through MCP. Closing a chat must not stop the daemon. Laptop sleep or a stopped daemon still interrupts acquisition; recommend an always-on user-owned host for continuous monitoring. MCP background tasks are a separate optional mechanism for long-running tool calls; they must not replace Ding's persistent evaluator or outbox. Do not introduce a second scheduler or task broker for routine watches.
 
 ChatGPT documents an optional MCP Events integration for Work chats on web, desktop Work with Cloud selected, and dots. It requires protocol `2026-07-28` and uses verified signed webhooks. This is a promising way for a firing watch to trigger authorized follow-up in an eligible chat. It is not a promise of event support in all ChatGPT surfaces or Claude chat. [ChatGPT MCP Events](https://developers.openai.com/plugins/build/mcp-events).
 
-Proposed Ding event work, implemented as a thin FastMCP extension backed by daemon services if the pinned release does not already provide the required host-compatible extension:
+Proposed Ding event work, implemented as a thin MCP extension backed by daemon services if the pinned release does not already provide the required host-compatible extension:
 
 - Expose firing/recovered event types first; add source-health and terminal-delivery events only where the runtime has durable evidence for them.
 - Store subscriptions, owner/grants, filters, expiry, and protected signing material durably. Recheck access on delivery and stop on revocation or expiry.
@@ -228,7 +228,7 @@ Produce these release artifacts from one versioned source:
 
 | Deliverable | Contents and acceptance |
 | --- | --- |
-| Shared MCP implementation | Python FastMCP adapter, typed tools, capability negotiation, scoped daemon client, locked runtime, diagnostics |
+| Shared MCP implementation | Official Go SDK adapter, typed tools, capability negotiation, scoped daemon client, locked runtime, diagnostics |
 | Shared UI assets | Versioned watch/preview/evidence resources, exact CSP, light/dark and accessible layouts |
 | ChatGPT plugin | Current supported package format, skills, onboarding, approved MCP route, publisher/listing assets, review cases |
 | Claude plugin | `.claude-plugin/plugin.json`, MCP configuration, skills, README/license, approved local/remote dependencies |
@@ -245,7 +245,7 @@ Uninstall should revoke the plugin's connection and event subscriptions while le
 | Phase | Work | Exit criterion | Planning allowance |
 | --- | --- | --- | --- |
 | P0 Marketplace feasibility | Minimal server/UI spike; verify local bundle installation; prepare publisher questions and reviewable connection designs | A documented accepted route for each claimed launch surface; unresolved surfaces explicitly held | 3–5 engineering days, plus external responses |
-| P1 Shared MCP foundation | FastMCP stdio/HTTP modes, typed daemon client, read tools, capabilities, schemas, errors, bounded results, fixture harness | Real daemon inspected correctly from target hosts; headless fallback works | 4–7 days |
+| P1 Shared MCP foundation | Go SDK stdio/HTTP modes, typed daemon client, read tools, capabilities, schemas, errors, bounded results, fixture harness | Real daemon inspected correctly from target hosts; headless fallback works | 4–7 days |
 | P2 Authoring and control | Preview/apply, scoped grants, durable receipts, lifecycle, skill workflows | Concurrent edits, lost responses, and restarts reconcile without duplicate mutations | 5–8 days |
 | P3 Product experience | Shared cards, Console links, native setup, daemon discovery, permission management | Clean-machine install through the approved package; first watch without manual configuration | 6–10 days |
 | P4 Remote self-hosted connection | Approved instance routing, OAuth, HTTPS deployment, reconnect/revocation | Accepted marketplace route works against two independently operated instances | 5–10 days if the platform route exists |
@@ -259,12 +259,14 @@ P1 and most of P2 are useful regardless of marketplace outcomes. Do not invest i
 Suggested repository ownership:
 
 ```text
-integrations/mcp/         Python FastMCP project, pyproject.toml, lockfile, tests
-integrations/mcp/src/     typed tools, daemon client, auth, UI resources, extensions
+cmd/ding-mcp/            native plugin executable
+internal/mcp*/          tools, contracts, client, auth, pairing, commands, embedded UI
+integrations/mcp/        self-hosted container recipe and guide
+internal/pluginpackage/ native/remote package assembly
 internal/control/         scoped adapter access and reusable operation services
 internal/watchrun/        authoritative mutation/review/operation behavior
 internal/store/           grants, receipts, optional subscriptions and delivery state
-internal/watchcli/        optional adapter launcher and setup diagnostics
+internal/watchcli/        shared MCP command mounting and setup diagnostics
 web/mcp-app/              compact shared UI and host bridge
 web/console/              reusable visual components and connection settings
 plugins/chatgpt/          generated/validated ChatGPT release package
@@ -301,6 +303,6 @@ Before publication, complete the watch/console release qualifications that the i
 
 ## Recommended starting scope
 
-Proceed with a shared Python FastMCP adapter, the existing Go runtime and authoring semantics, and three compact UI views. Make marketplace feasibility and supported self-hosted onboarding the first deliverable. Target the documented local Claude plugin route first while resolving official ChatGPT and browser connection support. Keep browser Console access as a useful companion and fallback for large workflows, never as a substitute for the promised plugin.
+Proceed with a shared official Go SDK adapter, the existing Go runtime and authoring semantics, and three compact UI views. Make marketplace feasibility and supported self-hosted onboarding the first deliverable. Target the documented local Claude plugin route first while resolving official ChatGPT and browser connection support. Keep browser Console access as a useful companion and fallback for large workflows, never as a substitute for the promised plugin.
 
 The first complete demonstration should create an HTTP health watch in conversation, show a truthful preview, activate it with concurrency protection, survive closing the client, and explain a real firing and recovery from stored evidence. That demonstrates why Ding belongs beside a frontier model and tests the whole product boundary in one small workflow.

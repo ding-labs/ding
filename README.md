@@ -18,7 +18,7 @@ job-wrapper runtime. Build from source below to try watches. A stable watch
 release has not been declared; see the [release checklist](docs/releases/watch-checklist.md)
 and [qualification progress](docs/development/progress.md).
 
-The monorepo also includes a [FastMCP integration for ChatGPT and Claude](docs/integrations/README.md)
+The monorepo also includes an [official Go SDK MCP integration for ChatGPT and Claude](docs/integrations/README.md)
 with embedded views and plugin packaging. It is under qualification; official
 marketplace publication has not yet happened.
 

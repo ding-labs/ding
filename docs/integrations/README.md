@@ -1,7 +1,8 @@
 # ChatGPT and Claude integration
 
-Ding now includes a Python **FastMCP 4.1** adapter, an embedded MCP Apps interface,
-and native/remote plugin packaging in this monorepo. The Go daemon still owns
+Ding now includes a native adapter using the **official MCP Go SDK v1.8.0**,
+an embedded MCP Apps interface, and native/remote plugin packaging in this
+monorepo. The Go daemon still owns
 watch evaluation, state, authorization, and notification delivery. No model API
 key is needed to operate a local Ding watch.
 
@@ -13,8 +14,8 @@ connections are development paths, not a substitute for that release requirement
 
 ## Local native setup
 
-The native Claude package contains its Python runtime, FastMCP, dependencies,
-embedded interface, workflow skills, and a **Ding Setup** launcher. Open the
+The native Claude package contains a Go executable with its embedded interface,
+workflow skills, and a **Ding Setup** launcher. Open the
 launcher, select an existing running Ding daemon's state directory, and choose
 permissions. The pairing window is local, expires after ten minutes, and never
 shows a credential. Then enable/restart Ding in Claude Cowork or Claude Code.
@@ -28,23 +29,26 @@ per-destination access restrictions are not implemented in this version.
 For development:
 
 ```sh
-go build -o ding ./cmd/ding
-./ding daemon --state-dir ./ding-state
-# In another terminal:
 npm ci --prefix web/mcp-app
 npm run build --prefix web/mcp-app
-uv sync --project integrations/mcp --frozen
-uv run --project integrations/mcp ding-mcp setup --state "$PWD/ding-state"
+go build -tags mcpui -o ding ./cmd/ding
+./ding daemon --state-dir ./ding-state
+# In another terminal:
+./ding mcp setup --state "$PWD/ding-state"
 ```
 
 The equivalent unattended local pairing command is:
 
 ```sh
-uv run --project integrations/mcp ding-mcp pair \
+./ding mcp pair \
   --state "$PWD/ding-state" --manage --retry
-uv run --project integrations/mcp ding-mcp doctor
-uv run --project integrations/mcp ding-mcp serve
+./ding mcp doctor
+./ding mcp serve
 ```
+
+The same command tree is available as `ding mcp` and the standalone `ding-mcp`.
+Existing pairing and HTTP config formats are preserved; no re-pairing or database
+migration is required for this port.
 
 `serve` defaults to stdio and writes only protocol traffic to stdout. Pairing and
 doctor are separate commands. The adapter never starts a daemon, opens its
@@ -53,8 +57,11 @@ SQLite database, executes a shell, or stops watches when the host exits.
 Private connection files live in the platform's user configuration directory
 under `Ding/mcp.json` (on macOS: `~/Library/Application Support/Ding/mcp.json`).
 Use `--config` to select another file. POSIX files must be owned by the current
-user and mode 0600; Windows installation uses the current user's private profile
-directory and inherited ACL. A new pairing refuses to overwrite an existing file.
+user with no group/world permissions (new files use 0600). Windows creates a
+protected ACL for the current user and SYSTEM, checks ownership, and rejects
+broadly readable files and reparse points. Older Windows pairings with broad
+inherited ACLs must have their permissions repaired locally; keep the same grant.
+A new pairing refuses to overwrite an existing file.
 Do not copy administrator credentials into MCP settings.
 
 ## Permissions and changes
@@ -103,7 +110,8 @@ and narrow layouts. Text tool results remain available without UI support.
 ## Self-hosted HTTP
 
 HTTP is opt-in and **cannot start without explicit OAuth configuration**. The
-adapter uses FastMCP's `JWTVerifier` and `RemoteAuthProvider`: the identity provider
+adapter uses the official SDK's bearer authentication and protected-resource
+metadata with JWX signature/JWKS verification. The identity provider
 owns OAuth authorization, PKCE, client registration, login, and token issuance.
 There is no custom Ding OAuth server or Ding-operated relay. Your provider must
 support the chosen host's supported registration/connection flow.
@@ -145,28 +153,38 @@ JWTs must have the configured issuer, audience, valid signature/expiration, and
 `ding:retry` as appropriate. Its `sub` claim must match an explicit subject binding.
 The bound daemon grant is rechecked on every call. Remote subjects never share a
 mutable “current connection.” The OAuth token is never forwarded to the daemon.
+Only the configured HTTPS JWKS endpoint supplies keys; redirects and token-provided
+key URLs are ignored. The key cache expires after five minutes and refreshes at
+most once per 30 seconds, including unknown key IDs. Supported algorithms are
+RS256/384/512, ES256/384, and EdDSA; existing `Ed25519` configuration is an alias
+for EdDSA. Revoking a Ding grant takes effect independently of that key cache.
 
 ## Development and verification
 
 ```sh
 make test-mcp
-uv run --project integrations/mcp python scripts/build-mcp.py
-uv run --project integrations/mcp python scripts/package-integrations.py \
+make mcp
+go run ./cmd/package-integrations \
   --mode native-claude --target darwin-arm64 \
-  --runtime dist/integrations/darwin-arm64/ding-mcp \
+  --runtime dist/go-mcp/darwin-arm64/ding-mcp \
   --output dist/plugins/claude-darwin-arm64
 ```
 
 Run the native build on each target OS/architecture. A platform matrix in
 `.github/workflows/integrations.yml` builds and tests native artifacts; it does
-not publish or claim signing. The Python wheel and container require the MCP
-app to be built first. The UI currently bundles the official SDK and React in
-under 1 MiB without runtime CDN requests.
+not publish or claim signing. `make mcp` uses ordinary Go compilation with no
+Python build or runtime dependency. Node is needed only to build/test the React
+UI. Headless `go build` works without Node and omits UI advertisement; plugin
+builds require `-tags mcpui`, and main releases use `-tags console,mcpui`. The
+container builds and embeds its own UI. The UI remains under 1 MiB without CDN
+requests. Run `npx playwright install chromium` in `web/mcp-app` once before
+local browser tests. Cross-compilation alone does not qualify another platform.
 
-For a provisioned self-hosted endpoint, `package-integrations.py --mode
+For a provisioned self-hosted endpoint, `go run ./cmd/package-integrations --mode
 remote-chatgpt` or `remote-claude` requires `--endpoint https://YOUR_HOST/mcp` and
-an unused `--output` directory. It generates the proper platform manifest,
-skills, assets, and MCP configuration. This describes a fixed endpoint, not a
+an unused `--output` directory. Native package versions default to 0.1.0; set
+`MCP_VERSION` for `make mcp` and the same `--version` for the assembler. It generates
+the proper platform manifest, skills, assets, and MCP configuration. This describes a fixed endpoint, not a
 universal marketplace solution for arbitrary customer instances.
 
 The current adapter does not implement MCP Events subscriptions/chat wakeups,

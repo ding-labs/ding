@@ -3,10 +3,10 @@
 This is the source for official marketplace packages, kept in the Ding monorepo.
 It does not create a personal marketplace or install anything into this checkout's
 LLM client. Shared skills and assets are copied into each release bundle by
-`scripts/package-integrations.py`.
+`go run ./cmd/package-integrations`.
 
 - `claude/ding`: Claude's native manifest. Native bundles include a compiled
-  FastMCP runtime and a **Ding Setup** launcher under `runtime/` (no top-level
+  Go runtime and a **Ding Setup** launcher under `runtime/` (no top-level
   `bin/`). Remote bundles use a fixed, explicitly supplied HTTPS endpoint.
 - `chatgpt/ding`: OpenAI's portable manifest with onboarding and UI metadata.
   Its `mcp.json` is generated only when a real self-hosted endpoint is supplied.
