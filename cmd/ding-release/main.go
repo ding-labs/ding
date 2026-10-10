@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/mcpconfig"
+	"github.com/ding-labs/ding/internal/releasebootstrap"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/update"
 )
@@ -81,10 +82,14 @@ func sign(dir, out, version, channel, keyPath string) error {
 	if err := os.MkdirAll(out, 0755); err != nil {
 		return err
 	}
+	bootstrap, err := releasebootstrap.Render(m)
+	if err != nil {
+		return err
+	}
 	for _, file := range []struct {
 		name string
 		data []byte
-	}{{channel + ".json", data}, {channel + ".sig", sig}} {
+	}{{channel + ".json", data}, {channel + ".sig", sig}, {channel + ".install.sh", bootstrap}} {
 		f, err := os.OpenFile(filepath.Join(out, file.name), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 		if err != nil {
 			return err

@@ -1,0 +1,55 @@
+#!/bin/sh
+set -eu
+# Ding {{.Version}} / {{.Channel}}. Generated after release qualification.
+# Download and inspect this script if you do not want to pipe HTTPS into a shell.
+# No sudo, account, build tools, Python, Node, or jq are needed.
+ding_version='{{.Version}}'
+ding_bin=${INSTALL_DIR:-"$HOME/.local/bin"}
+case "$ding_bin" in /*) ;; *) echo 'INSTALL_DIR must be absolute.' >&2; exit 1;; esac
+ding_os=$(uname -s)
+case "$ding_os" in Darwin) ding_os=darwin;; Linux) ding_os=linux;; *) echo 'Use the signed Windows installer on Windows.' >&2; exit 1;; esac
+ding_arch=$(uname -m)
+case "$ding_arch" in x86_64) ding_arch=amd64;; arm64|aarch64) ding_arch=arm64;; *) echo 'Unsupported architecture.' >&2; exit 1;; esac
+case "$ding_os/$ding_arch" in
+{{range .Artifacts}}  '{{.OS}}/{{.Arch}}') ding_hash='{{.SHA256}}'; ding_url='{{.URL}}';;
+{{end}}  *) echo 'No qualified archive for this platform.' >&2; exit 1;;
+esac
+if [ -e "$ding_bin/ding" ] || [ -L "$ding_bin/ding" ]; then
+  echo "Ding already exists at $ding_bin/ding. Run ding update check, or update through its package manager." >&2
+  exit 1
+fi
+if [ -e "$ding_bin/DingNotifications.app" ]; then
+  echo 'A notification helper already exists. Preserve it and repair the installation explicitly.' >&2
+  exit 1
+fi
+mkdir -p "$ding_bin"
+ding_tmp=$(mktemp -d "$ding_bin/.ding-install-XXXXXX")
+trap 'rm -rf "$ding_tmp"' EXIT HUP INT TERM
+curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fLsS --connect-timeout 10 --max-time 180 "$ding_url" -o "$ding_tmp/archive.tar.gz"
+if command -v sha256sum >/dev/null 2>&1; then
+  ding_actual=$(sha256sum "$ding_tmp/archive.tar.gz" | cut -d ' ' -f 1)
+else
+  ding_actual=$(shasum -a 256 "$ding_tmp/archive.tar.gz" | cut -d ' ' -f 1)
+fi
+if [ "$ding_actual" != "$ding_hash" ]; then echo 'Release digest mismatch; nothing installed.' >&2; exit 1; fi
+tar -xzf "$ding_tmp/archive.tar.gz" -C "$ding_tmp" ding
+chmod 755 "$ding_tmp/ding"
+if [ "$ding_os" = darwin ]; then
+  tar -xzf "$ding_tmp/archive.tar.gz" -C "$ding_tmp" DingNotifications.app
+  codesign --verify --strict "$ding_tmp/ding"
+  codesign --verify --strict "$ding_tmp/DingNotifications.app"
+fi
+"$ding_tmp/ding" version
+# Hard-link creation is exclusive: a concurrent installer cannot be overwritten.
+if [ "$ding_os" = darwin ]; then
+  mkdir "$ding_bin/DingNotifications.app"
+  cp -R "$ding_tmp/DingNotifications.app/." "$ding_bin/DingNotifications.app/"
+fi
+if ! ln "$ding_tmp/ding" "$ding_bin/ding"; then
+  echo 'Another installation appeared; executable was not replaced.' >&2
+  exit 1
+fi
+echo "Installed Ding $ding_version at $ding_bin/ding."
+case ":$PATH:" in *":$ding_bin:"*) ;; *) echo "Add $ding_bin to your PATH, or use the absolute path below.";; esac
+echo "Next: \"$ding_bin/ding\" setup"
+echo 'Setup enables background startup and opens account-free first-watch creation.'
