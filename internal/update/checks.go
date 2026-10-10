@@ -3,6 +3,7 @@ package update
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -32,6 +33,9 @@ func LoadSettings(dir string) (Settings, error) {
 	err := mcpconfig.ReadPrivateJSON(filepath.Join(dir, "updates.json"), &s, true)
 	if errors.Is(err, os.ErrNotExist) {
 		err = nil
+	}
+	if err == nil && (s.HourUTC < 0 || s.HourUTC > 23 || s.Automatic && !s.Checks) {
+		err = fmt.Errorf("invalid update settings: choose hour 0–23 UTC; automatic updates require checks")
 	}
 	return s, err
 }

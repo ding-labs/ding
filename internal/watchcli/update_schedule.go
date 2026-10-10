@@ -2,7 +2,9 @@ package watchcli
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -113,7 +115,10 @@ func updateScheduleCommands(group *cobra.Command, dir *string) {
 		}
 		path := filepath.Join(*dir, "automatic-update.json")
 		var last automaticAttempt
-		_ = mcpconfig.ReadPrivateJSON(path, &last, true)
+		if err := mcpconfig.ReadPrivateJSON(path, &last, true); err != nil && !errors.Is(err, os.ErrNotExist) {
+			unlock()
+			return fmt.Errorf("cannot read previous automatic update attempt; inspect %s: %w", path, err)
+		}
 		if !last.At.IsZero() && now.Sub(last.At) < 24*time.Hour {
 			unlock()
 			return nil
