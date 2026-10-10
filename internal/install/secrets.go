@@ -45,6 +45,13 @@ func SetSecret(dir, name, value string) error {
 	if err != nil {
 		return err
 	}
+	protected, err := readDPAPI(dir)
+	if err != nil {
+		return err
+	}
+	if protected[name] != nil {
+		return fmt.Errorf("credential already uses DPAPI storage")
+	}
 	if native[name] {
 		return fmt.Errorf("credential already uses Keychain; choose a new reference name for private-file storage")
 	}

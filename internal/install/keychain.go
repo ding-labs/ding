@@ -80,6 +80,13 @@ func SetKeychainSecret(ctx context.Context, dir, name, value string) error {
 	if err != nil {
 		return err
 	}
+	protected, err := readDPAPI(dir)
+	if err != nil {
+		return err
+	}
+	if protected[name] != nil {
+		return fmt.Errorf("credential already uses DPAPI storage")
+	}
 	if _, ok := files[name]; ok {
 		return fmt.Errorf("this credential already uses private-file storage; choose a new reference name to migrate explicitly")
 	}
@@ -113,6 +120,15 @@ func CredentialLookup(dir string) (source.Lookup, error) {
 	if err != nil {
 		return nil, err
 	}
+	protected, err := readDPAPI(dir)
+	if err != nil {
+		return nil, err
+	}
+	for name := range protected {
+		if _, ok := files[name]; ok || names[name] {
+			return nil, fmt.Errorf("credential %s has conflicting storage backends", name)
+		}
+	}
 	for name := range names {
 		if _, ok := files[name]; ok {
 			return nil, fmt.Errorf("credential %s has conflicting storage backends", name)
@@ -127,6 +143,10 @@ func CredentialLookup(dir string) (source.Lookup, error) {
 	return func(name string) (string, bool) {
 		if value, ok := files[name]; ok {
 			return value, true
+		}
+		if cipher, ok := protected[name]; ok {
+			value, err := protectCredential(dir, name, cipher, true)
+			return string(value), err == nil && len(value) > 0
 		}
 		if !names[name] {
 			return os.LookupEnv(name)

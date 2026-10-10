@@ -15,6 +15,9 @@ func secretCommands(dir *string) *cobra.Command {
 	group := &cobra.Command{Use: "secret", Short: "Manage credentials for background operation without exposing their values"}
 	var stdin bool
 	backend := "private-file"
+	if runtime.GOOS == "windows" {
+		backend = "dpapi"
+	}
 	if runtime.GOOS == "darwin" {
 		backend = "keychain"
 	}
@@ -31,12 +34,14 @@ func secretCommands(dir *string) *cobra.Command {
 			return fmt.Errorf("secret exceeds 64 KiB")
 		}
 		switch backend {
+		case "dpapi":
+			err = install.SetDPAPISecret(*dir, args[0], value)
 		case "keychain":
 			err = install.SetKeychainSecret(cmd.Context(), *dir, args[0], value)
 		case "private-file":
 			err = install.SetSecret(*dir, args[0], value)
 		default:
-			return fmt.Errorf("choose keychain or private-file storage")
+			return fmt.Errorf("choose keychain, dpapi, or private-file storage")
 		}
 		if err != nil {
 			return err
@@ -45,7 +50,7 @@ func secretCommands(dir *string) *cobra.Command {
 		return nil
 	}}
 	set.Flags().BoolVar(&stdin, "stdin", false, "read the value from standard input; private file storage is explicit")
-	set.Flags().StringVar(&backend, "store", backend, "keychain (macOS) or explicit private-file storage")
+	set.Flags().StringVar(&backend, "store", backend, "keychain (macOS), dpapi (Windows), or explicit private-file storage")
 	list := &cobra.Command{Use: "list", Short: "List credential names without their values", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		values, err := install.ReadSecrets(*dir)
 		if err != nil {
@@ -65,7 +70,12 @@ func secretCommands(dir *string) *cobra.Command {
 			native = append(native, name)
 		}
 		sort.Strings(native)
-		return Write(cmd.OutOrStdout(), map[string]any{"privateFile": names, "keychain": native})
+		protected, err := install.DPAPINames(*dir)
+		if err != nil {
+			return err
+		}
+		sort.Strings(protected)
+		return Write(cmd.OutOrStdout(), map[string]any{"privateFile": names, "keychain": native, "dpapi": protected})
 	}}
 	group.AddCommand(set, list)
 	return group
