@@ -8,12 +8,23 @@ struct Message: Decodable {
     let title: String
     let body: String
     let requestPermission: Bool
+    let watchId: String?
+    let stateDir: String?
 }
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        Task { await deliver() }
+        UNUserNotificationCenter.current().delegate = self
+        if CommandLine.arguments.dropFirst() == ["--deliver"] {
+            Task { await deliver() }
+        } else {
+            // A notification click relaunches the helper without stdin. Wait for
+            // the OS response callback instead of trying to decode an empty pipe.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+                NSApplication.shared.terminate(nil)
+            }
+        }
     }
 
     func deliver() async {
@@ -41,6 +52,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             content.title = message.title
             content.body = message.body
             content.sound = .default
+            if let state = message.stateDir, state.hasPrefix("/"), state.utf8.count <= 4096 {
+                content.userInfo["dingStateDir"] = state
+                if let watch = message.watchId { content.userInfo["dingWatchId"] = watch }
+            }
             try await center.add(UNNotificationRequest(identifier: message.id, content: content, trigger: nil))
             FileHandle.standardOutput.write(Data("{\"accepted\":true}\n".utf8))
             NSApplication.shared.terminate(nil)
@@ -54,6 +69,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler([.banner, .list, .sound])
+    }
+
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        defer {
+            completionHandler()
+            DispatchQueue.main.async { NSApplication.shared.terminate(nil) }
+        }
+        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+              let state = response.notification.request.content.userInfo["dingStateDir"] as? String,
+              state.hasPrefix("/"), state.utf8.count <= 4096, !state.contains("\0") else { return }
+        var args = ["ui", "--state-dir", state]
+        if let watch = response.notification.request.content.userInfo["dingWatchId"] as? String {
+            guard watch.range(of: "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$", options: .regularExpression) != nil else { return }
+            args += ["--watch", watch]
+        }
+        let process = Process()
+        // Only the signed sibling binary may mint the fresh one-use browser link.
+        // Notification payloads contain no URL, admin token or expiring session.
+        process.executableURL = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("ding")
+        process.arguments = args
+        process.standardInput = FileHandle.nullDevice
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try? process.run()
     }
 
     enum Failure: Error { case invalidInput, permissionDenied }
