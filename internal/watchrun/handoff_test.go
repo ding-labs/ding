@@ -129,3 +129,49 @@ func TestHandoffRefusesChangedRevisionAndUnhealthyState(t *testing.T) {
 		t.Fatal("failed preflight paused source")
 	}
 }
+
+func TestHandoffRoundTripPreservesLocalHistoryAndFencesCloud(t *testing.T) {
+	local, cloud, prepare, pause := transferFixture(t)
+	source, err := local.PauseForHandoff(ctx, pause)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cloud.ActivateHandoff(ctx, prepare.ID, source); err != nil {
+		t.Fatal(err)
+	}
+	r, _ := cloud.Record(ctx, "api")
+	input(t, cloud, r, 1, 200)
+	cloud.Now = func() time.Time { return start.Add(6 * time.Second) }
+	back, err := cloud.PreflightHandoff(ctx, "api")
+	if err != nil || !back.Ready {
+		t.Fatal(back, err)
+	}
+	review, err := local.Apply(ctx, ApplyRequest{Manifest: back.Manifest, DryRun: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reverseID := strings.Repeat("b", 64)
+	prepared, err := local.PrepareHandoff(ctx, HandoffPrepare{ID: reverseID, ReturnOf: prepare.ID, Peer: back.Instance, Manifest: back.Manifest, Review: review.Review})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reverse, err := cloud.PauseForHandoff(ctx, HandoffPause{ID: reverseID, Peer: prepared.Instance, WatchID: "api", Revision: r.Plan.Revision, Generation: r.Generation, Destinations: back.Destinations})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := local.ActivateHandoff(ctx, reverseID, reverse); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cloud.Lifecycle(ctx, "api", LifecycleRequest{Action: "resume"}); err == nil {
+		t.Fatal("cloud resumed after move back")
+	}
+	current, _ := local.Record(ctx, "api")
+	if current.Status != "running" || !current.LastInputAt.IsZero() {
+		t.Fatal("return did not start fresh")
+	}
+	var events int
+	_ = local.Store.View(ctx, func(tx *store.Tx) error { history, err := tx.Events("api", 0, 100); events = len(history); return err })
+	if events < 4 {
+		t.Fatal("local lifecycle history lost", events)
+	}
+}
