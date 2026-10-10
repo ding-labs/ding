@@ -58,13 +58,14 @@ test("availability cannot advertise a console in a legacy or preview binary", ()
   assert.doesNotThrow(() => validateProduct(product));
   const p = structuredClone(product);
   p.console = { status: "available", minimumVersion: "v1.0.0" };
+  p.runtime = { channel: "source-preview", version: null, sourceRef: "1275a45" };
   assert.throws(() => validateProduct(p), /stable/);
   p.runtime = { channel: "stable", version: "v0.15.0", sourceRef: "v0.15.0" };
   assert.throws(() => validateProduct(p), /predates/);
   p.runtime.version = "v1.0.0";
   assert.doesNotThrow(() => validateProduct(p));
 });
-test("built pages have metadata, truthful preview labels, and no unresolved templates", () => {
+test("built pages have metadata, truthful sample labels, and no unresolved templates", () => {
   for (const file of [
     "index.html",
     "console/index.html",
@@ -83,7 +84,7 @@ test("built pages have metadata, truthful preview labels, and no unresolved temp
   }
   assert.match(
     readFileSync(new URL("console/index.html", dist), "utf8"),
-    /not a released interface/,
+    /not a live dashboard/,
   );
   assert.ok(existsSync(new URL("assets/social.png", dist)));
   const info = JSON.parse(readFileSync(new URL("build-info.json", dist)));

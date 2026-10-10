@@ -13,11 +13,6 @@ const root = new URL("../../../", import.meta.url);
 const base = new URL("../", import.meta.url);
 const out = new URL("dist/", base);
 const product = loadProduct(root);
-// Activating released-console messaging also requires replacing preview artwork/copy.
-if (product.console.status !== "design-preview")
-  throw new Error(
-    "Update console imagery and copy before advertising a released console",
-  );
 const preview = process.argv.includes("--preview");
 const websiteUrl = product.websiteUrl;
 const docsOrigin = preview ? product.previewDocsUrl : product.docsUrl;
@@ -39,8 +34,8 @@ const pages = [
   [
     "console/index.html",
     "console/",
-    "Console design preview",
-    "An evidence-first interface for your Ding daemon. Explore the planned watch, event, and delivery workflows.",
+    "Ding Console",
+    "An evidence-first interface for your Ding daemon. Inspect watch, event, and delivery evidence.",
   ],
   [
     "examples/index.html",
@@ -56,7 +51,7 @@ const pages = [
   ],
 ];
 const evidence = `<div class="evidence-window" aria-label="Illustrative watch evidence, not a live daemon">
-  <div class="window-top"><span class="mini-brand"><img src="/assets/mark.svg" width="22" height="22" alt=""> Ding Console</span><span class="sample-label">DESIGN PREVIEW</span></div>
+  <div class="window-top"><span class="mini-brand"><img src="/assets/mark.svg" width="22" height="22" alt=""> Ding Console</span><span class="sample-label">SAMPLE DATA</span></div>
   <div class="window-body"><div class="breadcrumb">Watches <span aria-hidden="true">/</span> api-health</div>
   <div class="watch-heading"><div><span class="eyebrow">Selected event</span><h2>API health</h2></div><span class="status incident" data-demo-badge>Incident opened</span></div>
   <p class="watch-explanation" data-demo-title>Three checks.<br>Three server errors.</p>
