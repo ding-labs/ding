@@ -104,6 +104,13 @@ func (s *Server) Handler() (http.Handler, error) {
 				return
 			}
 		}
+		if s.devicePublic(w, r) {
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/connect/") {
+			s.connectDevice(w, r)
+			return
+		}
 		session, err := s.authenticate(r)
 		if err != nil {
 			cloudFail(w, 401, "sign_in_required", "Sign in to Ding Cloud. Local watches continue independently.")
