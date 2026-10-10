@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/ding-labs/ding/internal/install"
 	"github.com/ding-labs/ding/internal/mcpconfig"
@@ -162,21 +163,24 @@ func (m Manager) Action(ctx context.Context, action string) error {
 	case "darwin":
 		target := "gui/" + m.UID + "/" + d.Name
 		_, loadedErr := m.Run(ctx, "launchctl", "print", target)
+		if loadedErr != nil && !hasExitCode(loadedErr, 113) {
+			return fmt.Errorf("cannot inspect launchd service: %w", loadedErr)
+		}
 		if action == "stop" {
 			if loadedErr != nil {
 				return nil
 			}
-			return m.command(ctx, "launchctl", "bootout", target)
+			return m.bootout(ctx, target)
 		}
 		if loadedErr != nil {
-			return m.command(ctx, "launchctl", "bootstrap", "gui/"+m.UID, d.Path)
+			return m.bootstrap(ctx)
 		}
 		if action == "restart" {
 			// bootout requests graceful termination; kickstart -k would SIGKILL.
-			if err := m.command(ctx, "launchctl", "bootout", target); err != nil {
+			if err := m.bootout(ctx, target); err != nil {
 				return err
 			}
-			return m.command(ctx, "launchctl", "bootstrap", "gui/"+m.UID, d.Path)
+			return m.bootstrap(ctx)
 		}
 		return m.command(ctx, "launchctl", "kickstart", target)
 	case "linux":
@@ -193,6 +197,52 @@ func (m Manager) Action(ctx context.Context, action string) error {
 		return nil
 	}
 	return fmt.Errorf("unsupported service manager")
+}
+
+func hasExitCode(err error, code int) bool {
+	var exited interface{ ExitCode() int }
+	return errors.As(err, &exited) && exited.ExitCode() == code
+}
+
+func (m Manager) bootout(ctx context.Context, target string) error {
+	if err := m.command(ctx, "launchctl", "bootout", target); err != nil {
+		return err
+	}
+	for {
+		_, err := m.Run(ctx, "launchctl", "print", target)
+		if hasExitCode(err, 113) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+}
+
+func (m Manager) bootstrap(ctx context.Context) error {
+	// launchd can remove a label before its teardown finishes. Retry only its
+	// observed transient bootstrap I/O error, with a short bounded budget.
+	var last error
+	for attempt := 0; attempt < 20; attempt++ {
+		_, last = m.Run(ctx, "launchctl", "bootstrap", "gui/"+m.UID, m.Definition.Path)
+		if last == nil {
+			return nil
+		}
+		if !hasExitCode(last, 5) {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	return fmt.Errorf("launchd could not start the owned service: %w", last)
 }
 
 func (m Manager) Uninstall(ctx context.Context) error {
