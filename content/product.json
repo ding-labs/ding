@@ -6,9 +6,9 @@
   "docsUrl": "https://docs.ding.ing",
   "previewDocsUrl": "https://ding-docs-preview.zuchka.workers.dev",
   "repositoryUrl": "https://github.com/ding-labs/ding",
-  "runtime": { "channel": "source-preview", "version": null, "sourceRef": "1275a45" },
-  "console": { "status": "design-preview", "minimumVersion": null },
+  "runtime": { "channel": "stable", "version": "v0.15.0", "sourceRef": "v0.15.0" },
+  "console": { "status": "available", "minimumVersion": "v0.15.0" },
   "legacy": { "version": "v0.14.0" },
   "installPath": "/install/",
-  "quickstartPath": "/guides/first-watch/"
+  "quickstartPath": "/operate/local-setup/"
 }

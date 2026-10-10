@@ -1,9 +1,8 @@
 # Ding Console
 
-Ding Console is available in **console-enabled source builds** from this checkout.
-Published legacy v0.14.0 binaries do not include the Console or `ding ui`. Human
-usability review and a fresh continuous soak remain release gates; see the
-[qualification record](../development/console-qualification.md).
+Ding Console is included in the **v0.15.0 Homebrew package**. Run `ding setup` once,
+then `ding ui` whenever you want to open it. See the
+[setup guide](../operate/local-setup.md) for installation and your first watch.
 
 The interface follows the evidence: what was observed, how the condition was
 evaluated, what event was recorded, and what happened to delivery. For a headless
@@ -11,7 +10,7 @@ installation, use the [first-watch CLI walkthrough](../guides/first-watch.md).
 
 The console is served by the same daemon as the versioned API. Its browser session can inspect and manage that instance; the public `ding.ing` website is a separate deployment.
 
-## Build and open
+## Build from source
 
 From a checkout, use Go 1.26+ and Node 24+:
 

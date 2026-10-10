@@ -24,7 +24,9 @@ func openPrivate(path string, create bool) (*os.File, error) {
 	if create {
 		access = windows.GENERIC_WRITE | windows.READ_CONTROL
 		disposition = windows.CREATE_NEW
-		sd, err := windows.SecurityDescriptorFromString("D:P(A;;FA;;;" + user.User.Sid.String() + ")(A;;FA;;;SY)")
+		// An elevated token can default new files to the Administrators group.
+		// Set the actual user's owner SID as well as the protected DACL.
+		sd, err := windows.SecurityDescriptorFromString("O:" + user.User.Sid.String() + "D:P(A;;FA;;;" + user.User.Sid.String() + ")(A;;FA;;;SY)")
 		if err != nil {
 			return nil, ErrPrivate
 		}

@@ -1,9 +1,26 @@
 # Build and qualify native local packages
 
-These are release-engineering instructions for the watch-runtime source preview.
-They do not change the legacy v0.14.0 stable download. The complete artifact embeds
+These are release-engineering instructions for the watch runtime. The complete artifact embeds
 the Console, MCP UI and adapter; macOS also includes its notification/Keychain app.
 Users do not need Go, Python, Node, jq or model credentials.
+
+## Homebrew releases
+
+The v0.15.0 release uses the **Release** workflow: four native macOS/Linux builds,
+embedded interfaces, race tests and an end-to-end check of each extracted archive.
+It creates a GitHub release draft with those archives, checksums and `ding.rb`.
+Review the runtime/browser CI and test a native Homebrew install before publishing
+the draft and committing the generated formula to `ding-labs/homebrew-tap`.
+
+This route uses Homebrew's HTTPS downloads and pinned SHA-256 digests. Mac helpers
+are ad-hoc signed; no notarized installer is advertised. Homebrew owns updates,
+and the release does not enable the independent signed standalone updater. Run
+`brew test ding-labs/tap/ding`, `ding setup`, `ding status`, and `ding notify test`
+from the installed package. Verify desktop visibility on the actual machine.
+
+The remaining sections describe separately distributed native installers and
+signed automatic updates. Their signing requirements do not apply to the
+Homebrew-only distribution, and the Homebrew workflow does not publish them.
 
 ## Build candidates
 
@@ -109,8 +126,8 @@ release before expiration; expiry must produce an actionable update-check error,
 not stop local monitoring. Keep the private signing key out of repository history,
 artifacts and logs. Retain previous signed artifacts and backup/migration guidance.
 
-The former tag-triggered cross-build route is blocked because it omits native
-helpers/signing. Do not re-enable it to bypass this procedure. The generated Homebrew formula installs the executable and complete macOS helper
+The former tag-triggered cross-build route has been replaced with native Homebrew
+builds; it must not publish notarized installers or signed channels. The generated Homebrew formula installs the executable and complete macOS helper
 together in `libexec`, links the executable into `bin`, and preserves Homebrew
 ownership. It deliberately defines no competing Homebrew service. Review the
 formula against the [Homebrew cookbook](https://docs.brew.sh/Formula-Cookbook.html),

@@ -66,6 +66,8 @@ test("terminal delivery retry keeps original identity and records a new policy c
     .toBe("permanent");
   const original = (await call(daemon, "/console/deliveries")).deliveries[0];
   await page.goto(await daemon.launch());
+  // Wait for the one-use handoff to set the session cookie before navigating.
+  await expect(page.getByRole("link", { name: "Watches", exact: true })).toBeVisible();
   await page.goto(`${daemon.url}/ui/deliveries/${original.id}`);
   await page
     .getByRole("button", { name: "Retry delivery", exact: true })

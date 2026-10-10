@@ -103,6 +103,9 @@ func serviceCommands(root *cobra.Command, dir *string) {
 			return Write(cmd.OutOrStdout(), s)
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Ding %s — daemon %s\nState: %s\n", s.Version, s.Daemon, s.StateDir)
+		if s.Installation != nil && s.Installation.Owner == "homebrew" {
+			fmt.Fprintln(cmd.OutOrStdout(), "Updates: managed by Homebrew (brew upgrade ding-labs/tap/ding)")
+		}
 		if s.Service != nil {
 			fmt.Fprintf(cmd.OutOrStdout(), "Background service: %s (startup: %s)\n", s.Service.State, s.Service.Startup)
 		}

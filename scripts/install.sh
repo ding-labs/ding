@@ -1,62 +1,13 @@
 #!/bin/sh
-set -e
+set -eu
 
-REPO="ding-labs/ding"
-INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
-
-# Detect OS
-OS="$(uname -s)"
-case "$OS" in
-  Linux)  OS="linux" ;;
-  Darwin) OS="darwin" ;;
-  *)      echo "Unsupported OS: $OS" && exit 1 ;;
-esac
-
-# Detect architecture
-ARCH="$(uname -m)"
-case "$ARCH" in
-  x86_64)         ARCH="amd64" ;;
-  aarch64|arm64)  ARCH="arm64" ;;
-  *)              echo "Unsupported arch: $ARCH" && exit 1 ;;
-esac
-
-# Pin a legacy or preview version with DING_VERSION; otherwise use latest stable.
-VERSION="${DING_VERSION:-}"
-if [ -z "$VERSION" ]; then
-VERSION="$(curl -sf "https://api.github.com/repos/${REPO}/releases/latest" \
-  | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\(.*\)".*/\1/')"
-
+# Homebrew installs the complete bundle, including the native Mac helper.
+# Downloading only the ding executable leaves notifications and Keychain broken.
+if ! command -v brew >/dev/null 2>&1; then
+  echo 'Install Homebrew from https://brew.sh, then run:' >&2
+  echo '  brew install ding-labs/tap/ding' >&2
+  echo '  ding setup' >&2
+  exit 1
 fi
-
-if [ -z "$VERSION" ]; then
-  echo "Could not determine latest release version." && exit 1
-fi
-
-FILENAME="ding_${OS}_${ARCH}.tar.gz"
-URL="https://github.com/${REPO}/releases/download/${VERSION}/${FILENAME}"
-CHECKSUM_URL="https://github.com/${REPO}/releases/download/${VERSION}/checksums.txt"
-
-TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
-
-echo "Downloading ding ${VERSION} for ${OS}/${ARCH}..."
-curl -sfL "$URL" -o "${TMP}/${FILENAME}"
-curl -sfL "$CHECKSUM_URL" -o "${TMP}/checksums.txt"
-
-# Verify checksum (works on Linux and macOS)
-cd "$TMP"
-grep "$FILENAME" checksums.txt > check.txt
-sha256sum -c check.txt 2>/dev/null \
-  || shasum -a 256 -c check.txt 2>/dev/null \
-  || { echo "Checksum verification failed." && exit 1; }
-
-tar -xzf "$FILENAME"
-
-# Install (use sudo only if needed)
-if [ -w "$INSTALL_DIR" ]; then
-  mv ding "$INSTALL_DIR/ding"
-else
-  sudo mv ding "$INSTALL_DIR/ding"
-fi
-
-echo "ding ${VERSION} installed to ${INSTALL_DIR}/ding"
+brew install ding-labs/tap/ding
+printf '\nRun ding setup to enable background startup and create your first watch.\n'

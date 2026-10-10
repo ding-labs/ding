@@ -3,6 +3,8 @@ package watchrun
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -133,13 +135,13 @@ func TestIntegrationLifecycleGenerationAndReceiptBinding(t *testing.T) {
 
 func TestIntegrationCommandRevisionsRequireExplicitLocalGrant(t *testing.T) {
 	a, _ := setup(t)
-	manifest := `apiVersion: ding.ing/v1alpha1
+	manifest := fmt.Sprintf(`apiVersion: ding.ing/v1alpha1
 kind: Watch
 metadata: {id: command}
 spec:
-  source: {type: command, argv: [echo, '{"n": 1}'], directory: /tmp}
+  source: {type: command, argv: [echo, '{"n": 1}'], directory: %q}
   condition: {field: n, operator: eq, value: 1}
-`
+`, filepath.ToSlash(t.TempDir()))
 	g := integrationGrant(t, a, "inspect", "preview", "manage")
 	if _, err := a.PreviewIntegration(ctx, g.Grant.ID, manifest); !errors.Is(err, store.ErrIntegrationDenied) {
 		t.Fatal("command accepted", err)

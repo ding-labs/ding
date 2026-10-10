@@ -49,14 +49,19 @@ func TestNativeArtifact(t *testing.T) {
 		return envelope.Data
 	}
 	dir := t.TempDir()
-	var version map[string]string
+	var version struct {
+		OS      string `json:"os"`
+		Arch    string `json:"arch"`
+		Version string `json:"version"`
+		Schema  int    `json:"schema"`
+	}
 	must(t, json.Unmarshal(cli(dir, "version"), &version))
-	if version["os"] != runtime.GOOS || version["arch"] != runtime.GOARCH {
+	if version.OS != runtime.GOOS || version.Arch != runtime.GOARCH || version.Schema != store.SchemaVersion {
 		t.Fatal("artifact is not native", version, runtime.GOOS, runtime.GOARCH)
 	}
 	info, err := os.Stat(binary)
 	must(t, err)
-	t.Logf("native artifact %s/%s: %d executable bytes; version %s", runtime.GOOS, runtime.GOARCH, info.Size(), version["version"])
+	t.Logf("native artifact %s/%s: %d executable bytes; version %s", runtime.GOOS, runtime.GOARCH, info.Size(), version.Version)
 	start := func(stateDir string) func() {
 		t.Helper()
 		log, err := os.CreateTemp(t.TempDir(), "daemon-*.log")

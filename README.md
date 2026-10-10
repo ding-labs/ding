@@ -11,18 +11,30 @@ Use it to alert after three failed health checks, detect a changed value, catch
 missing data, or notify on a new provider event. Developers and agents use the
 same versioned manifests, CLI, and local API. Checks run without a model call.
 
-**Current status: watch preview.** The `main` branch contains the new watch
-runtime. The latest published release,
-[v0.14.0](https://github.com/ding-labs/ding/releases/tag/v0.14.0), contains the legacy
-job-wrapper runtime. Build from source below to try watches. A stable watch
-release has not been declared; see the [release checklist](docs/releases/watch-checklist.md)
-and [qualification progress](docs/development/progress.md).
+## Install and start
+
+On macOS or Linux with Homebrew:
+
+```sh
+brew install ding-labs/tap/ding
+ding setup
+```
+
+Accept background startup. In the Console, choose **Create your first watch**,
+enter your HTTP health endpoint, and test a notification. No account, Go, Node,
+Python, or model key is needed. Close the terminal: Ding keeps running while your
+computer is awake and connected. Run `ding ui` to reopen the Console and
+`ding status` to check monitoring.
+
+[v0.15.0](https://github.com/ding-labs/ding/releases/tag/v0.15.0) includes the watch
+runtime, Console, local MCP adapter and macOS notification helper. See the
+[setup guide](docs/operate/local-setup.md) and [release notes](docs/releases/v0.15.0.md).
 
 The monorepo also includes an [official Go SDK MCP integration for ChatGPT and Claude](docs/integrations/README.md)
 with embedded views and plugin packaging. It is under qualification; official
 marketplace publication has not yet happened.
 
-The [local setup preview](docs/operate/local-setup.md) adds background startup, a
+The [local setup](docs/operate/local-setup.md) includes background startup, a
 first-watch flow, desktop alerts, private credentials and signed-update tooling.
 Use an [always-on machine](docs/operate/always-on.md) without an account, or try the
 optional [cloud implementation](docs/operate/cloud-preview.md) for hosted public
@@ -37,7 +49,7 @@ keep those boundaries explicit.
 | Sources | HTTP polling, explicit local commands returning JSON, authenticated JSON push |
 | Conditions | Typed comparisons, numeric aggregates and windows, value changes, missing data, new provider IDs |
 | Alert policies | Fire on transitions or at configured intervals; consecutive checks, recovery counts, cooldowns, and provider-ID deduplication |
-| Destinations | Console, native desktop notifications (source preview), webhooks, Slack incoming webhooks, Discord webhooks |
+| Destinations | Console, native desktop notifications, webhooks, Slack incoming webhooks, Discord webhooks |
 | Local state | SQLite stores condition state, timers, retained evidence, events, and pending deliveries |
 
 A watch declares its source, condition, alert policy, and destinations. Ding
@@ -50,7 +62,7 @@ Start with the [HTTP health](examples/watches/api-health.yaml),
 URLs and command paths with real sources. External data feeds require your own
 provider access and credentials.
 
-## Try a local watch
+## Develop from source
 
 Requires Go 1.26, Git, curl, and jq. In a terminal:
 

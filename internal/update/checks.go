@@ -58,6 +58,11 @@ func CheckOnce(ctx context.Context, dir string, schema int, force bool) (CheckSt
 	if err != nil {
 		return result, err
 	}
+	// Package managers own their update checks and trust roots. A Homebrew build
+	// deliberately has no standalone updater key; that is not a broken build.
+	if r.Owner != "standalone" {
+		return CheckStatus{Current: r.Version}, nil
+	}
 	if PublicKey == "" || r.Channel == "development" {
 		return CheckStatus{Current: r.Version, Error: "Updates are not configured in this development build."}, nil
 	}

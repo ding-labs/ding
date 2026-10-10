@@ -95,6 +95,8 @@ test("an unacknowledged retry is inspected before another cycle is allowed", asy
     .toBe("permanent");
   const d = (await call(daemon, "/console/deliveries")).deliveries[0];
   await page.goto(await daemon.launch());
+  // A second navigation must not cancel the asynchronous login exchange.
+  await expect(page.getByRole("link", { name: "Watches", exact: true })).toBeVisible();
   await page.goto(`${daemon.url}/ui/deliveries/${d.id}`);
   let writes = 0;
   await page.route(`**/v1/deliveries/${d.id}/retry`, async (r) => {

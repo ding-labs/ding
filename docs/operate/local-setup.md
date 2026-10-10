@@ -1,13 +1,27 @@
-# Local setup in the development checkout
+# Install and set up Ding
 
-These commands describe the current development implementation. The published
-v0.14.0 installer remains the legacy runtime. A signed watch-runtime installer,
-native reboot qualification, and public marketplace acceptance are still gates.
+Homebrew installs the complete local experience on macOS 13+ and Linux (ARM64 or
+x86-64). No account or development tools are needed:
 
-## Build the complete local experience
+```sh
+brew install ding-labs/tap/ding
+ding setup
+```
 
-Build tools are needed for this source preview; eventual release packages embed
-the Console, MCP UI, and native helper so end users do not need them.
+Accept background startup. In the Console, select **Create your first watch**,
+enter your HTTP health endpoint, review the behavior, and send a test notification.
+Confirm that you saw it, then start the watch. Use `ding status` to check it and
+`ding ui` to reopen the Console. Closing the Console or terminal leaves the daemon
+running. Your computer must remain awake and connected.
+
+For an upgrade: `ding service stop`, `brew update`,
+`brew upgrade ding-labs/tap/ding`, then `ding setup`. The tap owns the binaries;
+you do not need `brew services` or Ding's standalone updater.
+
+## Build from source (contributors)
+
+Skip this section when installing with Homebrew. Contributors need Go, Node and,
+on macOS, the Xcode command-line tools to build the bundled native helper.
 
 ```sh
 npm ci --prefix web/console
@@ -22,7 +36,8 @@ sh scripts/build-notifications-macos.sh dist/local/DingNotifications.app
 ```
 
 Keep the resulting directory in place: the service records its absolute path.
-The development macOS helper is ad-hoc signed, not a notarized public package.
+The development and Homebrew macOS helpers are ad-hoc signed. Separately downloadable
+notarized installers remain a future distribution route.
 Setup explains user-login startup before enabling it and opens the local Console.
 Select **Create your first watch**, enter your own HTTP endpoint, review the exact
 behavior, and test desktop notifications. No account, model, or YAML is required.
