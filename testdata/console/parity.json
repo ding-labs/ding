@@ -29,5 +29,10 @@
   "watch inspect": "watches/detail",
   "watch list": "watches",
   "watch pause": "watches/detail",
-  "watch resume": "watches/detail"
+  "watch resume": "watches/detail",
+  "mcp doctor": "Host integration setup boundary: local CLI and guided MCP pairing; scoped tool operations remain available through the integration UI.",
+  "mcp grants": "Host integration setup boundary: local CLI and guided MCP pairing; scoped tool operations remain available through the integration UI.",
+  "mcp pair": "Host integration setup boundary: local CLI and guided MCP pairing; scoped tool operations remain available through the integration UI.",
+  "mcp serve": "Host integration setup boundary: local CLI and guided MCP pairing; scoped tool operations remain available through the integration UI.",
+  "mcp setup": "Host integration setup boundary: local CLI and guided MCP pairing; scoped tool operations remain available through the integration UI."
 }
