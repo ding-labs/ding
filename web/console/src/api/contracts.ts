@@ -38,6 +38,8 @@ export interface ControlBackupArtifact {
 export interface ControlBrowserSession {
   csrf: string;
   expiresAt: string;
+  execution?: string;
+  workspace?: string;
 }
 
 export interface ControlCompileResult {
@@ -85,6 +87,8 @@ export interface ControlInfo {
   stateDir: string;
   limits: WatchrunLimits;
   time: string;
+  execution?: string;
+  workspace?: string;
 }
 
 export interface ControlVerification {

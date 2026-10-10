@@ -1,13 +1,16 @@
+let workspace = "";
+export function setPreferenceWorkspace(id: string) { workspace = id; }
+function storageKey(key: string) { return workspace ? `ding.workspace.${workspace}.${key}` : key; }
 export function preference(key: string, fallback: string) {
   try {
-    return localStorage.getItem(key) || fallback;
+    return localStorage.getItem(storageKey(key)) || fallback;
   } catch {
     return fallback;
   }
 }
 export function savePreference(key: string, value: string) {
   try {
-    localStorage.setItem(key, value);
+    localStorage.setItem(storageKey(key), value);
   } catch {
     /* Preferences are optional when browser storage is unavailable. */
   }

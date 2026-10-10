@@ -18,6 +18,9 @@ export function setDraft(patch: Partial<Draft>) {
   value = { ...value, ...patch };
   listeners.forEach((fn) => fn());
 }
+export function resetDraft() {
+  setDraft({ manifest: "", fixture: "", evidence: "", legacy: "", dirty: false });
+}
 export function useDraft() {
   return useSyncExternalStore(
     (fn) => {

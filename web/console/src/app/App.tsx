@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import bell from "../../../../design/assets/mark.svg";
 import {
   NavLink,
@@ -22,12 +22,13 @@ import { useConnection } from "../api/connection";
 import { api, connect, logout } from "../api/client";
 import type { ControlInfo } from "../api/contracts";
 
-import { preference, savePreference } from "./preferences";
+import { preference, savePreference, setPreferenceWorkspace } from "./preferences";
+import { ExecutionContext, discoverCloud, type Execution } from "./execution";
 import { CommandMenu } from "../components/CommandMenu";
 import { System } from "../pages/System";
 import { Workbench } from "../pages/Workbench";
 import { FirstWatch } from "../pages/FirstWatch";
-import "./draft";
+import { resetDraft } from "./draft";
 import { useNavigationContext } from "./scroll";
 import { Watches, WatchDetail } from "../pages/Watches";
 import { Events, EventDetail } from "../pages/Events";
@@ -46,6 +47,8 @@ let sessionAttempt: ReturnType<typeof connect> | undefined;
 export function App() {
   useNavigationContext();
   const connected = useConnection();
+  const [execution, setExecution] = useState<Execution>({ mode: "local" });
+  const workspace = useRef("");
   const [density, setDensity] = useState(
     preference("ding.density", "comfortable"),
   );
@@ -60,7 +63,12 @@ export function App() {
   const establish = () => {
     sessionAttempt ??= connect();
     sessionAttempt
-      .then(() => {
+      .then((details) => {
+        const next = details.workspace || "";
+        if (workspace.current !== next) { client.clear(); resetDraft(); }
+        workspace.current = next;
+        setPreferenceWorkspace(next);
+        setExecution({ mode: details.execution === "cloud" ? "cloud" : "local", workspace: next });
         setSession("ready");
         setError("");
       })
@@ -73,9 +81,11 @@ export function App() {
       });
   };
   useEffect(() => {
+    void discoverCloud().then(cloud => { if (cloud) setExecution(current => ({ ...current, mode: "cloud" })); });
     establish();
     const lock = () => {
       client.clear();
+      if (workspace.current) resetDraft();
       setSession("locked");
     };
     window.addEventListener("ding:unauthorized", lock);
@@ -106,7 +116,7 @@ export function App() {
           <h1>
             {session === "loading"
               ? "Connecting to Ding…"
-              : "Open your console."}
+              : execution.mode === "cloud" ? "Your watches, always on." : "Open your console."}
           </h1>
           <p>
             Inspect your watches, follow the evidence, and see what happened to
@@ -117,15 +127,18 @@ export function App() {
               {error}
             </div>
           )}
-          <div className="launch-instructions">
+          {execution.mode === "cloud" ? <div className="launch-instructions">
+            <p>Sign in with GitHub when you choose hosted execution. No credit card or onboarding questionnaire. Local Ding remains free and account-free.</p>
+            <a className="button primary" href="/auth/login">Continue with GitHub <ArrowRight size={16} /></a>
+          </div> : <div className="launch-instructions">
             <span>Run in your terminal</span>
             <code>ding ui</code>
             <p>
               The command opens a one-use link. Credentials stay on your
               machine.
             </p>
-          </div>
-          {session === "locked" && (
+          </div>}
+          {session === "locked" && execution.mode === "local" && (
             <button
               className="button primary"
               onClick={() => {
@@ -140,6 +153,7 @@ export function App() {
       </main>
     );
   return (
+    <ExecutionContext.Provider value={execution}>
     <TimeContext.Provider value={timeMode}>
       <div className="app-shell">
         <a className="skip-link" href="#main">
@@ -222,6 +236,7 @@ export function App() {
                   try {
                     await logout();
                     client.clear();
+                    if (workspace.current) resetDraft();
                     setSession("locked");
                   } catch (e) {
                     setError((e as Error).message);
@@ -279,5 +294,6 @@ export function App() {
         </div>
       </div>
     </TimeContext.Provider>
+    </ExecutionContext.Provider>
   );
 }

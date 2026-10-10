@@ -42,10 +42,14 @@ type Info struct {
 	StateDir   string          `json:"stateDir"`
 	Limits     watchrun.Limits `json:"limits"`
 	Time       time.Time       `json:"time"`
+	Execution  string          `json:"execution,omitempty"`
+	Workspace  string          `json:"workspace,omitempty"`
 }
 type BrowserSession struct {
 	CSRF      string    `json:"csrf"`
 	ExpiresAt time.Time `json:"expiresAt"`
+	Execution string    `json:"execution,omitempty"`
+	Workspace string    `json:"workspace,omitempty"`
 }
 type BrowserHandoff struct {
 	Token     string    `json:"token"`
@@ -98,7 +102,7 @@ func ConsoleHandler(app *watchrun.App, c Credentials, cfg ConsoleConfig) http.Ha
 	api := http.NewServeMux()
 	api.Handle("/", Handler(app, c))
 	api.HandleFunc("GET /v1/info", func(w http.ResponseWriter, r *http.Request) {
-		write(w, 200, Info{cfg.Version, watch.APIVersion, store.SchemaVersion, runtime.GOOS, runtime.GOARCH, enabled, cfg.Origin, cfg.Listen, cfg.StateDir, app.Limits, time.Now().UTC()}, nil)
+		write(w, 200, Info{Version: cfg.Version, APIVersion: watch.APIVersion, Schema: store.SchemaVersion, OS: runtime.GOOS, Arch: runtime.GOARCH, Console: enabled, Origin: cfg.Origin, Listen: cfg.Listen, StateDir: cfg.StateDir, Limits: app.Limits, Time: time.Now().UTC(), Execution: "local"}, nil)
 	})
 	api.HandleFunc("POST /v1/browser/handoff", func(w http.ResponseWriter, r *http.Request) {
 		if !enabled {
@@ -177,7 +181,7 @@ func ConsoleHandler(app *watchrun.App, c Credentials, cfg ConsoleConfig) http.Ha
 			}
 			delete(b.handoffs, request.Token)
 			token := randomToken()
-			s := browserSession{BrowserSession{randomToken(), b.now().Add(8 * time.Hour)}}
+			s := browserSession{BrowserSession{CSRF: randomToken(), ExpiresAt: b.now().Add(8 * time.Hour), Execution: "local"}}
 			b.sessions[token] = s
 			http.SetCookie(w, &http.Cookie{Name: b.cookieName, Value: token, Path: "/v1", HttpOnly: true, Secure: b.secure, SameSite: http.SameSiteStrictMode, Expires: s.ExpiresAt})
 			write(w, 200, s.BrowserSession, nil)
