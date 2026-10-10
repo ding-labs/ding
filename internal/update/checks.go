@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/ding-labs/ding/internal/install"
@@ -65,7 +66,7 @@ func CheckOnce(ctx context.Context, dir string, schema int, force bool) (CheckSt
 	manifest, checkErr := (Client{}).Check(ctx, PublicKey, r.Channel, now)
 	if checkErr != nil {
 		result.Error = checkErr.Error()
-	} else if semver.Compare(manifest.Version, "v"+r.Version) > 0 {
+	} else if semver.Compare(manifest.Version, "v"+strings.TrimPrefix(r.Version, "v")) > 0 {
 		result.Available = manifest.Version
 		_, err := manifest.Select(runtime.GOOS, runtime.GOARCH, r.Version, schema)
 		result.Compatible = err == nil

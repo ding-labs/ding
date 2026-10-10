@@ -58,5 +58,7 @@
   "cloud move status": "Availability flow: explicit local preflight, selected configuration transfer, delivery confirmation, and durable reconciliation.",
   "cloud move test": "Availability flow: explicit local preflight, selected configuration transfer, delivery confirmation, and durable reconciliation.",
   "cloud move finish": "Availability flow: explicit local preflight, selected configuration transfer, delivery confirmation, and durable reconciliation.",
-  "cloud move cancel": "Availability flow: explicit local preflight, selected configuration transfer, delivery confirmation, and durable reconciliation."
+  "cloud move cancel": "Availability flow: explicit local preflight, selected configuration transfer, delivery confirmation, and durable reconciliation.",
+  "update configure": "Host update policy: checks can be disabled; automatic compatible stable replacements require explicit opt-in and a maintenance hour.",
+  "update scheduled": "Host update policy: checks can be disabled; automatic compatible stable replacements require explicit opt-in and a maintenance hour."
 }

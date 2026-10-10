@@ -22,6 +22,7 @@ import (
 
 func updateCommands(root *cobra.Command, dir *string) {
 	group := &cobra.Command{Use: "update", Short: "Check signed releases and safely update a standalone installation"}
+	updateScheduleCommands(group, dir)
 	for _, action := range []string{"check", "install", "recover"} {
 		var yes bool
 		command := &cobra.Command{Use: action, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
