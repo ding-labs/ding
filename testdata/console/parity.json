@@ -46,5 +46,8 @@
   "secret set": "Host-only private credential write from stdin; browser and models never read stored secret values.",
   "secret list": "Host-only credential names; Console Doctor reports reference presence without values.",
   "watch create": "First-watch Console flow uses the same compiled preview and reviewed apply.",
-  "notify test": "First-watch Console flow requests native notification permission and a labeled test."
+  "notify test": "First-watch Console flow requests native notification permission and a labeled test.",
+  "update check": "Host updater verifies signed release metadata independently of the daemon.",
+  "update install": "Host updater preserves a backup, enforces installation ownership and waits for service readiness.",
+  "update recover": "Host updater reconciles its persistent journal even when the daemon cannot start."
 }

@@ -191,6 +191,7 @@ func runtimeCommands(root *cobra.Command) {
 	root.AddCommand(watchCmd)
 	inspectionCommands(root, &dir)
 	serviceCommands(root, &dir)
+	updateCommands(root, &dir)
 	root.AddCommand(secretCommands(&dir))
 	root.AddCommand(notifyCommand(&dir))
 	root.AddCommand(uiCommand(&dir))
