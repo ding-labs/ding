@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { CloudModels } from "./CloudModels";
 import { api } from "../api/client";
 import { useRead, ErrorBox, Loading } from "../components/common";
 
@@ -51,5 +52,6 @@ export function CloudSystem() {
         <button className="button primary" type="submit">Save or replace credential</button>
       </fieldset></form>
     </section>
+    <CloudModels />
   </>;
 }
