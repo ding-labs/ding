@@ -25,6 +25,7 @@ type Server struct {
 	MCP                http.Handler
 	TenantHandler      func(http.ResponseWriter, *http.Request, state.Session, *Tenant)
 	mu                 sync.Mutex
+	modelMu            sync.Mutex
 	private            map[string]tenantAPI
 	limits             map[string]*rate.Limiter
 	requests           chan struct{}

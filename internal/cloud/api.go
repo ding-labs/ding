@@ -31,6 +31,10 @@ func decodeCloud(r *http.Request, value any) error {
 }
 
 func (s *Server) serveTenant(w http.ResponseWriter, r *http.Request, session state.Session, t *Tenant) {
+	if r.URL.Path == "/v1/cloud/models" {
+		s.modelConnections(w, r, t)
+		return
+	}
 	if r.Method == "GET" {
 		switch r.URL.Path {
 		case "/v1/info":
