@@ -126,6 +126,22 @@ func (a *App) apply(ctx context.Context, request ApplyRequest, mutation *integra
 			}
 		}
 		result.Credentials = a.BundleCredentials(bundle, extra)
+		if a.Limits.MaxDestinations > 0 {
+			existing, err := tx.Destinations()
+			if err != nil {
+				return err
+			}
+			ids := map[string]bool{}
+			for _, d := range existing {
+				ids[d.Metadata.ID] = true
+			}
+			for _, d := range bundle.Destinations {
+				ids[d.Definition.Metadata.ID] = true
+			}
+			if len(ids) > a.Limits.MaxDestinations {
+				return ErrQuota
+			}
+		}
 		available := map[string]bool{}
 		for _, d := range bundle.Destinations {
 			available[d.Definition.Metadata.ID] = true

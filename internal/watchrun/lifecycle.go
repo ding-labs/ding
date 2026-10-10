@@ -19,10 +19,11 @@ var ErrQuota = errors.New("resource quota exceeded")
 var ErrClosing = errors.New("runtime is shutting down")
 
 type Limits struct {
-	MaxWatches int           `json:"maxWatches"`
-	MaxPending int           `json:"maxPending"`
-	MaxBytes   int64         `json:"maxBytes"`
-	Retention  time.Duration `json:"retention"`
+	MaxDestinations int           `json:"maxDestinations"` // Zero preserves older callers' unlimited destination count.
+	MaxWatches      int           `json:"maxWatches"`
+	MaxPending      int           `json:"maxPending"`
+	MaxBytes        int64         `json:"maxBytes"`
+	Retention       time.Duration `json:"retention"`
 }
 
 func DefaultLimits() Limits {

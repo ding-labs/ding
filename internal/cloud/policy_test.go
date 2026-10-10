@@ -61,4 +61,11 @@ func TestCloudPolicyAndRuntimeMutationBoundary(t *testing.T) {
 	if _, err := a.Apply(context.Background(), watchrun.ApplyRequest{Manifest: fixture}); err != nil {
 		t.Fatal(err)
 	}
+	for _, id := range []string{"two", "three", "four"} {
+		manifest := "apiVersion: ding.ing/v1alpha1\nkind: Destination\nmetadata: {id: " + id + "}\nspec: {type: webhook, urlRef: {env: WEBHOOK}}\n"
+		_, err := a.Apply(context.Background(), watchrun.ApplyRequest{Manifest: manifest})
+		if (err != nil) != (id == "four") {
+			t.Fatal("destination quota", id, err)
+		}
+	}
 }

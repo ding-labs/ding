@@ -542,6 +542,7 @@ export interface WatchrunDoctor {
 }
 
 export interface WatchrunLimits {
+  maxDestinations: number;
   maxWatches: number;
   maxPending: number;
   maxBytes: number;

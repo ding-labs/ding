@@ -14,7 +14,7 @@ import (
 const MaxManifestBytes = 64 << 10
 
 func Limits() watchrun.Limits {
-	return watchrun.Limits{MaxWatches: 3, MaxPending: 100, MaxBytes: 64 << 20, Retention: 7 * 24 * time.Hour}
+	return watchrun.Limits{MaxDestinations: 3, MaxWatches: 3, MaxPending: 100, MaxBytes: 64 << 20, Retention: 7 * 24 * time.Hour}
 }
 
 func Policy(bundle plan.Bundle) error {
