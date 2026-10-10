@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"filippo.io/age"
+	"github.com/ding-labs/ding/internal/cloud"
 	"github.com/ding-labs/ding/internal/cloudbackup"
 	"github.com/ding-labs/ding/internal/mcpconfig"
 )
@@ -18,7 +19,7 @@ func operator(args []string, out io.Writer) (bool, error) {
 		return false, nil
 	}
 	switch args[0] {
-	case "backup", "restore", "release-restore", "backup-keygen":
+	case "backup", "restore", "release-restore", "backup-keygen", "delete-workspace":
 	default:
 		return false, nil
 	}
@@ -30,6 +31,7 @@ func operator(args []string, out io.Writer) (bool, error) {
 	recipient := flags.String("recipient", "", "age X25519 public recipient")
 	identity := flags.String("identity-file", "", "owner-only age X25519 private identity file")
 	confirm := flags.Bool("confirm-other-runners-stopped", false, "declare that execution ownership was checked across cloud and all transferred local copies")
+	account := flags.String("confirm-delete-workspace", "", "exact workspace ID to irreversibly remove from stopped state")
 	if err := flags.Parse(args[1:]); err != nil {
 		return true, err
 	}
@@ -41,6 +43,11 @@ func operator(args []string, out io.Writer) (bool, error) {
 	started := time.Now()
 	var err error
 	switch args[0] {
+	case "delete-workspace":
+		if *account == "" || !*confirm {
+			return true, fmt.Errorf("--confirm-delete-workspace and --confirm-other-runners-stopped required")
+		}
+		err = cloud.DeleteOffline(ctx, *dir, *account)
 	case "backup-keygen":
 		if *output == "" {
 			return true, fmt.Errorf("--output required")
