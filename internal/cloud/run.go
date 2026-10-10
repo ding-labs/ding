@@ -20,14 +20,15 @@ import (
 )
 
 type Config struct {
-	PublicURL string          `json:"publicURL"`
-	Listen    string          `json:"listen"`
-	DataDir   string          `json:"dataDir"`
-	KeyFile   string          `json:"keyFile"`
-	TLSCert   string          `json:"tlsCert,omitempty"`
-	TLSKey    string          `json:"tlsKey,omitempty"`
-	Identity  IdentityConfig  `json:"identity"`
-	MCP       *mcpconfig.HTTP `json:"mcp,omitempty"`
+	OperatorListen string          `json:"operatorListen,omitempty"`
+	PublicURL      string          `json:"publicURL"`
+	Listen         string          `json:"listen"`
+	DataDir        string          `json:"dataDir"`
+	KeyFile        string          `json:"keyFile"`
+	TLSCert        string          `json:"tlsCert,omitempty"`
+	TLSKey         string          `json:"tlsKey,omitempty"`
+	Identity       IdentityConfig  `json:"identity"`
+	MCP            *mcpconfig.HTTP `json:"mcp,omitempty"`
 }
 
 func (c *Config) Validate() error {
@@ -42,6 +43,12 @@ func (c *Config) Validate() error {
 	host, _, err := net.SplitHostPort(c.Listen)
 	if err != nil || net.ParseIP(host) == nil {
 		return fmt.Errorf("listen must be an explicit IP:port")
+	}
+	if c.OperatorListen != "" {
+		host, _, err := net.SplitHostPort(c.OperatorListen)
+		if err != nil || !net.ParseIP(host).IsLoopback() {
+			return fmt.Errorf("operatorListen must be loopback")
+		}
 	}
 	if (c.TLSCert == "") != (c.TLSKey == "") {
 		return fmt.Errorf("configure both TLS certificate and key")
@@ -128,6 +135,15 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 	handler, err := app.Handler()
 	if err != nil {
 		return err
+	}
+	if c.OperatorListen != "" {
+		listener, err := operatorListener(c.OperatorListen)
+		if err != nil {
+			return err
+		}
+		metrics := &http.Server{Handler: http.HandlerFunc(pool.Metrics), ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192}
+		defer metrics.Close()
+		go func() { _ = metrics.Serve(listener) }()
 	}
 	listener, err := net.Listen("tcp", c.Listen)
 	if err != nil {

@@ -78,6 +78,14 @@ func (s *Server) Handler() (http.Handler, error) {
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
 		r = r.WithContext(ctx)
+		if r.Method == "GET" && r.URL.Path == "/healthz" {
+			if !s.Pool.Ready() {
+				cloudFail(w, 503, "worker_unavailable", "Execution worker unavailable.")
+			} else {
+				cloudWrite(w, 200, map[string]string{"status": "ready"})
+			}
+			return
+		}
 		if r.URL.Path == "/mcp" || r.URL.Path == "/.well-known/oauth-protected-resource/mcp" {
 			if s.MCP == nil {
 				http.NotFound(w, r)
