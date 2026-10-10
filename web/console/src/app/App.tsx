@@ -28,6 +28,7 @@ import { CommandMenu } from "../components/CommandMenu";
 import { System } from "../pages/System";
 import { Workbench } from "../pages/Workbench";
 import { FirstWatch } from "../pages/FirstWatch";
+import { CloudFirstWatch } from "../pages/CloudFirstWatch";
 import { resetDraft } from "./draft";
 import { useNavigationContext } from "./scroll";
 import { Watches, WatchDetail } from "../pages/Watches";
@@ -184,7 +185,7 @@ export function App() {
             <span>
               {info.isError || !connected
                 ? "Connection interrupted"
-                : "Connected daemon"}
+                : execution.mode === "cloud" ? "Runs in Ding Cloud" : "Runs on this computer"}
             </span>
             <code>{info.data?.listen || window.location.host}</code>
             <small>{info.data?.version || "Ding"}</small>
@@ -278,7 +279,7 @@ export function App() {
               <Route path="/deliveries" element={<Deliveries />} />
               <Route path="/deliveries/:id" element={<DeliveryDetail />} />
               <Route path="/workbench" element={<Workbench />} />
-              <Route path="/start" element={<FirstWatch />} />
+              <Route path="/start" element={execution.mode === "cloud" ? <CloudFirstWatch /> : <FirstWatch />} />
               <Route path="/system" element={<System />} />
               <Route
                 path="*"
