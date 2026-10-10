@@ -66,7 +66,12 @@ test("doctor, destinations, help, completion and verified backup", async ({
         encoding: "utf8",
       }),
     );
-    expect(doctor.data.healthy).toBe(true);
+    expect(doctor.data.store.integrity).toBe("ok");
+    expect(doctor.data.running).toBe(true);
+    // This push watch has never received an observation. Restoring it must not
+    // invent healthy monitoring merely because the database is intact.
+    expect(doctor.data.healthy).toBe(false);
+    expect(doctor.data.sources[0].acquisition).toBe("waiting");
     const watches = JSON.parse(
       execFileSync(
         binary,

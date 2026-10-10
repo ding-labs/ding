@@ -24,7 +24,8 @@ test("every Console section uses the shared design in both themes", async ({
         "system",
       ]) {
         await page.goto(`${daemon.url}/ui/${route}`, {
-          waitUntil: "networkidle",
+          // Live event streams and polling intentionally keep the network busy.
+          waitUntil: "domcontentloaded",
         });
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
         await assertSharedDesign(page, "console");
