@@ -2,6 +2,7 @@ package watchrun
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand/v2"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/delivery"
+	"github.com/ding-labs/ding/internal/notify"
 	"github.com/ding-labs/ding/internal/source"
 	"github.com/ding-labs/ding/internal/store"
 )
@@ -35,6 +37,19 @@ func (a *App) DeliverOne(ctx context.Context) (bool, error) {
 			attempt, cancel := context.WithTimeout(ctx, 10*time.Second)
 			result = a.console(attempt, intent.Payload)
 			cancel()
+		} else if d.Type == "desktop" {
+			var message notify.Message
+			if json.Unmarshal(intent.Payload, &message) != nil || a.Notify == nil {
+				result = delivery.Result{Outcome: delivery.Permanent, Detail: "desktop_unavailable"}
+			} else {
+				attempt, cancel := context.WithTimeout(ctx, 10*time.Second)
+				err := a.Notify(attempt, message)
+				cancel()
+				result = delivery.Result{Outcome: delivery.Delivered, Detail: "accepted_by_os"}
+				if err != nil {
+					result = delivery.Result{Outcome: delivery.Retryable, Detail: "desktop_unavailable_or_permission_denied"}
+				}
+			}
 		} else {
 			endpoint, err := source.Resolve(d.URLRef, a.Lookup)
 			headers := http.Header{"Idempotency-Key": []string{intent.EventID}, "X-Ding-Event-Id": []string{intent.EventID}}

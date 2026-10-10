@@ -483,9 +483,9 @@ func CompileDestination(d watch.Destination) (CompiledDestination, error) {
 		return CompiledDestination{}, err
 	}
 	switch d.Spec.Type {
-	case "console":
+	case "console", "desktop":
 		if d.Spec.URLRef != nil || len(d.Spec.Headers) > 0 {
-			return CompiledDestination{}, fmt.Errorf("console takes no HTTP settings")
+			return CompiledDestination{}, fmt.Errorf("local destinations take no HTTP settings")
 		}
 	case "webhook", "slack", "discord":
 		if !validRef(d.Spec.URLRef) {

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/condition"
+	"github.com/ding-labs/ding/internal/notify"
 	"github.com/ding-labs/ding/internal/plan"
 	"github.com/ding-labs/ding/internal/replay"
 	"github.com/ding-labs/ding/internal/source"
@@ -27,6 +28,7 @@ type App struct {
 	Lookup                              source.Lookup
 	Now                                 func() time.Time
 	Output                              io.Writer
+	Notify                              func(context.Context, notify.Message) error
 	AcquisitionWorkers, DeliveryWorkers int
 	mu                                  sync.Mutex
 	outputMu                            sync.Mutex

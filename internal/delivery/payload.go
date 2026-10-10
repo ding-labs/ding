@@ -8,6 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/ding-labs/ding/internal/notify"
 	"github.com/ding-labs/ding/internal/watch"
 )
 
@@ -17,6 +18,9 @@ func Render(kind string, event watch.Event) ([]byte, error) {
 		return json.Marshal(watch.Envelope{APIVersion: watch.APIVersion, Data: event})
 	}
 	title := truncate(event.WatchID+" · "+event.Type, 150)
+	if kind == "desktop" {
+		return json.Marshal(notify.Message{ID: event.ID, Title: title, Body: truncate(event.Message, 2800)})
+	}
 	text := event.Message
 	keys := make([]string, 0, len(event.Fields))
 	for key := range event.Fields {

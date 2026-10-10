@@ -17,6 +17,7 @@ import (
 
 	"github.com/ding-labs/ding/internal/control"
 	"github.com/ding-labs/ding/internal/install"
+	"github.com/ding-labs/ding/internal/notify"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watchrun"
 	"github.com/ding-labs/ding/internal/webui"
@@ -68,6 +69,7 @@ func runtimeCommands(root *cobra.Command) {
 			return err
 		}
 		app := watchrun.New(database)
+		app.Notify = notify.Send
 		secrets, err := install.ReadSecrets(dir)
 		if err != nil {
 			return err
