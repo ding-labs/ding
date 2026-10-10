@@ -2,6 +2,8 @@ package control
 
 import (
 	"errors"
+	"github.com/ding-labs/ding/internal/hostingpolicy"
+	"github.com/ding-labs/ding/internal/plan"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watchrun"
 	"net/http"
@@ -19,6 +21,16 @@ func handoffRoutes(mux *http.ServeMux, app *watchrun.App) {
 	}
 	mux.HandleFunc("GET /v1/handoffs/preflight/{watch}", func(w http.ResponseWriter, r *http.Request) {
 		out, err := app.PreflightHandoff(r.Context(), r.PathValue("watch"))
+		if err == nil && out.Ready {
+			b, e := plan.Parse([]byte(out.Manifest))
+			if e == nil {
+				e = hostingpolicy.Policy(b)
+			}
+			if e != nil {
+				out.Ready = false
+				out.Reason = e.Error()
+			}
+		}
 		reply(w, out, err)
 	})
 	mux.HandleFunc("GET /v1/handoffs", func(w http.ResponseWriter, r *http.Request) {
