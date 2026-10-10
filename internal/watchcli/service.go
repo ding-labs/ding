@@ -112,6 +112,16 @@ func serviceCommands(root *cobra.Command, dir *string) {
 		if s.Runtime != nil {
 			fmt.Fprintf(cmd.OutOrStdout(), "Daemon version: %s\n", s.Runtime.Version)
 		}
+		if s.Updates != nil {
+			fmt.Fprintf(cmd.OutOrStdout(), "Update check: %s", s.Updates.CheckedAt.Local().Format(time.RFC3339))
+			if s.Updates.Available != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "; available %s (compatible: %t)", s.Updates.Available, s.Updates.Compatible)
+			}
+			fmt.Fprintln(cmd.OutOrStdout())
+			if s.Updates.Error != "" {
+				fmt.Fprintln(cmd.OutOrStdout(), "Update notice:", s.Updates.Error)
+			}
+		}
 		if s.Health != nil {
 			fmt.Fprintf(cmd.OutOrStdout(), "Watches: %d; delivery states: %v\n", len(s.Health.Sources), s.Health.Deliveries)
 			for _, w := range s.Health.Sources {

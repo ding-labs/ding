@@ -91,6 +91,13 @@ export interface ControlInfo {
   workspace?: string;
 }
 
+export interface ControlLocalUpdates {
+  settings: UpdateSettings;
+  check?: UpdateCheckStatus | null;
+  configured: boolean;
+  owner?: string;
+}
+
 export interface ControlVerification {
   status: string;
   message: string;
@@ -375,6 +382,20 @@ export interface StoreWatchSummary {
   deliveries: Array<StoreDeliverySummary>;
   deliveriesBefore: number;
   deliveriesMore: boolean;
+}
+
+export interface UpdateCheckStatus {
+  checkedAt: string;
+  current: string;
+  available?: string;
+  compatible: boolean;
+  error?: string;
+}
+
+export interface UpdateSettings {
+  checks: boolean;
+  automatic: boolean;
+  hourUTC: number;
 }
 
 export interface WatchCondition {
