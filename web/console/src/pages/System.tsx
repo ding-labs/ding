@@ -31,18 +31,23 @@ import {
 } from "../components/common";
 import packageInfo from "../../package.json";
 import parity from "../../../../testdata/console/parity.json";
+import { useExecution } from "../app/execution";
+import { CloudSystem } from "./CloudSystem";
 function bytes(n: number) {
   return `${(n / (1 << 20)).toFixed(1)} MiB`;
 }
 export function System() {
   const [p, set] = useSearchParams();
-  const tab = p.get("tab") || "Diagnostics";
+  const cloud = useExecution().mode === "cloud";
+  const tabs = cloud ? ["Diagnostics", "Destinations", "Cloud"] : ["Diagnostics", "Destinations", "Backup", "Instance", "CLI setup"];
+  const selected = p.get("tab") || "Diagnostics";
+  const tab = tabs.includes(selected) ? selected : "Diagnostics";
   const info = useRead<ControlInfo>("/info");
   const status = useRead<WatchrunStatus>("/status", 15000);
   return (
     <>
       <Heading
-        title="Know your daemon."
+        title={cloud ? "Know your cloud workspace." : "Know your daemon."}
         eyebrow="System"
         description="Runtime checks, destinations, and the tools to operate this instance."
       >
@@ -51,18 +56,13 @@ export function System() {
         </span>
       </Heading>
       <Tabs
-        items={[
-          "Diagnostics",
-          "Destinations",
-          "Backup",
-          "Instance",
-          "CLI setup",
-        ]}
+        items={tabs}
         active={tab}
         onChange={(t) => set({ tab: t })}
       />
       <ErrorBox error={info.error || status.error} />
       {tab === "Diagnostics" && <Diagnostics />}
+      {tab === "Cloud" && <CloudSystem />}
       {tab === "Destinations" && <Destinations />}
       {tab === "Backup" && <Backup info={info.data} />}{" "}
       {tab === "Instance" && info.data && (
