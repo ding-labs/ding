@@ -44,7 +44,7 @@ type Pool struct {
 // must construct it with Guard.Client, never an unguarded default transport.
 func NewPool(ctx context.Context, root string, db *state.DB, vault *state.Vault, client *http.Client) *Pool {
 	shared := *client
-	shared.Transport = egress.NewLimit(client.Transport, 32)
+	shared.Transport = egress.NewHostLimits(egress.NewLimit(client.Transport, 32))
 	return &Pool{root: root, db: db, vault: vault, http: &shared, ctx: ctx, tenants: map[string]*Tenant{}}
 }
 
@@ -86,7 +86,21 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 	// are not a tenant API; a local/older store still cannot enable command I/O.
 	records, err := app.List(ctx)
 	if err == nil {
+		if len(records) > Limits().MaxWatches {
+			active := 0
+			for _, r := range records {
+				if r.Status != "deleted" {
+					active++
+				}
+			}
+			if active > Limits().MaxWatches {
+				err = fmt.Errorf("workspace exceeds active watch limit")
+			}
+		}
 		for _, r := range records {
+			if err != nil {
+				break
+			}
 			if r.Status != "deleted" {
 				err = Policy(plan.Bundle{Watches: []plan.Compiled{r.Plan}})
 				if err != nil {
