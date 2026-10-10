@@ -57,7 +57,7 @@ class {{.Class}} < Formula
   homepage "https://ding.ing"
   version "{{.Version}}"
   license "Apache-2.0"
-  depends_on arch: :arm64 if Hardware::CPU.arm?
+  depends_on arch: [:arm64, :x86_64]
   depends_on macos: :ventura if OS.mac?
   conflicts_with "{{.Conflict}}", because: "both provide the ding executable"
 
