@@ -22,6 +22,9 @@ func secretCommands(dir *string) *cobra.Command {
 		backend = "keychain"
 	}
 	set := &cobra.Command{Use: "set NAME --stdin", Short: "Read a secret from stdin into the selected local credential store", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		if backend == "private-file" && !cmd.Flags().Changed("store") {
+			return fmt.Errorf("this platform uses a private plaintext file; choose --store private-file explicitly for headless credentials")
+		}
 		if !stdin {
 			return fmt.Errorf("use --stdin; never put a secret value in command arguments")
 		}
