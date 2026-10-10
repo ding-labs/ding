@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/control"
+	"github.com/ding-labs/ding/internal/install"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watchrun"
 	"github.com/ding-labs/ding/internal/webui"
@@ -67,6 +68,17 @@ func runtimeCommands(root *cobra.Command) {
 			return err
 		}
 		app := watchrun.New(database)
+		secrets, err := install.ReadSecrets(dir)
+		if err != nil {
+			return err
+		}
+		app.Lookup = func(name string) (string, bool) {
+			if value, ok := secrets[name]; ok {
+				return value, true
+			}
+			return os.LookupEnv(name)
+		}
+		app.HTTP.Lookup = app.Lookup
 		app.Limits = limits
 		app.Output = cmd.OutOrStdout()
 		origin := uiOrigin
@@ -171,6 +183,7 @@ func runtimeCommands(root *cobra.Command) {
 	root.AddCommand(watchCmd)
 	inspectionCommands(root, &dir)
 	serviceCommands(root, &dir)
+	root.AddCommand(secretCommands(&dir))
 	root.AddCommand(uiCommand(&dir))
 }
 func call(cmd *cobra.Command, dir string, structured bool, method, path string, body any) error {
