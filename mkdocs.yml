@@ -59,6 +59,7 @@ nav:
   - Start:
     - Overview: index.md
     - Install: install.md
+    - Local setup (development): operate/local-setup.md
     - First watch: guides/first-watch.md
   - Concepts:
     - Understand a watch: concepts/index.md
@@ -92,6 +93,7 @@ nav:
   - Contribute:
     - Monorepo and publishing: contribute/index.md
     - Local-first roadmap: development/local-first-roadmap.md
+    - Implementation ledger: development/local-first-progress.md
     - Local experience plan: development/local-experience-plan.md
     - Desktop marketplace plan: development/desktop-marketplace-plan.md
     - Cloud and adoption plan: development/ding-cloud-plan.md
