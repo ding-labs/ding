@@ -63,5 +63,6 @@
   "update scheduled": "Host update policy: checks can be disabled; automatic compatible stable replacements require explicit opt-in and a maintenance hour.",
   "service host": "Host operation: Windows SCM entrypoint launched by a reviewed boot service.",
   "service boot-template": "Host operation: print an administrator-reviewed boot service for an explicit dedicated account.",
-  "service repair": "Host operation: preview and explicitly repair only this installation's user startup."
+  "service repair": "Host operation: preview and explicitly repair only this installation's user startup.",
+  "notification-open": "OS notification activation obtains a fresh local Console handoff; no browser equivalent."
 }
