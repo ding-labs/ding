@@ -28,6 +28,21 @@ type IdentityConfig struct {
 	// Optional IdP-selection scopes select the configured minimal GitHub broker.
 	Scopes []string `json:"scopes"`
 }
+
+func (c IdentityConfig) Validate() error {
+	u, err := url.Parse(c.Issuer)
+	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || strings.TrimSpace(c.ClientID) == "" {
+		return fmt.Errorf("configure an HTTPS OIDC issuer and registered client")
+	}
+	for _, scope := range c.Scopes {
+		const prefix = "urn:zitadel:iam:org:idp:id:"
+		if !strings.HasPrefix(scope, prefix) || len(scope) == len(prefix) || strings.ContainsAny(scope, " \t\r\n") {
+			return fmt.Errorf("only a GitHub identity-provider selection scope may be added to browser login")
+		}
+	}
+	return nil
+}
+
 type identityProvider struct {
 	issuer   string
 	oauth    oauth2.Config
@@ -44,9 +59,8 @@ func newIdentity(ctx context.Context, publicURL string, c IdentityConfig, client
 	if err != nil {
 		return nil, err
 	}
-	u, err := url.Parse(c.Issuer)
-	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || c.ClientID == "" {
-		return nil, fmt.Errorf("configure an HTTPS OIDC issuer and registered client")
+	if err := c.Validate(); err != nil {
+		return nil, err
 	}
 	bounded := *client
 	bounded.Timeout = 10 * time.Second
@@ -78,9 +92,6 @@ func newIdentity(ctx context.Context, publicURL string, c IdentityConfig, client
 	for _, scope := range c.Scopes {
 		// Scope configuration cannot accidentally request GitHub repositories or
 		// private email. The broker's GitHub upstream settings remain a launch gate.
-		if !strings.HasPrefix(scope, "urn:zitadel:iam:org:idp:id:") {
-			return nil, fmt.Errorf("only a GitHub identity-provider selection scope may be added to browser login")
-		}
 		scopes = append(scopes, scope)
 	}
 	return &identityProvider{issuer: c.Issuer, oauth: oauth2.Config{ClientID: c.ClientID, ClientSecret: c.ClientSecret, Endpoint: endpoint, RedirectURL: publicURL + "/auth/callback", Scopes: scopes}, verifier: provider.Verifier(&oidc.Config{ClientID: c.ClientID}), client: client}, nil

@@ -6,7 +6,7 @@ import (
 )
 
 func TestCloudListenerCannotAccidentallyExposePlainHTTP(t *testing.T) {
-	c := Config{PublicURL: "https://ding.example", DataDir: t.TempDir(), KeyFile: filepath.Join(t.TempDir(), "key")}
+	c := Config{PublicURL: "https://ding.example", DataDir: t.TempDir(), KeyFile: filepath.Join(t.TempDir(), "key"), Identity: IdentityConfig{Issuer: "https://identity.example", ClientID: "ding"}}
 	if err := c.Validate(); err != nil || c.Listen != "127.0.0.1:8787" {
 		t.Fatal(err)
 	}
@@ -25,5 +25,19 @@ func TestCloudListenerCannotAccidentallyExposePlainHTTP(t *testing.T) {
 	c.PublicURL = "https://user:secret@ding.example"
 	if err := c.Validate(); err == nil {
 		t.Fatal("credential-bearing public origin accepted")
+	}
+}
+
+func TestIdentityConfigRejectsIncompleteAndExpandedPrivilegesOffline(t *testing.T) {
+	for _, c := range []IdentityConfig{
+		{}, {Issuer: "http://identity.example", ClientID: "ding"},
+		{Issuer: "https://identity.example", ClientID: " "},
+		{Issuer: "https://identity.example", ClientID: "ding", Scopes: []string{"repo"}},
+		{Issuer: "https://identity.example", ClientID: "ding", Scopes: []string{"urn:zitadel:iam:org:idp:id:"}},
+		{Issuer: "https://identity.example", ClientID: "ding", Scopes: []string{"urn:zitadel:iam:org:idp:id:github repo"}},
+	} {
+		if err := c.Validate(); err == nil {
+			t.Fatal("accepted incomplete identity or expanded privileges")
+		}
 	}
 }

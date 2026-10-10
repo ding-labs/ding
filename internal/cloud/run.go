@@ -33,6 +33,9 @@ type Config struct {
 }
 
 func (c *Config) Validate() error {
+	if err := c.Identity.Validate(); err != nil {
+		return err
+	}
 	if c.EnrollmentLimit == nil {
 		limit := MaxAccounts
 		c.EnrollmentLimit = &limit
