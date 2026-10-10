@@ -3,6 +3,8 @@ package service
 import (
 	"encoding/xml"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -10,7 +12,7 @@ import (
 )
 
 func record() install.Record {
-	return install.Record{Schema: 1, Executable: "/test/path with spaces/ding", StateDir: "/test/state & data", Owner: "standalone", Version: "dev", Channel: "development", Digest: strings.Repeat("a", 64)}
+	return install.Record{Schema: 1, Executable: filepath.Join(os.TempDir(), "path with spaces", "ding"), StateDir: filepath.Join(os.TempDir(), "state & data"), Owner: "standalone", Version: "dev", Channel: "development", Digest: strings.Repeat("a", 64)}
 }
 
 func TestDefinitionsEscapePathsAndBoundRestarts(t *testing.T) {
@@ -24,7 +26,7 @@ func TestDefinitionsEscapePathsAndBoundRestarts(t *testing.T) {
 				t.Fatal(d)
 			}
 			if platform == "linux" {
-				if !strings.Contains(d.Content, `"/test/state & data"`) || !strings.Contains(d.Content, "RestartSec=10") {
+				if !strings.Contains(d.Content, systemdQuote(record().StateDir)) || !strings.Contains(d.Content, "RestartSec=10") {
 					t.Fatal(d.Content)
 				}
 			} else {
