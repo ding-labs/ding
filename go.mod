@@ -9,6 +9,7 @@ require (
 	github.com/lestrrat-go/jwx/v3 v3.3.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/spf13/cobra v1.10.2
+	golang.org/x/mod v0.42.0
 	golang.org/x/sys v0.48.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.60.1
