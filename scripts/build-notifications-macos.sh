@@ -10,7 +10,7 @@ ding_temp=$(mktemp -d)
 trap 'rm -rf "$ding_temp"' EXIT HUP INT TERM
 for ding_arch in arm64 x86_64; do
   xcrun swiftc -O -swift-version 6 -parse-as-library -target "$ding_arch-apple-macos13" \
-    "$ding_root/native/macos/notifications/main.swift" -o "$ding_temp/$ding_arch"
+    "$ding_root/native/macos/notifications/main.swift" "$ding_root/native/macos/notifications/credentials.swift" -o "$ding_temp/$ding_arch"
 done
 xcrun lipo -create "$ding_temp/arm64" "$ding_temp/x86_64" -output "$ding_output/Contents/MacOS/DingNotifications"
 if [ "$ding_identity" = - ]; then

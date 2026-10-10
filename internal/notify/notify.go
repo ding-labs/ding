@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/ding-labs/ding/internal/nativehelper"
 	"html"
 	"os"
 	"os/exec"
@@ -46,21 +47,11 @@ func Send(ctx context.Context, m Message) error {
 		}
 		return nil
 	case "darwin":
-		exe, err := os.Executable()
+		path, err := nativehelper.Path()
 		if err != nil {
 			return err
 		}
-		exe, err = filepath.EvalSymlinks(exe)
-		if err != nil {
-			return err
-		}
-		base := filepath.Dir(exe)
-		for _, path := range []string{filepath.Join(base, "DingNotifications.app", "Contents", "MacOS", "DingNotifications"), filepath.Join(base, "..", "libexec", "ding", "DingNotifications.app", "Contents", "MacOS", "DingNotifications")} {
-			if info, e := os.Stat(path); e == nil && info.Mode().IsRegular() {
-				return helper(ctx, path, nil, m)
-			}
-		}
-		return fmt.Errorf("Ding notification helper is missing; install the macOS package or build the native helper")
+		return helper(ctx, path, nil, m)
 	case "windows":
 		path := filepath.Join(os.Getenv("SystemRoot"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
 		return helper(ctx, path, []string{"-NoLogo", "-NoProfile", "-NonInteractive", "-Command", windowsScript}, m)

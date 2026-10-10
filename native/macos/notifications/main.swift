@@ -62,6 +62,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 @main
 struct NotificationApplication {
     @MainActor static func main() {
+        if CommandLine.arguments.dropFirst() == ["--credentials"] {
+            exit(credentials())
+        }
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.setActivationPolicy(.accessory)
