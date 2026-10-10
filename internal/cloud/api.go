@@ -31,6 +31,14 @@ func decodeCloud(r *http.Request, value any) error {
 }
 
 func (s *Server) serveTenant(w http.ResponseWriter, r *http.Request, session state.Session, t *Tenant) {
+	if r.Method == "GET" && r.URL.Path == "/v1/cloud/export" {
+		s.accountExport(w, r, t)
+		return
+	}
+	if r.Method == "DELETE" && r.URL.Path == "/v1/cloud/account" {
+		s.accountDelete(w, r, session)
+		return
+	}
 	if r.URL.Path == "/v1/handoffs" || strings.HasPrefix(r.URL.Path, "/v1/handoffs/") {
 		s.cloudHandoff(w, r, t)
 		return

@@ -198,6 +198,20 @@ func (p *Pool) Delete(ctx context.Context, id string) error {
 			return err
 		}
 	}
+	if t == nil {
+		path := filepath.Join(p.root, "workspaces", id)
+		if _, err := os.Stat(path); err == nil {
+			owned, err := store.Open(ctx, path)
+			if err != nil {
+				return err
+			}
+			if err := owned.Close(); err != nil {
+				return err
+			}
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+	}
 	if err := os.RemoveAll(filepath.Join(p.root, "workspaces", id)); err != nil {
 		return err
 	}
