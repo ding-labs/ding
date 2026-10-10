@@ -2,10 +2,10 @@ name: CI
 
 on:
   pull_request:
-    paths: ['**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'web/mcp-app/**', 'design/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'testdata/**', 'scripts/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
+    paths: ['**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'web/mcp-app/**', 'design/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'testdata/**', 'scripts/**', 'native/**', 'deploy/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
   push:
     branches: [main, "codex/**"]
-    paths: ['**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'web/mcp-app/**', 'design/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'testdata/**', 'scripts/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
+    paths: ['**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'web/mcp-app/**', 'design/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'testdata/**', 'scripts/**', 'native/**', 'deploy/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
   workflow_dispatch:
 
 permissions:
@@ -87,6 +87,11 @@ jobs:
           scripts/container-smoke.sh ding-release-ci
       - name: Physical full and read-only filesystem faults
         run: scripts/filesystem-faults.sh
+      - name: Hosted image and unprivileged entrypoint
+        run: |
+          docker build -f Dockerfile.cloud -t ding-cloud-ci .
+          test "$(docker image inspect --format '{{.Config.User}}' ding-cloud-ci)" = '10001:10001'
+          docker run --rm --network none ding-cloud-ci --help
 
   adapters:
     name: Native artifact (${{ matrix.goos }}/${{ matrix.goarch }})
@@ -108,7 +113,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Native source, persistence, and lifecycle contracts
-        run: go test ${{ matrix.race }} -count=1 ./internal/source ./internal/transform ./internal/control ./internal/watchrun ./internal/install ./internal/service ./internal/update
+        run: go test ${{ matrix.race }} -count=1 ./internal/source ./internal/transform ./internal/control ./internal/watchrun ./internal/install ./internal/service ./internal/update ./internal/notify
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
