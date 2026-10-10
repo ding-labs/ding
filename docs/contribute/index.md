@@ -12,6 +12,15 @@ have separate builds. A website deployment does not release a daemon.
 | Brand | `design/` | Build-time tokens and assets for each consumer |
 | Product availability | `content/product.json` | Version-correct site and docs labels |
 
+## Planned product work
+
+The [local-first roadmap](../development/local-first-roadmap.md) describes the next
+product milestones: [batteries-included local operation](../development/local-experience-plan.md),
+[desktop-only marketplace qualification](../development/desktop-marketplace-plan.md),
+and [optional cloud execution and adoption](../development/ding-cloud-plan.md).
+These are implementation plans, not released capabilities. The roadmap preserves
+complete account-free local and self-hosted use.
+
 ## Build locally
 
 Use Node 24, Go from `go.mod`, and Python 3.11 or later. From the repository root:

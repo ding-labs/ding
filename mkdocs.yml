@@ -91,6 +91,10 @@ nav:
     - Release checklist: releases/watch-checklist.md
   - Contribute:
     - Monorepo and publishing: contribute/index.md
+    - Local-first roadmap: development/local-first-roadmap.md
+    - Local experience plan: development/local-experience-plan.md
+    - Desktop marketplace plan: development/desktop-marketplace-plan.md
+    - Cloud and adoption plan: development/ding-cloud-plan.md
     - Watch contract: development/watch-contract.md
     - Evaluation: development/evaluation-contract.md
     - Sources and destinations: development/adapter-contract.md
