@@ -17,9 +17,9 @@ automatically a qualified public release.
 | M marketplace proof package | Prepared | [Desktop proof](../integrations/desktop-proof.md) and inquiry draft prepared; no outreach sent; public eligibility unresolved |
 | C0 cloud benchmark and topology | Initial evidence | [100-workspace synthetic result](cloud-topology.md); single-host fencing implemented; representative sustained load/cost gates open; no infrastructure provisioned |
 | C1 cloud identity and isolation | In progress | Encrypted tenant credentials, hashed sessions, one-use PKCE/nonce sign-in, guarded hosted API and cross-tenant negative tests; real GitHub broker configuration remains |
-| C2 hosted execution | In progress | Isolated Go engines, guarded DNS/dial, shared network bound, durable monthly budgets and restart test; hosted Console/entrypoint, backups and sustained qualification remain |
-| C3 reversible transfer and funnel | Pending | Failures at every handoff phase |
-| C4 public MCP | Pending | Real identity/provider/client qualification |
+| C2 hosted execution | In progress | Isolated Go engines, guarded DNS/dial, shared network bound, durable monthly budgets and restart test; hosted Console/entrypoint and real delivery-test flow implemented; backups and sustained qualification remain |
+| C3 reversible transfer and funnel | In progress | Offline preflight, durable source/target holds, cloud test proof, CLI move/move-back and availability choices; round-trip/lost-response tests pass; native client/user qualification remains |
+| C4 public MCP | In progress | Official Go SDK endpoint, exact resource audience, signed client identity, explicit scoped bindings and revocation; cross-tenant tests pass; real provider/ChatGPT qualification remains |
 | C5 beta operations | Pending | Budget, sustained soak and real-user retention gates |
 
 ## External release gates
