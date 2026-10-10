@@ -15,6 +15,13 @@ import (
 var version = "dev"
 
 func main() {
+	if handled, err := operator(os.Args[1:], os.Stdout); handled {
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	config := flag.String("config", "", "owner-only cloud configuration JSON")
 	check := flag.Bool("check-config", false, "validate configuration shape without starting services")
 	flag.Parse()
