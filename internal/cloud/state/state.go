@@ -187,4 +187,8 @@ CREATE TABLE secrets(account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CAS
 CREATE TABLE usage(account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,period TEXT NOT NULL,checks INTEGER NOT NULL DEFAULT 0,deliveries INTEGER NOT NULL DEFAULT 0,bytes INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(account,period));
 CREATE TABLE reservations(id TEXT PRIMARY KEY,account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,period TEXT NOT NULL,created_at INTEGER NOT NULL);
 CREATE INDEX reservations_account ON reservations(account);
+`, `
+CREATE TABLE sessions(hash TEXT PRIMARY KEY,account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,csrf TEXT NOT NULL,kind TEXT NOT NULL,expires_at INTEGER NOT NULL);
+CREATE INDEX sessions_account ON sessions(account);
+CREATE TABLE logins(hash TEXT PRIMARY KEY,ciphertext BLOB NOT NULL,expires_at INTEGER NOT NULL);
 `}
