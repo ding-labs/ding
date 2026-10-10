@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/subtle"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/ding-labs/ding/internal/mcpclient"
@@ -34,6 +36,10 @@ type identityProvider struct {
 }
 
 func NewIdentity(ctx context.Context, publicURL string, c IdentityConfig) (IdentityProvider, error) {
+	return newIdentity(ctx, publicURL, c, mcpclient.HTTPClient())
+}
+
+func newIdentity(ctx context.Context, publicURL string, c IdentityConfig, client *http.Client) (IdentityProvider, error) {
 	publicURL, err := mcpconfig.Endpoint(publicURL, true)
 	if err != nil {
 		return nil, err
@@ -42,13 +48,27 @@ func NewIdentity(ctx context.Context, publicURL string, c IdentityConfig) (Ident
 	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || c.ClientID == "" {
 		return nil, fmt.Errorf("configure an HTTPS OIDC issuer and registered client")
 	}
-	client := mcpclient.HTTPClient()
+	bounded := *client
+	bounded.Timeout = 10 * time.Second
+	bounded.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	next := client.Transport
+	if next == nil {
+		next = http.DefaultTransport
+	}
+	bounded.Transport = identityTransport{next}
+	client = &bounded
 	provider, err := oidc.NewProvider(oidc.ClientContext(ctx, client), c.Issuer)
 	if err != nil {
 		return nil, fmt.Errorf("identity discovery failed")
 	}
 	endpoint := provider.Endpoint()
-	for _, raw := range []string{endpoint.AuthURL, endpoint.TokenURL} {
+	var discovery struct {
+		JWKS string `json:"jwks_uri"`
+	}
+	if err := provider.Claims(&discovery); err != nil {
+		return nil, fmt.Errorf("invalid identity discovery")
+	}
+	for _, raw := range []string{endpoint.AuthURL, endpoint.TokenURL, discovery.JWKS} {
 		u, err := url.Parse(raw)
 		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Fragment != "" {
 			return nil, fmt.Errorf("identity endpoints require HTTPS")
@@ -64,6 +84,44 @@ func NewIdentity(ctx context.Context, publicURL string, c IdentityConfig) (Ident
 		scopes = append(scopes, scope)
 	}
 	return &identityProvider{issuer: c.Issuer, oauth: oauth2.Config{ClientID: c.ClientID, ClientSecret: c.ClientSecret, Endpoint: endpoint, RedirectURL: publicURL + "/auth/callback", Scopes: scopes}, verifier: provider.Verifier(&oidc.Config{ClientID: c.ClientID}), client: client}, nil
+}
+
+type identityTransport struct{ next http.RoundTripper }
+
+func (t identityTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	if r.URL.Scheme != "https" || r.URL.User != nil {
+		return nil, fmt.Errorf("identity requests require HTTPS")
+	}
+	response, err := t.next.RoundTrip(r)
+	if err != nil {
+		return nil, err
+	}
+	if response.ContentLength > 1<<20 {
+		response.Body.Close()
+		return nil, fmt.Errorf("identity response exceeds limit")
+	}
+	response.Body = &identityBody{ReadCloser: response.Body, remaining: 1 << 20}
+	return response, nil
+}
+
+type identityBody struct {
+	io.ReadCloser
+	remaining int64
+}
+
+func (b *identityBody) Read(p []byte) (int, error) {
+	if b.remaining < 0 {
+		return 0, fmt.Errorf("identity response exceeds limit")
+	}
+	if int64(len(p)) > b.remaining+1 {
+		p = p[:b.remaining+1]
+	}
+	n, err := b.ReadCloser.Read(p)
+	b.remaining -= int64(n)
+	if b.remaining < 0 {
+		return n, fmt.Errorf("identity response exceeds limit")
+	}
+	return n, err
 }
 
 func (p *identityProvider) Begin(state, nonce, verifier string) string {
