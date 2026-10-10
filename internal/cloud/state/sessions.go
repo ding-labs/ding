@@ -48,6 +48,13 @@ func (d *DB) NewSession(ctx context.Context, account, kind string, now time.Time
 	if count >= 20 {
 		return s, fmt.Errorf("too many active sessions; revoke an existing connection")
 	}
+	var active int
+	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM accounts WHERE id=? AND deleting=0", account).Scan(&active); err != nil {
+		return s, err
+	}
+	if active != 1 {
+		return s, fmt.Errorf("account unavailable")
+	}
 	s.csrfHash = TokenHash(s.CSRF)
 	if _, err := tx.ExecContext(ctx, "INSERT INTO sessions(hash,account,csrf,kind,expires_at) VALUES(?,?,?,?,?)", TokenHash(s.Token), account, s.csrfHash, kind, s.ExpiresAt.Unix()); err != nil {
 		return s, err
@@ -61,7 +68,7 @@ func (d *DB) Session(ctx context.Context, token string, now time.Time) (Session,
 	if len(token) != 64 {
 		return s, fmt.Errorf("invalid session")
 	}
-	err := d.sql.QueryRowContext(ctx, "SELECT account,kind,csrf,expires_at FROM sessions WHERE hash=? AND expires_at>?", TokenHash(token), now.Unix()).Scan(&s.Account, &s.Kind, &s.csrfHash, &expiry)
+	err := d.sql.QueryRowContext(ctx, "SELECT account,kind,csrf,expires_at FROM sessions WHERE hash=? AND expires_at>? AND account IN (SELECT id FROM accounts WHERE deleting=0)", TokenHash(token), now.Unix()).Scan(&s.Account, &s.Kind, &s.csrfHash, &expiry)
 	s.ExpiresAt = time.Unix(expiry, 0).UTC()
 	s.Token = token
 	return s, err

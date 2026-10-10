@@ -118,7 +118,7 @@ func ID() string {
 }
 
 func (d *DB) Account(ctx context.Context, id string) (Account, error) {
-	return scanAccount(d.sql.QueryRowContext(ctx, "SELECT id,issuer,subject,created_at FROM accounts WHERE id=?", id))
+	return scanAccount(d.sql.QueryRowContext(ctx, "SELECT id,issuer,subject,created_at FROM accounts WHERE id=? AND deleting=0", id))
 }
 
 type row interface{ Scan(...any) error }
@@ -144,6 +144,13 @@ func (d *DB) Enroll(ctx context.Context, issuer, subject string, cap int) (Accou
 	defer tx.Rollback()
 	a, err := scanAccount(tx.QueryRowContext(ctx, "SELECT id,issuer,subject,created_at FROM accounts WHERE issuer=? AND subject=?", issuer, subject))
 	if err == nil {
+		var deleting bool
+		if err := tx.QueryRowContext(ctx, "SELECT deleting FROM accounts WHERE id=?", a.ID).Scan(&deleting); err != nil {
+			return a, err
+		}
+		if deleting {
+			return a, fmt.Errorf("account deletion is still being completed")
+		}
 		return a, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
@@ -164,7 +171,7 @@ func (d *DB) Enroll(ctx context.Context, issuer, subject string, cap int) (Accou
 }
 
 func (d *DB) Accounts(ctx context.Context) ([]Account, error) {
-	rows, err := d.sql.QueryContext(ctx, "SELECT id,issuer,subject,created_at FROM accounts ORDER BY id")
+	rows, err := d.sql.QueryContext(ctx, "SELECT id,issuer,subject,created_at FROM accounts WHERE deleting=0 ORDER BY id")
 	if err != nil {
 		return nil, err
 	}
@@ -199,4 +206,6 @@ CREATE TABLE devices(id TEXT PRIMARY KEY,challenge TEXT NOT NULL,account TEXT RE
 CREATE TABLE mcp_bindings(account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,client TEXT NOT NULL,ciphertext BLOB NOT NULL,PRIMARY KEY(account,client));
 `, `
 CREATE TABLE handoff_proofs(account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,id TEXT NOT NULL,body BLOB NOT NULL,PRIMARY KEY(account,id));
+`, `
+ALTER TABLE accounts ADD COLUMN deleting INTEGER NOT NULL DEFAULT 0;
 `}

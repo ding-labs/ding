@@ -8,7 +8,7 @@ import (
 )
 
 func (d *DB) IdentityAccount(ctx context.Context, issuer, subject string) (Account, error) {
-	return scanAccount(d.sql.QueryRowContext(ctx, "SELECT id,issuer,subject,created_at FROM accounts WHERE issuer=? AND subject=?", issuer, subject))
+	return scanAccount(d.sql.QueryRowContext(ctx, "SELECT id,issuer,subject,created_at FROM accounts WHERE issuer=? AND subject=? AND deleting=0", issuer, subject))
 }
 
 // MCP connections are separate from source credentials and never appear in the
