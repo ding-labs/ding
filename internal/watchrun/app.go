@@ -29,6 +29,7 @@ type App struct {
 	Now                                 func() time.Time
 	Output                              io.Writer
 	Notify                              func(context.Context, notify.Message) error
+	ValidateBundle                      func(plan.Bundle) error // Optional execution policy; immutable after startup.
 	AcquisitionWorkers, DeliveryWorkers int
 	mu                                  sync.Mutex
 	outputMu                            sync.Mutex
@@ -78,6 +79,11 @@ func (a *App) apply(ctx context.Context, request ApplyRequest, mutation *integra
 	bundle, err := plan.Parse([]byte(request.Manifest))
 	if err != nil {
 		return result, err
+	}
+	if a.ValidateBundle != nil {
+		if err := a.ValidateBundle(bundle); err != nil {
+			return result, err
+		}
 	}
 	for _, p := range bundle.Watches {
 
