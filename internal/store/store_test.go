@@ -212,7 +212,7 @@ func TestBackupAndFailedMigration(t *testing.T) {
 	if count(t, restored, "events") != 1 || count(t, restored, "outbox") != 1 {
 		t.Fatal("incomplete backup")
 	}
-	err = s.migrate(context.Background(), 5, []string{initialSchema, inspectionSchema, queueIndexSchema, integrationSchema, "CREATE TABLE failed_migration(id INTEGER); THIS IS NOT SQL;"})
+	err = s.migrate(context.Background(), 6, []string{initialSchema, inspectionSchema, queueIndexSchema, integrationSchema, handoffSchema, "CREATE TABLE failed_migration(id INTEGER); THIS IS NOT SQL;"})
 	if err == nil {
 		t.Fatal("migration should fail")
 	}
@@ -224,7 +224,7 @@ func TestBackupAndFailedMigration(t *testing.T) {
 	if _, err = s.db.Exec("SELECT * FROM failed_migration"); err == nil {
 		t.Fatal("failed migration table survived")
 	}
-	backups, _ := filepath.Glob(filepath.Join(dir, "before-schema-5-*.db"))
+	backups, _ := filepath.Glob(filepath.Join(dir, "before-schema-6-*.db"))
 	if len(backups) != 1 {
 		t.Fatal("migration lacked backup")
 	}
