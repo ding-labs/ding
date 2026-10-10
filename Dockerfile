@@ -6,6 +6,10 @@ RUN npm ci --prefix web/console
 COPY web/console web/console
 COPY testdata/console testdata/console
 RUN npm run build --prefix web/console
+COPY web/mcp-app/package*.json web/mcp-app/
+RUN npm ci --prefix web/mcp-app
+COPY web/mcp-app web/mcp-app
+RUN npm run build --prefix web/mcp-app
 
 # Build stage
 FROM golang:1.26-alpine AS builder
@@ -15,7 +19,8 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=console /src/internal/webui/dist internal/webui/dist
-RUN CGO_ENABLED=0 GOOS=linux go build -tags console -ldflags="-s -w" -o /ding ./cmd/ding/
+COPY --from=console /src/internal/mcpui/dist internal/mcpui/dist
+RUN CGO_ENABLED=0 GOOS=linux go build -tags console,mcpui -ldflags="-s -w" -o /ding ./cmd/ding/
 
 # Final stage — scratch for minimal image
 FROM scratch

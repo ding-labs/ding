@@ -1,17 +1,26 @@
-FROM python:3.13-slim AS build
-COPY --from=ghcr.io/astral-sh/uv:0.11.8 /uv /usr/local/bin/uv
-WORKDIR /app
-COPY integrations/mcp/pyproject.toml integrations/mcp/uv.lock ./
-COPY integrations/mcp/README.md ./
-COPY integrations/mcp/src ./src
-# Build the MCP app before this image; Docker must not silently omit its resource.
-RUN test -f src/ding_mcp/assets/workspace.html && uv sync --frozen --no-dev --no-editable
+FROM node:24-alpine AS ui
+WORKDIR /src
+COPY web/mcp-app/package*.json web/mcp-app/
+RUN npm ci --prefix web/mcp-app
+COPY web/mcp-app web/mcp-app
+COPY web/console web/console
+RUN npm run build --prefix web/mcp-app
 
-FROM python:3.13-slim
-RUN groupadd --gid 10001 ding && useradd --uid 10001 --gid ding --no-create-home ding
-WORKDIR /app
-COPY --from=build /app/.venv /app/.venv
-USER ding
+FROM golang:1.26-alpine AS build
+RUN apk add --no-cache ca-certificates
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+COPY --from=ui /src/internal/mcpui/dist internal/mcpui/dist
+ARG VERSION=0.1.0
+RUN CGO_ENABLED=0 go build -tags mcpui -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /ding-mcp ./cmd/ding-mcp
+
+FROM scratch
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build /ding-mcp /ding-mcp
+USER 10001:10001
+ENV HOME=/home/ding
 EXPOSE 7677
-ENTRYPOINT ["/app/.venv/bin/ding-mcp"]
+ENTRYPOINT ["/ding-mcp"]
 CMD ["serve", "--transport", "http", "--http-config", "/run/ding/http.json", "--host", "0.0.0.0"]

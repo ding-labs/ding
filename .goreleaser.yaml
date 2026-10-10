@@ -7,12 +7,14 @@ before:
     - go mod tidy -diff
     - npm ci --prefix web/console
     - npm run build --prefix web/console
+    - npm ci --prefix web/mcp-app
+    - npm run build --prefix web/mcp-app
 
 builds:
   - id: ding
     main: ./cmd/ding/
     binary: ding
-    tags: [console]
+    tags: [console, mcpui]
     ldflags:
       - -s -w -X main.version={{.Version}}
     env:

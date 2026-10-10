@@ -34,8 +34,11 @@ jobs:
           npm run test:e2e
       - name: Run tests
         run: |
+          npm ci --prefix web/mcp-app
+          npm run build --prefix web/mcp-app
+          npm test --prefix web/mcp-app
           go vet ./...
-          go test -race -tags console ./...
+          go test -race -tags console,mcpui ./...
       - name: Container TLS gate
         run: |
           docker build -t ding-release-check .
