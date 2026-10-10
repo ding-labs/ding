@@ -30,7 +30,7 @@ package owns `/usr/local/lib/ding` and the matching `/usr/local/bin/ding` symlin
 it refuses to overwrite another installer and requires running users to stop Ding
 before an upgrade. Its installation record is externally owned. The Windows
 installer is per-user, registers Ding's notification identity and retains state
-on uninstall. Its optional final checkbox explicitly enables sign-in startup.
+on uninstall. It registers an owned per-user `ding-watch` protocol and a stub toast CLSID for protocol-only notification activation. Its optional final checkbox explicitly enables sign-in startup.
 After a package upgrade, run `ding setup` to refresh ownership metadata/startup.
 Custom-state installations must be stopped separately before replacing their binary.
 
@@ -96,7 +96,7 @@ ding-release -artifacts dist/qualified -out dist/channels \
 ```
 
 It verifies the key pairing, requires all platforms, and writes an expiring signed
-manifest, detached signature and version-specific hash-pinned installer. Upload the
+manifest, detached signature, version-specific hash-pinned installer and a Homebrew formula (`ding-preview.rb` or `ding.rb`). Upload the
 exact archives/installers to that GitHub tag first. Then review and commit only the
 chosen channel's three generated files under `releases/channels/`. Check the real
 HTTPS downloads, archived file layout, installed version and update verification
@@ -110,6 +110,11 @@ not stop local monitoring. Keep the private signing key out of repository histor
 artifacts and logs. Retain previous signed artifacts and backup/migration guidance.
 
 The former tag-triggered cross-build route is blocked because it omits native
-helpers/signing. Do not re-enable it to bypass this procedure. Homebrew formula
-publication must include the complete macOS helper beside the executable and retain
-Homebrew ownership; it remains a release gate until that native path is qualified.
+helpers/signing. Do not re-enable it to bypass this procedure. The generated Homebrew formula installs the executable and complete macOS helper
+together in `libexec`, links the executable into `bin`, and preserves Homebrew
+ownership. It deliberately defines no competing Homebrew service. Review the
+formula against the [Homebrew cookbook](https://docs.brew.sh/Formula-Cookbook.html),
+qualify native install/upgrade/uninstall, then publish to the tap separately;
+generating it does not update any public formula or stable pointer.
+
+Notification activation follows the [freedesktop action protocol](https://specifications.freedesktop.org/notification/latest-single/) on Linux and [Microsoft’s protocol-only desktop toast route](https://learn.microsoft.com/pt-br/windows/apps/design/shell/tiles-and-notifications/toast-desktop-apps) on Windows. Inno Setup writes the documented [shortcut activation identity](https://jrsoftware.org/ishelp/topic_iconssection.htm). Native acceptance must include these routes.

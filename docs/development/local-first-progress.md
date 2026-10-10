@@ -8,10 +8,10 @@ implemented code and passing automated checks do not establish a public release.
 
 | Area | Implemented in source | Remaining acceptance gate |
 | --- | --- | --- |
-| L0 installation and release channels | Private ownership records; embedded runtime/UI/MCP; native archive packagers; macOS package and per-user Windows installer; signed metadata and hash-pinned bootstrap | Real signing/notarization, Homebrew helper packaging, clean native installation matrix and public download checks. Legacy stable pointers stay unchanged. |
+| L0 installation and release channels | Private ownership records; embedded runtime/UI/MCP; native archive packagers; macOS package, per-user Windows installer and generated Homebrew formulas; signed metadata and hash-pinned bootstrap | Real signing/notarization, native Homebrew install/upgrade qualification, clean installation matrix and public download checks. Legacy stable pointers stay unchanged. |
 | L1 background startup | Login services for macOS/Linux/Windows; graceful lifecycle; Windows SCM host; dedicated-account boot templates; private logs and credential backends | Real logout/reboot/power-recovery tests, Windows/Linux task/service qualification and service-account credential provisioning |
 | L2 status and repair | Offline CLI status; daemon identity/version; separate waiting/overdue/source/delivery health; cached updates; bounded logs; previewed narrow service repair | Broader native failure/repair matrix and usability. Ambiguous monitoring gaps remain explicitly unexplained. |
-| L3 first useful watch | HTTP preview/review; first observation; OS notification test plus visible-confirmation gate; durable desktop outbox; disposable real scheduler demo; authenticated watch link and macOS click handler | Human-visible notifications/clicks, Linux/Windows click integration, ten-developer pilot and clean-machine five-minute target |
+| L3 first useful watch | HTTP preview/review; first observation; OS notification test plus visible-confirmation gate; durable desktop outbox; disposable real scheduler demo; authenticated watch links and macOS/Linux/Windows click handlers | Human-visible native notifications/clicks, ten-developer pilot and clean-machine five-minute target |
 | L4 updates | Signed platform/channel/schema checks, capacity preflight, staged archives, backup, durable journal, equal-schema rollback/recovery, daily checks and explicit stable-only automatic maintenance | Signed packaged N→N+1 on each OS, native installer upgrade/uninstall and real power-loss qualification |
 | L5 local MCP and self-hosting | Existing official Go SDK setup/pairing; independent daemon lifetime; local and dedicated-server guides; explicit OS boot templates | Real client/always-on-host matrix; no public marketplace compatibility inferred from stdio tests |
 | M marketplace proof | Dated evidence, permitted-route questions, reviewer storyboard, architecture/privacy package and surface matrix | Publisher response/review. No inquiry or submission has been sent; desktop-only directory eligibility remains unresolved. |
@@ -36,7 +36,7 @@ implemented code and passing automated checks do not establish a public release.
   permissions were changed to work around it.
 - Actual macOS ARM64 launchd install/start/restart/stop/uninstall passed with
   persisted watch state and cleanup. Synthetic native Keychain roundtrip,
-  cross-installation isolation and cleanup passed. Both helper architectures build.
+  cross-installation isolation and cleanup passed. Both helper architectures build. Linux notification delivery/click routing passed on an isolated D-Bus session; that test does not establish desktop visibility.
 - Desktop binaries cross-compiled for Linux/macOS/Windows on AMD64 and ARM64;
   cloud binaries compiled for both Linux architectures. Windows service/DPAPI tests
   compile; only a native Windows run can qualify their operating-system behavior.

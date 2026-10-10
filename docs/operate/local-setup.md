@@ -112,3 +112,17 @@ Windows/Linux native service behavior, or public package trust. See the
 
 See [always-on operation](always-on.md), [native packages](../releases/local-packages.md),
 and the optional [cloud preview](cloud-preview.md).
+
+## Notification clicks
+
+Watch notifications open that watch through a newly authenticated, single-use
+Console link. The desktop message stores only its local state location and watch
+identifier. Test notifications can open the Console home. An expired/deleted watch
+or stopped daemon cannot be opened through an old notification.
+
+macOS uses its bundled helper. Linux actions require a notification server that
+supports actions and the same running daemon session; Ding retains at most 1,024
+click targets for 24 hours. Windows requires the native installer’s per-user
+protocol registration. A disposable demo has no persistent Console to open.
+OS visibility, permission behavior and native clicks remain release qualification
+checks; an automated action-routing test cannot confirm that a person saw an alert.
