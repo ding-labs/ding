@@ -2,6 +2,7 @@ package control
 
 import (
 	"errors"
+	"fmt"
 	"github.com/ding-labs/ding/internal/hostingpolicy"
 	"github.com/ding-labs/ding/internal/plan"
 	"github.com/ding-labs/ding/internal/store"
@@ -25,6 +26,11 @@ func handoffRoutes(mux *http.ServeMux, app *watchrun.App) {
 			b, e := plan.Parse([]byte(out.Manifest))
 			if e == nil {
 				e = hostingpolicy.Policy(b)
+				for _, compiled := range b.Watches {
+					if len(compiled.Definition.Spec.Destinations) == 0 {
+						e = fmt.Errorf("choose a remote notification destination before moving this watch")
+					}
+				}
 			}
 			if e != nil {
 				out.Ready = false

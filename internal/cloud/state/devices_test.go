@@ -47,4 +47,13 @@ func TestDeviceApprovalIsBoundToInitiatorAndConsumedOnce(t *testing.T) {
 	if err := db.ApproveDevice(ctx, id, a.ID, now.Add(11*time.Minute)); err == nil {
 		t.Fatal("expired approval accepted")
 	}
+	if err := db.ApproveDevice(ctx, id, a.ID, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.BeginAccountDelete(ctx, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := db.ClaimDevice(ctx, id, verifier, now); err == nil {
+		t.Fatal("deleting account issued a device connection")
+	}
 }

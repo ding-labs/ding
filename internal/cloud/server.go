@@ -35,6 +35,7 @@ type Server struct {
 type tenantAPI struct {
 	handler http.Handler
 	token   string
+	done    <-chan struct{}
 }
 
 func (s *Server) Handler() (http.Handler, error) {
@@ -138,6 +139,14 @@ func (s *Server) Handler() (http.Handler, error) {
 		s.mu.Lock()
 		limiter := s.limits[session.Account]
 		if limiter == nil {
+			// Session-only clients may never enter a tenant API. Bound this
+			// expendable cache across enrollment/deletion churn as well.
+			if len(s.limits) >= MaxAccounts*2 {
+				for id := range s.limits {
+					delete(s.limits, id)
+					break
+				}
+			}
 			limiter = rate.NewLimiter(2, 30)
 			s.limits[session.Account] = limiter
 		}
@@ -219,11 +228,19 @@ func (s *Server) browserSession(w http.ResponseWriter, r *http.Request, session 
 func (s *Server) api(t *Tenant) tenantAPI {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	for id, cached := range s.private {
+		select {
+		case <-cached.done:
+			delete(s.private, id)
+			delete(s.limits, id)
+		default:
+		}
+	}
 	if api, ok := s.private[t.Account.ID]; ok {
 		return api
 	}
 	c := control.Credentials{Admin: state.ID(), Ingest: state.ID()}
-	api := tenantAPI{handler: control.ConsoleHandler(t.App, c, control.ConsoleConfig{Version: s.Version, Origin: s.PublicURL}), token: c.Admin}
+	api := tenantAPI{handler: control.ConsoleHandler(t.App, c, control.ConsoleConfig{Version: s.Version, Origin: s.PublicURL}), token: c.Admin, done: t.ctx.Done()}
 	s.private[t.Account.ID] = api
 	return api
 }

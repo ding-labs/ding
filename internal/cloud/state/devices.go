@@ -41,7 +41,7 @@ func (d *DB) DevicePending(ctx context.Context, id string, now time.Time) bool {
 }
 
 func (d *DB) ApproveDevice(ctx context.Context, id, account string, now time.Time) error {
-	r, err := d.sql.ExecContext(ctx, "UPDATE devices SET account=? WHERE id=? AND account IS NULL AND expires_at>?", account, id, now.Unix())
+	r, err := d.sql.ExecContext(ctx, "UPDATE devices SET account=? WHERE id=? AND account IS NULL AND expires_at>? AND EXISTS(SELECT 1 FROM accounts WHERE id=? AND deleting=0)", account, id, now.Unix(), account)
 	if err != nil {
 		return err
 	}
@@ -76,6 +76,10 @@ func (d *DB) ClaimDevice(ctx context.Context, id, verifier string, now time.Time
 	}
 	if account == "" {
 		return s, false, nil
+	}
+	var active int
+	if err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM accounts WHERE id=? AND deleting=0", account).Scan(&active); err != nil || active != 1 {
+		return s, false, fmt.Errorf("workspace is unavailable")
 	}
 	if _, err = tx.ExecContext(ctx, "DELETE FROM sessions WHERE expires_at<=?", now.Unix()); err != nil {
 		return s, false, err
