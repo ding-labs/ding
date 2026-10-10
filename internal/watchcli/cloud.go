@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/cloudlink"
+	"github.com/ding-labs/ding/internal/control"
 	"github.com/ding-labs/ding/internal/install"
 	"github.com/spf13/cobra"
 )
@@ -103,7 +104,9 @@ func cloudCommands(dir *string) *cobra.Command {
 			return err
 		}
 		if _, err := client.Call(cmd.Context(), "DELETE", "/v1/browser/session", nil); err != nil {
-			return fmt.Errorf("revocation unconfirmed; retained the connection so you can retry: %w", err)
+			if api, ok := err.(*control.APIError); !ok || api.Code != "sign_in_required" {
+				return fmt.Errorf("revocation unconfirmed; retained the connection so you can retry: %w", err)
+			}
 		}
 		if err := os.Remove(filepath.Join(*dir, "cloud.json")); err != nil {
 			return err
