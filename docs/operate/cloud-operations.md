@@ -103,7 +103,10 @@ history is evidence; canceled deliveries must not silently replay. Before releas
 1. Prove the former worker cannot execute or deliver, including another disk clone.
 2. Recover the original master key separately; test decrypting a synthetic credential.
 3. Reapply deletion requests made since this snapshot and inspect transfer holds.
-   Use a quarantined copy for inspection; do not expose restored accounts publicly.
+   Run `ding-cloud delete-workspace --data-dir /NEW/restore
+   --confirm-delete-workspace WORKSPACE_ID --confirm-other-runners-stopped`
+   for each recorded deletion. This offline command refuses a live owner and
+   does not start execution. Do not expose restored accounts publicly.
 4. Run `ding-cloud release-restore --data-dir /NEW/restore --confirm-other-runners-stopped`.
    This removes the quarantine and held transfer fences; it does not resume watches.
 5. Point the stopped service at the restored directory with correct ownership,
