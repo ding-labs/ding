@@ -165,6 +165,11 @@ func serviceCommands(root *cobra.Command, dir *string) {
 			case "install":
 				err = m.Install(ctx)
 			case "uninstall":
+				if job, jobErr := service.NewUpdateJob(r); jobErr == nil {
+					if err := job.Uninstall(ctx); err != nil {
+						return err
+					}
+				}
 				err = m.Uninstall(ctx)
 			case "status":
 				return present(cmd, true, m.Inspect(ctx))

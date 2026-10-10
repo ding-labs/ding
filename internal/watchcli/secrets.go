@@ -21,7 +21,7 @@ func secretCommands(dir *string) *cobra.Command {
 	if runtime.GOOS == "darwin" {
 		backend = "keychain"
 	}
-	set := &cobra.Command{Use: "set NAME --stdin", Short: "Read a secret from stdin into the local private credential file", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+	set := &cobra.Command{Use: "set NAME --stdin", Short: "Read a secret from stdin into the selected local credential store", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		if !stdin {
 			return fmt.Errorf("use --stdin; never put a secret value in command arguments")
 		}
@@ -46,7 +46,7 @@ func secretCommands(dir *string) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "Saved using %s storage. Restart Ding after adding a reference. Credentials need separate protected recovery; a database backup alone is insufficient.\n", backend)
+		fmt.Fprintf(cmd.OutOrStdout(), "Saved using %s storage. Restart Ding after adding or replacing a reference. Credentials need separate protected recovery; a database backup alone is insufficient.\n", backend)
 		return nil
 	}}
 	set.Flags().BoolVar(&stdin, "stdin", false, "read the value from standard input; private file storage is explicit")

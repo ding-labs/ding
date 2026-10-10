@@ -25,7 +25,7 @@ func ReadSecrets(dir string) (map[string]string, error) {
 		return nil, fmt.Errorf("cannot load private secrets.json: %w", err)
 	}
 	for name, value := range values {
-		if !secretName.MatchString(name) || value == "" || len(value) > 64<<10 {
+		if !secretName.MatchString(name) || len(name) > 256 || value == "" || len(value) > 64<<10 {
 			return nil, fmt.Errorf("invalid entry in secrets.json")
 		}
 	}
@@ -33,7 +33,7 @@ func ReadSecrets(dir string) (map[string]string, error) {
 }
 
 func SetSecret(dir, name, value string) error {
-	if !secretName.MatchString(name) || value == "" || len(value) > 64<<10 {
+	if !secretName.MatchString(name) || len(name) > 256 || value == "" || len(value) > 64<<10 {
 		return fmt.Errorf("secret requires a valid environment name and 1–65536 bytes")
 	}
 	unlock, err := Lock(dir)
@@ -64,8 +64,8 @@ func SetSecret(dir, name, value string) error {
 	if err != nil {
 		return err
 	}
-	if len(data) > 1<<20 {
-		return fmt.Errorf("secret store exceeds 1 MiB")
+	if len(values) > 1000 || len(data) > 900<<10 {
+		return fmt.Errorf("private credential storage is full")
 	}
 	return AtomicJSON(filepath.Join(dir, "secrets.json"), values)
 }
