@@ -3,11 +3,13 @@ package watchcli
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -32,6 +34,9 @@ func demoCommand() *cobra.Command {
 }
 
 func runDemo(ctx context.Context, cmd *cobra.Command, desktop bool, phase time.Duration) error {
+	// Progress and delivery workers share one stream, which may be a buffer or
+	// another writer that does not support concurrent writes.
+	out := &demoWriter{Writer: cmd.OutOrStdout()}
 	dir, err := os.MkdirTemp("", "ding-demo-")
 	if err != nil {
 		return err
@@ -70,7 +75,7 @@ func runDemo(ctx context.Context, cmd *cobra.Command, desktop bool, phase time.D
 	}
 	manifest = strings.ReplaceAll(manifest, "every: 30s", "every: "+(phase/5).String())
 	app := watchrun.New(db)
-	app.Output = cmd.OutOrStdout()
+	app.Output = out
 	app.Notify = notify.Send
 	app.AcquisitionWorkers, app.DeliveryWorkers = 1, 1
 	if _, err := app.Apply(ctx, watchrun.ApplyRequest{Manifest: manifest}); err != nil {
@@ -86,7 +91,7 @@ func runDemo(ctx context.Context, cmd *cobra.Command, desktop bool, phase time.D
 		if state {
 			label = "failing (HTTP 503)"
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), "Demo fixture:", label)
+		fmt.Fprintln(out, "Demo fixture:", label)
 		timer := time.NewTimer(phase)
 		select {
 		case <-ctx.Done():
@@ -108,6 +113,17 @@ func runDemo(ctx context.Context, cmd *cobra.Command, desktop bool, phase time.D
 	if !fired || !recovered {
 		return fmt.Errorf("demo did not record both transitions; it is not a successful alert-pipeline test")
 	}
-	fmt.Fprintln(cmd.OutOrStdout(), "Demo recorded a firing and a recovery. Temporary fixture and watch state are being removed. Create a real watch with ding setup or ding watch create.")
+	fmt.Fprintln(out, "Demo recorded a firing and a recovery. Temporary fixture and watch state are being removed. Create a real watch with ding setup or ding watch create.")
 	return nil
+}
+
+type demoWriter struct {
+	sync.Mutex
+	io.Writer
+}
+
+func (w *demoWriter) Write(p []byte) (int, error) {
+	w.Lock()
+	defer w.Unlock()
+	return w.Writer.Write(p)
 }
