@@ -96,6 +96,9 @@ func updateCommands(root *cobra.Command, dir *string) {
 			if runtime.GOOS == "windows" {
 				return fmt.Errorf("use the signed Windows installer to update this installation")
 			}
+			if err := update.CheckSpace(filepath.Dir(r.Executable), *dir, artifact.Bytes); err != nil {
+				return err
+			}
 			stage, err := os.MkdirTemp(filepath.Dir(r.Executable), ".ding-update-")
 			if err != nil {
 				return err
