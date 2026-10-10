@@ -40,6 +40,9 @@ func (s *Server) Handler() (http.Handler, error) {
 		return nil, err
 	}
 	s.PublicURL = origin
+	if s.TenantHandler == nil {
+		s.TenantHandler = s.serveTenant
+	}
 	u, _ := url.Parse(origin)
 	s.private = map[string]tenantAPI{}
 	s.limits = map[string]*rate.Limiter{}
