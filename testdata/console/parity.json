@@ -9,6 +9,7 @@
   "delivery inspect": "deliveries/detail",
   "delivery retry": "deliveries/detail",
   "doctor": "system/doctor",
+  "demo": "Explicit temporary host demonstration; not a production watch or an activation metric.",
   "events": "events",
   "events inspect": "events/detail",
   "events observations": "events/detail/observations",
