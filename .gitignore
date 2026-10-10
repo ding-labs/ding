@@ -47,6 +47,15 @@ docs/superpowers/
 # Python build helpers
 __pycache__/
 *.pyc
+integrations/mcp/.venv/
+integrations/mcp/.pytest_cache/
+integrations/mcp/.ruff_cache/
+integrations/mcp/build/
+*.egg-info/
+/web/mcp-app/*.tsbuildinfo
+/web/mcp-app/test-results/
+/web/mcp-app/playwright-report/
+/integrations/mcp/src/ding_mcp/assets/workspace.html
 
 # Console build and browser-test artifacts
 /web/console/playwright-report/

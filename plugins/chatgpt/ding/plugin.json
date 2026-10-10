@@ -1,0 +1,29 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "ding",
+  "version": "0.1.0",
+  "description": "Create persistent watches, review changes, and understand alerts from your own Ding instance.",
+  "author": {"name": "Ding Labs", "url": "https://github.com/ding-labs"},
+  "homepage": "https://github.com/ding-labs/ding",
+  "repository": "https://github.com/ding-labs/ding",
+  "license": "Apache-2.0",
+  "keywords": ["monitoring", "alerts", "self-hosted"],
+  "extensions": {
+    "com.openai": {
+      "onboardingSkill": "./skills/ding-setup/SKILL.md",
+      "interface": {
+        "displayName": "Ding",
+        "shortDescription": "Persistent watches. Evidence behind every alert.",
+        "longDescription": "Connect your own Ding instance. Create watches from a conversation, inspect the exact changes before applying them, and investigate events with their recorded evidence. Ding keeps monitoring independently of the conversation.",
+        "developerName": "Ding Labs",
+        "category": "Productivity",
+        "capabilities": ["Read", "Write"],
+        "websiteURL": "https://github.com/ding-labs/ding",
+        "brandColor": "#246B45",
+        "composerIcon": "./assets/icon.svg",
+        "logo": "./assets/icon.svg",
+        "defaultPrompt": ["Show my watches that need attention.", "Help me create a health check watch.", "Explain why my last alert fired."]
+      }
+    }
+  }
+}

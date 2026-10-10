@@ -1,0 +1,11 @@
+{
+  "name": "ding",
+  "displayName": "Ding",
+  "version": "0.1.0",
+  "description": "Persistent watches and the evidence behind every alert. Connect your own Ding instance, review changes, and keep monitoring independently of the conversation.",
+  "author": {"name": "Ding Labs", "url": "https://github.com/ding-labs"},
+  "homepage": "https://github.com/ding-labs/ding",
+  "repository": "https://github.com/ding-labs/ding",
+  "license": "Apache-2.0",
+  "keywords": ["monitoring", "alerts", "self-hosted"]
+}
