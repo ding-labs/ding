@@ -23,6 +23,7 @@ type BenchmarkOptions struct {
 	Accounts          int
 	Duration, Latency time.Duration
 	BodyBytes         int
+	SameHost          bool
 }
 type BenchmarkResult struct {
 	Accounts              int     `json:"accounts"`
@@ -30,6 +31,8 @@ type BenchmarkResult struct {
 	Checks                int64   `json:"checks"`
 	FirstObservationP95MS float64 `json:"firstObservationP95MS"`
 	ObservedAccounts      int     `json:"observedAccounts"`
+	HealthyAccounts       int     `json:"healthyAccounts"`
+	SameHost              bool    `json:"sameHost"`
 	HeapAllocBytes        uint64  `json:"heapAllocBytes"`
 	RuntimeReservedBytes  uint64  `json:"runtimeReservedBytes"`
 	Goroutines            int     `json:"goroutines"`
@@ -82,11 +85,15 @@ func Benchmark(ctx context.Context, o BenchmarkOptions) (result BenchmarkResult,
 	defer p.Close()
 	var tenants []*Tenant
 	started := map[string]time.Time{}
-	manifest, err := Template(FirstWatch{ID: "health", URL: "https://benchmark.example/health", Destination: "webhook", Credential: "WEBHOOK"})
-	if err != nil {
-		return result, err
-	}
 	for i := 0; i < o.Accounts; i++ {
+		host := fmt.Sprintf("workspace-%d.benchmark.example", i)
+		if o.SameHost {
+			host = "shared.benchmark.example"
+		}
+		manifest, err := Template(FirstWatch{ID: "health", URL: "https://" + host + "/health", Destination: "webhook", Credential: "WEBHOOK"})
+		if err != nil {
+			return result, err
+		}
 		a, err := db.Enroll(ctx, "https://synthetic-issuer.example", fmt.Sprint(i), o.Accounts)
 		if err != nil {
 			return result, err
@@ -110,19 +117,26 @@ func Benchmark(ctx context.Context, o BenchmarkOptions) (result BenchmarkResult,
 	case <-timer.C:
 	}
 	var latencies []float64
+	observed, healthy := 0, 0
 	for _, t := range tenants {
 		records, err := t.App.List(ctx)
 		if err != nil {
 			return result, err
 		}
 		if len(records) > 0 && !records[0].LastInputAt.IsZero() {
-			latencies = append(latencies, float64(records[0].LastInputAt.Sub(started[t.Account.ID]).Microseconds())/1000)
+			observed++
+			if records[0].LastError == "" {
+				healthy++
+				if o.Duration < 5*time.Minute {
+					latencies = append(latencies, float64(records[0].LastInputAt.Sub(started[t.Account.ID]).Microseconds())/1000)
+				}
+			}
 		}
 	}
 	sort.Float64s(latencies)
 	var memory runtime.MemStats
 	runtime.ReadMemStats(&memory)
-	result = BenchmarkResult{Accounts: o.Accounts, DurationSeconds: time.Since(begin).Seconds(), Checks: transport.checks.Load(), ObservedAccounts: len(latencies), HeapAllocBytes: memory.HeapAlloc, RuntimeReservedBytes: memory.Sys, Goroutines: runtime.NumGoroutine(), LiveDiskBytes: diskBytes(dir), Notes: "Synthetic healthy HTTP responses; five-minute cadence; one watch/account; memory is Go runtime allocation, not RSS. Short runs measure first observations, not sustained capacity, DNS/TLS, failures, provider costs or production availability."}
+	result = BenchmarkResult{Accounts: o.Accounts, DurationSeconds: time.Since(begin).Seconds(), Checks: transport.checks.Load(), ObservedAccounts: observed, HealthyAccounts: healthy, SameHost: o.SameHost, HeapAllocBytes: memory.HeapAlloc, RuntimeReservedBytes: memory.Sys, Goroutines: runtime.NumGoroutine(), LiveDiskBytes: diskBytes(dir), Notes: "Synthetic HTTP; five-minute cadence; one watch/account; memory is Go runtime allocation, not RSS. Distinct hosts by default; same-host mode exercises shared throttling. Failed observations count as observed, not healthy. First-observation latency is reported only for runs shorter than five minutes. This does not qualify DNS/TLS, representative failures, provider costs or production availability."}
 	if len(latencies) > 0 {
 		index := (len(latencies)*95+99)/100 - 1
 		result.FirstObservationP95MS = latencies[index]
