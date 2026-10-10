@@ -78,19 +78,23 @@ func Open(ctx context.Context, dir string) (*DB, error) {
 	if err := db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return nil, err
 	}
-	if version > 1 {
+	if version > len(migrations) {
 		return nil, fmt.Errorf("cloud control schema is newer than this binary")
 	}
 	if _, err := db.ExecContext(ctx, "PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=100; PRAGMA journal_size_limit=4194304;"); err != nil {
 		return nil, err
 	}
-	if version == 0 {
+	for version < len(migrations) {
 		tx, err := db.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, err
 		}
 		defer tx.Rollback()
-		if _, err := tx.ExecContext(ctx, schema); err != nil {
+		if _, err := tx.ExecContext(ctx, migrations[version]); err != nil {
+			return nil, err
+		}
+		version++
+		if _, err := tx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version=%d", version)); err != nil {
 			return nil, err
 		}
 		if err := tx.Commit(); err != nil {
@@ -176,8 +180,11 @@ func (d *DB) Accounts(ctx context.Context) ([]Account, error) {
 	return accounts, rows.Err()
 }
 
-const schema = `
+var migrations = []string{`
 CREATE TABLE accounts(id TEXT PRIMARY KEY,issuer TEXT NOT NULL,subject TEXT NOT NULL,created_at INTEGER NOT NULL,UNIQUE(issuer,subject));
 CREATE TABLE secrets(account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,name TEXT NOT NULL,ciphertext BLOB NOT NULL,PRIMARY KEY(account,name));
-PRAGMA user_version=1;
-`
+`, `
+CREATE TABLE usage(account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,period TEXT NOT NULL,checks INTEGER NOT NULL DEFAULT 0,deliveries INTEGER NOT NULL DEFAULT 0,bytes INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(account,period));
+CREATE TABLE reservations(id TEXT PRIMARY KEY,account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,period TEXT NOT NULL,created_at INTEGER NOT NULL);
+CREATE INDEX reservations_account ON reservations(account);
+`}
