@@ -272,7 +272,7 @@ export function Watches() {
                       Create an HTTP, push, or command watch. Understand and
                       test its rule before it runs.
                     </p>
-                    <Link className="button primary" to="/workbench">
+                    <Link className="button primary" to="/start">
                       Create your first watch <Plus size={16} />
                     </Link>
                   </>

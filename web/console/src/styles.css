@@ -499,6 +499,22 @@ code {
   padding: 24px;
   min-width: 0;
 }
+.onboarding-form fieldset {
+  display: grid;
+  gap: 16px;
+  max-width: 560px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.onboarding-form label {
+  display: grid;
+  gap: 8px;
+}
+.onboarding-form input,
+.onboarding-form select {
+  width: 100%;
+}
 .panel + .panel {
   margin-top: 20px;
 }

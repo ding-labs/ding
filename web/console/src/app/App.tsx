@@ -26,6 +26,7 @@ import { preference, savePreference } from "./preferences";
 import { CommandMenu } from "../components/CommandMenu";
 import { System } from "../pages/System";
 import { Workbench } from "../pages/Workbench";
+import { FirstWatch } from "../pages/FirstWatch";
 import "./draft";
 import { useNavigationContext } from "./scroll";
 import { Watches, WatchDetail } from "../pages/Watches";
@@ -262,6 +263,7 @@ export function App() {
               <Route path="/deliveries" element={<Deliveries />} />
               <Route path="/deliveries/:id" element={<DeliveryDetail />} />
               <Route path="/workbench" element={<Workbench />} />
+              <Route path="/start" element={<FirstWatch />} />
               <Route path="/system" element={<System />} />
               <Route
                 path="*"
