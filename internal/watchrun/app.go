@@ -23,6 +23,7 @@ import (
 )
 
 type App struct {
+	SchedulingJitter                    time.Duration
 	Store                               *store.Store
 	HTTP                                source.HTTP
 	Lookup                              source.Lookup
@@ -384,7 +385,7 @@ func (a *App) accept(ctx context.Context, record store.WatchRecord, batch source
 			return err
 		}
 		interval, _ := time.ParseDuration(current.Plan.Definition.Spec.Source.Every)
-		next := now.Add(interval)
+		next := a.nextPoll(now, interval, id)
 		if batch.RetryAt.After(next) {
 			next = batch.RetryAt
 		}

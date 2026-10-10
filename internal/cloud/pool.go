@@ -75,6 +75,7 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 	app.Limits = Limits()
 	app.AcquisitionWorkers, app.DeliveryWorkers = 1, 1
 	app.PollInterval = time.Second
+	app.SchedulingJitter = 5 * time.Second
 	app.Lookup = p.vault.Lookup(id)
 	app.HTTP.Lookup = app.Lookup
 	app.Output = io.Discard
