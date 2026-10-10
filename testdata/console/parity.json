@@ -60,5 +60,6 @@
   "cloud move finish": "Availability flow: explicit local preflight, selected configuration transfer, delivery confirmation, and durable reconciliation.",
   "cloud move cancel": "Availability flow: explicit local preflight, selected configuration transfer, delivery confirmation, and durable reconciliation.",
   "update configure": "Host update policy: checks can be disabled; automatic compatible stable replacements require explicit opt-in and a maintenance hour.",
-  "update scheduled": "Host update policy: checks can be disabled; automatic compatible stable replacements require explicit opt-in and a maintenance hour."
+  "update scheduled": "Host update policy: checks can be disabled; automatic compatible stable replacements require explicit opt-in and a maintenance hour.",
+  "service host": "Host operation: Windows SCM entrypoint launched by a reviewed boot service."
 }
