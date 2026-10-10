@@ -14,6 +14,7 @@ import (
 )
 
 type HandoffPrepare struct {
+	ReturnOf string              `json:"returnOf,omitempty"`
 	ID       string              `json:"id"`
 	Peer     string              `json:"peer"`
 	Manifest string              `json:"manifest"`
@@ -94,12 +95,31 @@ func (a *App) PrepareHandoff(ctx context.Context, r HandoffPrepare) (store.Hando
 	if len(b.Watches) != 1 {
 		return store.Handoff{}, fmt.Errorf("transfer exactly one watch")
 	}
-	digest, err := watch.Revision(struct{ Manifest, Peer string }{r.Manifest, r.Peer})
+	digest, err := watch.Revision(struct{ Manifest, Peer, ReturnOf string }{r.Manifest, r.Peer, r.ReturnOf})
 	if err != nil {
 		return store.Handoff{}, err
 	}
 	m := &handoffMutation{h: store.Handoff{ID: r.ID, Peer: r.Peer, WatchID: b.Watches[0].Definition.Metadata.ID, Digest: digest, Role: "target", Phase: "prepared", Held: true}, action: "prepare"}
 	m.check = func(tx *store.Tx) error {
+		if r.ReturnOf != "" {
+			old, err := tx.Handoff(r.ReturnOf)
+			if err != nil {
+				return err
+			}
+			current, err := tx.Watch(m.h.WatchID)
+			if err != nil {
+				return err
+			}
+			if old.Role != "source" || old.Phase != "paused" || !old.Held || old.WatchID != m.h.WatchID || old.Peer != r.Peer || current.Status != "paused" || current.Plan.Revision != old.Revision || current.Generation != old.Generation {
+				return fmt.Errorf("return must match the original held source and peer")
+			}
+			old.Held = false
+			old.Phase = "returned"
+			if err := tx.SaveHandoff(old); err != nil {
+				return err
+			}
+		}
+
 		for _, d := range b.Destinations {
 			old, err := tx.Destination(d.Definition.Metadata.ID, "")
 			if err != nil && !errors.Is(err, store.ErrNotFound) {
@@ -111,7 +131,7 @@ func (a *App) PrepareHandoff(ctx context.Context, r HandoffPrepare) (store.Hando
 		}
 		return nil
 	}
-	_, err = a.apply(ctx, ApplyRequest{Manifest: r.Manifest, Review: r.Review, startPaused: true}, m)
+	_, err = a.apply(ctx, ApplyRequest{Manifest: r.Manifest, Review: r.Review, startPaused: true, resetPaused: r.ReturnOf != ""}, m)
 	if err != nil {
 		return store.Handoff{}, err
 	}

@@ -59,6 +59,7 @@ type Change struct {
 }
 type ApplyRequest struct {
 	startPaused bool
+	resetPaused bool
 	Review      *ApplyPreconditions `json:"review,omitempty"`
 	Manifest    string              `json:"manifest"`
 	DryRun      bool                `json:"dryRun"`
@@ -177,7 +178,7 @@ func (a *App) apply(ctx context.Context, request ApplyRequest, mutation mutation
 					}
 				}
 			}
-			if err := checkHandoffHold(tx, id, mutation); err != nil {
+			if err := checkHandoffHold(tx, id, mutation); !request.DryRun && err != nil {
 				return err
 			}
 			old, err := tx.Watch(id)
@@ -194,7 +195,7 @@ func (a *App) apply(ctx context.Context, request ApplyRequest, mutation mutation
 			change := Change{Kind: "Watch", After: yamlDefinition(p.Definition), ID: id, Revision: p.Revision, Previous: previous, State: "created", Permissions: p.Permissions}
 			record := store.WatchRecord{Plan: p, Generation: 1, Status: "running", NextAt: now}
 			if request.startPaused {
-				if previous != "" {
+				if previous != "" && !request.resetPaused {
 					return store.ErrConflict
 				}
 				record.Status = "paused"
@@ -225,8 +226,18 @@ func (a *App) apply(ctx context.Context, request ApplyRequest, mutation mutation
 					return ErrQuota
 				}
 			}
+			if request.resetPaused {
+				record.Generation++
+				record.Status = "paused"
+				record.Cursor = ""
+				record.LastInputAt = time.Time{}
+				record.LastError = ""
+				record.NextAt = now
+				reset = true
+				change.State = "reset"
+			}
 			result.Changes = append(result.Changes, change)
-			if request.DryRun || previous == p.Revision {
+			if request.DryRun || previous == p.Revision && !request.resetPaused {
 				continue
 			}
 			if err := tx.SaveWatch(record, now); err != nil {

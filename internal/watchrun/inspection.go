@@ -133,6 +133,13 @@ func (a *App) retry(ctx context.Context, id int64, mutation *integrationMutation
 		if a.isClosing() {
 			return ErrClosing
 		}
+		intent, err := tx.Intent(id)
+		if err != nil {
+			return err
+		}
+		if err := checkHandoffHold(tx, intent.WatchID, mutation); err != nil {
+			return err
+		}
 		usage, err := tx.Budget()
 		if err != nil {
 			return err
