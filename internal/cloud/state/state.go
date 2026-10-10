@@ -193,4 +193,6 @@ CREATE INDEX sessions_account ON sessions(account);
 CREATE TABLE logins(hash TEXT PRIMARY KEY,ciphertext BLOB NOT NULL,expires_at INTEGER NOT NULL);
 `, `
 CREATE TABLE probes(account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,id TEXT NOT NULL,digest TEXT NOT NULL,outcome TEXT NOT NULL,at INTEGER NOT NULL,PRIMARY KEY(account,id));
+`, `
+CREATE TABLE devices(id TEXT PRIMARY KEY,challenge TEXT NOT NULL,account TEXT REFERENCES accounts(id) ON DELETE CASCADE,expires_at INTEGER NOT NULL);
 `}
