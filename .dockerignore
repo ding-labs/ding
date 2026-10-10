@@ -18,3 +18,4 @@ dist
 **/.ruff_cache
 integrations/mcp/build
 internal/webui/dist
+internal/mcpui/dist

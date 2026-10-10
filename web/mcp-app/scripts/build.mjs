@@ -23,7 +23,7 @@ const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta n
 if (Buffer.byteLength(html) > 1_048_576)
   throw new Error("MCP app exceeds its 1 MiB uncompressed budget");
 const output = new URL(
-  "../../../integrations/mcp/src/ding_mcp/assets/",
+  "../../../internal/mcpui/dist/",
   import.meta.url,
 );
 await mkdir(output, { recursive: true });

@@ -9,6 +9,7 @@
   "scripts": {
     "build": "tsc --noEmit && node scripts/build.mjs",
     "test": "vitest run",
+    "test:interop": "node tests/interop.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -17,6 +18,7 @@
     "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "2.3.1",
     "@playwright/test": "1.64.0",
     "@testing-library/react": "16.3.3",
     "@types/react": "19.3.0",

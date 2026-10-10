@@ -7,7 +7,7 @@ test("official MCP Apps bridge renders, adapts, and navigates offline", async ({
 }) => {
   const html = await readFile(
     new URL(
-      "../../../integrations/mcp/src/ding_mcp/assets/workspace.html",
+      "../../../internal/mcpui/dist/workspace.html",
       import.meta.url,
     ),
     "utf8",
