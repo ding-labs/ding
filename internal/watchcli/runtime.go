@@ -169,6 +169,7 @@ func runtimeCommands(root *cobra.Command) {
 	}
 	root.AddCommand(watchCmd)
 	inspectionCommands(root, &dir)
+	serviceCommands(root, &dir)
 	root.AddCommand(uiCommand(&dir))
 }
 func call(cmd *cobra.Command, dir string, structured bool, method, path string, body any) error {

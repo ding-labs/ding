@@ -34,5 +34,13 @@
   "mcp grants": "Host integration setup boundary: local CLI and guided MCP pairing; scoped tool operations remain available through the integration UI.",
   "mcp pair": "Host integration setup boundary: local CLI and guided MCP pairing; scoped tool operations remain available through the integration UI.",
   "mcp serve": "Host integration setup boundary: local CLI and guided MCP pairing; scoped tool operations remain available through the integration UI.",
-  "mcp setup": "Host integration setup boundary: local CLI and guided MCP pairing; scoped tool operations remain available through the integration UI."
+  "mcp setup": "Host integration setup boundary: local CLI and guided MCP pairing; scoped tool operations remain available through the integration UI.",
+  "status": "CLI combines offline service-manager status with the authenticated Doctor view; online health is also in System.",
+  "setup": "CLI host operation enables user startup and opens the local Console; no account required.",
+  "service install": "Host operation: manage only this installation's service; cannot depend on a running web server.",
+  "service start": "Host operation: manage only this installation's service; cannot depend on a running web server.",
+  "service stop": "Host operation: manage only this installation's service; cannot depend on a running web server.",
+  "service restart": "Host operation: manage only this installation's service; cannot depend on a running web server.",
+  "service status": "Host operation: manage only this installation's service; cannot depend on a running web server.",
+  "service uninstall": "Host operation: manage only this installation's service; cannot depend on a running web server."
 }
