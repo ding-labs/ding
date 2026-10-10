@@ -62,6 +62,11 @@ func Normalize(schema *jsonschema.Resolved, v View) (View, error) {
 	if json.Unmarshal(b, &raw) != nil {
 		return View{}, fmt.Errorf("incompatible_response: invalid daemon response")
 	}
+	// Pydantic's default factories are not represented in JSON Schema, and the
+	// SDK's schema engine does not apply nested defaults through unions/arrays.
+	// Preserve only the explicit historical response defaults; required daemon
+	// fields must still be present and correctly typed before validation succeeds.
+	responseDefaults(v.View, raw.(map[string]any)["data"])
 	if err := schema.ApplyDefaults(&raw); err != nil {
 		return View{}, fmt.Errorf("incompatible_response: update Ding and its MCP adapter together")
 	}
@@ -73,4 +78,41 @@ func Normalize(schema *jsonschema.Resolved, v View) (View, error) {
 		return View{}, fmt.Errorf("incompatible_response: invalid daemon response")
 	}
 	return v, nil
+}
+
+func responseDefaults(view string, data any) {
+	m, ok := data.(map[string]any)
+	if !ok {
+		return
+	}
+	set := func(object map[string]any, key string, value any) {
+		if _, exists := object[key]; !exists {
+			object[key] = value
+		}
+	}
+	changes := func(result map[string]any) {
+		for _, key := range []string{"changes", "destinationChanges"} {
+			items, _ := result[key].([]any)
+			for _, item := range items {
+				if change, ok := item.(map[string]any); ok {
+					set(change, "before", "")
+					set(change, "after", "")
+				}
+			}
+		}
+	}
+	switch view {
+	case "preview":
+		set(m, "preview", nil)
+		set(m, "fixture", nil)
+		set(m, "diagnostics", []any{})
+		set(m, "descriptions", []any{})
+		if preview, ok := m["preview"].(map[string]any); ok {
+			if result, ok := preview["changes"].(map[string]any); ok {
+				changes(result)
+			}
+		}
+	case "applied":
+		changes(m)
+	}
 }
