@@ -19,10 +19,11 @@ var ErrQuota = errors.New("resource quota exceeded")
 var ErrClosing = errors.New("runtime is shutting down")
 
 type Limits struct {
-	MaxWatches int           `json:"maxWatches"`
-	MaxPending int           `json:"maxPending"`
-	MaxBytes   int64         `json:"maxBytes"`
-	Retention  time.Duration `json:"retention"`
+	MaxDestinations int           `json:"maxDestinations"` // Zero preserves older callers' unlimited destination count.
+	MaxWatches      int           `json:"maxWatches"`
+	MaxPending      int           `json:"maxPending"`
+	MaxBytes        int64         `json:"maxBytes"`
+	Retention       time.Duration `json:"retention"`
 }
 
 func DefaultLimits() Limits {
@@ -109,7 +110,10 @@ func (a *App) Lifecycle(ctx context.Context, id string, request LifecycleRequest
 	return a.lifecycle(ctx, id, request, nil)
 }
 
-func (a *App) lifecycle(ctx context.Context, id string, request LifecycleRequest, mutation *integrationMutation) (store.WatchRecord, error) {
+func (a *App) lifecycle(ctx context.Context, id string, request LifecycleRequest, mutation mutation) (store.WatchRecord, error) {
+	if mutation == nil {
+		mutation = noMutation{}
+	}
 	var record store.WatchRecord
 	now := a.Now()
 	err := a.Store.Update(ctx, func(tx *store.Tx) error {
@@ -118,6 +122,9 @@ func (a *App) lifecycle(ctx context.Context, id string, request LifecycleRequest
 		}
 		if a.isClosing() {
 			return ErrClosing
+		}
+		if err := checkHandoffHold(tx, id, mutation); err != nil {
+			return err
 		}
 		var err error
 		record, err = tx.Watch(id)

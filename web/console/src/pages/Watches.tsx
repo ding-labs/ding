@@ -1,3 +1,4 @@
+import { Availability } from "./Availability";
 import { useState } from "react";
 import {
   Link,
@@ -272,7 +273,7 @@ export function Watches() {
                       Create an HTTP, push, or command watch. Understand and
                       test its rule before it runs.
                     </p>
-                    <Link className="button primary" to="/workbench">
+                    <Link className="button primary" to="/start">
                       Create your first watch <Plus size={16} />
                     </Link>
                   </>
@@ -381,6 +382,7 @@ export function WatchDetail() {
       />
       {tab === "Overview" && (
         <>
+          <Availability watchID={id} />
           <div className="overview-grid">
             <section className="panel rule-panel">
               <p className="eyebrow">The rule</p>

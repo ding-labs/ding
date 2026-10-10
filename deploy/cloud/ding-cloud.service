@@ -1,0 +1,34 @@
+[Unit]
+Description=Ding Cloud preview (single persistent worker)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=ding-cloud
+Group=ding-cloud
+ExecStart=/opt/ding-cloud/ding-cloud --config /etc/ding-cloud/config.json
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=90
+UMask=0077
+StateDirectory=ding-cloud
+StateDirectoryMode=0700
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/var/lib/ding-cloud
+MemoryMax=1G
+TasksMax=512
+LimitNOFILE=8192
+
+[Install]
+WantedBy=multi-user.target

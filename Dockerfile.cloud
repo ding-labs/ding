@@ -1,0 +1,29 @@
+FROM node:24-alpine AS assets
+WORKDIR /src
+COPY web/console/package*.json web/console/
+RUN npm ci --prefix web/console
+COPY web/console web/console
+COPY design design
+COPY testdata/console testdata/console
+RUN npm run build --prefix web/console
+COPY web/mcp-app/package*.json web/mcp-app/
+RUN npm ci --prefix web/mcp-app
+COPY web/mcp-app web/mcp-app
+RUN npm run build --prefix web/mcp-app
+
+FROM golang:1.26-alpine AS build
+RUN apk add --no-cache ca-certificates
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+COPY --from=assets /src/internal/webui/dist internal/webui/dist
+COPY --from=assets /src/internal/mcpui/dist internal/mcpui/dist
+RUN CGO_ENABLED=0 go build -trimpath -tags console,mcpui -ldflags='-s -w' -o /ding-cloud ./cmd/ding-cloud
+
+FROM scratch
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build /ding-cloud /ding-cloud
+USER 10001:10001
+ENTRYPOINT ["/ding-cloud"]
+CMD ["--config", "/etc/ding-cloud/config.json"]

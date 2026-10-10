@@ -2,6 +2,13 @@
 
 Proposed October 9, 2026. Scope: local and self-hosted Ding, distributed through the official ChatGPT and Claude marketplaces. Implementation started October 10; see the [integration guide](../integrations/README.md) and [release qualification status](../integrations/release.md). Publication remains a separate external milestone.
 
+**Product scope update, October 10:** the [local-first roadmap](local-first-roadmap.md)
+now governs subsequent work: complete account-free local installation and operation,
+confirm the desktop-only marketplace route, then evaluate optional hosted execution.
+Its [marketplace investigation](desktop-marketplace-plan.md) replaces the feasibility
+work breakdown below, and its [cloud plan](ding-cloud-plan.md) expands the original
+self-hosted-only constraint. No cloud service or marketplace approval is implied.
+
 The [Go MCP adapter migration](mcp-go-migration-plan.md) was implemented October 10.
 The official Go SDK replaces the initial FastMCP adapter; the product and official
 marketplace requirements below continue to apply. See the dated
@@ -17,8 +24,8 @@ The intended experience is: install Ding from the marketplace, connect a local o
 | --- | --- |
 | Integration foundation | One official Go SDK server and tool contract, shared across clients |
 | Distribution | Official marketplace plugins containing MCP integration, skills, onboarding, and branded assets |
-| Execution and storage | User-controlled Ding daemon and SQLite state |
-| Ding-operated infrastructure | None under the current self-hosted-only constraint; a connection relay would require a separate product decision |
+| Execution and storage | User-controlled Ding daemon and SQLite state by default; optional future hosted execution follows the local-first roadmap |
+| Ding-operated infrastructure | None required for local use; a hosted execution service is separately planned, with no public relay to the local machine |
 | Interface | Conversation plus focused embedded cards; full Ding Console for extensive inspection and editing |
 | Models | Use the host's selected model; do not require a separate model API key for ordinary watch operations |
 | Background work | The daemon owns monitoring; platform event integrations are optional destinations |
@@ -52,7 +59,7 @@ OpenAI explicitly instructs developers unable to deploy a public endpoint to con
 
 Prepare a small working server, tool inventory, proposed installation screens, and a synthetic-data review instance for those discussions. Do not send outreach or submit anything as part of this planning task.
 
-If official self-hosted routing is unavailable, ship the supported local Claude plugin first and hold the affected browser/ChatGPT release. A Ding-operated relay could make a single public endpoint practical, but changes the infrastructure constraint: it would process tool traffic even if watches and storage remain local. It is an explicit alternative, not an assumed implementation detail. A skills-only listing that requires manual connector setup is not the requested finished product.
+If official self-hosted routing is unavailable, ship qualified local integrations and hold the affected browser/ChatGPT release. The updated roadmap evaluates cloud for continuous hosted execution and does not include a public relay back to the local machine. A skills-only listing that requires manual connector setup is not the requested finished product.
 
 ## What Ding already provides
 
@@ -103,7 +110,7 @@ Use Go contexts, bounded HTTP transport, and SDK session lifecycles for cancella
 
 Target protocol `2026-07-28` with explicit compatibility testing for earlier clients. The current MCP core uses stateless requests and per-request capability negotiation; capabilities such as UI remain negotiated extensions. Maintain host capability detection rather than inferring features from a client name. [MCP specification](https://modelcontextprotocol.io/specification/2026-07-28).
 
-An externally reachable deployment remains entirely user-operated. Document a supported HTTPS/auth deployment recipe once the marketplace route is approved. OpenAI Secure MCP Tunnel is a separate supported private connection option requiring its own client and platform permissions; it does not by itself solve public directory distribution. [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels), [ChatGPT connection testing](https://developers.openai.com/plugins/deploy/connect-chatgpt).
+For self-hosted deployments, an externally reachable endpoint remains user-operated. Document a supported HTTPS/auth deployment recipe once the marketplace route is approved. A future Ding-operated endpoint belongs to the separate cloud execution plan. OpenAI Secure MCP Tunnel is a supported private connection option requiring its own client and platform permissions; it does not by itself solve public directory distribution. [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels), [ChatGPT connection testing](https://developers.openai.com/plugins/deploy/connect-chatgpt).
 
 ## User journeys
 

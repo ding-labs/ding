@@ -136,6 +136,7 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 		}
 	})
 	inspectionRoutes(mux, app)
+	handoffRoutes(mux, app)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { fail(w, 404, "not_found", "route or method not found") })
 	integration := integrationHandler(app, c, mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

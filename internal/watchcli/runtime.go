@@ -16,7 +16,10 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/control"
+	"github.com/ding-labs/ding/internal/install"
+	"github.com/ding-labs/ding/internal/notify"
 	"github.com/ding-labs/ding/internal/store"
+	"github.com/ding-labs/ding/internal/update"
 	"github.com/ding-labs/ding/internal/watchrun"
 	"github.com/ding-labs/ding/internal/webui"
 	"github.com/spf13/cobra"
@@ -44,6 +47,11 @@ func runtimeCommands(root *cobra.Command) {
 			return err
 		}
 		defer database.Close()
+		closeLog, err := prepareDaemonLog(cmd, dir)
+		if err != nil {
+			return err
+		}
+		defer closeLog()
 		credentials, err := control.PrivateCredentials(dir)
 		if err != nil {
 			return err
@@ -66,7 +74,19 @@ func runtimeCommands(root *cobra.Command) {
 		if err := control.SaveConnection(dir, endpoint); err != nil {
 			return err
 		}
+		stopChecks := update.WatchChecks(ctx, dir, store.SchemaVersion)
+		defer stopChecks()
 		app := watchrun.New(database)
+		notificationState, _ := filepath.Abs(dir)
+		sendNotification, closeNotifications := notify.NewSender(ctx, notificationState)
+		defer closeNotifications()
+		app.Notify = sendNotification
+		lookup, err := install.CredentialLookup(dir)
+		if err != nil {
+			return err
+		}
+		app.Lookup = lookup
+		app.HTTP.Lookup = app.Lookup
 		app.Limits = limits
 		app.Output = cmd.OutOrStdout()
 		origin := uiOrigin
@@ -74,6 +94,7 @@ func runtimeCommands(root *cobra.Command) {
 			origin = endpoint
 		}
 		config := control.ConsoleConfig{Version: root.Version, Origin: origin, Listen: listener.Addr().String(), StateDir: dir, Assets: webui.Handler(), Reference: consoleReference}
+		config.Shutdown = cancel
 		server := &http.Server{Handler: control.ConsoleHandler(app, credentials, config), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 2 * time.Minute, IdleTimeout: 60 * time.Second}
 		served := make(chan error, 1)
 		go func() { served <- server.Serve(listener) }()
@@ -111,6 +132,7 @@ func runtimeCommands(root *cobra.Command) {
 	daemon.Flags().IntVar(&limits.MaxPending, "max-pending", limits.MaxPending, "maximum pending or leased deliveries")
 	daemon.Flags().Int64Var(&limits.MaxBytes, "max-store-bytes", limits.MaxBytes, "maximum live SQLite data bytes before backpressure")
 	daemon.Flags().DurationVar(&limits.Retention, "history", limits.Retention, "ordinary history retention; active evidence remains pinned")
+	daemonLogFlag(daemon, &dir)
 	root.AddCommand(daemon)
 	var dryRun, structured bool
 	var expected, id string
@@ -167,8 +189,13 @@ func runtimeCommands(root *cobra.Command) {
 		}
 		watchCmd.AddCommand(command)
 	}
+	watchCmd.AddCommand(firstWatchCommand(&dir))
 	root.AddCommand(watchCmd)
 	inspectionCommands(root, &dir)
+	serviceCommands(root, &dir)
+	updateCommands(root, &dir)
+	root.AddCommand(secretCommands(&dir), cloudCommands(&dir))
+	root.AddCommand(notifyCommand(&dir))
 	root.AddCommand(uiCommand(&dir))
 }
 func call(cmd *cobra.Command, dir string, structured bool, method, path string, body any) error {

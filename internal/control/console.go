@@ -20,7 +20,9 @@ func consoleQuery(r *http.Request) (store.ConsoleQuery, error) {
 	return q, store.ValidateConsoleQuery(q)
 }
 func consoleRoutes(mux *http.ServeMux, app *watchrun.App, cfg ConsoleConfig) {
+	updateRoutes(mux, cfg)
 	toolRoutes(mux, app)
+	onboardingRoutes(mux, app)
 	systemRoutes(mux, app, cfg)
 	mux.HandleFunc("GET /v1/status", func(w http.ResponseWriter, r *http.Request) {
 		s, err := app.Status(r.Context())

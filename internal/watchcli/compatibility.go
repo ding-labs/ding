@@ -2,6 +2,7 @@ package watchcli
 
 import (
 	"fmt"
+	"github.com/ding-labs/ding/internal/store"
 	"runtime"
 
 	"github.com/spf13/cobra"
@@ -11,7 +12,7 @@ func compatibilityCommands(root *cobra.Command, version string) {
 	var structured bool
 	versionCmd := &cobra.Command{Use: "version", Short: "Print the Ding version", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
 		if structured {
-			return Write(cmd.OutOrStdout(), map[string]string{"version": version, "os": runtime.GOOS, "arch": runtime.GOARCH})
+			return Write(cmd.OutOrStdout(), map[string]any{"version": version, "os": runtime.GOOS, "arch": runtime.GOARCH, "schema": store.SchemaVersion})
 		}
 		_, err := fmt.Fprintln(cmd.OutOrStdout(), "ding version", version)
 		return err

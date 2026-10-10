@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/condition"
+	"github.com/ding-labs/ding/internal/notify"
 	"github.com/ding-labs/ding/internal/plan"
 	"github.com/ding-labs/ding/internal/replay"
 	"github.com/ding-labs/ding/internal/source"
@@ -22,12 +23,16 @@ import (
 )
 
 type App struct {
+	SchedulingJitter                    time.Duration
 	Store                               *store.Store
 	HTTP                                source.HTTP
 	Lookup                              source.Lookup
 	Now                                 func() time.Time
 	Output                              io.Writer
+	Notify                              func(context.Context, notify.Message) error
+	ValidateBundle                      func(plan.Bundle) error // Optional execution policy; immutable after startup.
 	AcquisitionWorkers, DeliveryWorkers int
+	PollInterval                        time.Duration // Zero preserves the local 100ms scheduler cadence.
 	mu                                  sync.Mutex
 	outputMu                            sync.Mutex
 	outputPermit                        chan struct{}
@@ -54,10 +59,12 @@ type Change struct {
 	State       string   `json:"state"`
 }
 type ApplyRequest struct {
-	Review   *ApplyPreconditions `json:"review,omitempty"`
-	Manifest string              `json:"manifest"`
-	DryRun   bool                `json:"dryRun"`
-	Expected map[string]string   `json:"expected,omitempty"`
+	startPaused bool
+	resetPaused bool
+	Review      *ApplyPreconditions `json:"review,omitempty"`
+	Manifest    string              `json:"manifest"`
+	DryRun      bool                `json:"dryRun"`
+	Expected    map[string]string   `json:"expected,omitempty"`
 }
 type ApplyResult struct {
 	DestinationChanges []Change            `json:"destinationChanges"`
@@ -71,11 +78,19 @@ func (a *App) Apply(ctx context.Context, request ApplyRequest) (ApplyResult, err
 	return a.apply(ctx, request, nil)
 }
 
-func (a *App) apply(ctx context.Context, request ApplyRequest, mutation *integrationMutation) (ApplyResult, error) {
+func (a *App) apply(ctx context.Context, request ApplyRequest, mutation mutation) (ApplyResult, error) {
+	if mutation == nil {
+		mutation = noMutation{}
+	}
 	result := ApplyResult{Changes: []Change{}, DestinationChanges: []Change{}, Credentials: []CredentialHealth{}, DryRun: request.DryRun}
 	bundle, err := plan.Parse([]byte(request.Manifest))
 	if err != nil {
 		return result, err
+	}
+	if a.ValidateBundle != nil {
+		if err := a.ValidateBundle(bundle); err != nil {
+			return result, err
+		}
 	}
 	for _, p := range bundle.Watches {
 
@@ -117,6 +132,22 @@ func (a *App) apply(ctx context.Context, request ApplyRequest, mutation *integra
 			}
 		}
 		result.Credentials = a.BundleCredentials(bundle, extra)
+		if a.Limits.MaxDestinations > 0 {
+			existing, err := tx.Destinations()
+			if err != nil {
+				return err
+			}
+			ids := map[string]bool{}
+			for _, d := range existing {
+				ids[d.Metadata.ID] = true
+			}
+			for _, d := range bundle.Destinations {
+				ids[d.Definition.Metadata.ID] = true
+			}
+			if len(ids) > a.Limits.MaxDestinations {
+				return ErrQuota
+			}
+		}
 		available := map[string]bool{}
 		for _, d := range bundle.Destinations {
 			available[d.Definition.Metadata.ID] = true
@@ -148,6 +179,9 @@ func (a *App) apply(ctx context.Context, request ApplyRequest, mutation *integra
 					}
 				}
 			}
+			if err := checkHandoffHold(tx, id, mutation); !request.DryRun && err != nil {
+				return err
+			}
 			old, err := tx.Watch(id)
 			if err != nil && !errors.Is(err, store.ErrNotFound) {
 				return err
@@ -161,6 +195,12 @@ func (a *App) apply(ctx context.Context, request ApplyRequest, mutation *integra
 			}
 			change := Change{Kind: "Watch", After: yamlDefinition(p.Definition), ID: id, Revision: p.Revision, Previous: previous, State: "created", Permissions: p.Permissions}
 			record := store.WatchRecord{Plan: p, Generation: 1, Status: "running", NextAt: now}
+			if request.startPaused {
+				if previous != "" && !request.resetPaused {
+					return store.ErrConflict
+				}
+				record.Status = "paused"
+			}
 			reset := false
 			if previous != "" {
 				change.Before = yamlDefinition(old.Plan.Definition)
@@ -187,8 +227,18 @@ func (a *App) apply(ctx context.Context, request ApplyRequest, mutation *integra
 					return ErrQuota
 				}
 			}
+			if request.resetPaused {
+				record.Generation++
+				record.Status = "paused"
+				record.Cursor = ""
+				record.LastInputAt = time.Time{}
+				record.LastError = ""
+				record.NextAt = now
+				reset = true
+				change.State = "reset"
+			}
 			result.Changes = append(result.Changes, change)
-			if request.DryRun || previous == p.Revision {
+			if request.DryRun || previous == p.Revision && !request.resetPaused {
 				continue
 			}
 			if err := tx.SaveWatch(record, now); err != nil {
@@ -335,7 +385,7 @@ func (a *App) accept(ctx context.Context, record store.WatchRecord, batch source
 			return err
 		}
 		interval, _ := time.ParseDuration(current.Plan.Definition.Spec.Source.Every)
-		next := now.Add(interval)
+		next := a.nextPoll(now, interval, id)
 		if batch.RetryAt.After(next) {
 			next = batch.RetryAt
 		}

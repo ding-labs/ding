@@ -2,6 +2,7 @@ package watchrun
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand/v2"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/delivery"
+	"github.com/ding-labs/ding/internal/notify"
 	"github.com/ding-labs/ding/internal/source"
 	"github.com/ding-labs/ding/internal/store"
 )
@@ -35,6 +37,19 @@ func (a *App) DeliverOne(ctx context.Context) (bool, error) {
 			attempt, cancel := context.WithTimeout(ctx, 10*time.Second)
 			result = a.console(attempt, intent.Payload)
 			cancel()
+		} else if d.Type == "desktop" {
+			var message notify.Message
+			if json.Unmarshal(intent.Payload, &message) != nil || a.Notify == nil {
+				result = delivery.Result{Outcome: delivery.Permanent, Detail: "desktop_unavailable"}
+			} else {
+				attempt, cancel := context.WithTimeout(ctx, 10*time.Second)
+				err := a.Notify(attempt, message)
+				cancel()
+				result = delivery.Result{Outcome: delivery.Delivered, Detail: "accepted_by_os"}
+				if err != nil {
+					result = delivery.Result{Outcome: delivery.Retryable, Detail: "desktop_unavailable_or_permission_denied"}
+				}
+			}
 		} else {
 			endpoint, err := source.Resolve(d.URLRef, a.Lookup)
 			headers := http.Header{"Idempotency-Key": []string{intent.EventID}, "X-Ding-Event-Id": []string{intent.EventID}}
@@ -103,6 +118,13 @@ func (a *App) Run(ctx context.Context) error {
 	if a.AcquisitionWorkers < 1 || a.DeliveryWorkers < 1 {
 		return fmt.Errorf("worker counts must be positive")
 	}
+	poll := a.PollInterval
+	if poll == 0 {
+		poll = 100 * time.Millisecond
+	}
+	if poll < 100*time.Millisecond || poll > 5*time.Second {
+		return fmt.Errorf("poll interval must be between 100ms and 5s")
+	}
 	if err := a.Store.LimitBytes(context.WithoutCancel(ctx), a.Limits.MaxBytes); err != nil {
 		return err
 	}
@@ -113,7 +135,7 @@ func (a *App) Run(ctx context.Context) error {
 		deliveries.Add(1)
 		go func() {
 			defer deliveries.Done()
-			ticker := time.NewTicker(100 * time.Millisecond)
+			ticker := time.NewTicker(poll)
 			defer ticker.Stop()
 			for {
 				select {
@@ -138,7 +160,7 @@ func (a *App) Run(ctx context.Context) error {
 	active := map[string]bool{}
 	retry := map[string]time.Time{}
 	var activeMu sync.Mutex
-	tick := time.NewTicker(100 * time.Millisecond)
+	tick := time.NewTicker(poll)
 	defer tick.Stop()
 	lastMaintenance := time.Time{}
 	var previousWall, previousTick time.Time

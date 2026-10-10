@@ -32,7 +32,7 @@ func Serve(files fs.FS) http.Handler {
 		} else {
 			first := strings.Split(name, "/")[0]
 			switch first {
-			case "", "watches", "events", "deliveries", "workbench", "system":
+			case "", "start", "watches", "events", "deliveries", "workbench", "system":
 				name = "index.html"
 			default:
 				http.NotFound(w, r)

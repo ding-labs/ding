@@ -138,6 +138,7 @@
         "type": {
           "enum": [
             "console",
+            "desktop",
             "webhook",
             "slack",
             "discord"

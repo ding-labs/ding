@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+# A system package owns only these two paths, never a user's state or service.
+ding_target=/usr/local/lib/ding
+if [ -e /usr/local/bin/ding ] || [ -L /usr/local/bin/ding ]; then
+  if [ "$(readlink /usr/local/bin/ding || true)" != "$ding_target/ding" ]; then
+    echo 'Another installation owns /usr/local/bin/ding. Use its package manager or choose the standalone archive.' >&2
+    exit 1
+  fi
+fi
+if [ -e "$ding_target" ]; then
+  test -d "$ding_target" && test ! -L "$ding_target"
+  test "$(cat "$ding_target/installation-owner" 2>/dev/null || true)" = external || exit 1
+  if /usr/sbin/lsof -t "$ding_target/ding" >/dev/null 2>&1; then
+    echo 'Stop Ding services for every logged-in user before upgrading this system package.' >&2
+    exit 1
+  fi
+fi

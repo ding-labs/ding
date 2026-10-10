@@ -1,0 +1,11 @@
+# Replace this operator-controlled domain before validating/installing.
+ding.example.org {
+    # Keep the exact Host; Ding validates it and performs its own authentication.
+    reverse_proxy 127.0.0.1:8787
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        Referrer-Policy "no-referrer"
+        X-Content-Type-Options "nosniff"
+    }
+    # Do not enable access logging of OAuth callback query strings or credentials.
+}

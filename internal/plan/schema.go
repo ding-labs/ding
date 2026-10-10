@@ -65,7 +65,7 @@ func JSONSchema() ([]byte, error) {
 	prop("Metadata", "id")["pattern"] = identifier.String()
 	prop("SecretRef", "env")["pattern"] = envName.String()
 	prop("Source", "type")["enum"] = []string{"http", "command", "push"}
-	prop("DestinationSpec", "type")["enum"] = []string{"console", "webhook", "slack", "discord"}
+	prop("DestinationSpec", "type")["enum"] = []string{"console", "desktop", "webhook", "slack", "discord"}
 	prop("Condition", "operator")["enum"] = []string{"eq", "ne", "gt", "gte", "lt", "lte", "changed", "new-event"}
 	prop("Policy", "trigger")["enum"] = []string{"transition", "level"}
 	prop("Policy", "onUnknown")["const"] = "hold-incident"

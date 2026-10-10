@@ -38,6 +38,8 @@ export interface ControlBackupArtifact {
 export interface ControlBrowserSession {
   csrf: string;
   expiresAt: string;
+  execution?: string;
+  workspace?: string;
 }
 
 export interface ControlCompileResult {
@@ -67,6 +69,12 @@ export interface ControlDiagnostic {
   line?: number;
 }
 
+export interface ControlFirstWatchPreview {
+  manifest: string;
+  descriptions: Array<PlanDescription>;
+  review: WatchrunApplyResult;
+}
+
 export interface ControlInfo {
   version: string;
   apiVersion: string;
@@ -79,6 +87,15 @@ export interface ControlInfo {
   stateDir: string;
   limits: WatchrunLimits;
   time: string;
+  execution?: string;
+  workspace?: string;
+}
+
+export interface ControlLocalUpdates {
+  settings: UpdateSettings;
+  check?: UpdateCheckStatus | null;
+  configured: boolean;
+  owner?: string;
 }
 
 export interface ControlVerification {
@@ -367,6 +384,20 @@ export interface StoreWatchSummary {
   deliveriesMore: boolean;
 }
 
+export interface UpdateCheckStatus {
+  checkedAt: string;
+  current: string;
+  available?: string;
+  compatible: boolean;
+  error?: string;
+}
+
+export interface UpdateSettings {
+  checks: boolean;
+  automatic: boolean;
+  hourUTC: number;
+}
+
 export interface WatchCondition {
   field?: string;
   operator?: string;
@@ -536,6 +567,7 @@ export interface WatchrunDoctor {
 }
 
 export interface WatchrunLimits {
+  maxDestinations: number;
   maxWatches: number;
   maxPending: number;
   maxBytes: number;
@@ -550,6 +582,8 @@ export interface WatchrunSourceHealth {
   lastError?: string;
   unhealthyEntities: number;
   openIncidents: number;
+  acquisition: string;
+  overdueSeconds: number;
 }
 
 export interface WatchrunStatus {

@@ -1,0 +1,18 @@
+[Unit]
+Description=Ding watches on an always-on server
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+User=ding
+Group=ding
+ExecStart=/opt/ding/ding daemon --state-dir /var/lib/ding --listen 127.0.0.1:7676 --background-log
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=45
+StateDirectory=ding
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=yes
+[Install]
+WantedBy=multi-user.target
