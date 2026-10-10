@@ -75,7 +75,10 @@ func (a *App) Apply(ctx context.Context, request ApplyRequest) (ApplyResult, err
 	return a.apply(ctx, request, nil)
 }
 
-func (a *App) apply(ctx context.Context, request ApplyRequest, mutation *integrationMutation) (ApplyResult, error) {
+func (a *App) apply(ctx context.Context, request ApplyRequest, mutation mutation) (ApplyResult, error) {
+	if mutation == nil {
+		mutation = noMutation{}
+	}
 	result := ApplyResult{Changes: []Change{}, DestinationChanges: []Change{}, Credentials: []CredentialHealth{}, DryRun: request.DryRun}
 	bundle, err := plan.Parse([]byte(request.Manifest))
 	if err != nil {

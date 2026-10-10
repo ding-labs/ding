@@ -110,7 +110,10 @@ func (a *App) Lifecycle(ctx context.Context, id string, request LifecycleRequest
 	return a.lifecycle(ctx, id, request, nil)
 }
 
-func (a *App) lifecycle(ctx context.Context, id string, request LifecycleRequest, mutation *integrationMutation) (store.WatchRecord, error) {
+func (a *App) lifecycle(ctx context.Context, id string, request LifecycleRequest, mutation mutation) (store.WatchRecord, error) {
+	if mutation == nil {
+		mutation = noMutation{}
+	}
 	var record store.WatchRecord
 	now := a.Now()
 	err := a.Store.Update(ctx, func(tx *store.Tx) error {
