@@ -33,6 +33,7 @@ import packageInfo from "../../package.json";
 import parity from "../../../../testdata/console/parity.json";
 import { useExecution } from "../app/execution";
 import { CloudSystem } from "./CloudSystem";
+import { LocalUpdates } from "./LocalUpdates";
 function bytes(n: number) {
   return `${(n / (1 << 20)).toFixed(1)} MiB`;
 }
@@ -69,6 +70,7 @@ export function System() {
         <Instance info={info.data} status={status.data} />
       )}{" "}
       {tab === "CLI setup" && <Reference />}
+      {tab === "Instance" && !cloud && <LocalUpdates />}
     </>
   );
 }
