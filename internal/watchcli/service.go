@@ -178,6 +178,7 @@ func waitForDaemon(ctx context.Context, dir string) error {
 
 func setupCommand(root *cobra.Command, dir *string) *cobra.Command {
 	var yes, headless bool
+	var watchURL, delivery string
 	cmd := &cobra.Command{Use: "setup", Short: "Start account-free Ding with automatic background startup", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		fmt.Fprintf(cmd.OutOrStdout(), "Set up Ding in %s.\nThe background service starts at login and continues when the terminal or AI client closes.\nThis computer must stay awake and connected to monitor watches. No Ding account is needed.\n", *dir)
 		if !yes {
@@ -216,6 +217,11 @@ func setupCommand(root *cobra.Command, dir *string) *cobra.Command {
 			return err
 		}
 		fmt.Fprintln(cmd.OutOrStdout(), "Ding is ready. Use ding status to inspect monitoring and ding mcp setup to connect an AI client.")
+		if watchURL != "" {
+			if err := createFirstWatch(cmd, *dir, "first-watch", watchURL, delivery, yes); err != nil {
+				return err
+			}
+		}
 		if headless {
 			return nil
 		}
@@ -227,5 +233,7 @@ func setupCommand(root *cobra.Command, dir *string) *cobra.Command {
 	}}
 	cmd.Flags().BoolVar(&yes, "yes", false, "enable the described background service without an interactive prompt")
 	cmd.Flags().BoolVar(&headless, "headless", false, "set up the service without opening a browser")
+	cmd.Flags().StringVar(&watchURL, "watch-url", "", "optionally preview a first HTTP watch; --yes also activates it")
+	cmd.Flags().StringVar(&delivery, "delivery", "desktop", "first-watch delivery: desktop or console")
 	return cmd
 }

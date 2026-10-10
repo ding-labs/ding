@@ -44,5 +44,7 @@
   "service status": "Host operation: manage only this installation's service; cannot depend on a running web server.",
   "service uninstall": "Host operation: manage only this installation's service; cannot depend on a running web server.",
   "secret set": "Host-only private credential write from stdin; browser and models never read stored secret values.",
-  "secret list": "Host-only credential names; Console Doctor reports reference presence without values."
+  "secret list": "Host-only credential names; Console Doctor reports reference presence without values.",
+  "watch create": "First-watch Console flow uses the same compiled preview and reviewed apply.",
+  "notify test": "First-watch Console flow requests native notification permission and a labeled test."
 }
