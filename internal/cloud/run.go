@@ -14,6 +14,7 @@ import (
 
 	"github.com/ding-labs/ding/internal/cloud/egress"
 	"github.com/ding-labs/ding/internal/cloud/state"
+	"github.com/ding-labs/ding/internal/cloudbackup"
 	"github.com/ding-labs/ding/internal/mcpconfig"
 	"github.com/ding-labs/ding/internal/webui"
 )
@@ -57,6 +58,9 @@ func (c *Config) Validate() error {
 func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 	if err := c.Validate(); err != nil {
 		return err
+	}
+	if _, err := os.Lstat(filepath.Join(c.DataDir, cloudbackup.Quarantine)); !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("restored state is quarantined; review runner ownership and release it with the offline operator command")
 	}
 	assets := webui.Handler()
 	if assets == nil {
