@@ -6,7 +6,9 @@ import { fileURLToPath } from "node:url";
 import { createServer } from "node:net";
 import assert from "node:assert/strict";
 import { assertSharedDesign } from "../../../design/check-browser.mjs";
+import { loadProduct } from "../../../scripts/web/product.mjs";
 const root = new URL("../../../", import.meta.url);
+const product = loadProduct(root);
 const artifacts = new URL("artifacts/public-surfaces/", root);
 await mkdir(artifacts, { recursive: true });
 const children = [];
@@ -72,7 +74,7 @@ try {
     ["console", website + "/console/"],
     ["examples", website + "/examples/"],
     ["docs", docs + "/"],
-    ["quickstart", docs + "/guides/first-watch/"],
+    ["quickstart", docs + product.quickstartPath],
     ["reference", docs + "/reference/manifest/"],
     ["console-help", docs + "/console/"],
     ["preview-docs", docs + "/preview/"],
@@ -231,7 +233,7 @@ try {
     deviceScaleFactor: 2,
   });
   const zoomPage = await zoomContext.newPage();
-  for (const url of [website + "/", docs + "/guides/first-watch/"]) {
+  for (const url of [website + "/", docs + product.quickstartPath]) {
     await zoomPage.goto(url);
     assert.equal(
       await zoomPage.evaluate(
@@ -251,7 +253,7 @@ try {
   assert.ok(await staticPage.getByRole("heading", { level: 1 }).isVisible());
   assert.ok(
     await staticPage
-      .getByRole("link", { name: /Try the watch preview/ })
+      .getByRole("link", { name: /Get started|Try the watch preview/ })
       .isVisible(),
   );
   await noJS.close();
