@@ -16,7 +16,7 @@ func Homebrew(m update.Manifest) (string, []byte, error) {
 	if !semver.IsValid(m.Version) || semver.Canonical(m.Version) != m.Version || (m.Channel != "stable" && m.Channel != "preview") || (m.Channel == "stable" && semver.Prerelease(m.Version) != "") {
 		return "", nil, fmt.Errorf("invalid Homebrew release")
 	}
-	name, class, conflict := "ding", "Ding", "ding-preview"
+	name, class, conflict := "ding", "Ding", ""
 	if m.Channel == "preview" {
 		name, class, conflict = "ding-preview", "DingPreview", "ding"
 	}
@@ -69,7 +69,8 @@ class {{.Class}} < Formula
     end
 {{end}}  end
 {{end}}
-  conflicts_with "{{.Conflict}}", because: "both provide the ding executable"
+{{if .Conflict}}  conflicts_with "{{.Conflict}}", because: "both provide the ding executable"
+{{end}}
 
   def install
     libexec.install "ding"
