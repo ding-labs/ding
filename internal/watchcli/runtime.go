@@ -111,6 +111,7 @@ func runtimeCommands(root *cobra.Command) {
 	daemon.Flags().IntVar(&limits.MaxPending, "max-pending", limits.MaxPending, "maximum pending or leased deliveries")
 	daemon.Flags().Int64Var(&limits.MaxBytes, "max-store-bytes", limits.MaxBytes, "maximum live SQLite data bytes before backpressure")
 	daemon.Flags().DurationVar(&limits.Retention, "history", limits.Retention, "ordinary history retention; active evidence remains pinned")
+	daemonLogFlag(daemon, &dir)
 	root.AddCommand(daemon)
 	var dryRun, structured bool
 	var expected, id string

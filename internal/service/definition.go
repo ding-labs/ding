@@ -32,7 +32,7 @@ func DefinitionFor(goos, home, config, userID string, r install.Record) (Definit
 	}
 	hash := sha256.Sum256([]byte(r.StateDir))
 	id := fmt.Sprintf("%x", hash[:8])
-	args := []string{r.Executable, "daemon", "--state-dir", r.StateDir, "--listen", "127.0.0.1:0"}
+	args := []string{r.Executable, "daemon", "--state-dir", r.StateDir, "--listen", "127.0.0.1:0", "--background-log"}
 	d := Definition{Startup: "login"}
 	switch goos {
 	case "darwin":
