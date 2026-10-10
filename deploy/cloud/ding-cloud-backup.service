@@ -1,0 +1,7 @@
+[Unit]
+Description=Ding Cloud encrypted offline snapshot
+[Service]
+Type=oneshot
+ExecStart=/opt/ding-cloud/backup.sh
+TimeoutStartSec=35min
+UMask=0077

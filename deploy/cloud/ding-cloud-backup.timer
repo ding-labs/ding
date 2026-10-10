@@ -1,0 +1,7 @@
+[Unit]
+Description=Daily Ding Cloud maintenance backup
+[Timer]
+OnCalendar=*-*-* 03:00:00 UTC
+Persistent=true
+[Install]
+WantedBy=timers.target
