@@ -30,7 +30,7 @@ mkdir "$ding_temp/payload"
 CGO_ENABLED=0 go build -trimpath -tags console,mcpui \
   -ldflags="-s -w -X main.version=$ding_version -X github.com/ding-labs/ding/internal/update.PublicKey=$ding_public" \
   -o "$ding_temp/payload/ding" ./cmd/ding
-cp LICENSE README.md "$ding_temp/payload/"
+cp LICENSE README.md ding.yaml.example "$ding_temp/payload/"
 if [ "$ding_os" = darwin ]; then
   sh scripts/build-notifications-macos.sh "$ding_temp/payload/DingNotifications.app"
   if [ "$ding_release" = 1 ]; then
@@ -46,8 +46,8 @@ fi
 "$ding_temp/payload/ding" version --json
 # An explicit file list preserves the updater's canonical archive paths.
 if [ "$ding_os" = darwin ]; then
-  COPYFILE_DISABLE=1 tar -C "$ding_temp/payload" -czf "$ding_archive" ding DingNotifications.app LICENSE README.md
+  COPYFILE_DISABLE=1 tar -C "$ding_temp/payload" -czf "$ding_archive" ding DingNotifications.app LICENSE README.md ding.yaml.example
 else
-  tar -C "$ding_temp/payload" -czf "$ding_archive" ding LICENSE README.md
+  tar -C "$ding_temp/payload" -czf "$ding_archive" ding LICENSE README.md ding.yaml.example
 fi
 echo "Built $ding_archive (release signing mode: $ding_release). Qualification and publication remain separate."

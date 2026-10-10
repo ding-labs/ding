@@ -13,7 +13,7 @@ import (
 // Homebrew uses the same qualified native archives as the signed channel, so
 // macOS keeps the signed helper adjacent to the real executable in libexec.
 func Homebrew(m update.Manifest) (string, []byte, error) {
-	if !semver.IsValid(m.Version) || semver.Canonical(m.Version) != m.Version || (m.Channel != "stable" && m.Channel != "preview") {
+	if !semver.IsValid(m.Version) || semver.Canonical(m.Version) != m.Version || (m.Channel != "stable" && m.Channel != "preview") || (m.Channel == "stable" && semver.Prerelease(m.Version) != "") {
 		return "", nil, fmt.Errorf("invalid Homebrew release")
 	}
 	name, class, conflict := "ding", "Ding", "ding-preview"
@@ -57,6 +57,8 @@ class {{.Class}} < Formula
   homepage "https://ding.ing"
   version "{{.Version}}"
   license "Apache-2.0"
+  depends_on arch: :arm64 if Hardware::CPU.arm?
+  depends_on macos: :ventura if OS.mac?
   conflicts_with "{{.Conflict}}", because: "both provide the ding executable"
 
 {{range $os := .OS}}  on_{{if eq $os "darwin"}}macos{{else}}linux{{end}} do
@@ -70,6 +72,7 @@ class {{.Class}} < Formula
     libexec.install "ding"
     libexec.install "DingNotifications.app" if OS.mac?
     bin.install_symlink libexec/"ding"
+    generate_completions_from_executable(bin/"ding", "completion", shells: [:bash, :zsh, :fish])
   end
 
   def caveats
@@ -84,6 +87,7 @@ class {{.Class}} < Formula
   test do
     assert_match "{{.Version}}", shell_output("#{bin}/ding version")
     assert_path_exists libexec/"DingNotifications.app/Contents/MacOS/DingNotifications" if OS.mac?
+    system bin/"ding", "demo"
   end
 end
 `
