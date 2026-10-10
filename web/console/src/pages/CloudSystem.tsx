@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { CloudAccount } from "./CloudAccount";
 import { CloudModels } from "./CloudModels";
 import { api } from "../api/client";
 import { useRead, ErrorBox, Loading } from "../components/common";
@@ -53,5 +54,6 @@ export function CloudSystem() {
       </fieldset></form>
     </section>
     <CloudModels />
+    <CloudAccount />
   </>;
 }
