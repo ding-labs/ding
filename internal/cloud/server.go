@@ -147,6 +147,11 @@ func (s *Server) Handler() (http.Handler, error) {
 			cloudFail(w, 503, "workspace_unavailable", "Workspace execution is unavailable; inspect service status or contact support.")
 			return
 		}
+		requestCtx, stop := context.WithCancel(r.Context())
+		defer stop()
+		unlink := context.AfterFunc(tenant.ctx, stop)
+		defer unlink()
+		r = r.WithContext(requestCtx)
 		if s.TenantHandler == nil {
 			cloudFail(w, 503, "api_unavailable", "Tenant API is not configured.")
 			return

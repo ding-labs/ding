@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ding-labs/ding/internal/cloud/egress"
@@ -26,17 +28,21 @@ type Tenant struct {
 	Account state.Account
 	App     *watchrun.App
 	stop    context.CancelFunc
-	done    chan error
+	done    chan struct{}
+	err     error
+	ctx     context.Context
+	failed  atomic.Bool
 }
 type Pool struct {
-	root    string
-	db      *state.DB
-	vault   *state.Vault
-	http    *http.Client
-	ctx     context.Context
-	mu      sync.Mutex
-	tenants map[string]*Tenant
-	closed  bool
+	root     string
+	db       *state.DB
+	vault    *state.Vault
+	http     *http.Client
+	ctx      context.Context
+	mu       sync.Mutex
+	tenants  map[string]*Tenant
+	closed   bool
+	deleting map[string]bool
 }
 
 // NewPool requires the control DB's host lock to remain held until Close returns.
@@ -45,7 +51,7 @@ type Pool struct {
 func NewPool(ctx context.Context, root string, db *state.DB, vault *state.Vault, client *http.Client) *Pool {
 	shared := *client
 	shared.Transport = egress.NewHostLimits(egress.NewLimit(client.Transport, 32))
-	return &Pool{root: root, db: db, vault: vault, http: &shared, ctx: ctx, tenants: map[string]*Tenant{}}
+	return &Pool{root: root, db: db, vault: vault, http: &shared, ctx: ctx, tenants: map[string]*Tenant{}, deleting: map[string]bool{}}
 }
 
 func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
@@ -54,7 +60,7 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.closed {
+	if p.closed || p.deleting[id] {
 		return nil, fmt.Errorf("cloud worker is stopping")
 	}
 	if t, ok := p.tenants[id]; ok {
@@ -128,9 +134,9 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 		return nil, fmt.Errorf("workspace execution policy requires repair: %w", err)
 	}
 	run, stop := context.WithCancel(p.ctx)
-	t := &Tenant{Account: account, App: app, stop: stop, done: make(chan error, 1)}
+	t := &Tenant{Account: account, App: app, stop: stop, done: make(chan struct{}), ctx: run}
 	p.tenants[id] = t
-	go func() { t.done <- app.Run(run) }()
+	go func() { t.err = app.Run(run); t.failed.Store(true); close(t.done) }()
 	return t, nil
 }
 
@@ -165,7 +171,52 @@ func (p *Pool) Close() error {
 	p.mu.Unlock()
 	var errs []error
 	for _, t := range list {
-		errs = append(errs, <-t.done, t.App.Store.Close())
+		<-t.done
+		errs = append(errs, t.err, t.App.Store.Close())
 	}
 	return errors.Join(errs...)
+}
+
+func (p *Pool) Delete(ctx context.Context, id string) error {
+	if !accountID.MatchString(id) {
+		return fmt.Errorf("invalid workspace")
+	}
+	p.mu.Lock()
+	p.deleting[id] = true
+	t := p.tenants[id]
+	if t != nil {
+		t.stop()
+	}
+	p.mu.Unlock()
+	if t != nil {
+		select {
+		case <-t.done:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		if err := t.App.Store.Close(); err != nil {
+			return err
+		}
+	}
+	if err := os.RemoveAll(filepath.Join(p.root, "workspaces", id)); err != nil {
+		return err
+	}
+	p.mu.Lock()
+	delete(p.tenants, id)
+	delete(p.deleting, id)
+	p.mu.Unlock()
+	return nil
+}
+func (p *Pool) Ready() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed {
+		return false
+	}
+	for id, t := range p.tenants {
+		if !p.deleting[id] && t.failed.Load() {
+			return false
+		}
+	}
+	return true
 }
