@@ -64,6 +64,10 @@ func Send(ctx context.Context, m Message) error {
 		return helper(ctx, path, []string{"--deliver"}, m)
 	case "windows":
 		m.Activation = ActivationURL(Target{m.StateDir, m.WatchID})
+		if m.Activation == "" {
+			// Disposable demos have no persistent Console instance to open.
+			m.Activation = "ding-watch://dismiss"
+		}
 		path := filepath.Join(os.Getenv("SystemRoot"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
 		return helper(ctx, path, []string{"-NoLogo", "-NoProfile", "-NonInteractive", "-Command", windowsScript}, m)
 	default:

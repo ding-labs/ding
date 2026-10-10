@@ -13,6 +13,10 @@ func TestActivationRoutesWithoutAcceptingCommandsOrCredentials(t *testing.T) {
 	if err != nil || got != target {
 		t.Fatal("target did not roundtrip", err)
 	}
+	home := Target{StateDir: target.StateDir}
+	if got, err := ParseActivation(ActivationURL(home)); err != nil || got != home {
+		t.Fatal("test notification did not route to Console home", err)
+	}
 	for _, bad := range []string{
 		"https://example.test/watch", raw + "?token=secret", raw + "#secret", raw + "/",
 		`ding-watch://watch/` + base64.RawURLEncoding.EncodeToString([]byte(`{"state":"relative","watch":"api"}`)),

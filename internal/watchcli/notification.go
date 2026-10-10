@@ -9,6 +9,9 @@ import (
 
 func notificationCommand() *cobra.Command {
 	return &cobra.Command{Use: "notification-open URI", Hidden: true, Short: "Open a validated notification target", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		if args[0] == "ding-watch://dismiss" {
+			return nil
+		}
 		target, err := notify.ParseActivation(args[0])
 		if err != nil {
 			return err

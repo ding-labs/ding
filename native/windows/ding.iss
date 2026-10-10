@@ -39,7 +39,8 @@ Source: "{#Payload}\installation-owner"; DestDir: "{app}"
 Source: "{#Payload}\LICENSE"; DestDir: "{app}"
 
 [Icons]
-Name: "{userprograms}\Ding Console"; Filename: "{app}\ding.exe"; Parameters: "ui"; AppUserModelID: "Ding"
+; The protocol-only toast route uses a stable stub CLSID; no COM server is installed.
+Name: "{userprograms}\Ding Console"; Filename: "{app}\ding.exe"; Parameters: "ui"; AppUserModelID: "Ding"; AppUserModelToastActivatorCLSID: "7C6C1C35-4A7C-441B-A671-0DC81D522BEB"
 Name: "{userprograms}\Ding setup"; Filename: "{app}\ding.exe"; Parameters: "setup"
 
 [Registry]

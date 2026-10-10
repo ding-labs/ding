@@ -20,7 +20,7 @@ var watchIDPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$`)
 
 func (t Target) valid() bool {
 	return filepath.IsAbs(t.StateDir) && len(t.StateDir) <= 4096 &&
-		!strings.ContainsAny(t.StateDir, "\x00\r\n") && watchIDPattern.MatchString(t.WatchID)
+		!strings.ContainsAny(t.StateDir, "\x00\r\n") && (t.WatchID == "" || watchIDPattern.MatchString(t.WatchID))
 }
 
 // ActivationURL contains routing data only. The installed handler validates the
