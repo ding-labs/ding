@@ -3,8 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/ding-labs/ding/internal/pluginpackage"
 	"os"
+
+	"github.com/ding-labs/ding/internal/pluginpackage"
 )
 
 func main() {

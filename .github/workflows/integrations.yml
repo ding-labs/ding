@@ -100,6 +100,7 @@ jobs:
             echo 'HTTP unexpectedly started without authentication configuration'
             exit 1
           fi
+          DING_MCP_CONTAINER=ding-mcp-ci go test ./internal/mcpserver -run TestContainerTLSAndAuthentication -count=1 -v
       - uses: actions/upload-artifact@v4
         if: always()
         with:

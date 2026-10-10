@@ -8,9 +8,41 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ding-labs/ding/internal/mcpconfig"
 )
+
+func TestReadCancellationReachesDaemon(t *testing.T) {
+	started, canceled := make(chan struct{}), make(chan struct{})
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { close(started); <-r.Context().Done(); close(canceled) }))
+	defer s.Close()
+	c := New(connection(s.URL))
+	defer c.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { _, err := c.Call(ctx, "GET", "/capabilities", nil, nil); done <- err }()
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("request did not start")
+	}
+	cancel()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("canceled request succeeded")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("client ignored cancellation")
+	}
+	select {
+	case <-canceled:
+	case <-time.After(5 * time.Second):
+		t.Fatal("upstream ignored cancellation")
+	}
+}
 
 type roundTrip func(*http.Request) (*http.Response, error)
 

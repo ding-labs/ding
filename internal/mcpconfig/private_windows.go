@@ -3,9 +3,10 @@
 package mcpconfig
 
 import (
-	"golang.org/x/sys/windows"
 	"os"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 func openPrivate(path string, create bool) (*os.File, error) {

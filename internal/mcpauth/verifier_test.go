@@ -2,8 +2,12 @@ package mcpauth
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -19,6 +23,69 @@ import (
 	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/lestrrat-go/jwx/v3/jwt"
 )
+
+func TestAsymmetricAlgorithmsAndTampering(t *testing.T) {
+	rsaKey := keyForTest(t, "rsa")
+	ec256, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	ec384, _ := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	_, ed, _ := ed25519.GenerateKey(rand.Reader)
+	for _, tc := range []struct {
+		name string
+		key  any
+	}{
+		{"RS256", rsaKey}, {"RS384", rsaKey}, {"RS512", rsaKey}, {"ES256", ec256}, {"ES384", ec384}, {"EdDSA", ed},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			key, ok := tc.key.(jwk.Key)
+			if !ok {
+				var err error
+				key, err = jwk.Import(tc.key)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			_ = key.Set(jwk.KeyIDKey, "test")
+			public, err := jwk.PublicKeyOf(key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			set := jwk.NewSet()
+			_ = set.AddKey(public)
+			issuer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _ = json.NewEncoder(w).Encode(set) }))
+			defer issuer.Close()
+			cfg := mcpconfig.HTTP{PublicURL: "https://ding.example", Issuer: issuer.URL, JWKSURI: issuer.URL, Audience: "ding", Algorithm: tc.name, Subjects: map[string]string{"alice": filepath.Join(t.TempDir(), "config")}}
+			v, err := New(cfg, issuer.Client())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer v.Close()
+			token := jwt.New()
+			for k, value := range map[string]any{"iss": cfg.Issuer, "aud": cfg.Audience, "sub": "alice", "scope": "ding:inspect", "exp": time.Now().Add(time.Hour)} {
+				_ = token.Set(k, value)
+			}
+			alg, _ := jwa.LookupSignatureAlgorithm(tc.name)
+			raw, err := jwt.Sign(token, jwt.WithKey(alg, key))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := v.Verify(context.Background(), string(raw), nil); err != nil {
+				t.Fatal(err)
+			}
+			parts := strings.Split(string(raw), ".")
+			sig, _ := base64.RawURLEncoding.DecodeString(parts[2])
+			sig[0] ^= 1
+			if _, err := v.Verify(context.Background(), parts[0]+"."+parts[1]+"."+base64.RawURLEncoding.EncodeToString(sig), nil); err == nil {
+				t.Fatal("bad signature accepted")
+			}
+			for _, badAlg := range []string{"none", "HS256", "unknown"} {
+				h, _ := json.Marshal(map[string]string{"alg": badAlg, "kid": "test", "jku": "https://attacker.example/jwks"})
+				if _, err := v.Verify(context.Background(), base64.RawURLEncoding.EncodeToString(h)+"."+parts[1]+"."+parts[2], nil); err == nil {
+					t.Fatal("bad algorithm accepted")
+				}
+			}
+		})
+	}
+}
 
 func keyForTest(t *testing.T, id string) jwk.Key {
 	t.Helper()

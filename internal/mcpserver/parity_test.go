@@ -90,6 +90,25 @@ func TestPortableToolResults(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer cs.Close()
+			if cs.InitializeResult().Capabilities.Resources != nil {
+				t.Fatal("headless server advertises missing UI")
+			}
+			tools, err := cs.ListTools(ctx, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, tool := range tools.Tools {
+				if tool.Meta["ui"] != nil || tool.Meta["ui/resourceUri"] != nil {
+					t.Fatal("headless tool advertises UI", tool.Name)
+				}
+			}
+			unknown, err := cs.CallTool(ctx, &mcp.CallToolParams{Name: "ding_not_a_tool", Arguments: map[string]any{}})
+			if err == nil && !unknown.IsError {
+				t.Fatal("unknown tool accepted")
+			}
+			if calls.Load() != 0 {
+				t.Fatal("unknown tool reached daemon")
+			}
 			result, err := cs.CallTool(ctx, &mcp.CallToolParams{Name: fixture.Tool, Arguments: fixture.Arguments})
 			if err != nil || result.IsError {
 				t.Fatalf("call %v %v", result, err)

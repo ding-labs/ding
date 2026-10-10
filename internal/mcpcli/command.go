@@ -4,12 +4,14 @@ package mcpcli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/ding-labs/ding/internal/mcpclient"
 	"github.com/ding-labs/ding/internal/mcpconfig"
@@ -43,7 +45,7 @@ func Command(version string) *cobra.Command {
 	root.AddCommand(pair)
 	var setupState, setupConfig string
 	setup := &cobra.Command{Use: "setup", Short: "Open the guided local pairing window", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
-		ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt)
+		ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		return safe(mcpsetup.Run(ctx, setupState, setupConfig, cmd.ErrOrStderr()))
 	}}
@@ -90,7 +92,7 @@ func Command(version string) *cobra.Command {
 	var serveConfig, httpConfig, transport, host string
 	var port int
 	serve := &cobra.Command{Use: "serve", Short: "Serve the paired MCP integration", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
-		ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt)
+		ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		if transport == "http" {
 			return safe(serveHTTP(ctx, version, httpConfig, host, port))
@@ -125,11 +127,11 @@ func Command(version string) *cobra.Command {
 }
 
 func safe(err error) error {
-	if err == nil || err == context.Canceled {
+	if err == nil || errors.Is(err, context.Canceled) {
 		return nil
 	}
 	return fmt.Errorf("%s", mcpclient.SafeMessage(err))
 }
 
-// Version rejects accidental whitespace/control characters in release metadata.
+// Version trims accidental surrounding whitespace from release metadata.
 func Version(value string) string { return strings.TrimSpace(value) }
