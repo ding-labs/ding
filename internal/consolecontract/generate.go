@@ -82,7 +82,7 @@ func Generate() []byte {
 			panic("unsupported API type " + t.String())
 		}
 	}
-	for _, v := range []any{store.WatchPage{}, store.EventSummaryPage{}, store.DeliveryPage{}, store.DestinationPage{}, watchrun.Status{}, control.Conversion{}, control.BackupArtifact{}, control.CompileResult{}, control.Verification{}, control.Info{}, control.BrowserSession{}, plan.Bundle{}, watch.Definition{}, watch.Event{}, watch.Observation{}, store.WatchSummary{}, store.DeliveryInspection{}, store.EventPage{}, store.ObservationPage{}, watchrun.Doctor{}, watchrun.ApplyRequest{}, watchrun.ApplyResult{}, replay.Evidence{}, replay.Report{}} {
+	for _, v := range []any{control.FirstWatchPreview{}, store.WatchPage{}, store.EventSummaryPage{}, store.DeliveryPage{}, store.DestinationPage{}, watchrun.Status{}, control.Conversion{}, control.BackupArtifact{}, control.CompileResult{}, control.Verification{}, control.Info{}, control.BrowserSession{}, plan.Bundle{}, watch.Definition{}, watch.Event{}, watch.Observation{}, store.WatchSummary{}, store.DeliveryInspection{}, store.EventPage{}, store.ObservationPage{}, watchrun.Doctor{}, watchrun.ApplyRequest{}, watchrun.ApplyResult{}, replay.Evidence{}, replay.Report{}} {
 		typeOf(reflect.TypeOf(v))
 	}
 	names := make([]string, 0, len(definitions))

@@ -67,6 +67,12 @@ export interface ControlDiagnostic {
   line?: number;
 }
 
+export interface ControlFirstWatchPreview {
+  manifest: string;
+  descriptions: Array<PlanDescription>;
+  review: WatchrunApplyResult;
+}
+
 export interface ControlInfo {
   version: string;
   apiVersion: string;
