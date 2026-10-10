@@ -146,7 +146,7 @@ func serviceCommands(root *cobra.Command, dir *string) {
 	status.Flags().BoolVar(&structured, "json", false, "emit a versioned status response")
 	root.AddCommand(status)
 	group := &cobra.Command{Use: "service", Short: "Manage this user's background Ding service"}
-	group.AddCommand(serviceHostCommand(root, dir))
+	group.AddCommand(serviceHostCommand(root, dir), bootTemplateCommand(dir))
 	for _, action := range []string{"install", "start", "stop", "restart", "status", "uninstall"} {
 		command := &cobra.Command{Use: action, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 45*time.Second)
