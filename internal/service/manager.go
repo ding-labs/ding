@@ -13,13 +13,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ding-labs/ding/internal/control"
 	"github.com/ding-labs/ding/internal/install"
 	"github.com/ding-labs/ding/internal/mcpconfig"
+	"github.com/ding-labs/ding/internal/store"
 )
 
 type Runner func(context.Context, string, ...string) ([]byte, error)
 type Manager struct {
 	OS, UID    string
+	StateDir   string
 	Definition Definition
 	Run        Runner
 }
@@ -46,7 +49,7 @@ func New(r install.Record) (Manager, error) {
 		return Manager{}, err
 	}
 	d, err := DefinitionFor(runtime.GOOS, home, config, u.Uid, r)
-	return Manager{OS: runtime.GOOS, UID: u.Uid, Definition: d, Run: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+	return Manager{OS: runtime.GOOS, UID: u.Uid, StateDir: r.StateDir, Definition: d, Run: func(ctx context.Context, name string, args ...string) ([]byte, error) {
 		return exec.CommandContext(ctx, name, args...).CombinedOutput()
 	}}, err
 }
@@ -187,7 +190,13 @@ func (m Manager) Action(ctx context.Context, action string) error {
 		return m.command(ctx, "systemctl", "--user", action, d.Name)
 	case "windows":
 		if action == "stop" || action == "restart" {
-			if err := m.command(ctx, "schtasks", "/End", "/TN", d.Name); err != nil {
+			if m.StateDir == "" {
+				return fmt.Errorf("missing owned state directory")
+			}
+			if c, err := control.Connect(m.StateDir); err == nil {
+				_, _ = c.Call(ctx, "POST", "/v1/local/shutdown", nil)
+			}
+			if err := store.WaitWriterStopped(ctx, m.StateDir); err != nil {
 				return err
 			}
 		}
