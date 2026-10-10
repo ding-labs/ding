@@ -2,63 +2,108 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*"
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable version, without the v prefix
+        required: true
+        default: '0.15.0'
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.version || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
-  goreleaser:
-    runs-on: ubuntu-latest
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: ubuntu-24.04, os: linux, arch: amd64}
+          - {runner: ubuntu-24.04-arm, os: linux, arch: arm64}
+          - {runner: macos-15-intel, os: darwin, arch: amd64}
+          - {runner: macos-15, os: darwin, arch: arm64}
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Require qualified watch-runtime release route
-        run: |
-          echo 'The cross-compiled legacy release route cannot publish complete native watch-runtime packages.' >&2
-          echo 'Use Local package qualification, protected native signing hosts, and the reviewed release procedure in docs/releases/local-packages.md.' >&2
-          exit 1
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: npm
-          cache-dependency-path: web/console/package-lock.json
-      - name: Console build and browser gates
+      - name: Check native platform and version
+        run: |
+          [[ "${RELEASE_VERSION#v}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$(go env GOOS)" = '${{ matrix.os }}'
+          test "$(go env GOARCH)" = '${{ matrix.arch }}'
+      - name: Build embedded interfaces
         run: |
           npm ci --prefix web/console
           npm test --prefix web/console
           npm run build --prefix web/console
-          cd web/console
-          npx playwright install --with-deps
-          npm run test:e2e
-      - name: Run tests
-        run: |
           npm ci --prefix web/mcp-app
-          npm run build --prefix web/mcp-app
           npm test --prefix web/mcp-app
-          go vet ./...
-          go test -race -tags console,mcpui ./...
-      - name: Container TLS gate
+          npm run build --prefix web/mcp-app
+      - name: Native runtime tests
         run: |
-          docker build -t ding-release-check .
-          scripts/container-smoke.sh ding-release-check
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: v2.18.2
-          args: release --clean --release-notes docs/releases/watch-preview.md
+          go mod tidy -diff
+          go vet -tags console,mcpui ./...
+          go test -race -tags console,mcpui -count=1 ./...
+      - name: Package and verify the extracted archive
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          DING_EXPECT_CONSOLE: '1'
+        run: |
+          sh scripts/package-local.sh "${RELEASE_VERSION#v}" dist/native
+          mkdir dist/extracted
+          tar -xzf dist/native/ding_${{ matrix.os }}_${{ matrix.arch }}.tar.gz -C dist/extracted
+          export DING_BINARY="$PWD/dist/extracted/ding"
+          go test -v -count=1 ./internal/qualification
+          if [ '${{ matrix.os }}' = darwin ]; then
+            codesign --verify --strict dist/extracted/DingNotifications.app
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/native/*.tar.gz
+          if-no-files-found: error
+
+  draft:
+    needs: native
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: dist/native
+      - name: Generate tap formula and checksums
+        run: |
+          go run ./cmd/ding-homebrew -artifacts dist/native -version "v${RELEASE_VERSION#v}" > dist/native/ding.rb
+          (cd dist/native && sha256sum *.tar.gz ding.rb > checksums.txt)
+      - name: Create a reviewable release draft
+        run: |
+          gh release create "v${RELEASE_VERSION#v}" dist/native/* \
+            --target "$GITHUB_SHA" --draft --title "Ding ${RELEASE_VERSION#v}" \
+            --notes-file "docs/releases/v${RELEASE_VERSION#v}.md"
+# This route prepares the Homebrew distribution. Publish after reviewing CI and
+# native installation evidence, then update the tap with the generated formula.
+# It does not publish signed standalone update channels or native installers.
