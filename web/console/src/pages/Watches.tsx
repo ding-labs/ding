@@ -1,3 +1,4 @@
+import { Availability } from "./Availability";
 import { useState } from "react";
 import {
   Link,
@@ -381,6 +382,7 @@ export function WatchDetail() {
       />
       {tab === "Overview" && (
         <>
+          <Availability watchID={id} />
           <div className="overview-grid">
             <section className="panel rule-panel">
               <p className="eyebrow">The rule</p>
