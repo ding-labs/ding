@@ -149,6 +149,15 @@ func CreatePrivate(path string) (*os.File, error) {
 	return openPrivate(path, true)
 }
 
+// CheckPrivate validates ownership and permissions without interpreting content.
+func CheckPrivate(path string) error {
+	f, err := openPrivate(path, false)
+	if err != nil {
+		return err
+	}
+	return f.Close()
+}
+
 func DefaultPath() string {
 	home, _ := os.UserHomeDir()
 	return configPath(runtime.GOOS, home, os.Getenv("XDG_CONFIG_HOME"), os.Getenv("LOCALAPPDATA"))

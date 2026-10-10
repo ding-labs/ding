@@ -46,6 +46,11 @@ func runtimeCommands(root *cobra.Command) {
 			return err
 		}
 		defer database.Close()
+		closeLog, err := prepareDaemonLog(cmd, dir)
+		if err != nil {
+			return err
+		}
+		defer closeLog()
 		credentials, err := control.PrivateCredentials(dir)
 		if err != nil {
 			return err

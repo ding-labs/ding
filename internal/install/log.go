@@ -41,6 +41,9 @@ func (l *Log) open() error {
 	} else if !info.Mode().IsRegular() {
 		return fmt.Errorf("log must be a regular file")
 	}
+	if err := mcpconfig.CheckPrivate(l.path); err != nil {
+		return err
+	}
 	f, err := os.OpenFile(l.path, os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
 		return err
