@@ -10,6 +10,7 @@ import (
 )
 
 type Handoff struct {
+	Instance     string            `json:"instance"`
 	ID           string            `json:"id"`
 	WatchID      string            `json:"watchId"`
 	Role         string            `json:"role"`

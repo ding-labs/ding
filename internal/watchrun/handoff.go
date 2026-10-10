@@ -55,6 +55,11 @@ func (m *handoffMutation) begin(tx *store.Tx, result any, now time.Time) (bool, 
 	return false, nil
 }
 func (m *handoffMutation) finish(tx *store.Tx, _ any, now time.Time) error {
+	var err error
+	m.h.Instance, err = tx.Identity()
+	if err != nil {
+		return err
+	}
 	r, err := tx.Watch(m.h.WatchID)
 	if err != nil {
 		return err
@@ -94,6 +99,18 @@ func (a *App) PrepareHandoff(ctx context.Context, r HandoffPrepare) (store.Hando
 		return store.Handoff{}, err
 	}
 	m := &handoffMutation{h: store.Handoff{ID: r.ID, Peer: r.Peer, WatchID: b.Watches[0].Definition.Metadata.ID, Digest: digest, Role: "target", Phase: "prepared", Held: true}, action: "prepare"}
+	m.check = func(tx *store.Tx) error {
+		for _, d := range b.Destinations {
+			old, err := tx.Destination(d.Definition.Metadata.ID, "")
+			if err != nil && !errors.Is(err, store.ErrNotFound) {
+				return err
+			}
+			if err == nil && old.Revision != d.Revision {
+				return fmt.Errorf("transfer cannot replace an existing destination; rebind under a new destination ID")
+			}
+		}
+		return nil
+	}
 	_, err = a.apply(ctx, ApplyRequest{Manifest: r.Manifest, Review: r.Review, startPaused: true}, m)
 	if err != nil {
 		return store.Handoff{}, err
