@@ -65,6 +65,9 @@ func (d *DB) NewSession(ctx context.Context, user, workspace, kind string, scope
 	if _, err := tx.ExecContext(ctx, "INSERT INTO sessions(hash,user,workspace,scopes,csrf,kind,expires_at) VALUES(?,?,?,?,?,?,?)", TokenHash(s.Token), user, workspace, string(rawScopes), s.csrfHash, kind, s.ExpiresAt.Unix()); err != nil {
 		return s, err
 	}
+	if err := audit(ctx, tx, user, workspace, "session:"+kind, TokenHash(s.Token)); err != nil {
+		return s, err
+	}
 	return s, tx.Commit()
 }
 

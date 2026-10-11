@@ -80,6 +80,7 @@ func (f LoginFlow) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 	identity, err := f.Provider.Exchange(r.Context(), code, login.Nonce, login.Verifier)
 	if err != nil {
+		_ = f.DB.LoginFailure(r.Context(), "oidc")
 		cloudFail(w, 401, "identity_failed", "Could not verify sign-in. Start a new sign-in.")
 		return
 	}

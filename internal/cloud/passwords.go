@@ -101,6 +101,7 @@ func (s *Server) publicIdentity(w http.ResponseWriter, r *http.Request) bool {
 		return true
 	}
 	if lookupErr != nil || err != nil || !valid {
+		_ = s.DB.LoginFailure(r.Context(), username)
 		cloudFail(w, 401, "sign_in_failed", "Sign-in details are invalid or access is unavailable.")
 		return true
 	}
