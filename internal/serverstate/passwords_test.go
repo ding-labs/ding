@@ -118,3 +118,52 @@ func TestPendingOwnerCannotReplaceLastActiveOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestUserSecurityRevokesOnlyOwnedSessions(t *testing.T) {
+	ctx := context.Background()
+	db, err := Open(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	a, err := db.Bootstrap(ctx, "owner", "Owner", "correct horse battery")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, _ := db.Principal(ctx, a.User, a.ID, "browser", nil)
+	if err := db.DisableUser(ctx, p, a.User, true); err == nil {
+		t.Fatal("disabled last owner")
+	}
+	invite, err := db.Invite(ctx, p, "reader", "Reader", access.Viewer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Activate(ctx, invite.Token, "reader password value"); err != nil {
+		t.Fatal(err)
+	}
+	s, err := db.NewSession(ctx, invite.User, a.ID, "browser", nil, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.RevokeUserSession(ctx, a.User, TokenHash(s.Token)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Session(ctx, s.Token, time.Now()); err != nil {
+		t.Fatal("revoked another user's session")
+	}
+	if err := db.ChangePassword(ctx, invite.User, "incorrect old password", "replacement password"); err == nil {
+		t.Fatal("changed password without proof")
+	}
+	if err := db.ChangePassword(ctx, invite.User, "reader password value", "replacement password"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Session(ctx, s.Token, time.Now()); err == nil {
+		t.Fatal("password change kept session")
+	}
+	if err := db.DisableUser(ctx, p, invite.User, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := db.PasswordUser(ctx, "reader"); err == nil {
+		t.Fatal("disabled user can sign in")
+	}
+}

@@ -45,6 +45,7 @@ func (s *Server) membersAPI(w http.ResponseWriter, r *http.Request, p access.Pri
 		Username string      `json:"username"`
 		Name     string      `json:"name"`
 		Role     access.Role `json:"role"`
+		Disabled *bool       `json:"disabled"`
 		Reset    bool        `json:"reset"`
 	}
 	if r.Method != "DELETE" && decodeCloud(r, &input) != nil {
@@ -68,6 +69,14 @@ func (s *Server) membersAPI(w http.ResponseWriter, r *http.Request, p access.Pri
 	if strings.HasPrefix(path, "/v1/members/") {
 		user = strings.TrimPrefix(path, "/v1/members/")
 	}
+	if input.Disabled != nil && r.Method == "PATCH" {
+		if err := s.DB.DisableUser(r.Context(), p, user, *input.Disabled); err != nil {
+			cloudFail(w, 403, "disable_denied", err.Error())
+		} else {
+			cloudWrite(w, 200, map[string]bool{"saved": true})
+		}
+		return true
+	}
 	if input.Reset && r.Method == "PATCH" && s.Shared {
 		out, err := s.DB.ResetInvitation(r.Context(), p, user)
 		if err != nil {
@@ -89,6 +98,44 @@ func (s *Server) membersAPI(w http.ResponseWriter, r *http.Request, p access.Pri
 }
 
 func (s *Server) userAPI(w http.ResponseWriter, r *http.Request, session state.Session) bool {
+	if strings.HasPrefix(r.URL.Path, "/v1/user/") {
+		if session.Kind != "browser" {
+			cloudFail(w, 403, "browser_required", "Use a browser session.")
+			return true
+		}
+		switch {
+		case r.URL.Path == "/v1/user/password" && r.Method == "POST" && s.Shared:
+			var input struct {
+				Current  string `json:"current"`
+				Password string `json:"password"`
+			}
+			if decodeCloud(r, &input) != nil {
+				cloudFail(w, 400, "invalid_request", "Provide current and new passwords.")
+				return true
+			}
+			if err := s.DB.ChangePassword(r.Context(), session.User, input.Current, input.Password); err != nil {
+				cloudFail(w, 400, "password_failed", err.Error())
+			} else {
+				cloudWrite(w, 200, map[string]bool{"changed": true})
+			}
+			return true
+		case r.URL.Path == "/v1/user/sessions" && r.Method == "GET":
+			out, err := s.DB.Sessions(r.Context(), session.User, session.Token)
+			if err != nil {
+				cloudFail(w, 503, "sessions_unavailable", "Sessions unavailable.")
+			} else {
+				cloudWrite(w, 200, out)
+			}
+			return true
+		case strings.HasPrefix(r.URL.Path, "/v1/user/sessions/") && r.Method == "DELETE":
+			if err := s.DB.RevokeUserSession(r.Context(), session.User, strings.TrimPrefix(r.URL.Path, "/v1/user/sessions/")); err != nil {
+				cloudFail(w, 503, "revoke_failed", "Could not revoke session.")
+			} else {
+				cloudWrite(w, 200, map[string]bool{"revoked": true})
+			}
+			return true
+		}
+	}
 	if r.URL.Path != "/v1/user" || r.Method != "DELETE" {
 		return false
 	}
