@@ -46,7 +46,7 @@ func Root(version string) *cobra.Command {
 		root.AddCommand(cmd)
 	}
 	runtimeCommands(root)
-	root.AddCommand(testCommand(), migrateCommand(), demoCommand(), notificationCommand())
+	root.AddCommand(testCommand(), migrateCommand(), demoCommand(), notificationCommand(), logsCommand())
 	root.AddCommand(mcpcli.Command(version))
 	compatibilityCommands(root, version)
 	return root
