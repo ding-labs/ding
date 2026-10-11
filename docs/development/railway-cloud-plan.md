@@ -1,12 +1,25 @@
 # Basic Ding Cloud on Railway
 
-Updated October 11, 2026. **Implementation in progress for the first private hosted instance.**
+Updated October 11, 2026. **The first private owner instance is deployed at https://cloud.ding.ing.**
 
-Run the existing Ding Cloud service on Railway with SQLite on one persistent volume. Reuse the new shared-account foundation and Console. The first useful result is an owner signing in at `https://cloud.ding.ing`, creating a public HTTP watch, and receiving a remote notification while their laptop is off.
+Run the existing Ding Cloud service on Railway with SQLite on one persistent volume. Reuse the new shared-account foundation and Console. The owner selected Console alerts only for this first deployment; external notification delivery is a later qualification step.
 
 This is the current execution plan for the [broader cloud roadmap](ding-cloud-plan.md). It incorporates the [shared accounts work](shared-accounts-plan.md), implemented in 44 commits on `codex/shared-accounts` through `766d9ff`. PRs #32 and #33 are merged; implementation starts from main at `bbd2104` in `codex/railway-cloud`. A01–A06 exist in source. Company SSO and additional self-hosted workspace administration are separate follow-ups.
 
-Railway and SQLite are the selected starting architecture. The working sign-in choice is **invite-only built-in accounts**, accepted with implementation of this plan; the existing OIDC option remains available. Supabase/PostgreSQL is deferred. This plan introduces no deployed service or DNS record.
+Railway and SQLite are the selected starting architecture. Sign-in uses **invite-only built-in accounts**; the existing OIDC option remains available. Supabase/PostgreSQL is deferred. Cloudflare DNS points `cloud.ding.ing` directly to Railway, whose certificate is valid.
+
+## Implementation status
+
+| Work | Evidence and remaining scope |
+| --- | --- |
+| R1 Built-in cloud accounts | Implemented independently of execution policy. Owner login, invitations and revocation pass Chromium, WebKit and Firefox browser tests. Cloud restrictions and existing OIDC tests remain enforced. |
+| R2 Railway HTTPS/readiness | Implemented and deployed; public HTTPS, canonical origin, Secure cookies, CSRF, private metrics and maintenance probes verified. |
+| R3 Persistent runtime | Dedicated image/startup helper and `.railway/railway.ts` pin one commit, replica and volume. Non-root runtime, missing-mount/key refusal, restart, crash and writer exclusion pass qualification. Hosted redeploy preserved sessions and watch state. |
+| R4 Recovery | Actual Railway maintenance/export/download/fresh-directory restore passed. Old sessions were rejected, the encrypted credential was recovered and restored watches stayed paused. Daily/manual Railway snapshots require a Pro workspace and are **not enabled**; actual Railway snapshot recovery remains unqualified. |
+| R5 Owner journey | Domain, owner login and public HTTP checks work. The owner requested `freedesign-http`, checking `https://freedesign.md` every five minutes for status >= 400, with Console alerts only. External delivery and laptop-off receipt are deferred by that choice. |
+| R6 Wider pilot | Live transfer qualification, continuous external health monitoring, a representative 72-hour soak and cost/capacity measurements remain before inviting a wider cohort. |
+
+The [operations runbook](../../deploy/railway/README.md) records startup, maintenance, portable recovery and verification. The active directory is `/data/restored-20261011`, selected after the hosted recovery drill; `/data/ding` is the inactive original. The data key and recovery identity are held separately from the volume and encrypted archive. This is an owner pilot, not a qualified wider beta.
 
 ## First release scope
 
@@ -14,7 +27,7 @@ Railway and SQLite are the selected starting architecture. The working sign-in c
 | --- | --- |
 | Address | `cloud.ding.ing`; use this as the canonical origin throughout config and clients |
 | Runtime | One always-running `ding-cloud` process in one Railway service and region |
-| Storage | One volume at `/data`; identity/control database and separate workspace SQLite stores under `/data/ding` |
+| Storage | One volume at `/data`; identity/control database and separate workspace SQLite stores under `/data/<DING_STATE_NAME>` |
 | Access | Named owner, one initial workspace, manually shared invitations for trusted collaborators |
 | Login | Built-in passwords, existing Argon2id/session/recovery code; no public registration or email service |
 | Execution | `hosting=cloud`: public HTTP sources, guarded remote delivery, existing quotas and retention |
@@ -26,7 +39,7 @@ Railway and SQLite are the selected starting architecture. The working sign-in c
 
 Invitees in this first workspace share its watches and retained evidence according to the existing roles. This is not an enrollment flow for unrelated customers. Keep the multi-workspace model and isolation tests, but do not build a customer provisioning dashboard to launch the owner pilot.
 
-`cloud.ding.ing` is clear and easy to explain. `chime.ding.ing` is a possible playful alias later; choose one canonical origin now because cookies, device connections and future OAuth callbacks depend on it. The user will add DNS once Railway supplies the records.
+`cloud.ding.ing` is the canonical origin for cookies, device connections and future OAuth callbacks. The user added Railway's exact CNAME and TXT verification records in Cloudflare.
 
 ## Reuse the auth work
 
@@ -40,7 +53,7 @@ Invitees in this first workspace share its watches and retained evidence accordi
 | Console account/member views | Shared login shell, invitations, roles, password/session controls and audit |
 | `Dockerfile.cloud` | Embedded Console/MCP asset build and the Go cloud binary |
 
-There is one important integration gap: the current code enables passwords and invitations with `Server.Shared`, while that same self-hosted choice changes acquisition policy. `Config.Validate` also requires OIDC for `hosting=cloud`. **Do not deploy with `hosting=self-hosted` just to get password login.** That would change the network and execution restrictions.
+The main integration gap at the start was that passwords and invitations depended on `Server.Shared`, while that self-hosted choice also changed acquisition policy. R1 resolved this with explicit `loginMethods` and discovered account features. **Do not deploy with `hosting=self-hosted` just to get password login.** That changes the network and execution restrictions.
 
 Separate enabled login methods from hosting policy in configuration and capability discovery. A built-in cloud login must retain all cloud restrictions. Update the password, activation, reset, member and account UI gates to use auth capabilities rather than `execution === "shared"`. Keep execution labeled Ding Cloud. OIDC remains a supported, separately configured method; an unavailable provider never enables another access mode automatically.
 
@@ -69,7 +82,7 @@ Turn Railway Serverless off explicitly: checks must continue without web visitor
 
 ## Implementation sequence
 
-Use small, precise commits for each behavior and its tests. The configuration names below are proposed interfaces, not commands or settings that already exist.
+The following sections retain the implementation requirements and wider pilot gates. Use the operations runbook for the implemented commands and configuration.
 
 ### R1 Enable built-in accounts under cloud policy
 
@@ -156,4 +169,4 @@ GitHub/OIDC sign-in can be enabled later through the shared identity layer. Publ
 
 The deployment needs access to the intended Railway project, the chosen region and resource/spend limits, the canonical hostname, and privately supplied owner credentials and encryption key. Railway supplies the DNS target and verification record; the user adds them in Cloudflare. No secret belongs in this plan, a commit or a chat message.
 
-The current task is to prepare this plan. Application implementation and provisioning are the next work items; no resources or DNS were changed while writing it.
+Application implementation and the owner deployment are now in place. Remaining inputs concern snapshot plan availability, an eventual external notification destination and wider pilot qualification; none blocks the requested Console-only owner watch.
