@@ -25,7 +25,8 @@ func Initialize(ctx context.Context, c Config, username, name, password string, 
 	if err := ValidateServerDirectory(c.DataDir); err != nil {
 		return err
 	}
-	if _, err := loadKey(&c); err != nil {
+	key, err := loadKey(&c)
+	if err != nil {
 		return err
 	}
 	db, err := state.Open(ctx, c.DataDir)
@@ -33,6 +34,11 @@ func Initialize(ctx context.Context, c Config, username, name, password string, 
 		return err
 	}
 	defer db.Close()
+	if c.Deployment == "railway" {
+		if err := db.ConfigureDataKey(ctx, key); err != nil {
+			return err
+		}
+	}
 	if err := db.ConfigureHosting(ctx, c.Hosting); err != nil {
 		return err
 	}

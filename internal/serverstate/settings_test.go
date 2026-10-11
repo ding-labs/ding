@@ -18,6 +18,10 @@ func TestLoginAndHostingProfilesRemainPinnedAcrossRestart(t *testing.T) {
 	if err := db.ConfigureLoginMethods(ctx, []string{"password"}); err != nil {
 		t.Fatal(err)
 	}
+	key := make([]byte, 32)
+	if err := db.ConfigureDataKey(ctx, key); err != nil {
+		t.Fatal(err)
+	}
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -26,6 +30,13 @@ func TestLoginAndHostingProfilesRemainPinnedAcrossRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
+	if err := db.ConfigureDataKey(ctx, key); err != nil {
+		t.Fatal(err)
+	}
+	key[0] = 1
+	if err := db.ConfigureDataKey(ctx, key); err == nil {
+		t.Fatal("changed encryption key")
+	}
 	if err := db.ConfigureLoginMethods(ctx, []string{"password"}); err != nil {
 		t.Fatal(err)
 	}

@@ -166,6 +166,11 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 		return err
 	}
 	defer db.Close()
+	if c.Deployment == "railway" {
+		if err := db.ConfigureDataKey(ctx, key); err != nil {
+			return err
+		}
+	}
 	if err := db.ConfigureHosting(ctx, c.Hosting); err != nil {
 		return err
 	}
