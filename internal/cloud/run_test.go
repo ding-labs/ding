@@ -64,3 +64,18 @@ func TestLoginMethodsAreIndependentOfHosting(t *testing.T) {
 		t.Fatal("password cloud allowed commands")
 	}
 }
+
+func TestRailwayTLSModeRequiresExplicitCloudProfile(t *testing.T) {
+	c := Config{Hosting: "cloud", LoginMethods: []string{"password"}, PublicURL: "https://cloud.ding.example", Listen: "0.0.0.0:8080", DataDir: t.TempDir(), KeyFile: filepath.Join(t.TempDir(), "key")}
+	if err := c.Validate(); err == nil {
+		t.Fatal("implicit plaintext listener")
+	}
+	c.Deployment = "railway"
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	c.Hosting = "self-hosted"
+	if err := c.Validate(); err == nil {
+		t.Fatal("railway relaxed self-hosted TLS")
+	}
+}

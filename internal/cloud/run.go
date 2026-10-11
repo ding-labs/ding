@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/ding-labs/ding/internal/cloud/egress"
@@ -22,6 +21,7 @@ import (
 )
 
 type Config struct {
+	Deployment       string          `json:"deployment,omitempty"`
 	LoginMethods     []string        `json:"loginMethods,omitempty"`
 	Hosting          string          `json:"hosting,omitempty"`
 	Name             string          `json:"name,omitempty"`
@@ -75,6 +75,12 @@ func (c *Config) Validate() error {
 			return err
 		}
 	}
+	if c.Deployment != "" && c.Deployment != "railway" {
+		return fmt.Errorf("unknown deployment mode")
+	}
+	if c.Deployment == "railway" && (c.Hosting != "cloud" || c.TLSCert != "" || c.TLSKey != "") {
+		return fmt.Errorf("railway mode requires cloud hosting with TLS terminated at its edge")
+	}
 	if len(c.Name) > 100 {
 		return fmt.Errorf("instance name exceeds 100 bytes")
 	}
@@ -114,7 +120,7 @@ func (c *Config) Validate() error {
 	if (c.TLSCert == "") != (c.TLSKey == "") {
 		return fmt.Errorf("configure both TLS certificate and key")
 	}
-	if !net.ParseIP(host).IsLoopback() && c.TLSCert == "" {
+	if !net.ParseIP(host).IsLoopback() && c.TLSCert == "" && c.Deployment != "railway" {
 		return fmt.Errorf("non-loopback cloud listeners require TLS; use a loopback listener behind an HTTPS proxy")
 	}
 	if !filepath.IsAbs(c.DataDir) || !filepath.IsAbs(c.KeyFile) {
@@ -144,29 +150,9 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 	if assets == nil {
 		return fmt.Errorf("build ding-cloud with the console,mcpui tags and bundled assets")
 	}
-	f, err := mcpconfig.OpenPrivate(c.KeyFile)
-	if err != nil {
-		return fmt.Errorf("open external encryption key: %w", err)
-	}
-	key, readErr := io.ReadAll(io.LimitReader(f, 33))
-	closed := f.Close()
-	if readErr != nil || closed != nil || len(key) != 32 {
-		return fmt.Errorf("keyFile must contain exactly 32 private bytes")
-	}
-	if err := os.MkdirAll(c.DataDir, 0700); err != nil {
-		return err
-	}
-	c.DataDir, err = filepath.EvalSymlinks(c.DataDir)
+	key, err := loadKey(&c)
 	if err != nil {
 		return err
-	}
-	keyPath, err := filepath.EvalSymlinks(c.KeyFile)
-	if err != nil {
-		return err
-	}
-	rel, err := filepath.Rel(c.DataDir, keyPath)
-	if err != nil || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))) {
-		return fmt.Errorf("keep the encryption key outside the data and backup volume")
 	}
 	var provider identity.Provider
 	if c.Identity.Issuer != "" {
@@ -213,7 +199,7 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 	if err := pool.Start(ctx); err != nil {
 		return err
 	}
-	app := &Server{LoginMethods: c.LoginMethods, Shared: pool.Shared, Name: c.Name, DB: db, Vault: vault, Pool: pool, PublicURL: c.PublicURL, Version: version, Assets: assets, Login: LoginFlow{DB: db, Vault: vault, Provider: provider, EnrollmentLimit: c.EnrollmentLimit, Shared: pool.Shared}}
+	app := &Server{Railway: c.Deployment == "railway", LoginMethods: c.LoginMethods, Shared: pool.Shared, Name: c.Name, DB: db, Vault: vault, Pool: pool, PublicURL: c.PublicURL, Version: version, Assets: assets, Login: LoginFlow{DB: db, Vault: vault, Provider: provider, EnrollmentLimit: c.EnrollmentLimit, Shared: pool.Shared}}
 	if c.MCP != nil {
 		if c.MCP.Issuer != c.Identity.Issuer {
 			return fmt.Errorf("MCP and browser identity must use the same issuer and stable subject")

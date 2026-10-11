@@ -17,6 +17,7 @@ import (
 )
 
 type Server struct {
+	Railway            bool
 	LoginMethods       []string
 	Shared             bool // Self-hosted execution with named accounts; cloud is the default.
 	Name               string
@@ -59,16 +60,34 @@ func (s *Server) Handler() (http.Handler, error) {
 	s.limits = map[string]*rate.Limiter{}
 	s.requests = make(chan struct{}, 32)
 	s.global = rate.NewLimiter(30, 60)
+	health := rate.NewLimiter(5, 10)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
-		if r.Host != u.Host {
+		probe := r.Method == "GET" && r.URL.Path == "/healthz"
+		if r.Host != u.Host && !(s.Railway && probe && r.Host == "healthcheck.railway.app") {
 			cloudFail(w, 403, "invalid_host", "Unrecognized cloud host.")
 			return
 		}
 		if origin := r.Header.Get("Origin"); origin != "" && origin != s.PublicURL {
 			cloudFail(w, 403, "invalid_origin", "Request origin does not match Ding Cloud.")
+			return
+		}
+		if probe {
+			if !health.Allow() {
+				cloudFail(w, 429, "busy", "Retry health check later.")
+				return
+			}
+			if !s.Pool.Ready() {
+				cloudFail(w, 503, "worker_unavailable", "Execution worker unavailable.")
+			} else {
+				cloudWrite(w, 200, map[string]string{"status": "ready"})
+			}
+			return
+		}
+		if s.Railway && r.Header.Get("X-Forwarded-Proto") != "https" {
+			cloudFail(w, 403, "https_required", "Use the public HTTPS origin.")
 			return
 		}
 		if !s.global.Allow() {
@@ -87,14 +106,6 @@ func (s *Server) Handler() (http.Handler, error) {
 		defer cancel()
 		r = r.WithContext(ctx)
 		if s.publicIdentity(w, r) {
-			return
-		}
-		if r.Method == "GET" && r.URL.Path == "/healthz" {
-			if !s.Pool.Ready() {
-				cloudFail(w, 503, "worker_unavailable", "Execution worker unavailable.")
-			} else {
-				cloudWrite(w, 200, map[string]string{"status": "ready"})
-			}
 			return
 		}
 		if r.URL.Path == "/mcp" || r.URL.Path == "/.well-known/oauth-protected-resource/mcp" {
