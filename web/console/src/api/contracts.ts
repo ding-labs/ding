@@ -103,6 +103,12 @@ export interface ControlVerification {
   message: string;
 }
 
+export interface DemoUpdate {
+  stage?: string;
+  event?: WatchEvent | null;
+  error?: string;
+}
+
 export interface MigrateBinding {
   notifier: string;
   environment: string;
@@ -131,6 +137,14 @@ export interface MigrateRuleReport {
   file?: string;
   issues: Array<MigrateIssue>;
   warnings: Array<MigrateIssue>;
+}
+
+export interface NotifySettings {
+  platform: string;
+  appName: string;
+  authorization: string;
+  alerts: string;
+  canOpenSettings: boolean;
 }
 
 export interface PlanBundle {
