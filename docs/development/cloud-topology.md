@@ -1,5 +1,7 @@
 # C0: fenced single-host beta implementation
 
+The next deployment follows [Basic Ding Cloud on Railway](railway-cloud-plan.md). Shared users/workspaces/memberships now live in `internal/serverstate`; the measurements below describe the original spike and must be repeated on Railway.
+
 Decision: build a single-host, capped-cohort implementation first. Do not provision
 it or claim production capacity from the measurements below. Public launch still
 requires the local release gates, a confirmed budget, real identity integration,

@@ -1,5 +1,7 @@
 # Local Ding, marketplace distribution, and optional Ding Cloud
 
+The next hosted milestone follows [Basic Ding Cloud on Railway](railway-cloud-plan.md): SQLite, built-in invite-only accounts and an owner deployment before the wider beta.
+
 Proposed October 10, 2026. **Roadmap, not a description of shipped features.**
 Source implementation and current evidence are tracked in the [implementation ledger](local-first-progress.md).
 

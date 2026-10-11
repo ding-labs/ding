@@ -1,5 +1,7 @@
 # Plan: optional Ding Cloud and a useful adoption funnel
 
+Current implementation: [Basic Ding Cloud on Railway](railway-cloud-plan.md) uses the merged shared-account foundation, SQLite and an owner-first Railway deployment. That plan supersedes the provider-selection and GitHub-first sequencing below.
+
 Proposed October 10, 2026. Part of the [local-first roadmap](local-first-roadmap.md). **No hosted service, account flow, pricing, or spending is approved or implemented by this document.**
 
 ## Product promise and first scope
