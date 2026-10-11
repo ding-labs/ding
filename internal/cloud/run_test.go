@@ -3,6 +3,7 @@ package cloud
 import (
 	"github.com/ding-labs/ding/internal/identity"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -40,5 +41,26 @@ func TestIdentityConfigRejectsIncompleteAndExpandedPrivilegesOffline(t *testing.
 		if err := c.Validate(); err == nil {
 			t.Fatal("accepted incomplete identity or expanded privileges")
 		}
+	}
+}
+
+func TestLoginMethodsAreIndependentOfHosting(t *testing.T) {
+	c := Config{Hosting: "cloud", LoginMethods: []string{"password"}, PublicURL: "https://cloud.ding.example", DataDir: t.TempDir(), KeyFile: filepath.Join(t.TempDir(), "key")}
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if c.Hosting != "cloud" {
+		t.Fatal("passwords changed hosting")
+	}
+	for _, methods := range [][]string{{}, {"anonymous"}, {"password", "password"}, {"oidc"}} {
+		bad := c
+		bad.LoginMethods = methods
+		if err := bad.Validate(); err == nil {
+			t.Fatalf("accepted %v", methods)
+		}
+	}
+	c.ApprovedCommands = []string{strings.Repeat("a", 64)}
+	if err := c.Validate(); err == nil {
+		t.Fatal("password cloud allowed commands")
 	}
 }

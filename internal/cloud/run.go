@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 )
 
 type Config struct {
+	LoginMethods     []string        `json:"loginMethods,omitempty"`
 	Hosting          string          `json:"hosting,omitempty"`
 	Name             string          `json:"name,omitempty"`
 	ApprovedCommands []string        `json:"approvedCommands,omitempty"`
@@ -43,7 +45,32 @@ func (c *Config) Validate() error {
 	if c.Hosting != "cloud" && c.Hosting != "self-hosted" {
 		return fmt.Errorf("hosting must be cloud or self-hosted")
 	}
-	if c.Hosting == "cloud" || c.Identity.Issuer != "" {
+	if c.LoginMethods == nil {
+		c.LoginMethods = []string{"oidc"}
+		if c.Hosting == "self-hosted" {
+			c.LoginMethods = []string{"password"}
+			if c.Identity.Issuer != "" {
+				c.LoginMethods = append(c.LoginMethods, "oidc")
+			}
+		}
+	}
+	if len(c.LoginMethods) == 0 {
+		return fmt.Errorf("at least one login method is required")
+	}
+	seen := map[string]bool{}
+	for _, method := range c.LoginMethods {
+		if (method != "password" && method != "oidc") || seen[method] {
+			return fmt.Errorf("loginMethods must contain unique password or oidc entries")
+		}
+		seen[method] = true
+	}
+	if !seen["oidc"] && (c.Identity.Issuer != "" || c.Identity.ClientID != "" || c.Identity.ClientSecret != "" || len(c.Identity.Scopes) > 0) {
+		return fmt.Errorf("identity configuration requires the oidc login method")
+	}
+	if c.MCP != nil && !seen["oidc"] {
+		return fmt.Errorf("public MCP requires oidc login and an OAuth issuer")
+	}
+	if seen["oidc"] {
 		if err := c.Identity.Validate(); err != nil {
 			return err
 		}
@@ -156,10 +183,13 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 	if err := db.ConfigureHosting(ctx, c.Hosting); err != nil {
 		return err
 	}
-	if c.Hosting == "self-hosted" {
+	if err := db.ConfigureLoginMethods(ctx, c.LoginMethods); err != nil {
+		return err
+	}
+	if slices.Contains(c.LoginMethods, "password") {
 		workspaces, err := db.Workspaces(ctx)
 		if err != nil || len(workspaces) == 0 {
-			return fmt.Errorf("initialize shared accounts with ding server init first")
+			return fmt.Errorf("initialize built-in accounts with the host init command first")
 		}
 	}
 	vault, err := state.NewVault(db, key)
@@ -183,7 +213,7 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 	if err := pool.Start(ctx); err != nil {
 		return err
 	}
-	app := &Server{Shared: pool.Shared, Name: c.Name, DB: db, Vault: vault, Pool: pool, PublicURL: c.PublicURL, Version: version, Assets: assets, Login: LoginFlow{DB: db, Vault: vault, Provider: provider, EnrollmentLimit: c.EnrollmentLimit, Shared: pool.Shared}}
+	app := &Server{LoginMethods: c.LoginMethods, Shared: pool.Shared, Name: c.Name, DB: db, Vault: vault, Pool: pool, PublicURL: c.PublicURL, Version: version, Assets: assets, Login: LoginFlow{DB: db, Vault: vault, Provider: provider, EnrollmentLimit: c.EnrollmentLimit, Shared: pool.Shared}}
 	if c.MCP != nil {
 		if c.MCP.Issuer != c.Identity.Issuer {
 			return fmt.Errorf("MCP and browser identity must use the same issuer and stable subject")

@@ -67,7 +67,7 @@ func (s *Server) membersAPI(w http.ResponseWriter, r *http.Request, p access.Pri
 		return true
 	}
 	if path == "/v1/members" && r.Method == "POST" && input.User == "" {
-		if !s.Shared {
+		if !s.passwordsEnabled() {
 			cloudFail(w, 400, "identity_required", "Add an existing verified user by ID.")
 			return true
 		}
@@ -91,7 +91,7 @@ func (s *Server) membersAPI(w http.ResponseWriter, r *http.Request, p access.Pri
 		}
 		return true
 	}
-	if input.Reset && r.Method == "PATCH" && s.Shared {
+	if input.Reset && r.Method == "PATCH" && s.passwordsEnabled() {
 		out, err := s.DB.ResetInvitation(r.Context(), p, user)
 		if err != nil {
 			cloudFail(w, 403, "reset_denied", err.Error())
@@ -118,7 +118,7 @@ func (s *Server) userAPI(w http.ResponseWriter, r *http.Request, session state.S
 			return true
 		}
 		switch {
-		case r.URL.Path == "/v1/user/password" && r.Method == "POST" && s.Shared:
+		case r.URL.Path == "/v1/user/password" && r.Method == "POST" && s.passwordsEnabled():
 			var input struct {
 				Current  string `json:"current"`
 				Password string `json:"password"`

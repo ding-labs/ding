@@ -17,6 +17,7 @@ import (
 )
 
 type Server struct {
+	LoginMethods       []string
 	Shared             bool // Self-hosted execution with named accounts; cloud is the default.
 	Name               string
 	passwordLimits     map[string]*rate.Limiter
