@@ -99,6 +99,15 @@ export interface ControlLocalUpdates {
   owner?: string;
 }
 
+export interface ControlLogPreview {
+  total: number;
+  classified: number;
+  warnings: number;
+  errors: number;
+  invalid: number;
+  levels: Array<string>;
+}
+
 export interface ControlVerification {
   status: string;
   message: string;
