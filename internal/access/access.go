@@ -115,3 +115,21 @@ func FromContext(ctx context.Context) (Principal, bool) {
 	p, ok := ctx.Value(principalKey{}).(Principal)
 	return p, ok
 }
+
+type operationKey struct{}
+
+// WithOperation records only a fixed action and resource path; never request
+// bodies, headers, query strings, passwords, or credential values.
+func WithOperation(ctx context.Context, action, target string) context.Context {
+	if len(action) > 64 {
+		action = action[:64]
+	}
+	if len(target) > 512 {
+		target = target[:512]
+	}
+	return context.WithValue(ctx, operationKey{}, [2]string{action, target})
+}
+func Operation(ctx context.Context) (string, string) {
+	v, _ := ctx.Value(operationKey{}).([2]string)
+	return v[0], v[1]
+}

@@ -172,7 +172,7 @@ func (s *Server) Handler() (http.Handler, error) {
 			cloudFail(w, 403, "permission_denied", "Workspace access is unavailable.")
 			return
 		}
-		r = r.WithContext(access.WithPrincipal(r.Context(), principal))
+		r = r.WithContext(access.WithOperation(access.WithPrincipal(r.Context(), principal), r.Method, r.URL.Path))
 		s.mu.Lock()
 		limiter := s.limits[session.Workspace]
 		if limiter == nil {

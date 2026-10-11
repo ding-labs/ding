@@ -7,6 +7,7 @@ import (
 
 	"github.com/ding-labs/ding/internal/access"
 	state "github.com/ding-labs/ding/internal/serverstate"
+	"github.com/ding-labs/ding/internal/store"
 )
 
 func (s *Server) membersAPI(w http.ResponseWriter, r *http.Request, p access.Principal) bool {
@@ -18,6 +19,19 @@ func (s *Server) membersAPI(w http.ResponseWriter, r *http.Request, p access.Pri
 		}
 		if err != nil || before < 0 {
 			cloudFail(w, 400, "invalid_cursor", "Invalid audit cursor.")
+			return true
+		}
+		if r.URL.Query().Get("source") == "runtime" {
+			t, err := s.Pool.Get(r.Context(), p.Workspace)
+			var out []store.Audit
+			if err == nil {
+				err = t.App.Store.View(r.Context(), func(tx *store.Tx) error { var e error; out, e = tx.Audit(before); return e })
+			}
+			if err != nil {
+				cloudFail(w, 503, "audit_unavailable", "Audit unavailable.")
+			} else {
+				cloudWrite(w, 200, out)
+			}
 			return true
 		}
 		out, err := s.DB.Audit(r.Context(), p.Workspace, before)

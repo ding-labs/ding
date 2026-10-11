@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/ding-labs/ding/internal/access"
 	"github.com/ding-labs/ding/internal/source"
 )
 
@@ -67,6 +68,11 @@ func (v *Vault) Put(ctx context.Context, workspace, name, value string) error {
 	if _, err := tx.ExecContext(ctx, "INSERT INTO secrets(workspace,name,ciphertext) VALUES(?,?,?) ON CONFLICT(workspace,name) DO UPDATE SET ciphertext=excluded.ciphertext", workspace, name, encrypted); err != nil {
 		return err
 	}
+	if p, ok := access.FromContext(ctx); ok {
+		if err := audit(ctx, tx, p.User, workspace, "credential:put", name); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
 }
 
@@ -109,8 +115,20 @@ func (v *Vault) Names(ctx context.Context, workspace string) ([]string, error) {
 }
 
 func (v *Vault) Delete(ctx context.Context, workspace, name string) error {
-	_, err := v.db.sql.ExecContext(ctx, "DELETE FROM secrets WHERE workspace=? AND name=?", workspace, name)
-	return err
+	tx, err := v.db.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.ExecContext(ctx, "DELETE FROM secrets WHERE workspace=? AND name=?", workspace, name); err != nil {
+		return err
+	}
+	if p, ok := access.FromContext(ctx); ok {
+		if err := audit(ctx, tx, p.User, workspace, "credential:delete", name); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func (v *Vault) Lookup(workspace string) source.Lookup {

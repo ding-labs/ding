@@ -127,7 +127,7 @@ func (t privateTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("consent revoked")
 	}
 	p.Grant = t.principal.Grant
-	r = r.Clone(access.WithPrincipal(r.Context(), p))
+	r = r.Clone(access.WithOperation(access.WithPrincipal(r.Context(), p), r.Method, r.URL.Path))
 	w := &privateResponse{header: make(http.Header), status: 200}
 	t.handler.ServeHTTP(w, r)
 	if w.large {
