@@ -179,9 +179,10 @@ bytes survive a crash. A restarted collector rebuilds its window and preserves
 open incidents and committed deliveries.
 
 Ordinary log summaries and receipts default to `retention: 1h` (configurable from
-`1m` to `168h`, subject to global history retention). Incident evidence and pending
-delivery references can remain longer. Other watches keep their existing history
-policy. Each stream produces roughly 3,600 ordinary summaries per hour.
+`1m` to `168h`). Global history retention can expire summaries sooner. Incident
+evidence and pending delivery references can remain longer. Other watches keep
+their existing history policy. Each stream produces roughly 3,600 ordinary
+summaries per hour.
 
 Collection is supported on macOS and Linux; Windows capture is rejected pending
 platform qualification. Record size is 64 KiB, windows are 1–3,600 whole seconds,
