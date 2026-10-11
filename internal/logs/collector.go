@@ -87,6 +87,8 @@ func (c *Collector) Snapshot() Summary {
 
 func (c *Collector) Gap() { c.window.Gap(time.Now()) }
 
+func (c *Collector) Reset() { c.window.Reset(time.Now()) }
+
 // Close is called after all stream writers and snapshot publishers have stopped.
 func (c *Collector) Close() {
 	c.once.Do(func() { close(c.queue) })

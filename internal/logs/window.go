@@ -63,6 +63,15 @@ func (w *Window) Gap(at time.Time) {
 	w.gap(at)
 }
 
+// Reset starts a new live window after a collector session is replaced. Prior
+// counts cannot establish continuity for the new session.
+func (w *Window) Reset(at time.Time) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	clear(w.buckets)
+	w.started, w.last, w.gapUntil = at, at, time.Time{}
+}
+
 func (w *Window) gap(at time.Time) {
 	until := at.Add(w.config.Window)
 	if until.After(w.gapUntil) {

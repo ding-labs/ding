@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
+	"reflect"
 	"time"
 
 	"github.com/ding-labs/ding/internal/control"
@@ -19,6 +21,8 @@ func publishLogs(parent context.Context, client control.Client, id string, colle
 	done := make(chan struct{})
 	epoch := rand.Text()
 	sequence := 0
+	connected := true
+	permanent := false
 	path := "/v1/ingest/" + url.PathEscape(id)
 	send := func(ctx context.Context, summary logs.Summary, ended bool, exitCode *int) error {
 		sequence++
@@ -43,17 +47,49 @@ func publishLogs(parent context.Context, client control.Client, id string, colle
 		tick := time.NewTicker(time.Second)
 		defer tick.Stop()
 		var warned, previous time.Time
+		var reconnectAt time.Time
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case at := <-tick.C:
+				if session != nil && !connected {
+					if permanent || at.Before(reconnectAt) {
+						continue
+					}
+					reconnectAt = at.Add(5 * time.Second)
+					attempt, stop := context.WithTimeout(ctx, time.Second)
+					data, err := client.Call(attempt, http.MethodPost, "/v1/logs/"+url.PathEscape(id)+"/session", nil)
+					stop()
+					if err != nil {
+						continue
+					}
+					var next watchrun.LogSession
+					if json.Unmarshal(data, &next) != nil {
+						continue
+					}
+					if !reflect.DeepEqual(session.Config, next.Config) {
+						// Release the newly acquired lease; the application keeps
+						// running, but a changed parser needs an explicit restart.
+						session, sequence, permanent = &next, 0, true
+						_ = send(ctx, logs.Summary{}, true, nil)
+						fmt.Fprintln(diagnostics, "ding: log watch settings changed; restart capture to use the new configuration")
+						continue
+					}
+					session, sequence, connected = &next, 0, true
+					collector.Reset()
+					fmt.Fprintln(diagnostics, "ding: log monitoring reconnected; rebuilding the live window")
+				}
 				if !previous.IsZero() && at.Sub(previous) > 2*time.Second {
 					collector.Gap()
 				}
 				previous = at
 				if err := send(ctx, collector.Snapshot(), false, nil); err != nil {
 					collector.Gap()
+					if session != nil {
+						connected = false
+						reconnectAt = at.Add(5 * time.Second)
+					}
 					if time.Since(warned) >= 5*time.Second {
 						fmt.Fprintln(diagnostics, "ding: log monitoring interrupted; application output continues")
 						warned = time.Now()
@@ -65,6 +101,9 @@ func publishLogs(parent context.Context, client control.Client, id string, colle
 	return func(exitCode *int) {
 		cancel()
 		<-done
+		if session != nil && (!connected || permanent) {
+			return
+		}
 		if err := send(context.Background(), collector.Snapshot(), true, exitCode); err != nil {
 			fmt.Fprintln(diagnostics, "ding: final log collection status could not be recorded")
 		}
