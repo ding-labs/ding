@@ -168,6 +168,6 @@ CREATE INDEX sessions_account ON sessions(workspace);
 CREATE TABLE logins(hash TEXT PRIMARY KEY,ciphertext BLOB NOT NULL,expires_at INTEGER NOT NULL);
 CREATE TABLE probes(workspace TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,id TEXT NOT NULL,digest TEXT NOT NULL,outcome TEXT NOT NULL,at INTEGER NOT NULL,PRIMARY KEY(workspace,id));
 CREATE TABLE devices(id TEXT PRIMARY KEY,user TEXT REFERENCES users(id) ON DELETE CASCADE,scopes TEXT,challenge TEXT NOT NULL,workspace TEXT REFERENCES workspaces(id) ON DELETE CASCADE,expires_at INTEGER NOT NULL);
-CREATE TABLE mcp_bindings(workspace TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,client TEXT NOT NULL,ciphertext BLOB NOT NULL,PRIMARY KEY(workspace,client));
+CREATE TABLE mcp_bindings(user TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,workspace TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,client TEXT NOT NULL,ciphertext BLOB NOT NULL,PRIMARY KEY(user,workspace,client));
 CREATE TABLE handoff_proofs(workspace TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,id TEXT NOT NULL,body BLOB NOT NULL,PRIMARY KEY(workspace,id));
 `

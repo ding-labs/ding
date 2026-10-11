@@ -20,25 +20,40 @@ func TestModelBindingNeedsExactWorkspaceAndClient(t *testing.T) {
 	rand.Read(key)
 	v, _ := NewVault(db, key)
 	c := mcpconfig.Connection{DaemonURL: "https://ding.example", Token: "ding_mcp_" + ID(), GrantID: ID()}
-	if e := v.BindMCP(ctx, a.ID, "client-a", c); e != nil {
+	if e := v.BindMCP(ctx, a.User, a.ID, "client-a", c); e != nil {
 		t.Fatal(e)
 	}
+	if _, e := v.MCP(ctx, b.User, a.ID, "client-a"); e == nil {
+		t.Fatal("binding crossed user boundary")
+	}
+	if _, e := db.sql.ExecContext(ctx, "INSERT INTO memberships(user,workspace,role) VALUES(?,?,'editor')", b.User, a.ID); e != nil {
+		t.Fatal(e)
+	}
+	other := c
+	other.Token = "ding_mcp_" + ID()
+	other.GrantID = ID()
+	if e := v.BindMCP(ctx, b.User, a.ID, "client-a", other); e != nil {
+		t.Fatal("same OAuth client cannot serve two users", e)
+	}
+	if got, e := v.MCP(ctx, b.User, a.ID, "client-a"); e != nil || got.Token != other.Token {
+		t.Fatal("wrong user's grant", e)
+	}
 	for _, pair := range [][2]string{{b.ID, "client-a"}, {a.ID, "client-b"}} {
-		if _, e := v.MCP(ctx, pair[0], pair[1]); e == nil {
+		if _, e := v.MCP(ctx, a.User, pair[0], pair[1]); e == nil {
 			t.Fatal("connection crossed boundary")
 		}
 	}
-	if e := v.BindMCP(ctx, a.ID, "client-a", c); e == nil {
+	if e := v.BindMCP(ctx, a.User, a.ID, "client-a", c); e == nil {
 		t.Fatal("grant replaced without disconnect")
 	}
-	got, e := v.MCP(ctx, a.ID, "client-a")
+	got, e := v.MCP(ctx, a.User, a.ID, "client-a")
 	if e != nil || got.Token != c.Token {
 		t.Fatal(e)
 	}
-	if e := db.UnbindMCP(ctx, a.ID, "client-a"); e != nil {
+	if e := db.UnbindMCP(ctx, a.User, a.ID, "client-a"); e != nil {
 		t.Fatal(e)
 	}
-	if _, e := v.MCP(ctx, a.ID, "client-a"); e == nil {
+	if _, e := v.MCP(ctx, a.User, a.ID, "client-a"); e == nil {
 		t.Fatal("revoked binding resurrected")
 	}
 }

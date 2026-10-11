@@ -1,6 +1,7 @@
 package cloud
 
 import (
+	"github.com/ding-labs/ding/internal/access"
 	"net/http"
 	"slices"
 
@@ -12,17 +13,18 @@ import (
 func (s *Server) modelConnections(w http.ResponseWriter, r *http.Request, t *Tenant) {
 	// Serialize consent/revocation, including the two durable stores. A crash may
 	// leave an unusable orphan grant; it never creates a public implicit binding.
+	principal, _ := access.FromContext(r.Context())
 	s.modelMu.Lock()
 	defer s.modelMu.Unlock()
 	if r.Method == "GET" {
-		clients, err := s.DB.MCPClients(r.Context(), t.Workspace.ID)
+		clients, err := s.DB.MCPClients(r.Context(), principal.User, t.Workspace.ID)
 		if err != nil {
 			cloudFail(w, 503, "connections_unavailable", "Could not read model connections.")
 			return
 		}
 		result := []map[string]any{}
 		for _, client := range clients {
-			connection, err := s.Vault.MCP(r.Context(), t.Workspace.ID, client)
+			connection, err := s.Vault.MCP(r.Context(), principal.User, t.Workspace.ID, client)
 			if err != nil {
 				cloudFail(w, 503, "connections_unavailable", "A connection requires repair.")
 				return
@@ -52,8 +54,8 @@ func (s *Server) modelConnections(w http.ResponseWriter, r *http.Request, t *Ten
 		return
 	}
 	if input.Revoke {
-		c, _ := s.Vault.MCP(r.Context(), t.Workspace.ID, input.ClientID)
-		if err := s.DB.UnbindMCP(r.Context(), t.Workspace.ID, input.ClientID); err != nil {
+		c, _ := s.Vault.MCP(r.Context(), principal.User, t.Workspace.ID, input.ClientID)
+		if err := s.DB.UnbindMCP(r.Context(), principal.User, t.Workspace.ID, input.ClientID); err != nil {
 			cloudFail(w, 503, "revoke_failed", "Revocation could not be confirmed; retry.")
 			return
 		}
@@ -84,7 +86,7 @@ func (s *Server) modelConnections(w http.ResponseWriter, r *http.Request, t *Ten
 		return
 	}
 	c := mcpconfig.Connection{DaemonURL: s.PublicURL, Token: grant.Token, GrantID: grant.Grant.ID}
-	if err := s.Vault.BindMCP(r.Context(), t.Workspace.ID, input.ClientID, c); err != nil {
+	if err := s.Vault.BindMCP(r.Context(), principal.User, t.Workspace.ID, input.ClientID, c); err != nil {
 		_ = t.App.Store.Update(r.Context(), func(tx *store.Tx) error { return tx.RevokeIntegrationGrant(grant.Grant.ID) })
 		cloudFail(w, 409, "binding_conflict", "Disconnect the existing client before approving a replacement, or check the ten-client limit.")
 		return
