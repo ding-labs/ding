@@ -6,7 +6,7 @@ on:
       version:
         description: Stable version, without the v prefix
         required: true
-        default: '0.15.0'
+        default: '0.15.1'
 
 permissions:
   contents: read
@@ -68,6 +68,8 @@ jobs:
           go test -v -count=1 ./internal/qualification
           if [ '${{ matrix.os }}' = darwin ]; then
             codesign --verify --strict dist/extracted/DingNotifications.app
+            DING_TEST_NOTIFICATION_HELPER="$PWD/dist/extracted/DingNotifications.app/Contents/MacOS/DingNotifications" \
+              go test -v -count=1 ./internal/notify -run TestNativeNotification
           fi
       - uses: actions/upload-artifact@v4
         with:
