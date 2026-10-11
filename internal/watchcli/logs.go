@@ -1,6 +1,7 @@
 package watchcli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -122,10 +123,33 @@ func logsCommand() *cobra.Command {
 			}
 			frame := collector.Stream()
 			defer frame.Close()
+			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+			defer stop()
+			stopReader := interruptLogInput(ctx, cmd.InOrStdin())
+			defer stopReader()
 			_, err = io.Copy(io.MultiWriter(out, frame), cmd.InOrStdin())
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			return err
 		}
 		root.AddCommand(cmd)
 	}
 	return root
+}
+
+// Real stdin is closeable. Closing it interrupts a blocked pipe read so the
+// collection session can end cleanly even when its producer is silent.
+func interruptLogInput(ctx context.Context, input io.Reader) func() {
+	done := make(chan struct{})
+	if closer, ok := input.(io.Closer); ok {
+		go func() {
+			select {
+			case <-ctx.Done():
+				_ = closer.Close()
+			case <-done:
+			}
+		}()
+	}
+	return func() { close(done) }
 }
