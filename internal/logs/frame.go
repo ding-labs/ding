@@ -8,7 +8,8 @@ import (
 
 const MaxRecordBytes = 64 << 10
 
-// Framer accepts arbitrary write boundaries. It retains at most 64 KiB, and
+// Framer accepts arbitrary write boundaries. Each line/record buffer is bounded
+// to 64 KiB. It
 // reports one invalid record after draining an oversized line to its boundary.
 // emit must consume/copy the supplied bytes before returning.
 type Framer struct {

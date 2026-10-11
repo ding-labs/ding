@@ -50,7 +50,7 @@ func NewCollector(parser ParserConfig, window WindowConfig, frames ...FrameConfi
 		defer close(c.done)
 		for r := range c.queue {
 			if r.snapshot != nil {
-				r.snapshot <- w.Snapshot(time.Now())
+				r.snapshot <- w.Snapshot(r.at)
 				continue
 			}
 			classification := Classification{Invalid: true}
@@ -91,9 +91,9 @@ func (c *Collector) Stream(channels ...string) *Framer {
 		channel = channels[0]
 	}
 	f, _ := NewConfiguredFramer(c.framing, func(data []byte, invalid bool) {
-		at := time.Now() // The reader completed this record; event timestamps are ignored.
 		c.mu.Lock()
 		defer c.mu.Unlock()
+		at := time.Now() // Completion enters the queue atomically with its timestamp.
 		if c.queuedBytes+len(data) > 4<<20 {
 			c.statistics.Dropped++
 			c.window.Drop(at)
@@ -119,14 +119,20 @@ func (c *Collector) Snapshot() Summary {
 		return c.window.Snapshot(time.Now())
 	default:
 	}
-	// Snapshot is a barrier behind already queued records.
+	// Freeze the boundary when the barrier enters the queue. Classification may
+	// finish in a later second; records queued behind it must remain outside it.
+	c.mu.Lock()
 	select {
-	case c.queue <- record{snapshot: result}:
-		select {
-		case s := <-result:
-			return s
-		case <-timer.C:
-		}
+	case c.queue <- record{snapshot: result, at: time.Now()}:
+		c.mu.Unlock()
+	default:
+		c.mu.Unlock()
+		c.Gap()
+		return c.window.Snapshot(time.Now())
+	}
+	select {
+	case s := <-result:
+		return s
 	case <-timer.C:
 	}
 	c.window.Gap(time.Now())
