@@ -26,6 +26,7 @@ type Collector struct {
 	epoch       uint64
 	framing     FrameConfig
 	queuedBytes int
+	statistics  Statistics
 }
 
 func NewCollector(parser ParserConfig, window WindowConfig, frames ...FrameConfig) (*Collector, error) {
@@ -60,6 +61,21 @@ func NewCollector(parser ParserConfig, window WindowConfig, frames ...FrameConfi
 			c.queuedBytes -= len(r.data)
 			if r.epoch == c.epoch {
 				w.AddFrom(r.at, classification, r.channel)
+				if !classification.Blank {
+					c.statistics.Records++
+					if classification.Level == Warning {
+						c.statistics.Warnings++
+					}
+					if classification.Level == Error || classification.Level == Fatal {
+						c.statistics.Errors++
+					}
+					if classification.Level == Unclassified {
+						c.statistics.Unclassified++
+					}
+					if classification.Invalid {
+						c.statistics.Invalid++
+					}
+				}
 			}
 			c.mu.Unlock()
 		}
@@ -79,6 +95,7 @@ func (c *Collector) Stream(channels ...string) *Framer {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		if c.queuedBytes+len(data) > 4<<20 {
+			c.statistics.Dropped++
 			c.window.Drop(at)
 			return
 		}
@@ -86,6 +103,7 @@ func (c *Collector) Stream(channels ...string) *Framer {
 		case c.queue <- record{data: append([]byte(nil), data...), invalid: invalid, at: at, channel: channel, epoch: c.epoch}:
 			c.queuedBytes += len(data)
 		default:
+			c.statistics.Dropped++
 			c.window.Drop(at)
 		}
 	})
@@ -121,6 +139,7 @@ func (c *Collector) Reset() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.epoch++
+	c.statistics = Statistics{}
 	c.window.Reset(time.Now())
 }
 
