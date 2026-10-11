@@ -7,6 +7,7 @@ export interface ConditionSample {
 }
 
 export interface ConditionState {
+  waitingReason?: string;
   baselineSequence?: number;
   incidentEvent?: string;
   healthEvent?: string;
@@ -96,6 +97,15 @@ export interface ControlLocalUpdates {
   check?: UpdateCheckStatus | null;
   configured: boolean;
   owner?: string;
+}
+
+export interface ControlLogPreview {
+  total: number;
+  classified: number;
+  warnings: number;
+  errors: number;
+  invalid: number;
+  levels: Array<string>;
 }
 
 export interface ControlVerification {
@@ -292,6 +302,7 @@ export interface StoreDestinationPage {
 }
 
 export interface StoreEntitySummary {
+  waitingReason?: string;
   key: string;
   open: boolean;
   sourceUnhealthy: boolean;
@@ -389,6 +400,7 @@ export interface StoreWatchRecord {
 }
 
 export interface StoreWatchSummary {
+  logObservation?: WatchObservation | null;
   watch: StoreWatchRecord;
   entities: Array<StoreEntitySummary>;
   entitiesAfter: string;
@@ -465,6 +477,39 @@ export interface WatchLimits {
   idleTTL: string;
 }
 
+export interface WatchLogInput {
+  type: string;
+  path?: string;
+  start?: string;
+  argv?: Array<string>;
+  directory?: string;
+  env?: Record<string, WatchSecretRef>;
+  reconnectEvery?: string;
+}
+
+export interface WatchLogMultiline {
+  start: string;
+  continue: string;
+  maxLines?: number;
+  flushAfter?: string;
+}
+
+export interface WatchLogSource {
+  input: WatchLogInput;
+  format?: string;
+  levelField?: string;
+  patterns?: Record<string, string>;
+  levelMap?: Record<string, string>;
+  textProfile?: string;
+  framing?: string;
+  multiline?: WatchLogMultiline | null;
+  window?: string;
+  retention?: string;
+  emitEvery?: string;
+  minEvents?: number;
+  minCoverage?: number;
+}
+
 export interface WatchMetadata {
   id: string;
   name?: string;
@@ -496,6 +541,7 @@ export interface WatchSecretRef {
 }
 
 export interface WatchSource {
+  logs?: WatchLogSource | null;
   observedAtField?: string;
   type: string;
   url?: string;

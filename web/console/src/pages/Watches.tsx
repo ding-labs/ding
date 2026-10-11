@@ -36,6 +36,7 @@ import { WatchActions } from "../components/Actions";
 import { Events, Evidence } from "./Events";
 import { Deliveries } from "./Deliveries";
 import { Demo } from "../components/Demo";
+import { LogEvidence } from "../components/LogEvidence";
 export function Watches() {
   const location = useLocation();
   const [p, set] = useSearchParams();
@@ -99,7 +100,7 @@ export function Watches() {
         <Filter
           name="source"
           label="Sources"
-          options={["http", "push", "command"]}
+          options={["http", "push", "command", "logs"]}
         />
         <Filter
           name="status"
@@ -385,12 +386,22 @@ export function WatchDetail() {
       {tab === "Overview" && (
         <>
           <Availability watchID={id} />
+          {d.spec.source.logs && (
+            <LogEvidence
+              id={id}
+              config={d.spec.source.logs}
+              observation={query.data.logObservation}
+              status={w.status}
+            />
+          )}
           <div className="overview-grid">
             <section className="panel rule-panel">
               <p className="eyebrow">The rule</p>
               <Rule definition={d} />
               <div className="rule-footer">
-                {d.spec.source.type === "push" ? (
+                {d.spec.source.type === "logs" ? (
+                  "Summaries evaluated once per second while collection is active"
+                ) : d.spec.source.type === "push" ? (
                   "Waiting for POST /v1/ingest/" + id
                 ) : (
                   <>
@@ -415,11 +426,19 @@ export function WatchDetail() {
                 <div>
                   <dt>Source</dt>
                   <dd>
-                    {s?.unhealthy || w.lastError
-                      ? "Acquisition error"
-                      : w.lastInputAt && !w.lastInputAt.startsWith("0001")
-                        ? "Input received; freshness depends on rule"
-                        : "No input yet"}
+                    {d.spec.source.type === "logs"
+                      ? query.data.entities
+                          .find((e) => e.waitingReason)
+                          ?.waitingReason?.replaceAll("_", " ") ||
+                        String(
+                          query.data.logObservation?.detail ||
+                            "Waiting for collector",
+                        )
+                      : s?.unhealthy || w.lastError
+                        ? "Acquisition error"
+                        : w.lastInputAt && !w.lastInputAt.startsWith("0001")
+                          ? "Input received; freshness depends on rule"
+                          : "No input yet"}
                   </dd>
                 </div>
                 <div>
@@ -470,6 +489,8 @@ export function WatchDetail() {
                 <span>
                   {e.matches} matching · {e.recoveries} recovering · {e.samples}{" "}
                   window samples
+                  {e.waitingReason &&
+                    ` · ${e.waitingReason.replaceAll("_", " ")}`}
                 </span>
                 <Badge
                   value={
@@ -516,7 +537,10 @@ export function WatchDetail() {
                 {e.open ? "Incident open" : "No open incident"}
               </Badge>
               <Badge value={e.sourceUnhealthy ? "unknown" : "neutral"}>
-                {e.sourceUnhealthy ? "Source unhealthy" : "Source not flagged"}
+                {e.sourceUnhealthy
+                  ? "Source unhealthy"
+                  : e.waitingReason?.replaceAll("_", " ") ||
+                    "Source not flagged"}
               </Badge>
               <small>Input #{e.lastSequence}</small>
             </div>

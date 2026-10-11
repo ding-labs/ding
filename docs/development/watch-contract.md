@@ -22,7 +22,9 @@ after two healthy observations. A transport timeout is unknown/source health,
 not a fabricated HTTP 500. `urlRef.env` identifies a secret; compiling, validating,
 and explaining do not read the variable. Destinations must resolve when applied.
 
-Source contracts are `http`, `command`, and `push`. HTTP permits one literal URL
+Source contracts are `http`, `command`, `push`, and `logs`. Log sources aggregate
+plain text or JSON from external capture, regular files, or explicit log-reader
+commands; see [live log monitoring](../guides/logs.md). HTTP permits one literal URL
 or URL secret reference, secret header references, and selected JSON field paths.
 Command definitions require explicit argv and an absolute working directory;
 they are trusted local execution, not a sandbox. Environment variables must be

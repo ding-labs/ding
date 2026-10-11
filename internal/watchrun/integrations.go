@@ -115,15 +115,23 @@ func commandAccess(g store.IntegrationGrant, b plan.Bundle) error {
 		return nil
 	}
 	for _, w := range b.Watches {
-		if w.Definition.Spec.Source.Type == "command" && !slices.Contains(g.CommandRevisions, w.Revision) {
-			return fmt.Errorf("%w: command watch revision must be explicitly allowed by the local administrator", store.ErrIntegrationDenied)
-		}
 		s := w.Definition.Spec.Source
+		localReader := s.Type == "logs" && s.Logs.Input.Type != "external"
+		if (s.Type == "command" || localReader) && !slices.Contains(g.CommandRevisions, w.Revision) {
+			return fmt.Errorf("%w: local reader or command revision must be explicitly allowed by the local administrator", store.ErrIntegrationDenied)
+		}
 		if err := check(s.URLRef); err != nil {
 			return err
 		}
 		for _, refs := range []map[string]watch.SecretRef{s.Headers, s.Env} {
 			for _, ref := range refs {
+				if err := check(&ref); err != nil {
+					return err
+				}
+			}
+		}
+		if s.Logs != nil {
+			for _, ref := range s.Logs.Input.Env {
 				if err := check(&ref); err != nil {
 					return err
 				}

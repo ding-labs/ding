@@ -230,6 +230,11 @@ func (a *App) Doctor(ctx context.Context) (Doctor, error) {
 			for _, ref := range s.Env {
 				add(&ref)
 			}
+			if s.Logs != nil {
+				for _, ref := range s.Logs.Input.Env {
+					add(&ref)
+				}
+			}
 			status := SourceHealth{ID: record.Plan.Definition.Metadata.ID, Status: record.Status, LastInputAt: record.LastInputAt, NextAt: record.NextAt, LastError: record.LastError}
 			status.Acquisition, status.OverdueSeconds = acquisitionHealth(record, a.Now())
 			status.UnhealthyEntities, status.OpenIncidents, err = tx.EntityHealth(status.ID)
@@ -288,6 +293,19 @@ func acquisitionHealth(record store.WatchRecord, now time.Time) (string, int64) 
 		return "source-error", 0
 	}
 	s := record.Plan.Definition.Spec.Source
+	if s.Type == "logs" {
+		var c logCheckpoint
+		if json.Unmarshal([]byte(record.Cursor), &c) != nil {
+			return "waiting", 0
+		}
+		if c.Status != "active" {
+			return "collection-" + c.Status, 0
+		}
+		if now.Sub(c.Last) >= 5*time.Second {
+			return "collector-stalled", int64(now.Sub(c.Last).Seconds())
+		}
+		return "collecting", 0
+	}
 	every, err := time.ParseDuration(s.Every)
 	if err != nil || every <= 0 {
 		return "observed", 0

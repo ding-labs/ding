@@ -41,7 +41,7 @@ func Command(version string) *cobra.Command {
 	pair.Flags().BoolVar(&manage, "manage", false, "Allow applying and changing watches")
 	pair.Flags().BoolVar(&retry, "retry", false, "Allow retrying failed notifications")
 	pair.Flags().StringArrayVar(&refs, "allow-secret-ref", nil, "Explicitly allow an environment variable reference, never its value")
-	pair.Flags().StringArrayVar(&revisions, "allow-command-revision", nil, "Explicitly allow this exact compiled command watch revision")
+	pair.Flags().StringArrayVar(&revisions, "allow-command-revision", nil, "Explicitly allow this exact compiled command or local log-reader revision")
 	root.AddCommand(pair)
 	var setupState, setupConfig string
 	setup := &cobra.Command{Use: "setup", Short: "Open the guided local pairing window", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {

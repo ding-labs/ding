@@ -3,6 +3,7 @@ package watchrun
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,6 +24,7 @@ import (
 )
 
 type App struct {
+	logEpoch                            string
 	SchedulingJitter                    time.Duration
 	Store                               *store.Store
 	HTTP                                source.HTTP
@@ -45,7 +47,7 @@ type App struct {
 }
 
 func New(s *store.Store) *App {
-	return &App{Store: s, HTTP: source.HTTP{Client: &http.Client{}, Lookup: os.LookupEnv}, Lookup: os.LookupEnv, Now: func() time.Time { return time.Now().UTC() }, Output: os.Stdout, AcquisitionWorkers: 32, DeliveryWorkers: 8, Limits: DefaultLimits(), cancels: map[string]acquisition{}}
+	return &App{logEpoch: rand.Text(), Store: s, HTTP: source.HTTP{Client: &http.Client{}, Lookup: os.LookupEnv}, Lookup: os.LookupEnv, Now: func() time.Time { return time.Now().UTC() }, Output: os.Stdout, AcquisitionWorkers: 32, DeliveryWorkers: 8, Limits: DefaultLimits(), cancels: map[string]acquisition{}}
 }
 
 type Change struct {
@@ -384,6 +386,9 @@ func (a *App) accept(ctx context.Context, record store.WatchRecord, batch source
 		if !errors.Is(err, store.ErrNotFound) {
 			return err
 		}
+		if batch.ExpectedCursor != nil && current.Cursor != *batch.ExpectedCursor || !batch.FreshUntil.IsZero() && !now.Before(batch.FreshUntil) {
+			return store.ErrStale
+		}
 		interval, _ := time.ParseDuration(current.Plan.Definition.Spec.Source.Every)
 		next := a.nextPoll(now, interval, id)
 		if batch.RetryAt.After(next) {
@@ -497,7 +502,14 @@ func (a *App) accept(ctx context.Context, record store.WatchRecord, batch source
 		if usage.Bytes > a.Limits.MaxBytes {
 			return ErrQuota
 		}
-		return tx.SaveReceipt(id, current.Generation, inputID, receipt.First, receipt.Last, now.Add(24*time.Hour))
+		receiptTTL := 24 * time.Hour
+		if c := current.Plan.Definition.Spec.Source.Logs; c != nil {
+			receiptTTL, _ = time.ParseDuration(c.Retention)
+			if receiptTTL <= 0 {
+				receiptTTL = time.Hour
+			}
+		}
+		return tx.SaveReceipt(id, current.Generation, inputID, receipt.First, receipt.Last, now.Add(receiptTTL))
 	})
 	if err != nil && !errors.Is(err, store.ErrStale) && !errors.Is(err, ErrClosing) && ctx.Err() == nil {
 		detail := "acceptance_failed"

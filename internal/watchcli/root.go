@@ -46,7 +46,7 @@ func Root(version string) *cobra.Command {
 		root.AddCommand(cmd)
 	}
 	runtimeCommands(root)
-	root.AddCommand(testCommand(), migrateCommand(), demoCommand(), notificationCommand())
+	root.AddCommand(testCommand(), migrateCommand(), demoCommand(), notificationCommand(), logsCommand())
 	root.AddCommand(mcpcli.Command(version))
 	compatibilityCommands(root, version)
 	return root
@@ -79,6 +79,10 @@ func Execute(version string, args []string, stdout, stderr io.Writer) error {
 	}
 	var reported *ReportedError
 	if errors.As(err, &reported) {
+		return err
+	}
+	var status *ExitStatus
+	if errors.As(err, &status) {
 		return err
 	}
 	structured := false

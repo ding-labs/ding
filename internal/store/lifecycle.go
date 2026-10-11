@@ -151,6 +151,16 @@ func (t *Tx) Retain(cutoff, now time.Time, pins []int64, eventPins []string) err
 	return nil
 }
 
+// RetainLogSummaries follows Retain in the same transaction, sharing its input
+// pins. Event evidence and pending delivery history retain the global policy.
+func (t *Tx) RetainLogSummaries(id string, cutoff time.Time) error {
+	_, err := t.sql.ExecContext(t.ctx, `DELETE FROM observations WHERE watch_id=? AND accepted_at<?
+ AND revision IN (SELECT revision FROM watch_revisions WHERE watch_id=? AND json_extract(definition,'$.spec.source.type')='logs')
+ AND NOT EXISTS (SELECT 1 FROM event_evidence WHERE observation_sequence=observations.sequence)
+ AND NOT EXISTS (SELECT 1 FROM retained_inputs WHERE sequence=observations.sequence)`, id, timestamp(cutoff), id)
+	return err
+}
+
 // RevisionState changes only the metadata pointer of compatible entity state.
 func (t *Tx) RevisionState(id, revision string, generation int64) error {
 	if _, err := t.sql.ExecContext(t.ctx, "UPDATE entities SET revision=? WHERE watch_id=?", revision, id); err != nil {

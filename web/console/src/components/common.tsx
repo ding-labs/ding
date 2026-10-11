@@ -325,11 +325,13 @@ export function Rule({ definition: d }: { definition: WatchDefinition }) {
   return (
     <div className="rule-summary">
       <p>
-        {s.source.type === "push"
-          ? "Receive pushed JSON"
-          : s.source.type === "command"
-            ? "Run a command on the daemon host"
-            : `Check ${s.source.url || s.source.urlRef?.env || "an HTTP endpoint"}`}
+        {s.source.type === "logs"
+          ? `Collect live application ${s.source.logs?.framing === "multiline" ? "records" : "lines"} over ${s.source.logs?.window}`
+          : s.source.type === "push"
+            ? "Receive pushed JSON"
+            : s.source.type === "command"
+              ? "Run a command on the daemon host"
+              : `Check ${s.source.url || s.source.urlRef?.env || "an HTTP endpoint"}`}
         {s.source.every ? ` every ${s.source.every}` : ""}.
       </p>
       <div className="rule-expression">

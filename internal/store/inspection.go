@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -253,6 +254,7 @@ func (t *Tx) EvidenceInputs(event string, after int64) (ObservationPage, error) 
 }
 
 type EntitySummary struct {
+	WaitingReason   string `json:"waitingReason,omitempty"`
 	Key             string `json:"key"`
 	Open            bool   `json:"open"`
 	SourceUnhealthy bool   `json:"sourceUnhealthy"`
@@ -272,13 +274,14 @@ type DeliverySummary struct {
 	LastError           string    `json:"lastError,omitempty"`
 }
 type WatchSummary struct {
-	Watch            WatchRecord       `json:"watch"`
-	Entities         []EntitySummary   `json:"entities"`
-	EntitiesAfter    string            `json:"entitiesAfter"`
-	EntitiesMore     bool              `json:"entitiesMore"`
-	Deliveries       []DeliverySummary `json:"deliveries"`
-	DeliveriesBefore int64             `json:"deliveriesBefore"`
-	DeliveriesMore   bool              `json:"deliveriesMore"`
+	LogObservation   *watch.Observation `json:"logObservation,omitempty"`
+	Watch            WatchRecord        `json:"watch"`
+	Entities         []EntitySummary    `json:"entities"`
+	EntitiesAfter    string             `json:"entitiesAfter"`
+	EntitiesMore     bool               `json:"entitiesMore"`
+	Deliveries       []DeliverySummary  `json:"deliveries"`
+	DeliveriesBefore int64              `json:"deliveriesBefore"`
+	DeliveriesMore   bool               `json:"deliveriesMore"`
 }
 
 func (t *Tx) InspectSummary(id, after string, before int64) (WatchSummary, error) {
@@ -288,13 +291,28 @@ func (t *Tx) InspectSummary(id, after string, before int64) (WatchSummary, error
 	if err != nil {
 		return out, err
 	}
-	rows, err := t.sql.QueryContext(t.ctx, `SELECT entity_key,COALESCE(json_extract(state,'$.open'),0),COALESCE(json_extract(state,'$.sourceUnhealthy'),0),COALESCE(json_extract(state,'$.matches'),0),COALESCE(json_extract(state,'$.recoveries'),0),COALESCE(json_extract(state,'$.lastSequence'),0),COALESCE(json_array_length(state,'$.samples'),0) FROM entities WHERE watch_id=? AND entity_key>? ORDER BY entity_key LIMIT 101`, id, after)
+	if out.Watch.Plan.Definition.Spec.Source.Type == "logs" {
+		var body []byte
+		var sequence int64
+		err := t.sql.QueryRowContext(t.ctx, "SELECT sequence,body FROM observations WHERE watch_id=? AND generation=? ORDER BY sequence DESC LIMIT 1", id, out.Watch.Generation).Scan(&sequence, &body)
+		if err != nil && err != sql.ErrNoRows {
+			return out, err
+		}
+		if err == nil {
+			out.LogObservation = &watch.Observation{}
+			if err := json.Unmarshal(body, out.LogObservation); err != nil {
+				return out, err
+			}
+			out.LogObservation.Sequence = sequence
+		}
+	}
+	rows, err := t.sql.QueryContext(t.ctx, `SELECT entity_key,COALESCE(json_extract(state,'$.open'),0),COALESCE(json_extract(state,'$.sourceUnhealthy'),0),COALESCE(json_extract(state,'$.matches'),0),COALESCE(json_extract(state,'$.recoveries'),0),COALESCE(json_extract(state,'$.lastSequence'),0),COALESCE(json_array_length(state,'$.samples'),0),COALESCE(json_extract(state,'$.waitingReason'),'') FROM entities WHERE watch_id=? AND entity_key>? ORDER BY entity_key LIMIT 101`, id, after)
 	if err != nil {
 		return out, err
 	}
 	for rows.Next() {
 		var e EntitySummary
-		if err := rows.Scan(&e.Key, &e.Open, &e.SourceUnhealthy, &e.Matches, &e.Recoveries, &e.LastSequence, &e.Samples); err != nil {
+		if err := rows.Scan(&e.Key, &e.Open, &e.SourceUnhealthy, &e.Matches, &e.Recoveries, &e.LastSequence, &e.Samples, &e.WaitingReason); err != nil {
 			rows.Close()
 			return out, err
 		}

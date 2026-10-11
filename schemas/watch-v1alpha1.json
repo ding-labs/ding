@@ -175,6 +175,108 @@
       },
       "type": "object"
     },
+    "LogInput": {
+      "additionalProperties": false,
+      "properties": {
+        "argv": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "directory": {
+          "type": "string"
+        },
+        "env": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SecretRef"
+          },
+          "type": "object"
+        },
+        "path": {
+          "type": "string"
+        },
+        "reconnectEvery": {
+          "type": "string"
+        },
+        "start": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "LogMultiline": {
+      "additionalProperties": false,
+      "properties": {
+        "continue": {
+          "type": "string"
+        },
+        "flushAfter": {
+          "type": "string"
+        },
+        "maxLines": {
+          "type": "integer"
+        },
+        "start": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "LogSource": {
+      "additionalProperties": false,
+      "properties": {
+        "emitEvery": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "framing": {
+          "type": "string"
+        },
+        "input": {
+          "$ref": "#/$defs/LogInput"
+        },
+        "levelField": {
+          "type": "string"
+        },
+        "levelMap": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "minCoverage": {
+          "type": "number"
+        },
+        "minEvents": {
+          "type": "integer"
+        },
+        "multiline": {
+          "$ref": "#/$defs/LogMultiline"
+        },
+        "patterns": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "retention": {
+          "type": "string"
+        },
+        "textProfile": {
+          "type": "string"
+        },
+        "window": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "Metadata": {
       "additionalProperties": false,
       "properties": {
@@ -269,6 +371,9 @@
         "jq": {
           "type": "string"
         },
+        "logs": {
+          "$ref": "#/$defs/LogSource"
+        },
         "observedAtField": {
           "type": "string"
         },
@@ -279,7 +384,8 @@
           "enum": [
             "http",
             "command",
-            "push"
+            "push",
+            "logs"
           ],
           "type": "string"
         },
