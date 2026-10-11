@@ -16,6 +16,8 @@ func Describe(p Compiled) Description {
 	s := p.Definition.Spec
 	d := Description{ID: p.Definition.Metadata.ID}
 	switch s.Source.Type {
+	case "logs":
+		d.Source = fmt.Sprintf("Receive live application output summaries over %s; require %d records. Start capture with ding logs exec or ding logs ingest.", s.Source.Logs.Window, s.Source.Logs.MinEvents)
 	case "http":
 		target := s.Source.URL
 		if s.Source.URLRef != nil {

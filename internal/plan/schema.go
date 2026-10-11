@@ -47,6 +47,8 @@ func JSONSchema() ([]byte, error) {
 			return map[string]any{"type": "object", "additionalProperties": describe(t.Elem())}
 		case reflect.Int, reflect.Int64:
 			return map[string]any{"type": "integer"}
+		case reflect.Float64:
+			return map[string]any{"type": "number"}
 		case reflect.String:
 			return map[string]any{"type": "string"}
 		default:
@@ -64,7 +66,7 @@ func JSONSchema() ([]byte, error) {
 	}
 	prop("Metadata", "id")["pattern"] = identifier.String()
 	prop("SecretRef", "env")["pattern"] = envName.String()
-	prop("Source", "type")["enum"] = []string{"http", "command", "push"}
+	prop("Source", "type")["enum"] = []string{"http", "command", "push", "logs"}
 	prop("DestinationSpec", "type")["enum"] = []string{"console", "desktop", "webhook", "slack", "discord"}
 	prop("Condition", "operator")["enum"] = []string{"eq", "ne", "gt", "gte", "lt", "lte", "changed", "new-event"}
 	prop("Policy", "trigger")["enum"] = []string{"transition", "level"}

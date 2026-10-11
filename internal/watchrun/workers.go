@@ -211,7 +211,7 @@ func (a *App) Run(ctx context.Context) error {
 		activeMu.Unlock()
 		for _, record := range records {
 			id := record.Plan.Definition.Metadata.ID
-			if record.Status != "running" || record.Plan.Definition.Spec.Source.Type == "push" || record.NextAt.After(now) {
+			if record.Status != "running" || record.Plan.Definition.Spec.Source.Type == "push" || record.Plan.Definition.Spec.Source.Type == "logs" || record.NextAt.After(now) {
 				continue
 			}
 			activeMu.Lock()
