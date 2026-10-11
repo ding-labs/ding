@@ -1,4 +1,4 @@
-package cloud
+package identity
 
 import (
 	"context"
@@ -17,11 +17,11 @@ import (
 )
 
 type Identity struct{ Issuer, Subject string }
-type IdentityProvider interface {
+type Provider interface {
 	Begin(state, nonce, verifier string) string
 	Exchange(context.Context, string, string, string) (Identity, error)
 }
-type IdentityConfig struct {
+type Config struct {
 	Issuer       string `json:"issuer"`
 	ClientID     string `json:"clientId"`
 	ClientSecret string `json:"clientSecret"`
@@ -29,7 +29,7 @@ type IdentityConfig struct {
 	Scopes []string `json:"scopes"`
 }
 
-func (c IdentityConfig) Validate() error {
+func (c Config) Validate() error {
 	u, err := url.Parse(c.Issuer)
 	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || strings.TrimSpace(c.ClientID) == "" {
 		return fmt.Errorf("configure an HTTPS OIDC issuer and registered client")
@@ -50,11 +50,11 @@ type identityProvider struct {
 	client   *http.Client
 }
 
-func NewIdentity(ctx context.Context, publicURL string, c IdentityConfig) (IdentityProvider, error) {
-	return newIdentity(ctx, publicURL, c, mcpclient.HTTPClient())
+func NewOIDC(ctx context.Context, publicURL string, c Config) (Provider, error) {
+	return newOIDC(ctx, publicURL, c, mcpclient.HTTPClient())
 }
 
-func newIdentity(ctx context.Context, publicURL string, c IdentityConfig, client *http.Client) (IdentityProvider, error) {
+func newOIDC(ctx context.Context, publicURL string, c Config, client *http.Client) (Provider, error) {
 	publicURL, err := mcpconfig.Endpoint(publicURL, true)
 	if err != nil {
 		return nil, err

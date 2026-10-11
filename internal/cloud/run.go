@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ding-labs/ding/internal/identity"
 	"io"
 	"net"
 	"net/http"
@@ -28,7 +29,7 @@ type Config struct {
 	KeyFile         string          `json:"keyFile"`
 	TLSCert         string          `json:"tlsCert,omitempty"`
 	TLSKey          string          `json:"tlsKey,omitempty"`
-	Identity        IdentityConfig  `json:"identity"`
+	Identity        identity.Config `json:"identity"`
 	MCP             *mcpconfig.HTTP `json:"mcp,omitempty"`
 }
 
@@ -108,7 +109,7 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 	if err != nil || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))) {
 		return fmt.Errorf("keep the encryption key outside the data and backup volume")
 	}
-	provider, err := NewIdentity(ctx, c.PublicURL, c.Identity)
+	provider, err := identity.NewOIDC(ctx, c.PublicURL, c.Identity)
 	if err != nil {
 		return err
 	}

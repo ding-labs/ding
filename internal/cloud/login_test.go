@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"github.com/ding-labs/ding/internal/identity"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -21,12 +22,12 @@ func (f *fakeIdentity) Begin(state, nonce, verifier string) string {
 	f.nonce, f.verifier = nonce, verifier
 	return "https://issuer.example/authorize?state=" + state
 }
-func (f *fakeIdentity) Exchange(_ context.Context, code, nonce, verifier string) (Identity, error) {
+func (f *fakeIdentity) Exchange(_ context.Context, code, nonce, verifier string) (identity.Identity, error) {
 	f.called++
 	if code != "verified-code" || nonce != f.nonce || verifier != f.verifier {
-		return Identity{}, fmt.Errorf("invalid transaction")
+		return identity.Identity{}, fmt.Errorf("invalid transaction")
 	}
-	return Identity{"https://issuer.example", "immutable-user-id"}, nil
+	return identity.Identity{"https://issuer.example", "immutable-user-id"}, nil
 }
 
 func TestLoginRequiresBrowserStateAndCannotReplay(t *testing.T) {

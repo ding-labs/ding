@@ -1,4 +1,4 @@
-package cloud
+package identity
 
 import (
 	"context"
@@ -67,7 +67,7 @@ func TestOIDCVerifiesSignedIdentityPKCEAndNonce(t *testing.T) {
 	}))
 	defer server.Close()
 	issuer = server.URL
-	p, err := newIdentity(context.Background(), "https://ding.example", IdentityConfig{Issuer: issuer, ClientID: "ding-console", ClientSecret: "synthetic"}, server.Client())
+	p, err := newOIDC(context.Background(), "https://ding.example", Config{Issuer: issuer, ClientID: "ding-console", ClientSecret: "synthetic"}, server.Client())
 	if err != nil {
 		t.Fatal(err)
 	}

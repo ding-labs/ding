@@ -3,6 +3,7 @@ package cloud
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"github.com/ding-labs/ding/internal/identity"
 	"net/http"
 	"strings"
 	"time"
@@ -20,7 +21,7 @@ type LoginFlow struct {
 	EnrollmentLimit *int
 	DB              *state.DB
 	Vault           *state.Vault
-	Provider        IdentityProvider
+	Provider        identity.Provider
 }
 
 func cloudWrite(w http.ResponseWriter, status int, value any) {
