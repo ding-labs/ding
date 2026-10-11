@@ -20,13 +20,13 @@ import (
 )
 
 type BenchmarkOptions struct {
-	Accounts          int
+	Workspaces        int
 	Duration, Latency time.Duration
 	BodyBytes         int
 	SameHost          bool
 }
 type BenchmarkResult struct {
-	Accounts              int     `json:"accounts"`
+	Workspaces            int     `json:"workspaces"`
 	DurationSeconds       float64 `json:"durationSeconds"`
 	Checks                int64   `json:"checks"`
 	FirstObservationP95MS float64 `json:"firstObservationP95MS"`
@@ -62,7 +62,7 @@ func (b *benchmarkHTTP) RoundTrip(r *http.Request) (*http.Response, error) {
 // Benchmark is a synthetic engine/storage benchmark with no external network.
 // It is not an end-to-end authentication, TLS, provider-cost or 72-hour soak test.
 func Benchmark(ctx context.Context, o BenchmarkOptions) (result BenchmarkResult, err error) {
-	if o.Accounts < 1 || o.Accounts > MaxAccounts || o.Duration < time.Second || o.Duration > 24*time.Hour || o.Latency < 0 || o.Latency > 10*time.Second || o.BodyBytes < 0 || o.BodyBytes > 64<<10 {
+	if o.Workspaces < 1 || o.Workspaces > MaxAccounts || o.Duration < time.Second || o.Duration > 24*time.Hour || o.Latency < 0 || o.Latency > 10*time.Second || o.BodyBytes < 0 || o.BodyBytes > 64<<10 {
 		return result, fmt.Errorf("invalid benchmark bounds")
 	}
 	dir, err := os.MkdirTemp("", "ding-cloud-benchmark-")
@@ -85,7 +85,7 @@ func Benchmark(ctx context.Context, o BenchmarkOptions) (result BenchmarkResult,
 	defer p.Close()
 	var tenants []*Tenant
 	started := map[string]time.Time{}
-	for i := 0; i < o.Accounts; i++ {
+	for i := 0; i < o.Workspaces; i++ {
 		host := fmt.Sprintf("workspace-%d.benchmark.example", i)
 		if o.SameHost {
 			host = "shared.benchmark.example"
@@ -94,7 +94,7 @@ func Benchmark(ctx context.Context, o BenchmarkOptions) (result BenchmarkResult,
 		if err != nil {
 			return result, err
 		}
-		a, err := db.Enroll(ctx, "https://synthetic-issuer.example", fmt.Sprint(i), o.Accounts)
+		a, err := db.Enroll(ctx, "https://synthetic-issuer.example", fmt.Sprint(i), o.Workspaces)
 		if err != nil {
 			return result, err
 		}
@@ -128,7 +128,7 @@ func Benchmark(ctx context.Context, o BenchmarkOptions) (result BenchmarkResult,
 			if records[0].LastError == "" {
 				healthy++
 				if o.Duration < 5*time.Minute {
-					latencies = append(latencies, float64(records[0].LastInputAt.Sub(started[t.Account.ID]).Microseconds())/1000)
+					latencies = append(latencies, float64(records[0].LastInputAt.Sub(started[t.Workspace.ID]).Microseconds())/1000)
 				}
 			}
 		}
@@ -136,7 +136,7 @@ func Benchmark(ctx context.Context, o BenchmarkOptions) (result BenchmarkResult,
 	sort.Float64s(latencies)
 	var memory runtime.MemStats
 	runtime.ReadMemStats(&memory)
-	result = BenchmarkResult{Accounts: o.Accounts, DurationSeconds: time.Since(begin).Seconds(), Checks: transport.checks.Load(), ObservedAccounts: observed, HealthyAccounts: healthy, SameHost: o.SameHost, HeapAllocBytes: memory.HeapAlloc, RuntimeReservedBytes: memory.Sys, Goroutines: runtime.NumGoroutine(), LiveDiskBytes: diskBytes(dir), Notes: "Synthetic HTTP; five-minute cadence; one watch/account; memory is Go runtime allocation, not RSS. Distinct hosts by default; same-host mode exercises shared throttling. Failed observations count as observed, not healthy. First-observation latency is reported only for runs shorter than five minutes. This does not qualify DNS/TLS, representative failures, provider costs or production availability."}
+	result = BenchmarkResult{Workspaces: o.Workspaces, DurationSeconds: time.Since(begin).Seconds(), Checks: transport.checks.Load(), ObservedAccounts: observed, HealthyAccounts: healthy, SameHost: o.SameHost, HeapAllocBytes: memory.HeapAlloc, RuntimeReservedBytes: memory.Sys, Goroutines: runtime.NumGoroutine(), LiveDiskBytes: diskBytes(dir), Notes: "Synthetic HTTP; five-minute cadence; one watch/workspace; memory is Go runtime allocation, not RSS. Distinct hosts by default; same-host mode exercises shared throttling. Failed observations count as observed, not healthy. First-observation latency is reported only for runs shorter than five minutes. This does not qualify DNS/TLS, representative failures, provider costs or production availability."}
 	if len(latencies) > 0 {
 		index := (len(latencies)*95+99)/100 - 1
 		result.FirstObservationP95MS = latencies[index]

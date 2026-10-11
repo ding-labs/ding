@@ -30,7 +30,7 @@ func TestBudgetReservationCannotOverbookOrRefundTwice(t *testing.T) {
 	if err != nil || u.Checks != 1 || u.Bytes != 100 {
 		t.Fatal(u, err)
 	}
-	if _, err := db.sql.Exec("UPDATE usage SET bytes=? WHERE account=?", MonthlyBytes-RequestReservation+1, a.ID); err != nil {
+	if _, err := db.sql.Exec("UPDATE usage SET bytes=? WHERE workspace=?", MonthlyBytes-RequestReservation+1, a.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Reserve(ctx, a.ID, false, now); err == nil {

@@ -17,10 +17,10 @@ type Usage struct {
 	Deliveries int    `json:"deliveries"`
 	Bytes      int64  `json:"bytes"`
 }
-type Reservation struct{ ID, Account, Period string }
+type Reservation struct{ ID, Workspace, Period string }
 
-func (d *DB) Reserve(ctx context.Context, account string, delivery bool, now time.Time) (Reservation, error) {
-	r := Reservation{ID: ID(), Account: account, Period: now.UTC().Format("2006-01")}
+func (d *DB) Reserve(ctx context.Context, workspace string, delivery bool, now time.Time) (Reservation, error) {
+	r := Reservation{ID: ID(), Workspace: workspace, Period: now.UTC().Format("2006-01")}
 	tx, err := d.sql.BeginTx(ctx, nil)
 	if err != nil {
 		return r, err
@@ -28,17 +28,17 @@ func (d *DB) Reserve(ctx context.Context, account string, delivery bool, now tim
 	defer tx.Rollback()
 	// Crashed requests retain their conservative byte charge, but not an
 	// indefinitely growing reservation row. No external action is retried here.
-	if _, err := tx.ExecContext(ctx, "DELETE FROM reservations WHERE account=? AND created_at<?", account, now.Add(-time.Hour).Unix()); err != nil {
+	if _, err := tx.ExecContext(ctx, "DELETE FROM reservations WHERE workspace=? AND created_at<?", workspace, now.Add(-time.Hour).Unix()); err != nil {
 		return r, err
 	}
 	var active int
-	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM reservations WHERE account=?", account).Scan(&active); err != nil {
+	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM reservations WHERE workspace=?", workspace).Scan(&active); err != nil {
 		return r, err
 	}
 	if active >= 4 {
 		return r, fmt.Errorf("workspace outbound concurrency exhausted")
 	}
-	if _, err := tx.ExecContext(ctx, "INSERT OR IGNORE INTO usage(account,period) VALUES(?,?)", account, r.Period); err != nil {
+	if _, err := tx.ExecContext(ctx, "INSERT OR IGNORE INTO usage(workspace,period) VALUES(?,?)", workspace, r.Period); err != nil {
 		return r, err
 	}
 	checks, deliveries := 1, 0
@@ -46,7 +46,7 @@ func (d *DB) Reserve(ctx context.Context, account string, delivery bool, now tim
 		checks, deliveries = 0, 1
 	}
 	result, err := tx.ExecContext(ctx, `UPDATE usage SET checks=checks+?,deliveries=deliveries+?,bytes=bytes+?
-WHERE account=? AND period=? AND checks+?<=? AND deliveries+?<=? AND bytes+?<=?`, checks, deliveries, RequestReservation, account, r.Period, checks, MonthlyChecks, deliveries, MonthlyDeliveries, RequestReservation, MonthlyBytes)
+WHERE workspace=? AND period=? AND checks+?<=? AND deliveries+?<=? AND bytes+?<=?`, checks, deliveries, RequestReservation, workspace, r.Period, checks, MonthlyChecks, deliveries, MonthlyDeliveries, RequestReservation, MonthlyBytes)
 	if err != nil {
 		return r, err
 	}
@@ -57,7 +57,7 @@ WHERE account=? AND period=? AND checks+?<=? AND deliveries+?<=? AND bytes+?<=?`
 	if changed != 1 {
 		return r, fmt.Errorf("workspace monthly outbound budget exhausted; inspect cloud usage")
 	}
-	if _, err := tx.ExecContext(ctx, "INSERT INTO reservations(id,account,period,created_at) VALUES(?,?,?,?)", r.ID, account, r.Period, now.Unix()); err != nil {
+	if _, err := tx.ExecContext(ctx, "INSERT INTO reservations(id,workspace,period,created_at) VALUES(?,?,?,?)", r.ID, workspace, r.Period, now.Unix()); err != nil {
 		return r, err
 	}
 	return r, tx.Commit()
@@ -74,7 +74,7 @@ func (d *DB) Finish(ctx context.Context, r Reservation, used int64) error {
 		return err
 	}
 	defer tx.Rollback()
-	result, err := tx.ExecContext(ctx, "DELETE FROM reservations WHERE id=? AND account=? AND period=?", r.ID, r.Account, r.Period)
+	result, err := tx.ExecContext(ctx, "DELETE FROM reservations WHERE id=? AND workspace=? AND period=?", r.ID, r.Workspace, r.Period)
 	if err != nil {
 		return err
 	}
@@ -85,14 +85,14 @@ func (d *DB) Finish(ctx context.Context, r Reservation, used int64) error {
 	if changed == 0 {
 		return nil
 	}
-	if _, err := tx.ExecContext(ctx, "UPDATE usage SET bytes=bytes-? WHERE account=? AND period=?", RequestReservation-used, r.Account, r.Period); err != nil {
+	if _, err := tx.ExecContext(ctx, "UPDATE usage SET bytes=bytes-? WHERE workspace=? AND period=?", RequestReservation-used, r.Workspace, r.Period); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
-func (d *DB) Usage(ctx context.Context, account string, now time.Time) (Usage, error) {
+func (d *DB) Usage(ctx context.Context, workspace string, now time.Time) (Usage, error) {
 	u := Usage{Period: now.UTC().Format("2006-01")}
-	err := d.sql.QueryRowContext(ctx, `SELECT COALESCE((SELECT checks FROM usage WHERE account=? AND period=?),0),COALESCE((SELECT deliveries FROM usage WHERE account=? AND period=?),0),COALESCE((SELECT bytes FROM usage WHERE account=? AND period=?),0)`, account, u.Period, account, u.Period, account, u.Period).Scan(&u.Checks, &u.Deliveries, &u.Bytes)
+	err := d.sql.QueryRowContext(ctx, `SELECT COALESCE((SELECT checks FROM usage WHERE workspace=? AND period=?),0),COALESCE((SELECT deliveries FROM usage WHERE workspace=? AND period=?),0),COALESCE((SELECT bytes FROM usage WHERE workspace=? AND period=?),0)`, workspace, u.Period, workspace, u.Period, workspace, u.Period).Scan(&u.Checks, &u.Deliveries, &u.Bytes)
 	return u, err
 }

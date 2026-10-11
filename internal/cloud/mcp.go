@@ -61,15 +61,15 @@ func (s *Server) resolveMCP(issuer string) mcpserver.Resolver {
 		if subject == "" || clientID == "" {
 			return nil, denied
 		}
-		account, err := s.DB.IdentityAccount(ctx, issuer, subject)
+		workspace, err := s.DB.IdentityWorkspace(ctx, issuer, subject)
 		if err != nil {
 			return nil, denied
 		}
-		connection, err := s.Vault.MCP(ctx, account.ID, clientID)
+		connection, err := s.Vault.MCP(ctx, workspace.ID, clientID)
 		if err != nil {
 			return nil, denied
 		}
-		tenant, err := s.Pool.Get(ctx, account.ID)
+		tenant, err := s.Pool.Get(ctx, workspace.ID)
 		if err != nil {
 			return nil, denied
 		}

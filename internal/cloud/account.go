@@ -33,28 +33,28 @@ func (s *Server) accountDelete(w http.ResponseWriter, r *http.Request, session s
 	var input struct {
 		ConfirmWorkspace string `json:"confirmWorkspace"`
 	}
-	if decodeCloud(r, &input) != nil || input.ConfirmWorkspace != session.Account {
+	if decodeCloud(r, &input) != nil || input.ConfirmWorkspace != session.Workspace {
 		cloudFail(w, 400, "confirmation_required", "Provide this exact workspace ID to permanently delete its active data and stop all watches.")
 		return
 	}
-	if err := s.DB.BeginAccountDelete(r.Context(), session.Account); err != nil {
-		cloudFail(w, 503, "delete_failed", "Could not begin account deletion.")
+	if err := s.DB.BeginWorkspaceDelete(r.Context(), session.Workspace); err != nil {
+		cloudFail(w, 503, "delete_failed", "Could not begin workspace deletion.")
 		return
 	}
-	// Request cancellation cannot resurrect an account after the durable fence.
+	// Request cancellation cannot resurrect an workspace after the durable fence.
 	cleanup, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Second)
 	defer cancel()
-	if err := s.Pool.Delete(cleanup, session.Account); err != nil {
+	if err := s.Pool.Delete(cleanup, session.Workspace); err != nil {
 		cloudFail(w, 503, "deletion_pending", "Access is revoked; deletion will finish during service recovery. Local copies remain independent.")
 		return
 	}
-	if err := s.DB.FinishAccountDelete(cleanup, session.Account); err != nil {
+	if err := s.DB.FinishWorkspaceDelete(cleanup, session.Workspace); err != nil {
 		cloudFail(w, 503, "deletion_pending", "Execution stopped; control metadata deletion will finish during service recovery.")
 		return
 	}
 	s.mu.Lock()
-	delete(s.private, session.Account)
-	delete(s.limits, session.Account)
+	delete(s.private, session.Workspace)
+	delete(s.limits, session.Workspace)
 	s.mu.Unlock()
 	cookie(w, sessionCookie, "", time.Unix(1, 0))
 	cookie(w, csrfCookie, "", time.Unix(1, 0))
@@ -62,7 +62,7 @@ func (s *Server) accountDelete(w http.ResponseWriter, r *http.Request, session s
 }
 
 func (p *Pool) FinishPendingDeletes(ctx context.Context) error {
-	ids, err := p.db.DeletingAccounts(ctx)
+	ids, err := p.db.DeletingWorkspaces(ctx)
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func (p *Pool) FinishPendingDeletes(ctx context.Context) error {
 		if err := p.Delete(ctx, id); err != nil {
 			return err
 		}
-		if err := p.db.FinishAccountDelete(ctx, id); err != nil {
+		if err := p.db.FinishWorkspaceDelete(ctx, id); err != nil {
 			return err
 		}
 	}

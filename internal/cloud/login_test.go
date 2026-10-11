@@ -83,8 +83,8 @@ func TestLoginRequiresBrowserStateAndCannotReplay(t *testing.T) {
 	if again.Code != 400 || provider.called != 1 {
 		t.Fatal("callback replayed")
 	}
-	accounts, err := db.Accounts(ctx)
-	if err != nil || len(accounts) != 1 || accounts[0].Subject != "immutable-user-id" {
+	workspaces, err := db.Workspaces(ctx)
+	if err != nil || len(workspaces) != 1 || workspaces[0].Subject != "immutable-user-id" {
 		t.Fatal("identity binding failed", err)
 	}
 }

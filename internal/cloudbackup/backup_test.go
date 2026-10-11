@@ -24,18 +24,18 @@ func TestEncryptedBackupFreshRestoreAndQuarantine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, _ := db.Enroll(ctx, "issuer", "immutable", 1)
-	session, _ := db.NewSession(ctx, account.ID, "device", time.Now())
+	workspace, _ := db.Enroll(ctx, "issuer", "immutable", 1)
+	session, _ := db.NewSession(ctx, workspace.ID, "device", time.Now())
 	key := make([]byte, 32)
 	rand.Read(key)
 	vault, _ := state.NewVault(db, key)
-	_ = vault.Put(ctx, account.ID, "WEBHOOK", "https://example.com/synthetic-secret")
+	_ = vault.Put(ctx, workspace.ID, "WEBHOOK", "https://example.com/synthetic-secret")
 	identity, _ := age.GenerateX25519Identity()
 	archive := filepath.Join(t.TempDir(), "backup.age")
 	if err := Write(ctx, dir, archive, identity.Recipient().String()); err == nil {
 		t.Fatal("backup did not fence running service")
 	}
-	tenant, err := store.Open(ctx, filepath.Join(dir, "workspaces", account.ID))
+	tenant, err := store.Open(ctx, filepath.Join(dir, "workspaces", workspace.ID))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,12 +93,12 @@ spec:
 		t.Fatal("old session resurrected")
 	}
 	v, _ := state.NewVault(restored, key)
-	secret, err := v.Get(ctx, account.ID, "WEBHOOK")
+	secret, err := v.Get(ctx, workspace.ID, "WEBHOOK")
 	if err != nil || !strings.Contains(secret, "synthetic-secret") {
 		t.Fatal("credentials cannot recover with separate master key", err)
 	}
 	_ = restored.Close()
-	tenant, err = store.Open(ctx, filepath.Join(restore, "workspaces", account.ID))
+	tenant, err = store.Open(ctx, filepath.Join(restore, "workspaces", workspace.ID))
 	if err != nil {
 		t.Fatal(err)
 	}

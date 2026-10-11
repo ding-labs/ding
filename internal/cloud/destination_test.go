@@ -12,7 +12,7 @@ import (
 func TestDestinationTestReconcilesWithoutSendingTwice(t *testing.T) {
 	s, h, sessions := testCloudServer(t)
 	s.TenantHandler = s.serveTenant
-	tenant, err := s.Pool.Get(context.Background(), sessions[0].Account)
+	tenant, err := s.Pool.Get(context.Background(), sessions[0].Workspace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +25,7 @@ func TestDestinationTestReconcilesWithoutSendingTwice(t *testing.T) {
 		}
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("ok"))}, nil
 	})}
-	if err := s.Vault.Put(context.Background(), tenant.Account.ID, "WEBHOOK", "https://example.com/hook"); err != nil {
+	if err := s.Vault.Put(context.Background(), tenant.Workspace.ID, "WEBHOOK", "https://example.com/hook"); err != nil {
 		t.Fatal(err)
 	}
 	body := `{"operationKey":"a-stable-test-operation","destination":"webhook","credential":"WEBHOOK"}`
@@ -38,7 +38,7 @@ func TestDestinationTestReconcilesWithoutSendingTwice(t *testing.T) {
 	if sent.Load() != 1 {
 		t.Fatal("test notification duplicated")
 	}
-	if err := s.Vault.Put(context.Background(), tenant.Account.ID, "WEBHOOK", "https://example.com/changed"); err != nil {
+	if err := s.Vault.Put(context.Background(), tenant.Workspace.ID, "WEBHOOK", "https://example.com/changed"); err != nil {
 		t.Fatal(err)
 	}
 	if w := cloudRequest(h, "POST", "/v1/cloud/destination-test", body, sessions[0], true); w.Code != 409 {

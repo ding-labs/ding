@@ -10,7 +10,7 @@ import (
 func TestHostedMCPUsesSeparateWorkspaceClientScopesAndRevocation(t *testing.T) {
 	s, h, sessions := testCloudServer(t)
 	s.TenantHandler = s.serveTenant
-	if err := s.Vault.Put(context.Background(), sessions[0].Account, "WEBHOOK", "https://hooks.example/test"); err != nil {
+	if err := s.Vault.Put(context.Background(), sessions[0].Workspace, "WEBHOOK", "https://hooks.example/test"); err != nil {
 		t.Fatal(err)
 	}
 	consent := `{"clientID":"chatgpt-client","grant":{"name":"ChatGPT","days":7,"scopes":["inspect","preview","manage"],"secretRefs":["WEBHOOK"]}}`

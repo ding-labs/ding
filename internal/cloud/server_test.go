@@ -32,7 +32,7 @@ func testCloudServer(t *testing.T) (*Server, http.Handler, []state.Session) {
 	s := &Server{DB: db, Vault: v, Pool: p, PublicURL: "https://ding.example", Version: "test"}
 	s.Login = LoginFlow{DB: db, Vault: v, Provider: &fakeIdentity{}}
 	s.TenantHandler = func(w http.ResponseWriter, _ *http.Request, _ state.Session, t *Tenant) {
-		cloudWrite(w, 200, map[string]string{"account": t.Account.ID})
+		cloudWrite(w, 200, map[string]string{"workspace": t.Workspace.ID})
 	}
 	h, err := s.Handler()
 	if err != nil {
@@ -77,7 +77,7 @@ func TestCloudBoundaryDerivesWorkspaceFromSessionAndRequiresCSRF(t *testing.T) {
 	}
 	for _, session := range sessions {
 		w := cloudRequest(h, "GET", "/v1/watches?workspace=other", "", session, false)
-		if w.Code != 200 || !strings.Contains(w.Body.String(), session.Account) {
+		if w.Code != 200 || !strings.Contains(w.Body.String(), session.Workspace) {
 			t.Fatal("workspace override", w.Code, w.Body.String())
 		}
 	}

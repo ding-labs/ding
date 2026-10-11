@@ -15,14 +15,14 @@ func (s *Server) modelConnections(w http.ResponseWriter, r *http.Request, t *Ten
 	s.modelMu.Lock()
 	defer s.modelMu.Unlock()
 	if r.Method == "GET" {
-		clients, err := s.DB.MCPClients(r.Context(), t.Account.ID)
+		clients, err := s.DB.MCPClients(r.Context(), t.Workspace.ID)
 		if err != nil {
 			cloudFail(w, 503, "connections_unavailable", "Could not read model connections.")
 			return
 		}
 		result := []map[string]any{}
 		for _, client := range clients {
-			connection, err := s.Vault.MCP(r.Context(), t.Account.ID, client)
+			connection, err := s.Vault.MCP(r.Context(), t.Workspace.ID, client)
 			if err != nil {
 				cloudFail(w, 503, "connections_unavailable", "A connection requires repair.")
 				return
@@ -52,8 +52,8 @@ func (s *Server) modelConnections(w http.ResponseWriter, r *http.Request, t *Ten
 		return
 	}
 	if input.Revoke {
-		c, _ := s.Vault.MCP(r.Context(), t.Account.ID, input.ClientID)
-		if err := s.DB.UnbindMCP(r.Context(), t.Account.ID, input.ClientID); err != nil {
+		c, _ := s.Vault.MCP(r.Context(), t.Workspace.ID, input.ClientID)
+		if err := s.DB.UnbindMCP(r.Context(), t.Workspace.ID, input.ClientID); err != nil {
 			cloudFail(w, 503, "revoke_failed", "Revocation could not be confirmed; retry.")
 			return
 		}
@@ -67,7 +67,7 @@ func (s *Server) modelConnections(w http.ResponseWriter, r *http.Request, t *Ten
 		cloudFail(w, 400, "invalid_grant", "Cloud grants allow at most thirty days and no command revisions.")
 		return
 	}
-	names, err := s.Vault.Names(r.Context(), t.Account.ID)
+	names, err := s.Vault.Names(r.Context(), t.Workspace.ID)
 	if err != nil {
 		cloudFail(w, 503, "credentials_unavailable", "Could not check credential references.")
 		return
@@ -84,7 +84,7 @@ func (s *Server) modelConnections(w http.ResponseWriter, r *http.Request, t *Ten
 		return
 	}
 	c := mcpconfig.Connection{DaemonURL: s.PublicURL, Token: grant.Token, GrantID: grant.Grant.ID}
-	if err := s.Vault.BindMCP(r.Context(), t.Account.ID, input.ClientID, c); err != nil {
+	if err := s.Vault.BindMCP(r.Context(), t.Workspace.ID, input.ClientID, c); err != nil {
 		_ = t.App.Store.Update(r.Context(), func(tx *store.Tx) error { return tx.RevokeIntegrationGrant(grant.Grant.ID) })
 		cloudFail(w, 409, "binding_conflict", "Disconnect the existing client before approving a replacement, or check the ten-client limit.")
 		return

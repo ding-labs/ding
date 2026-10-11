@@ -24,9 +24,9 @@ const maxFile = 256 << 20
 const maxAccounts = 100
 
 type manifest struct {
-	Format    int       `json:"format"`
-	CreatedAt time.Time `json:"createdAt"`
-	Accounts  []string  `json:"accounts"`
+	Format     int       `json:"format"`
+	CreatedAt  time.Time `json:"createdAt"`
+	Workspaces []string  `json:"workspaces"`
 }
 
 func Write(ctx context.Context, dir, output, recipient string) error {
@@ -40,11 +40,11 @@ func Write(ctx context.Context, dir, output, recipient string) error {
 		return fmt.Errorf("stop the cloud service before an offline backup: %w", err)
 	}
 	defer db.Close()
-	accounts, err := db.Accounts(ctx)
+	workspaces, err := db.Workspaces(ctx)
 	if err != nil {
 		return err
 	}
-	if len(accounts) > maxAccounts {
+	if len(workspaces) > maxAccounts {
 		return fmt.Errorf("backup cohort limit exceeded")
 	}
 	stage, err := os.MkdirTemp(dir, ".backup-")
@@ -68,9 +68,9 @@ func Write(ctx context.Context, dir, output, recipient string) error {
 		return err
 	}
 	archive := tar.NewWriter(encrypted)
-	m := manifest{Format: 1, CreatedAt: time.Now().UTC(), Accounts: []string{}}
-	for _, a := range accounts {
-		m.Accounts = append(m.Accounts, a.ID)
+	m := manifest{Format: 1, CreatedAt: time.Now().UTC(), Workspaces: []string{}}
+	for _, a := range workspaces {
+		m.Workspaces = append(m.Workspaces, a.ID)
 	}
 	raw, _ := json.Marshal(m)
 	if err := archive.WriteHeader(&tar.Header{Name: "format.json", Size: int64(len(raw)), Mode: 0600, Typeflag: tar.TypeReg}); err != nil {
@@ -85,7 +85,7 @@ func Write(ctx context.Context, dir, output, recipient string) error {
 	if err := appendFile(ctx, archive, filepath.Join(stage, "control.db"), "control.db"); err != nil {
 		return err
 	}
-	for _, a := range accounts {
+	for _, a := range workspaces {
 		if err := ctx.Err(); err != nil {
 			return err
 		}

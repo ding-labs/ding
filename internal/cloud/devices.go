@@ -44,7 +44,7 @@ func (s *Server) devicePublic(w http.ResponseWriter, r *http.Request) bool {
 			cloudFail(w, 400, "device_expired", "Start a new connection. An expired or consumed request cannot be claimed again.")
 			return true
 		}
-		cloudWrite(w, 200, map[string]any{"ready": ready, "token": session.Token, "workspace": session.Account, "expiresAt": session.ExpiresAt})
+		cloudWrite(w, 200, map[string]any{"ready": ready, "token": session.Token, "workspace": session.Workspace, "expiresAt": session.ExpiresAt})
 		return true
 	}
 	return false
@@ -85,7 +85,7 @@ func (s *Server) connectDevice(w http.ResponseWriter, r *http.Request) {
 		cloudFail(w, 403, "csrf_required", "Refresh the connection page and try again.")
 		return
 	}
-	if err := s.DB.ApproveDevice(r.Context(), id, session.Account, time.Now()); err != nil {
+	if err := s.DB.ApproveDevice(r.Context(), id, session.Workspace, time.Now()); err != nil {
 		cloudFail(w, 409, "approval_changed", "Return to your terminal to check this connection.")
 		return
 	}

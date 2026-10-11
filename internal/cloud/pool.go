@@ -25,13 +25,13 @@ const MaxAccounts = 100
 var accountID = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 type Tenant struct {
-	Account state.Account
-	App     *watchrun.App
-	stop    context.CancelFunc
-	done    chan struct{}
-	err     error
-	ctx     context.Context
-	failed  atomic.Bool
+	Workspace state.Workspace
+	App       *watchrun.App
+	stop      context.CancelFunc
+	done      chan struct{}
+	err       error
+	ctx       context.Context
+	failed    atomic.Bool
 }
 type Pool struct {
 	root     string
@@ -69,7 +69,7 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 	if len(p.tenants) >= MaxAccounts {
 		return nil, fmt.Errorf("cloud worker enrollment capacity reached")
 	}
-	account, err := p.db.Account(ctx, id)
+	workspace, err := p.db.Workspace(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -134,21 +134,21 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 		return nil, fmt.Errorf("workspace execution policy requires repair: %w", err)
 	}
 	run, stop := context.WithCancel(p.ctx)
-	t := &Tenant{Account: account, App: app, stop: stop, done: make(chan struct{}), ctx: run}
+	t := &Tenant{Workspace: workspace, App: app, stop: stop, done: make(chan struct{}), ctx: run}
 	p.tenants[id] = t
 	go func() { t.err = app.Run(run); t.failed.Store(true); close(t.done) }()
 	return t, nil
 }
 
 func (p *Pool) Start(ctx context.Context) error {
-	accounts, err := p.db.Accounts(ctx)
+	workspaces, err := p.db.Workspaces(ctx)
 	if err != nil {
 		return err
 	}
-	if len(accounts) > MaxAccounts {
+	if len(workspaces) > MaxAccounts {
 		return fmt.Errorf("stored cohort exceeds this worker's configured capacity")
 	}
-	for _, a := range accounts {
+	for _, a := range workspaces {
 		if _, err := p.Get(ctx, a.ID); err != nil {
 			return err
 		}

@@ -34,19 +34,19 @@ func TestVaultBindsCiphertextToWorkspaceAndName(t *testing.T) {
 		}
 	}
 	var encrypted []byte
-	if err := db.sql.QueryRow("SELECT ciphertext FROM secrets WHERE account=?", a.ID).Scan(&encrypted); err != nil {
+	if err := db.sql.QueryRow("SELECT ciphertext FROM secrets WHERE workspace=?", a.ID).Scan(&encrypted); err != nil {
 		t.Fatal(err)
 	}
 	if bytes.Contains(encrypted, []byte("synthetic-alpha")) {
 		t.Fatal("plaintext stored")
 	}
-	if _, err := db.sql.Exec("UPDATE secrets SET ciphertext=? WHERE account=?", encrypted, b.ID); err != nil {
+	if _, err := db.sql.Exec("UPDATE secrets SET ciphertext=? WHERE workspace=?", encrypted, b.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := vault.Get(ctx, b.ID, "TOKEN"); err == nil {
 		t.Fatal("cross-workspace ciphertext accepted")
 	}
-	if _, err := db.sql.Exec("UPDATE secrets SET name='OTHER' WHERE account=?", a.ID); err != nil {
+	if _, err := db.sql.Exec("UPDATE secrets SET name='OTHER' WHERE workspace=?", a.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := vault.Get(ctx, a.ID, "OTHER"); err == nil {

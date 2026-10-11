@@ -23,7 +23,7 @@ func (s *Server) testDestination(w http.ResponseWriter, r *http.Request, t *Tena
 		cloudFail(w, 400, "invalid_test", "Provide a stable operation key, destination type and credential reference.")
 		return
 	}
-	endpoint, revision, err := s.Vault.GetWithRevision(r.Context(), t.Account.ID, req.Credential)
+	endpoint, revision, err := s.Vault.GetWithRevision(r.Context(), t.Workspace.ID, req.Credential)
 	if err != nil {
 		cloudFail(w, 400, "missing_credential", "Save this workspace's destination credential before testing.")
 		return
@@ -33,13 +33,13 @@ func (s *Server) testDestination(w http.ResponseWriter, r *http.Request, t *Tena
 		return
 	}
 	digest := state.TokenHash(req.Destination + "\x00" + req.Credential + "\x00" + revision)
-	probe, start, err := s.DB.BeginProbe(r.Context(), t.Account.ID, req.OperationKey, digest)
+	probe, start, err := s.DB.BeginProbe(r.Context(), t.Workspace.ID, req.OperationKey, digest)
 	if err != nil {
 		cloudFail(w, 409, "test_conflict", err.Error())
 		return
 	}
 	if start {
-		id := state.TokenHash(t.Account.ID + "\x00" + req.OperationKey)
+		id := state.TokenHash(t.Workspace.ID + "\x00" + req.OperationKey)
 		payload, err := delivery.Render(req.Destination, watch.Event{ID: id, WatchID: "ding-cloud-test", Type: "test", At: time.Now().UTC(), Message: "Ding Cloud delivery test. This is a labeled setup test, not an incident."})
 		if err != nil {
 			cloudFail(w, 400, "test_failed", "Could not render the destination test.")
@@ -52,7 +52,7 @@ func (s *Server) testDestination(w http.ResponseWriter, r *http.Request, t *Tena
 		}
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 5*time.Second)
 		defer cancel()
-		if err := s.DB.FinishProbe(ctx, t.Account.ID, probe.ID, outcome); err != nil {
+		if err := s.DB.FinishProbe(ctx, t.Workspace.ID, probe.ID, outcome); err != nil {
 			cloudFail(w, 503, "test_outcome_unknown", "Test outcome is uncertain. Reconcile using the same operation key; do not automatically send another test.")
 			return
 		}

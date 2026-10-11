@@ -137,7 +137,7 @@ func (s *Server) Handler() (http.Handler, error) {
 			return
 		}
 		s.mu.Lock()
-		limiter := s.limits[session.Account]
+		limiter := s.limits[session.Workspace]
 		if limiter == nil {
 			// Session-only clients may never enter a tenant API. Bound this
 			// expendable cache across enrollment/deletion churn as well.
@@ -148,7 +148,7 @@ func (s *Server) Handler() (http.Handler, error) {
 				}
 			}
 			limiter = rate.NewLimiter(2, 30)
-			s.limits[session.Account] = limiter
+			s.limits[session.Workspace] = limiter
 		}
 		s.mu.Unlock()
 		if !limiter.Allow() {
@@ -159,7 +159,7 @@ func (s *Server) Handler() (http.Handler, error) {
 			s.browserSession(w, r, session)
 			return
 		}
-		tenant, err := s.Pool.Get(r.Context(), session.Account)
+		tenant, err := s.Pool.Get(r.Context(), session.Workspace)
 		if err != nil {
 			cloudFail(w, 503, "workspace_unavailable", "Workspace execution is unavailable; inspect service status or contact support.")
 			return
@@ -222,7 +222,7 @@ func (s *Server) browserSession(w http.ResponseWriter, r *http.Request, session 
 		cloudFail(w, 401, "session_incomplete", "Start a new sign-in to repair this browser session.")
 		return
 	}
-	cloudWrite(w, 200, map[string]any{"csrf": csrf.Value, "expiresAt": session.ExpiresAt, "workspace": session.Account, "execution": "cloud"})
+	cloudWrite(w, 200, map[string]any{"csrf": csrf.Value, "expiresAt": session.ExpiresAt, "workspace": session.Workspace, "execution": "cloud"})
 }
 
 func (s *Server) api(t *Tenant) tenantAPI {
@@ -236,11 +236,11 @@ func (s *Server) api(t *Tenant) tenantAPI {
 		default:
 		}
 	}
-	if api, ok := s.private[t.Account.ID]; ok {
+	if api, ok := s.private[t.Workspace.ID]; ok {
 		return api
 	}
 	c := control.Credentials{Admin: state.ID(), Ingest: state.ID()}
 	api := tenantAPI{handler: control.ConsoleHandler(t.App, c, control.ConsoleConfig{Version: s.Version, Origin: s.PublicURL}), token: c.Admin, done: t.ctx.Done()}
-	s.private[t.Account.ID] = api
+	s.private[t.Workspace.ID] = api
 	return api
 }

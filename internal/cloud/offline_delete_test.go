@@ -43,10 +43,10 @@ func TestOfflineDeletionRequiresStoppedOwnerAndKeepsOtherAccounts(t *testing.T) 
 		t.Fatal(err)
 	}
 	defer db.Close()
-	if _, err := db.Account(ctx, a.ID); err == nil {
-		t.Fatal("deleted account survived")
+	if _, err := db.Workspace(ctx, a.ID); err == nil {
+		t.Fatal("deleted workspace survived")
 	}
-	if _, err := db.Account(ctx, b.ID); err != nil {
-		t.Fatal("other account removed", err)
+	if _, err := db.Workspace(ctx, b.ID); err != nil {
+		t.Fatal("other workspace removed", err)
 	}
 }

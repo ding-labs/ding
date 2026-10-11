@@ -5,8 +5,8 @@ import (
 	"fmt"
 )
 
-func (d *DB) BeginAccountDelete(ctx context.Context, id string) error {
-	r, err := d.sql.ExecContext(ctx, "UPDATE accounts SET deleting=1 WHERE id=?", id)
+func (d *DB) BeginWorkspaceDelete(ctx context.Context, id string) error {
+	r, err := d.sql.ExecContext(ctx, "UPDATE workspaces SET deleting=1 WHERE id=?", id)
 	if err != nil {
 		return err
 	}
@@ -15,12 +15,12 @@ func (d *DB) BeginAccountDelete(ctx context.Context, id string) error {
 		return err
 	}
 	if n != 1 {
-		return fmt.Errorf("account unavailable")
+		return fmt.Errorf("workspace unavailable")
 	}
 	return nil
 }
-func (d *DB) DeletingAccounts(ctx context.Context) ([]string, error) {
-	rows, err := d.sql.QueryContext(ctx, "SELECT id FROM accounts WHERE deleting=1")
+func (d *DB) DeletingWorkspaces(ctx context.Context) ([]string, error) {
+	rows, err := d.sql.QueryContext(ctx, "SELECT id FROM workspaces WHERE deleting=1")
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func (d *DB) DeletingAccounts(ctx context.Context) ([]string, error) {
 	}
 	return out, rows.Err()
 }
-func (d *DB) FinishAccountDelete(ctx context.Context, id string) error {
-	_, err := d.sql.ExecContext(ctx, "DELETE FROM accounts WHERE id=? AND deleting=1", id)
+func (d *DB) FinishWorkspaceDelete(ctx context.Context, id string) error {
+	_, err := d.sql.ExecContext(ctx, "DELETE FROM workspaces WHERE id=? AND deleting=1", id)
 	return err
 }

@@ -17,7 +17,7 @@ export function CloudAccount() {
   }
   async function remove() {
     setBusy(true); setError(undefined);
-    try { await api("/cloud/account", { method: "DELETE", body: { confirmWorkspace: workspace } }); window.location.assign("/ui/?account=deleted"); }
+    try { await api("/workspace", { method: "DELETE", body: { confirmWorkspace: workspace } }); window.location.assign("/ui/?account=deleted"); }
     catch (e) { setError(e); setBusy(false); }
   }
   return <section className="panel">

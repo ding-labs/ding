@@ -14,7 +14,7 @@ type HandoffProof struct {
 	At           time.Time         `json:"at"`
 }
 
-func (d *DB) SaveHandoffProof(ctx context.Context, account, id string, p HandoffProof) error {
+func (d *DB) SaveHandoffProof(ctx context.Context, workspace, id string, p HandoffProof) error {
 	raw, err := json.Marshal(p)
 	if err != nil {
 		return err
@@ -28,22 +28,22 @@ func (d *DB) SaveHandoffProof(ctx context.Context, account, id string, p Handoff
 	}
 	defer tx.Rollback()
 	var n int
-	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM handoff_proofs WHERE account=? AND id!=?", account, id).Scan(&n); err != nil {
+	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM handoff_proofs WHERE workspace=? AND id!=?", workspace, id).Scan(&n); err != nil {
 		return err
 	}
 	if n >= 1000 {
 		return fmt.Errorf("handoff proof capacity reached")
 	}
-	_, err = tx.ExecContext(ctx, "INSERT INTO handoff_proofs(account,id,body) VALUES(?,?,?) ON CONFLICT(account,id) DO UPDATE SET body=excluded.body", account, id, raw)
+	_, err = tx.ExecContext(ctx, "INSERT INTO handoff_proofs(workspace,id,body) VALUES(?,?,?) ON CONFLICT(workspace,id) DO UPDATE SET body=excluded.body", workspace, id, raw)
 	if err != nil {
 		return err
 	}
 	return tx.Commit()
 }
-func (d *DB) HandoffProof(ctx context.Context, account, id string) (HandoffProof, error) {
+func (d *DB) HandoffProof(ctx context.Context, workspace, id string) (HandoffProof, error) {
 	var p HandoffProof
 	var raw []byte
-	err := d.sql.QueryRowContext(ctx, "SELECT body FROM handoff_proofs WHERE account=? AND id=?", account, id).Scan(&raw)
+	err := d.sql.QueryRowContext(ctx, "SELECT body FROM handoff_proofs WHERE workspace=? AND id=?", workspace, id).Scan(&raw)
 	if err != nil {
 		return p, err
 	}

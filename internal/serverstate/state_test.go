@@ -28,7 +28,7 @@ func TestEnrollmentIsDurableBoundedAndSingleOwner(t *testing.T) {
 		t.Fatal("enrollment cap or issuer binding failed")
 	}
 	if _, err := db.Enroll(ctx, "https://issuer.example", "new-id", 0); err == nil {
-		t.Fatal("closed enrollment created an account")
+		t.Fatal("closed enrollment created an workspace")
 	}
 	if again, err := db.Enroll(ctx, "https://issuer.example", "immutable-id", 0); err != nil || again.ID != a.ID {
 		t.Fatal("closed enrollment locked out an existing user", err)
@@ -41,7 +41,7 @@ func TestEnrollmentIsDurableBoundedAndSingleOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	got, err := db.Account(ctx, a.ID)
+	got, err := db.Workspace(ctx, a.ID)
 	if err != nil || got.Subject != a.Subject {
 		t.Fatal("identity did not survive restart", err)
 	}

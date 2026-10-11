@@ -23,7 +23,7 @@ type DB struct {
 	sql    *sql.DB
 	unlock func() error
 }
-type Account struct {
+type Workspace struct {
 	ID        string    `json:"id"`
 	Issuer    string    `json:"-"`
 	Subject   string    `json:"-"`
@@ -117,14 +117,14 @@ func ID() string {
 	return hex.EncodeToString(b[:])
 }
 
-func (d *DB) Account(ctx context.Context, id string) (Account, error) {
-	return scanAccount(d.sql.QueryRowContext(ctx, "SELECT id,issuer,subject,created_at FROM accounts WHERE id=? AND deleting=0", id))
+func (d *DB) Workspace(ctx context.Context, id string) (Workspace, error) {
+	return scanAccount(d.sql.QueryRowContext(ctx, "SELECT id,issuer,subject,created_at FROM workspaces WHERE id=? AND deleting=0", id))
 }
 
 type row interface{ Scan(...any) error }
 
-func scanAccount(r row) (Account, error) {
-	var a Account
+func scanAccount(r row) (Workspace, error) {
+	var a Workspace
 	var created int64
 	err := r.Scan(&a.ID, &a.Issuer, &a.Subject, &created)
 	a.CreatedAt = time.Unix(created, 0).UTC()
@@ -132,24 +132,24 @@ func scanAccount(r row) (Account, error) {
 }
 
 // Enroll is called only after verifying issuer and immutable subject. A mutable
-// login or email is never used to merge accounts or authorize a workspace.
-func (d *DB) Enroll(ctx context.Context, issuer, subject string, cap int) (Account, error) {
+// login or email is never used to merge workspaces or authorize a workspace.
+func (d *DB) Enroll(ctx context.Context, issuer, subject string, cap int) (Workspace, error) {
 	if issuer == "" || subject == "" || len(issuer) > 1024 || len(subject) > 512 || cap < 0 || cap > 1000 {
-		return Account{}, fmt.Errorf("invalid enrollment")
+		return Workspace{}, fmt.Errorf("invalid enrollment")
 	}
 	tx, err := d.sql.BeginTx(ctx, nil)
 	if err != nil {
-		return Account{}, err
+		return Workspace{}, err
 	}
 	defer tx.Rollback()
-	a, err := scanAccount(tx.QueryRowContext(ctx, "SELECT id,issuer,subject,created_at FROM accounts WHERE issuer=? AND subject=?", issuer, subject))
+	a, err := scanAccount(tx.QueryRowContext(ctx, "SELECT id,issuer,subject,created_at FROM workspaces WHERE issuer=? AND subject=?", issuer, subject))
 	if err == nil {
 		var deleting bool
-		if err := tx.QueryRowContext(ctx, "SELECT deleting FROM accounts WHERE id=?", a.ID).Scan(&deleting); err != nil {
+		if err := tx.QueryRowContext(ctx, "SELECT deleting FROM workspaces WHERE id=?", a.ID).Scan(&deleting); err != nil {
 			return a, err
 		}
 		if deleting {
-			return a, fmt.Errorf("account deletion is still being completed")
+			return a, fmt.Errorf("workspace deletion is still being completed")
 		}
 		return a, nil
 	}
@@ -157,55 +157,55 @@ func (d *DB) Enroll(ctx context.Context, issuer, subject string, cap int) (Accou
 		return a, err
 	}
 	var count int
-	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM accounts").Scan(&count); err != nil {
+	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM workspaces").Scan(&count); err != nil {
 		return a, err
 	}
 	if count >= cap {
 		return a, fmt.Errorf("cloud beta enrollment is full; local and self-hosted Ding remain available")
 	}
-	a = Account{ID: ID(), Issuer: issuer, Subject: subject, CreatedAt: time.Now().UTC()}
-	if _, err := tx.ExecContext(ctx, "INSERT INTO accounts(id,issuer,subject,created_at) VALUES(?,?,?,?)", a.ID, a.Issuer, a.Subject, a.CreatedAt.Unix()); err != nil {
-		return Account{}, err
+	a = Workspace{ID: ID(), Issuer: issuer, Subject: subject, CreatedAt: time.Now().UTC()}
+	if _, err := tx.ExecContext(ctx, "INSERT INTO workspaces(id,issuer,subject,created_at) VALUES(?,?,?,?)", a.ID, a.Issuer, a.Subject, a.CreatedAt.Unix()); err != nil {
+		return Workspace{}, err
 	}
 	return a, tx.Commit()
 }
 
-func (d *DB) Accounts(ctx context.Context) ([]Account, error) {
-	rows, err := d.sql.QueryContext(ctx, "SELECT id,issuer,subject,created_at FROM accounts WHERE deleting=0 ORDER BY id")
+func (d *DB) Workspaces(ctx context.Context) ([]Workspace, error) {
+	rows, err := d.sql.QueryContext(ctx, "SELECT id,issuer,subject,created_at FROM workspaces WHERE deleting=0 ORDER BY id")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	accounts := []Account{}
+	workspaces := []Workspace{}
 	for rows.Next() {
 		a, err := scanAccount(rows)
 		if err != nil {
 			return nil, err
 		}
-		accounts = append(accounts, a)
+		workspaces = append(workspaces, a)
 	}
-	return accounts, rows.Err()
+	return workspaces, rows.Err()
 }
 
 var migrations = []string{`
-CREATE TABLE accounts(id TEXT PRIMARY KEY,issuer TEXT NOT NULL,subject TEXT NOT NULL,created_at INTEGER NOT NULL,UNIQUE(issuer,subject));
-CREATE TABLE secrets(account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,name TEXT NOT NULL,ciphertext BLOB NOT NULL,PRIMARY KEY(account,name));
+CREATE TABLE workspaces(id TEXT PRIMARY KEY,issuer TEXT NOT NULL,subject TEXT NOT NULL,created_at INTEGER NOT NULL,UNIQUE(issuer,subject));
+CREATE TABLE secrets(workspace TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,name TEXT NOT NULL,ciphertext BLOB NOT NULL,PRIMARY KEY(workspace,name));
 `, `
-CREATE TABLE usage(account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,period TEXT NOT NULL,checks INTEGER NOT NULL DEFAULT 0,deliveries INTEGER NOT NULL DEFAULT 0,bytes INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(account,period));
-CREATE TABLE reservations(id TEXT PRIMARY KEY,account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,period TEXT NOT NULL,created_at INTEGER NOT NULL);
-CREATE INDEX reservations_account ON reservations(account);
+CREATE TABLE usage(workspace TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,period TEXT NOT NULL,checks INTEGER NOT NULL DEFAULT 0,deliveries INTEGER NOT NULL DEFAULT 0,bytes INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(workspace,period));
+CREATE TABLE reservations(id TEXT PRIMARY KEY,workspace TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,period TEXT NOT NULL,created_at INTEGER NOT NULL);
+CREATE INDEX reservations_account ON reservations(workspace);
 `, `
-CREATE TABLE sessions(hash TEXT PRIMARY KEY,account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,csrf TEXT NOT NULL,kind TEXT NOT NULL,expires_at INTEGER NOT NULL);
-CREATE INDEX sessions_account ON sessions(account);
+CREATE TABLE sessions(hash TEXT PRIMARY KEY,workspace TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,csrf TEXT NOT NULL,kind TEXT NOT NULL,expires_at INTEGER NOT NULL);
+CREATE INDEX sessions_account ON sessions(workspace);
 CREATE TABLE logins(hash TEXT PRIMARY KEY,ciphertext BLOB NOT NULL,expires_at INTEGER NOT NULL);
 `, `
-CREATE TABLE probes(account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,id TEXT NOT NULL,digest TEXT NOT NULL,outcome TEXT NOT NULL,at INTEGER NOT NULL,PRIMARY KEY(account,id));
+CREATE TABLE probes(workspace TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,id TEXT NOT NULL,digest TEXT NOT NULL,outcome TEXT NOT NULL,at INTEGER NOT NULL,PRIMARY KEY(workspace,id));
 `, `
-CREATE TABLE devices(id TEXT PRIMARY KEY,challenge TEXT NOT NULL,account TEXT REFERENCES accounts(id) ON DELETE CASCADE,expires_at INTEGER NOT NULL);
+CREATE TABLE devices(id TEXT PRIMARY KEY,challenge TEXT NOT NULL,workspace TEXT REFERENCES workspaces(id) ON DELETE CASCADE,expires_at INTEGER NOT NULL);
 `, `
-CREATE TABLE mcp_bindings(account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,client TEXT NOT NULL,ciphertext BLOB NOT NULL,PRIMARY KEY(account,client));
+CREATE TABLE mcp_bindings(workspace TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,client TEXT NOT NULL,ciphertext BLOB NOT NULL,PRIMARY KEY(workspace,client));
 `, `
-CREATE TABLE handoff_proofs(account TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,id TEXT NOT NULL,body BLOB NOT NULL,PRIMARY KEY(account,id));
+CREATE TABLE handoff_proofs(workspace TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,id TEXT NOT NULL,body BLOB NOT NULL,PRIMARY KEY(workspace,id));
 `, `
-ALTER TABLE accounts ADD COLUMN deleting INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE workspaces ADD COLUMN deleting INTEGER NOT NULL DEFAULT 0;
 `}

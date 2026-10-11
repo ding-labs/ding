@@ -28,13 +28,13 @@ func TestDeviceApprovalIsBoundToInitiatorAndConsumedOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := db.ApproveDevice(ctx, id, b.ID, now); err == nil {
-		t.Fatal("approval changed account")
+		t.Fatal("approval changed workspace")
 	}
 	if _, _, err := db.ClaimDevice(ctx, id, ID(), now); err == nil {
 		t.Fatal("wrong device claimed")
 	}
 	s, ready, err := db.ClaimDevice(ctx, id, verifier, now)
-	if err != nil || !ready || s.Account != a.ID {
+	if err != nil || !ready || s.Workspace != a.ID {
 		t.Fatal(s, ready, err)
 	}
 	if _, err := db.Session(ctx, s.Token, now); err != nil {
@@ -50,10 +50,10 @@ func TestDeviceApprovalIsBoundToInitiatorAndConsumedOnce(t *testing.T) {
 	if err := db.ApproveDevice(ctx, id, a.ID, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.BeginAccountDelete(ctx, a.ID); err != nil {
+	if err := db.BeginWorkspaceDelete(ctx, a.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := db.ClaimDevice(ctx, id, verifier, now); err == nil {
-		t.Fatal("deleting account issued a device connection")
+		t.Fatal("deleting workspace issued a device connection")
 	}
 }
