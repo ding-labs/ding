@@ -16,9 +16,11 @@ COPY cmd cmd
 COPY internal internal
 COPY --from=frontend /work/internal/webui/dist internal/webui/dist
 RUN CGO_ENABLED=0 go build -tags console -o /ding ./cmd/ding
+RUN CGO_ENABLED=0 go build -tags console -o /ding-cloud ./cmd/ding-cloud
 
 FROM frontend
 COPY --from=runtime /ding /ding
-ENV DING_TEST_BINARY=/ding
+COPY --from=runtime /ding-cloud /ding-cloud
+ENV DING_TEST_BINARY=/ding DING_CLOUD_TEST_BINARY=/ding-cloud
 WORKDIR /work/web/console
 CMD ["npx", "playwright", "test", "--project=firefox"]

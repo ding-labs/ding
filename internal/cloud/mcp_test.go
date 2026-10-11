@@ -3,6 +3,7 @@ package cloud
 import (
 	"context"
 	"github.com/modelcontextprotocol/go-sdk/auth"
+	"net/http"
 	"strings"
 	"testing"
 )
@@ -10,6 +11,7 @@ import (
 func TestHostedMCPUsesSeparateWorkspaceClientScopesAndRevocation(t *testing.T) {
 	s, h, sessions := testCloudServer(t)
 	s.TenantHandler = s.serveTenant
+	s.MCP = http.NotFoundHandler()
 	if err := s.Vault.Put(context.Background(), sessions[0].Workspace, "WEBHOOK", "https://hooks.example/test"); err != nil {
 		t.Fatal(err)
 	}

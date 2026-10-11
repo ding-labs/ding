@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -61,7 +62,12 @@ func Open(ctx context.Context, dir string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	u := url.URL{Scheme: "file", Path: filepath.ToSlash(path)}
+	uriPath := filepath.ToSlash(path)
+	// Windows drive letters belong in the URI path, not its authority.
+	if filepath.VolumeName(path) != "" && !strings.HasPrefix(uriPath, "/") {
+		uriPath = "/" + uriPath
+	}
+	u := url.URL{Scheme: "file", Path: uriPath}
 	q := url.Values{}
 	q.Add("_pragma", "foreign_keys(1)")
 	q.Add("_pragma", "busy_timeout(5000)")

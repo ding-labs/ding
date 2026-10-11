@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"filippo.io/age"
@@ -20,12 +21,16 @@ func Run(args []string, out io.Writer) (bool, error) {
 		return false, nil
 	}
 	switch args[0] {
-	case "backup", "restore", "release-restore", "backup-keygen", "delete-workspace":
+	case "init", "recover", "backup", "restore", "release-restore", "backup-keygen", "delete-workspace":
 	default:
 		return false, nil
 	}
 	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	flags.SetOutput(out)
+	config := flags.String("config", "", "owner-only configuration JSON")
+	username := flags.String("username", "", "built-in username")
+	name := flags.String("name", "Owner", "owner display name")
+	passwordFile := flags.String("password-file", "", "owner-only file containing a password")
 	dir := flags.String("data-dir", "", "absolute server data directory")
 	output := flags.String("output", "", "new output file; never overwrites")
 	input := flags.String("input", "", "encrypted backup to restore")
@@ -44,6 +49,19 @@ func Run(args []string, out io.Writer) (bool, error) {
 	started := time.Now()
 	var err error
 	switch args[0] {
+	case "init", "recover":
+		var c cloud.Config
+		if err := mcpconfig.ReadPrivateJSON(*config, &c, true); err != nil {
+			return true, err
+		}
+		password, err := ReadPassword(*passwordFile)
+		if err != nil {
+			return true, err
+		}
+		err = cloud.Initialize(ctx, c, *username, *name, password, args[0] == "recover")
+		if err != nil {
+			return true, err
+		}
 	case "delete-workspace":
 		if *account == "" || !*confirm {
 			return true, fmt.Errorf("--confirm-delete-workspace and --confirm-other-runners-stopped required")
@@ -107,4 +125,22 @@ func Run(args []string, out io.Writer) (bool, error) {
 		fmt.Fprintln(out, "Quarantined: watches paused, stale deliveries canceled, sessions revoked. Review ownership before release-restore; release does not resume watches.")
 	}
 	return true, nil
+}
+
+// ReadPassword never accepts a secret as a command-line argument.
+func ReadPassword(path string) (string, error) {
+	f, err := mcpconfig.OpenPrivate(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	b, err := io.ReadAll(io.LimitReader(f, 1027))
+	if err != nil {
+		return "", err
+	}
+	password := strings.TrimSuffix(strings.TrimSuffix(string(b), "\n"), "\r")
+	if len(password) < 12 || len(password) > 1024 {
+		return "", fmt.Errorf("password must contain 12–1024 bytes")
+	}
+	return password, nil
 }

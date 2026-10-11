@@ -80,7 +80,8 @@ func TestHTTPFailureContracts(t *testing.T) {
 		{name: "redirect", status: 302, reason: "source_redirect_rejected"},
 		{name: "badjson", status: 200, body: "bad", fields: map[string]string{"a": "a"}, reason: "source_invalid_projection"},
 		{name: "nested", status: 200, body: `{"a":{}}`, fields: map[string]string{"a": "a"}, reason: "source_invalid_projection"},
-		{name: "bound", status: 200, body: strings.Repeat("x", 2000), max: 1024, reason: "source_response_too_large"},
+		{name: "large-status-only", status: 500, body: strings.Repeat("x", 2000), max: 1024},
+		{name: "bound", status: 200, body: strings.Repeat("x", 2000), fields: map[string]string{"a": "a"}, max: 1024, reason: "source_response_too_large"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -131,6 +132,25 @@ func TestHTTPTimeoutIsUnknown(t *testing.T) {
 	b := (HTTP{Client: s.Client()}).Fetch(context.Background(), p, "", time.Now())
 	if b.Observations[0].Health != "unknown" || b.Observations[0].Fields != nil {
 		t.Fatal("timeout became status", b)
+	}
+}
+
+func TestHTTPStatusOnlyDoesNotWaitForBodyOrUseValidators(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.Header.Get("If-None-Match") != "" || r.Header.Get("If-Modified-Since") != "" {
+			t.Errorf("status check must be an unconditional GET: %s %v", r.Method, r.Header)
+		}
+		w.Header().Set("ETag", "same-body")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.(http.Flusher).Flush()
+		// An indefinitely streaming body cannot turn a known status into a timeout.
+		<-r.Context().Done()
+	}))
+	defer s.Close()
+	p := compiled(t, s.URL, func(d *watch.Definition) { d.Spec.Source.Timeout = "1s" })
+	b := (HTTP{Client: s.Client()}).Fetch(context.Background(), p, `{"etag":"old-body","modified":"yesterday"}`, time.Now())
+	if len(b.Observations) != 1 || b.Observations[0].Health != "ok" || b.Observations[0].Fields["http.status"] != 503 || b.Cursor != "" {
+		t.Fatal(b)
 	}
 }
 

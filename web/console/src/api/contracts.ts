@@ -29,6 +29,11 @@ export interface ConditionState {
   seen?: Record<string, string>;
 }
 
+export interface ControlAccountFeatures {
+  passwords: boolean;
+  modelConnections: boolean;
+}
+
 export interface ControlBackupArtifact {
   id: string;
   bytes: number;
@@ -37,6 +42,7 @@ export interface ControlBackupArtifact {
 }
 
 export interface ControlBrowserSession {
+  accountFeatures?: ControlAccountFeatures | null;
   user?: ControlSessionUser | null;
   memberships?: Array<ControlSessionMembership>;
   role?: string;

@@ -54,6 +54,7 @@ func URL(value string) error {
 }
 func (h HTTP) Fetch(ctx context.Context, p plan.Compiled, cursor string, now time.Time) Batch {
 	s := p.Definition.Spec.Source
+	projectBody := len(s.Fields) > 0 || s.JQ != ""
 	b := Batch{Cursor: cursor}
 	unknown := func(reason string) Batch {
 		b.Observations = []watch.Observation{{Health: "unknown", Detail: reason}}
@@ -88,10 +89,10 @@ func (h HTTP) Fetch(ctx context.Context, p plan.Compiled, cursor string, now tim
 	if cursor != "" && json.Unmarshal([]byte(cursor), &cached) != nil {
 		return unknown("invalid_checkpoint")
 	}
-	if cached.ETag != "" {
+	if projectBody && cached.ETag != "" {
 		req.Header.Set("If-None-Match", cached.ETag)
 	}
-	if cached.Modified != "" {
+	if projectBody && cached.Modified != "" {
 		req.Header.Set("If-Modified-Since", cached.Modified)
 	}
 	client := http.DefaultClient
@@ -107,7 +108,7 @@ func (h HTTP) Fetch(ctx context.Context, p plan.Compiled, cursor string, now tim
 	defer response.Body.Close()
 	b.RetryAt = delivery.RetryAfter(response.Header.Get("Retry-After"), now)
 	if response.StatusCode == http.StatusNotModified {
-		if cached.ETag == "" && cached.Modified == "" {
+		if !projectBody || (cached.ETag == "" && cached.Modified == "") {
 			return unknown("source_unexpected_304")
 		}
 		b.Observations = []watch.Observation{{Health: "unchanged"}}
@@ -116,16 +117,15 @@ func (h HTTP) Fetch(ctx context.Context, p plan.Compiled, cursor string, now tim
 	if response.StatusCode >= 300 && response.StatusCode < 400 {
 		return unknown("source_redirect_rejected")
 	}
-	body, err := io.ReadAll(io.LimitReader(response.Body, int64(p.Definition.Spec.Limits.MaxBytes)+1))
-	if err != nil {
-		return unknown("source_read_failed")
-	}
-	if len(body) > p.Definition.Spec.Limits.MaxBytes {
-		return unknown("source_response_too_large")
-	}
 	outputs := []map[string]any{{}}
-	if len(s.Fields) > 0 || s.JQ != "" {
-		var err error
+	if projectBody {
+		body, err := io.ReadAll(io.LimitReader(response.Body, int64(p.Definition.Spec.Limits.MaxBytes)+1))
+		if err != nil {
+			return unknown("source_read_failed")
+		}
+		if len(body) > p.Definition.Spec.Limits.MaxBytes {
+			return unknown("source_response_too_large")
+		}
 		outputs, err = transform.Project(ctx, body, s.JQ, s.Fields, p.Definition.Spec.Limits.MaxOutputs, p.Definition.Spec.Limits.MaxBytes)
 		if err != nil {
 			return unknown("source_invalid_projection")
@@ -140,7 +140,12 @@ func (h HTTP) Fetch(ctx context.Context, p plan.Compiled, cursor string, now tim
 		return unknown("source_invalid_observed_time")
 	}
 
-	data, _ := json.Marshal(validators{response.Header.Get("ETag"), response.Header.Get("Last-Modified")})
-	b.Cursor = string(data)
+	// Status-only checks need neither the body nor representation cache validators:
+	// a 304 could hide a changed status behind an unchanged representation.
+	b.Cursor = ""
+	if projectBody {
+		data, _ := json.Marshal(validators{response.Header.Get("ETag"), response.Header.Get("Last-Modified")})
+		b.Cursor = string(data)
+	}
 	return b
 }

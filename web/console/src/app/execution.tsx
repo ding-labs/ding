@@ -2,7 +2,7 @@ import { createContext, useContext } from "react";
 import { api } from "../api/client";
 import type { ControlBrowserSession } from "../api/contracts";
 
-export type Execution = { mode: "local" | "shared" | "cloud"; workspace?: string; user?: ControlBrowserSession["user"]; role?: string; capabilities?: string[] };
+export type Execution = { mode: "local" | "shared" | "cloud"; workspace?: string; user?: ControlBrowserSession["user"]; role?: string; capabilities?: string[]; accountFeatures?: ControlBrowserSession["accountFeatures"] };
 export type AuthConfig = { access: "personal" | "shared"; execution: Execution["mode"]; name?: string; methods: { id: string; label: string; url?: string }[] };
 export const ExecutionContext = createContext<Execution>({ mode: "local" });
 export const useExecution = () => useContext(ExecutionContext);

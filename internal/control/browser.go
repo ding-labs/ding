@@ -57,15 +57,20 @@ type SessionMembership struct {
 	Name      string `json:"name"`
 	Role      string `json:"role"`
 }
+type AccountFeatures struct {
+	Passwords        bool `json:"passwords"`
+	ModelConnections bool `json:"modelConnections"`
+}
 type BrowserSession struct {
-	User         *SessionUser        `json:"user,omitempty"`
-	Memberships  []SessionMembership `json:"memberships,omitempty"`
-	Role         string              `json:"role,omitempty"`
-	Capabilities []string            `json:"capabilities,omitempty"`
-	CSRF         string              `json:"csrf"`
-	ExpiresAt    time.Time           `json:"expiresAt"`
-	Execution    string              `json:"execution,omitempty"`
-	Workspace    string              `json:"workspace,omitempty"`
+	AccountFeatures *AccountFeatures    `json:"accountFeatures,omitempty"`
+	User            *SessionUser        `json:"user,omitempty"`
+	Memberships     []SessionMembership `json:"memberships,omitempty"`
+	Role            string              `json:"role,omitempty"`
+	Capabilities    []string            `json:"capabilities,omitempty"`
+	CSRF            string              `json:"csrf"`
+	ExpiresAt       time.Time           `json:"expiresAt"`
+	Execution       string              `json:"execution,omitempty"`
+	Workspace       string              `json:"workspace,omitempty"`
 }
 type BrowserHandoff struct {
 	Token     string    `json:"token"`

@@ -48,6 +48,10 @@ func (s *Server) serveTenant(w http.ResponseWriter, r *http.Request, session sta
 		defer s.moveMu.Unlock()
 	}
 	if r.URL.Path == "/v1/cloud/models" {
+		if !s.accountFeatures().ModelConnections {
+			cloudFail(w, 404, "models_unavailable", "Model connections are not enabled on this instance.")
+			return
+		}
 		s.modelConnections(w, r, t)
 		return
 	}

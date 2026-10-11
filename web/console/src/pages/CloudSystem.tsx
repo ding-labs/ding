@@ -9,10 +9,11 @@ import { useRead, ErrorBox, Loading } from "../components/common";
 type Usage = { usage: { period: string; checks: number; deliveries: number; bytes: number }; limits: { checks: number; deliveryAttempts: number; bytes: number }; note: string };
 
 export function CloudSystem() {
-  const cloud = useExecution().mode === "cloud";
+  const {mode,accountFeatures} = useExecution();
+  const cloud = mode === "cloud";
   const credentials = useCapability("credentials");
 
-  return <>{cloud && <HostedUsage />}{credentials && <Credentials />}<CloudModels /><CloudAccount /></>;
+  return <>{cloud && <HostedUsage />}{credentials && <Credentials />}{accountFeatures?.modelConnections && <CloudModels />}<CloudAccount /></>;
 }
 function Credentials() {
   const names = useRead<{ names: string[] }>("/cloud/secrets");

@@ -4,12 +4,22 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"slices"
 	"time"
 
+	"github.com/ding-labs/ding/internal/control"
 	"github.com/ding-labs/ding/internal/identity"
 	state "github.com/ding-labs/ding/internal/serverstate"
 	"golang.org/x/time/rate"
 )
+
+func (s *Server) accountFeatures() control.AccountFeatures {
+	return control.AccountFeatures{Passwords: s.passwordsEnabled(), ModelConnections: s.Shared || s.MCP != nil}
+}
+
+func (s *Server) passwordsEnabled() bool {
+	return slices.Contains(s.LoginMethods, "password") || (s.LoginMethods == nil && s.Shared)
+}
 
 func (s *Server) execution() string {
 	if s.Shared {
@@ -44,7 +54,7 @@ func (s *Server) passwordAttempt(key string) bool {
 func (s *Server) publicIdentity(w http.ResponseWriter, r *http.Request) bool {
 	if r.Method == "GET" && r.URL.Path == "/v1/auth/config" {
 		methods := []map[string]string{}
-		if s.Shared {
+		if s.passwordsEnabled() {
 			methods = append(methods, map[string]string{"id": "password", "label": "Instance account"})
 		}
 		if s.Login.Provider != nil {
@@ -60,7 +70,7 @@ func (s *Server) publicIdentity(w http.ResponseWriter, r *http.Request) bool {
 	if r.Method != "POST" || (r.URL.Path != "/v1/auth/password" && r.URL.Path != "/v1/auth/activate") {
 		return false
 	}
-	if !s.Shared {
+	if !s.passwordsEnabled() {
 		http.NotFound(w, r)
 		return true
 	}

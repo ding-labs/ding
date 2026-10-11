@@ -2,6 +2,7 @@ package watchrun
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -13,7 +14,7 @@ func TestDaemonReaderCapacityIsVisibleAndDoesNotRepeat(t *testing.T) {
 	for n := range 9 {
 		id := fmt.Sprintf("reader-%d", n)
 		manifest := strings.Replace(nativeLogManifest, "id: output", "id: "+id, 1)
-		manifest = strings.Replace(manifest, "window: 1s", "input: {type: file, path: /tmp/log-fixture}, window: 1s", 1)
+		manifest = strings.Replace(manifest, "window: 1s", fmt.Sprintf("input: {type: file, path: %q}, window: 1s", filepath.Join(t.TempDir(), "log-fixture")), 1)
 		if _, err := a.Apply(ctx, ApplyRequest{Manifest: manifest}); err != nil {
 			t.Fatal(err)
 		}

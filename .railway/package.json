@@ -1,0 +1,8 @@
+{
+  "name": "ding-cloud-infrastructure",
+  "private": true,
+  "type": "module",
+  "scripts": { "check": "tsc --noEmit" },
+  "dependencies": { "railway": "3.13.1" },
+  "devDependencies": { "typescript": "5.9.3", "@types/node": "24.10.1" }
+}

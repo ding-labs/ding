@@ -72,6 +72,9 @@ func serverCommand(version string) *cobra.Command {
 			if err := db.ConfigureHosting(cmd.Context(), c.Hosting); err != nil {
 				return err
 			}
+			if err := db.ConfigureLoginMethods(cmd.Context(), c.LoginMethods); err != nil {
+				return err
+			}
 			if cmd.Name() == "recover" {
 				if err := db.RecoverPassword(cmd.Context(), username, password); err != nil {
 					return err

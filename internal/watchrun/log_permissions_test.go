@@ -2,6 +2,8 @@ package watchrun
 
 import (
 	"errors"
+	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -10,7 +12,9 @@ import (
 )
 
 func TestLogReadersRequireExplicitRevisionGrant(t *testing.T) {
-	for _, input := range []string{`{type: file, path: /tmp/app.log}`, `{type: command, argv: [tail, -f, /tmp/app.log], directory: /tmp}`} {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "app.log")
+	for _, input := range []string{fmt.Sprintf(`{type: file, path: %q}`, path), fmt.Sprintf(`{type: command, argv: [tail, -f, %q], directory: %q}`, path, dir)} {
 		manifest := strings.Replace(nativeLogManifest, "window: 1s", "input: "+input+", window: 1s", 1)
 		b, err := plan.Parse([]byte(manifest))
 		if err != nil {
