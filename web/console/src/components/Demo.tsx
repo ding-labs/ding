@@ -102,16 +102,18 @@ export function Demo() {
           <p className="notice">
             This is a temporary demonstration. It does not monitor your service.
           </p>
-          <label>
-            <input
-              type="checkbox"
-              checked={desktop}
-              disabled={busy}
-              onChange={(e) => setDesktop(e.target.checked)}
-            />{" "}
-            Also send desktop notifications
-          </label>
-          {desktop && !busy ? <NotificationSetup /> : null}
+          <div className="demo-notification-options">
+            <label>
+              <input
+                type="checkbox"
+                checked={desktop}
+                disabled={busy}
+                onChange={(e) => setDesktop(e.target.checked)}
+              />{" "}
+              Also send desktop notifications
+            </label>
+            {desktop && !busy ? <NotificationSetup /> : null}
+          </div>
           <div className="demo-progress" role="status" aria-live="polite">
             <p>
               {stages[stage] ||

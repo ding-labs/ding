@@ -1542,6 +1542,7 @@ a:hover {
 .setup-steps li + li { margin-top: 12px; }
 .notification-setup .actions, .demo-dialog .actions { margin: 18px 0 10px; flex-wrap: wrap; }
 .demo-progress { margin-top: 20px; line-height: 1.6; }
+.demo-notification-options { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .demo-events { padding-left: 24px; }
 .demo-events li { margin: 12px 0; }
 .demo-events span { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
