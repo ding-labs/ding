@@ -27,7 +27,7 @@ func (f *fakeIdentity) Exchange(_ context.Context, code, nonce, verifier string)
 	if code != "verified-code" || nonce != f.nonce || verifier != f.verifier {
 		return identity.Identity{}, fmt.Errorf("invalid transaction")
 	}
-	return identity.Identity{"https://issuer.example", "immutable-user-id"}, nil
+	return identity.Identity{Issuer: "https://issuer.example", Subject: "immutable-user-id"}, nil
 }
 
 func TestLoginRequiresBrowserStateAndCannotReplay(t *testing.T) {

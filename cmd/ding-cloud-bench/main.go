@@ -13,7 +13,7 @@ import (
 
 func main() {
 	var o cloud.BenchmarkOptions
-	flag.IntVar(&o.Accounts, "accounts", 100, "synthetic workspace count (1–100)")
+	flag.IntVar(&o.Workspaces, "workspaces", 100, "synthetic workspace count (1–100)")
 	flag.DurationVar(&o.Duration, "duration", 30*time.Second, "sampling period after enrollment (use >5m for repeated observations)")
 	flag.DurationVar(&o.Latency, "latency", 100*time.Millisecond, "synthetic response latency")
 	flag.IntVar(&o.BodyBytes, "body-bytes", 1024, "synthetic HTTP response bytes")
