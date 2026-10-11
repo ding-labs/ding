@@ -12,6 +12,7 @@ import (
 
 	"github.com/ding-labs/ding/internal/cloud"
 	"github.com/ding-labs/ding/internal/mcpconfig"
+	"github.com/ding-labs/ding/internal/serverops"
 	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/spf13/cobra"
 )
@@ -88,6 +89,12 @@ func serverCommand(version string) *cobra.Command {
 		command.Flags().StringVar(&displayName, "name", "Administrator", "display name")
 		command.Flags().StringVar(&passwordFile, "password-file", "", "owner-only file containing the password")
 		root.AddCommand(command)
+	}
+	for _, name := range []string{"backup", "restore", "release-restore", "backup-keygen", "delete-workspace"} {
+		root.AddCommand(&cobra.Command{Use: name, Short: "Offline host operation; stop the server before changing its state", DisableFlagParsing: true, RunE: func(cmd *cobra.Command, args []string) error {
+			_, err := serverops.Run(append([]string{cmd.Name()}, args...), cmd.OutOrStdout())
+			return err
+		}})
 	}
 	return root
 }

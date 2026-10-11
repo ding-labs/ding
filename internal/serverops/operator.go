@@ -1,4 +1,5 @@
-package main
+// Package serverops provides offline recovery operations for shared and cloud hosts.
+package serverops
 
 import (
 	"context"
@@ -14,7 +15,7 @@ import (
 	"github.com/ding-labs/ding/internal/mcpconfig"
 )
 
-func operator(args []string, out io.Writer) (bool, error) {
+func Run(args []string, out io.Writer) (bool, error) {
 	if len(args) == 0 {
 		return false, nil
 	}
@@ -25,7 +26,7 @@ func operator(args []string, out io.Writer) (bool, error) {
 	}
 	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	flags.SetOutput(out)
-	dir := flags.String("data-dir", "", "absolute cloud data directory")
+	dir := flags.String("data-dir", "", "absolute server data directory")
 	output := flags.String("output", "", "new output file; never overwrites")
 	input := flags.String("input", "", "encrypted backup to restore")
 	recipient := flags.String("recipient", "", "age X25519 public recipient")

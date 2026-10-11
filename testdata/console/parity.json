@@ -72,5 +72,10 @@
   "server recover": "Host operator boundary: shared server setup, process lifecycle, and offline account recovery.",
   "connection login": "CLI connection profile: explicit browser approval and private device credential; no host administrator fallback.",
   "connection status": "CLI connection profile: explicit browser approval and private device credential; no host administrator fallback.",
-  "connection logout": "CLI connection profile: explicit browser approval and private device credential; no host administrator fallback."
+  "connection logout": "CLI connection profile: explicit browser approval and private device credential; no host administrator fallback.",
+  "server backup": "Offline host operation: encrypted backup, quarantine restore, and explicit runner ownership fencing.",
+  "server restore": "Offline host operation: encrypted backup, quarantine restore, and explicit runner ownership fencing.",
+  "server release-restore": "Offline host operation: encrypted backup, quarantine restore, and explicit runner ownership fencing.",
+  "server backup-keygen": "Offline host operation: encrypted backup, quarantine restore, and explicit runner ownership fencing.",
+  "server delete-workspace": "Offline host operation: encrypted backup, quarantine restore, and explicit runner ownership fencing."
 }

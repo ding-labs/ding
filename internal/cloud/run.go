@@ -212,7 +212,7 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 			done <- server.Serve(listener)
 		}
 	}()
-	fmt.Fprintf(out, "Ding Cloud listening on %s; public origin %s; new enrollment cap %d.\n", listener.Addr(), c.PublicURL, *c.EnrollmentLimit)
+	fmt.Fprintf(out, "Ding %s listening on %s; public origin %s.\n", c.Hosting, listener.Addr(), c.PublicURL)
 	select {
 	case err = <-done:
 	case <-ctx.Done():

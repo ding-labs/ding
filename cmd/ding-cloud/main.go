@@ -10,12 +10,13 @@ import (
 
 	"github.com/ding-labs/ding/internal/cloud"
 	"github.com/ding-labs/ding/internal/mcpconfig"
+	"github.com/ding-labs/ding/internal/serverops"
 )
 
 var version = "dev"
 
 func main() {
-	if handled, err := operator(os.Args[1:], os.Stdout); handled {
+	if handled, err := serverops.Run(os.Args[1:], os.Stdout); handled {
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
