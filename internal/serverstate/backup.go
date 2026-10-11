@@ -34,6 +34,6 @@ func (d *DB) QuarantineRestore(ctx context.Context) error {
 	if integrity != "ok" {
 		return fmt.Errorf("restored control database failed integrity check")
 	}
-	_, err := d.sql.ExecContext(ctx, "DELETE FROM activations; DELETE FROM sessions; DELETE FROM logins; DELETE FROM devices; DELETE FROM mcp_bindings; DELETE FROM handoff_proofs;")
+	_, err := d.sql.ExecContext(ctx, "DELETE FROM service_grants; DELETE FROM activations; DELETE FROM sessions; DELETE FROM logins; DELETE FROM devices; DELETE FROM mcp_bindings; DELETE FROM handoff_proofs;")
 	return err
 }
