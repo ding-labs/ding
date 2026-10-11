@@ -31,6 +31,7 @@ import {
 } from "../components/common";
 import packageInfo from "../../package.json";
 import parity from "../../../../testdata/console/parity.json";
+import { Services, Audit } from "./WorkspaceAccess";
 import { Members, UserSecurity } from "./Members";
 import { useExecution, useCapability } from "../app/execution";
 import { CloudSystem } from "./CloudSystem";
@@ -44,7 +45,7 @@ export function System() {
   const mode = useExecution().mode;
   const cloud = mode !== "local";
   const members = useCapability("members");
-  const tabs = cloud ? ["Diagnostics", "Destinations", "Workspace", ...(members ? ["Members"] : []), "Your account"] : ["Diagnostics", "Destinations", "Backup", "Instance", "CLI setup"];
+  const tabs = cloud ? ["Diagnostics", "Destinations", "Workspace", ...(members ? ["Members", "Services"] : []), "Audit", "Your account"] : ["Diagnostics", "Destinations", "Backup", "Instance", "CLI setup"];
   const selected = p.get("tab") || "Diagnostics";
   const tab = tabs.includes(selected) ? selected : "Diagnostics";
   const info = useRead<ControlInfo>("/info");
@@ -71,6 +72,8 @@ export function System() {
       {tab === "Workspace" && <CloudSystem />}
       {tab === "Members" && members && <Members />}
       {tab === "Your account" && <UserSecurity />}
+      {tab === "Services" && members && <Services />}
+      {tab === "Audit" && <Audit />}
       {tab === "Destinations" && <Destinations />}
       {tab === "Backup" && <Backup info={info.data} />}{" "}
       {tab === "Instance" && info.data && (
