@@ -23,6 +23,15 @@ type APIError struct{ Code, Message string }
 
 func (e *APIError) Error() string { return e.Message }
 func Connect(dir string) (Client, error) {
+	return connect(dir, false)
+}
+
+// ConnectIngest never grants a producer the daemon's administration credential.
+func ConnectIngest(dir string) (Client, error) {
+	return connect(dir, true)
+}
+
+func connect(dir string, ingest bool) (Client, error) {
 	var connection Connection
 	var credentials Credentials
 	// Connecting is read-only: an absent daemon must not create credentials.
@@ -31,10 +40,17 @@ func Connect(dir string) (Client, error) {
 		return Client{}, fmt.Errorf("daemon unavailable; start ding daemon with this state directory")
 	}
 	data, err = os.ReadFile(filepath.Join(dir, "tokens.json"))
-	if err != nil || json.Unmarshal(data, &credentials) != nil || len(credentials.Admin) < 32 {
+	if err != nil || json.Unmarshal(data, &credentials) != nil {
 		return Client{}, fmt.Errorf("cannot read daemon credentials")
 	}
-	return Client{URL: connection.URL, Token: credentials.Admin, HTTP: &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
+	token := credentials.Admin
+	if ingest {
+		token = credentials.Ingest
+	}
+	if len(token) < 32 {
+		return Client{}, fmt.Errorf("cannot read daemon credentials")
+	}
+	return Client{URL: connection.URL, Token: token, HTTP: &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
 }
 func (c Client) Call(ctx context.Context, method, path string, request any) (json.RawMessage, error) {
 	var data []byte
