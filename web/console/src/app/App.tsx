@@ -51,6 +51,7 @@ export function App() {
   const connected = useConnection();
   const [execution, setExecution] = useState<Execution>({ mode: "local" });
   const workspace = useRef("");
+  const accessMode = useRef<Execution["mode"]>("local");
   const [auth, setAuth] = useState<AuthConfig>();
   const [memberships, setMemberships] = useState<ControlBrowserSession["memberships"]>([]);
   const [density, setDensity] = useState(
@@ -65,7 +66,7 @@ export function App() {
   const client = useQueryClient();
   const location = useLocation();
   const establish = () => {
-    sessionAttempt ??= discoverAuth().then(config => { setAuth(config); setExecution(current => ({ ...current, mode: config.execution })); return connect(); });
+    sessionAttempt ??= discoverAuth().then(config => { setAuth(config); accessMode.current = config.execution; setExecution(current => ({ ...current, mode: config.execution })); return connect(); });
     sessionAttempt
       .then((details) => {
         const back = new URLSearchParams(window.location.search).get("return");
@@ -95,7 +96,7 @@ export function App() {
       forgetSession();
       void client.cancelQueries();
       client.clear();
-      if (workspace.current) resetDraft();
+      if (workspace.current && accessMode.current !== "local") resetDraft();
       setSession("locked");
     };
     window.addEventListener("ding:unauthorized", lock);
@@ -243,7 +244,7 @@ export function App() {
                   try {
                     await logout();
                     await client.cancelQueries(); client.clear();
-                    if (workspace.current) resetDraft();
+                    if (workspace.current && accessMode.current !== "local") resetDraft();
                     setSession("locked");
                   } catch (e) {
                     setError((e as Error).message);
