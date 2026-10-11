@@ -30,7 +30,7 @@ This roadmap expands the original [integration plan](llm-integration-plan.md): l
 
 Moving a watch changes its observation point. A private development server on a sleeping laptop cannot become reachable merely by moving its watch to the cloud. Show this before sign-in.
 
-The [shared accounts implementation plan](shared-accounts-plan.md) adds optional instance accounts, workspace roles, and company SSO to self-hosted servers. The table's “Ding account” refers to a cloud account; a company's own login is independent of cloud enrollment. Personal startup remains account-free.
+The [shared accounts implementation plan](shared-accounts-plan.md) now has its built-in-account milestone implemented in source: optional instance accounts, workspace roles, scoped clients, and recovery. Company SSO and additional self-hosted workspaces remain follow-ups. The table's “Ding account” refers to a cloud account; a company's own login is independent of cloud enrollment. Personal startup remains account-free.
 
 ```mermaid
 flowchart LR

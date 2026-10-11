@@ -1,6 +1,6 @@
 # Personal, shared-server, and cloud accounts
 
-Proposed October 11, 2026. **Implementation plan; these capabilities are not yet shipped.**
+Updated October 11, 2026. **A01–A06 are implemented in source on `codex/shared-accounts`; release and deployment qualification remain separate.** A07 (company OIDC admission/linking) and A08 (additional self-hosted workspace administration) remain follow-ups, as sequenced below.
 
 Give a company individual user accounts on its own Ding server while keeping personal startup account-free. Use the same user, workspace, permission, and Console contracts in self-hosted and cloud deployments. Authentication does not move watches or connect an installation to Ding Cloud.
 
@@ -70,7 +70,7 @@ Use the existing tests as regression anchors: `TestOIDCVerifiesSignedIdentityPKC
 | User | Stable instance-local ID, display name, enabled/disabled state, creation time; survives changes to login method |
 | Login identity | Built-in username/password credential or unique `(issuer, subject)` mapped to a user; never merge accounts solely by email |
 | Workspace | Stable ID, name, runtime/store binding, lifecycle state, execution policy; owns watches, history, destinations, and credentials |
-| Membership | Unique user/workspace pair with role and authorization version |
+| Membership | Unique user/workspace pair with role; current membership is resolved under revocation fencing |
 | Browser session | User, expiry, revocation state, CSRF binding; workspace access is checked against current membership |
 | Device or integration grant | User or service principal, fixed workspace, allowed scopes/resources, expiry, revocation state, and creating actor |
 | Service principal | Workspace-owned automation identity; persists across the departure of its creator and has its own revocable grants |
@@ -194,6 +194,103 @@ For implementation, run focused Go tests as each slice changes, then the reposit
 
 Record actual commands and results in a future implementation ledger; a plan or mocked-provider test is not deployment evidence. Public cloud availability remains governed by its existing operations, capacity, interoperability, and budget gates.
 
-## Starting point
+## Operator setup for the implemented milestone
 
-Start A01 by tracing and testing the existing cloud browser, device, and MCP paths, then add the route/action matrix and local-owner principal. Freeze permission names, workspace selection, and operator boundaries. A02 extracts those existing services and introduces the new schema with fresh fixtures. The built-in password form then becomes another entry into that shared system.
+Build the Console assets and a tagged binary:
+
+```sh
+npm ci --prefix web/console
+npm run build --prefix web/console
+go build -tags console -o ./ding ./cmd/ding
+```
+
+Use a fresh server data directory, an external encryption key, and a private configuration file. `ding server init` creates a random 32-byte key when the configured key file does not exist; its parent directory must already exist. Keep that key outside both the data directory and its backups. For example, an owner-only `/srv/ding/server.json` can contain:
+
+```json
+{
+  "hosting": "self-hosted",
+  "name": "Engineering Ding",
+  "publicURL": "https://ding.internal.example",
+  "listen": "127.0.0.1:8787",
+  "dataDir": "/srv/ding/data",
+  "keyFile": "/srv/ding/vault.key"
+}
+```
+
+Put an HTTPS reverse proxy in front of the loopback listener. Preserve the public Host header; do not expose the plaintext backend. Alternatively configure `tlsCert` and `tlsKey` for direct TLS. A non-loopback listener requires TLS. `publicURL` must be the exact browser origin.
+
+Create a private password file through your normal secret-management process (12–1024 bytes; no command-line password argument), then initialize and run:
+
+```sh
+chmod 600 /srv/ding/server.json /srv/ding/initial-password
+./ding server init --config /srv/ding/server.json \
+  --username owner --name 'Instance owner' \
+  --password-file /srv/ding/initial-password
+./ding server run --config /srv/ding/server.json --check-config
+./ding server run --config /srv/ding/server.json
+```
+
+Open the public `/ui/` URL. In System → Members, create a viewer/editor invitation and share the one-use activation link privately. It expires after one hour. Activation sets the password; the recipient then signs in with the supplied username. There is no public registration or bootstrap endpoint. The first owner should create any shared destinations before editors create watches referencing them.
+
+System → Your account changes a built-in password and revokes sessions. Password change/recovery revokes that user's sessions, pending approvals, activation links, and model bindings. System → Members changes roles, removes membership, disables users, and issues resets within the caller's administrative scope. Owner resets and users with multiple memberships require host recovery. Last usable-owner checks run transactionally; an unactivated invitation is not a usable replacement owner.
+
+Stop the server before host recovery:
+
+```sh
+./ding server recover --config /srv/ding/server.json \
+  --username owner --password-file /srv/ding/recovery-password
+```
+
+Account changes do not stop workspace watches. Workspace deletion is separately confirmed by an owner. Removing membership permanently revokes that user's device and agent bindings for the workspace, even if the user is later re-added. Workspace-owned service credentials remain independently authorized until expiry or explicit revocation.
+
+### CLI, agents, producers, and audit
+
+```sh
+ding connection login --name team --url https://ding.internal.example
+ding --connection team watch list
+ding --connection team doctor
+ding connection logout --name team
+```
+
+Compare the terminal's code with the browser approval page, choose the workspace, and select only the needed scopes. Device credentials expire after seven days. `inspect` is selected initially; write operations require their corresponding scopes. Cloud transfers additionally require `owners`. The named profile is stored privately beneath the CLI state directory's `connections/<name>/cloud.json`. A missing/invalid profile fails; it never falls back to the local administrator credential. Host commands reject `--connection`.
+
+System → Workspace → Model connections creates a private pairing file for self-hosted agents. Save it with permissions 0600 and configure the agent to run `ding mcp serve --config /absolute/path/ding-agent.json`. The file uses the existing scoped integration protocol, review receipts, expiry, and grant revocation. Its authority is intersected with the creating user's current membership. Viewers can approve inspection only; credential references require administrator authority. Cloud continues to use its verified OAuth/JWT boundary and does not accept these local pairing credentials on its public API.
+
+System → Services creates 30-day credentials (the API permits 1–90 days). Available scopes are workspace inspection, delivery retry, or ingestion. Ingest requires exact allowed watch IDs and is available only on self-hosted servers. Send the token as a Bearer credential to `POST /v1/ingest/<watch-id>`; it does not authorize Console sessions, grant creation, or host operations. Prefer an `Idempotency-Key` when retrying producer submissions. Use user-bound device or reviewed MCP grants for watch management.
+
+System → Audit pages through committed runtime changes and workspace identity/credential changes separately. Each journal retains its latest 10,000 records; there is no asserted total order across the two databases. The authenticated `/v1/audit?source=runtime&before=<sequence>` and `/v1/audit?source=identity&before=<sequence>` endpoints provide bounded JSON export. Actor, action, resource path, grant (runtime), and time are recorded without request bodies or secrets. Login failures and host recovery are recorded in the instance metadata journal; failed-login targets are digests, not supplied credentials. Ongoing runtime evaluation is not presented as an individual user's action.
+
+Self-hosted sources may use private HTTP services and push input. Commands require the operator to list exact compiled watch revision hashes in `approvedCommands` and restart the server. A change to that revision requires new approval. Only workspace vault entries are available as credential references; host environment lookup, desktop notifications, backups, process management, and filesystem access are not ordinary workspace capabilities.
+
+### Encrypted backup and restore
+
+The shared and cloud binaries reuse `internal/serverops` and `internal/cloudbackup`. Stop the server; use these offline commands with an age recipient and a separately protected private backup identity:
+
+```sh
+ding server backup-keygen --output /secure/backup-identity
+ding server backup --data-dir /srv/ding/data \
+  --output /backups/ding.age --recipient AGE_PUBLIC_RECIPIENT
+ding server restore --data-dir /srv/ding/restored \
+  --input /backups/ding.age --identity-file /secure/backup-identity
+ding server release-restore --data-dir /srv/ding/restored \
+  --confirm-other-runners-stopped
+```
+
+Keep the source vault key separately as well. Restore starts quarantined with watches paused and obsolete deliveries canceled; browser/device sessions, model bindings, service credentials, and pending activation links are revoked. Confirm ownership across all runners before release. Release does not resume watches: sign in again, inspect state, and deliberately resume them. The source schema is fresh; there is no old-account/session/ciphertext migration or automatic personal-to-shared conversion.
+
+### Implementation and qualification record
+
+Focused commits cover shared identity/provider extraction, roles and protected forwarding, fresh metadata, account lifecycle, password login, operator setup, Console/CLI access, scoped services, agent pairing, and audit. The existing cloud OIDC signature/nonce/PKCE tests, device proof tests, JWT verification, egress/quota tests, transfer fencing, and backup/restore tests run against the new workspace model.
+
+Verified locally during implementation:
+
+- `go test -race -tags console,mcpui ./...` and `go vet ./...`.
+- Generated Console contracts, Console build, 11 unit tests, and JavaScript size budget.
+- Chromium Console journeys, including a real HTTPS shared server with first-owner login, one-use viewer activation, denied writes, and immediate disable/revocation. The existing personal draft/reconnect regression was fixed and rechecked.
+- Chromium and WebKit mobile shared login/invitation/revocation, personal launch/reconnect, responsive layout, and accessibility journeys. The appearance control now uses its themed surface consistently for readable native-control contrast.
+- MCP asset build, unit tests, independent TypeScript SDK interoperability (15 tools, review/apply, receipts, lifecycle, revocation), and both embedded-app browser tests.
+- Tagged `ding`, `ding-cloud`, and `ding-mcp` binaries build successfully.
+
+Firefox automation is not qualified on this host: the installed Playwright Firefox exits before application startup with “Could not find profile folder,” including a retry using `/tmp`. A real second-machine/private-network deployment, live external identity provider, restart under a production service manager, and public cloud deployment remain operational release checks. No services were deployed or external identity accounts provisioned by this implementation.
+
+A07 and A08 are not implemented by this first milestone. The current self-hosted entry path is built-in accounts in one workspace; do not advertise generic company SSO or a self-hosted workspace-creation UI yet.
