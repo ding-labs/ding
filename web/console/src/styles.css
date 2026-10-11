@@ -1836,3 +1836,20 @@ a:hover {
 .brand strong {
   font: inherit;
 }
+.log-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.log-fields label,
+.log-setup + .panel label {
+  display: grid;
+  gap: 0.4rem;
+}
+.log-fields input,
+.log-fields select,
+.log-setup + .panel textarea {
+  width: 100%;
+  min-width: 0;
+}
