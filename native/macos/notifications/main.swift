@@ -42,7 +42,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 else { throw Failure.permissionDenied }
             }
             let authorization: Int = await withCheckedContinuation { continuation in
-                center.getNotificationSettings { settings in
+                // UserNotifications calls back on its own queue. Swift 6 must
+                // not infer the enclosing MainActor for this callback.
+                center.getNotificationSettings { @Sendable settings in
                     continuation.resume(returning: settings.authorizationStatus.rawValue)
                 }
             }
