@@ -2,7 +2,15 @@
 
 Proposed October 11, 2026. Build live application-output monitoring into Ding, with collection and aggregation in a separate internal component. Start by capturing stdout and stderr from an application launched through Ding, or consuming an existing output stream through a pipe. Support ordinary text and structured JSON as parsing options on every transport. Reuse the collector for daemon-managed files and log-reader commands.
 
-All new commands, manifest fields, and performance targets below are proposals. This plan does not implement or enable log collection.
+Implemented on `codex/live-log-capture` in small commits. The current user contract is in [Live application logs](../guides/logs.md), and measured results and remaining release qualification are in [Log qualification](log-qualification.md). The design below records the original proposal; implementation choices and qualification limits take precedence where noted here.
+
+## Implementation status
+
+- Foreground exec/stdin capture, native external sessions, daemon file/command readers, explicit severity mappings, multiline framing, readiness, and gap handling are implemented.
+- Console setup, sample classification, live evidence, shared inspection/MCP contracts, revision grants, and one-hour default summary retention are implemented. Local daemon readers are limited to eight concurrent slots, independently of polling workers.
+- Versioned session state and available file positions use the existing transactional source cursor. No SQL schema migration or bucket restoration is needed: every interrupted collector rebuilds evidence instead of resuming a persisted counter window. Rotation drains the old file to EOF and starts at the replacement's end with an explicit gap.
+- Snapshots freeze their second-aligned boundary when queued. Native sessions accept each completed second once; retries acknowledge the same durable receipt. EOF records the end of collection and holds incidents; it does not evaluate an unfinished second.
+- macOS functional, race, browser, and short load checks have passed. The proposed one-hour baseline, ten-stream sweep, 24-hour soak, RSS/CPU qualification, and Linux runtime qualification remain release gates, not demonstrated capacity promises. Windows capture remains disabled.
 
 ## Intended experience
 
