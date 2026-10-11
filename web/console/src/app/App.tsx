@@ -75,7 +75,7 @@ export function App() {
         if (workspace.current !== next) { client.clear(); resetDraft(); }
         workspace.current = next;
         setPreferenceWorkspace(next);
-        setExecution({ mode: details.execution === "cloud" ? "cloud" : details.execution === "shared" ? "shared" : "local", workspace: details.workspace, user: details.user, role: details.role, capabilities: details.capabilities });
+        setExecution({ mode: details.execution === "cloud" ? "cloud" : details.execution === "shared" ? "shared" : "local", workspace: details.workspace, user: details.user, role: details.role, capabilities: details.capabilities, accountFeatures: details.accountFeatures });
         selectIdentity(details.user?.id || "");
         selectWorkspace(details.workspace || "");
         setMemberships(details.memberships);

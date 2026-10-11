@@ -314,7 +314,7 @@ func (s *Server) browserSession(w http.ResponseWriter, r *http.Request, session 
 		cloudFail(w, 503, "session_unavailable", "Memberships unavailable.")
 		return
 	}
-	cloudWrite(w, 200, map[string]any{"csrf": csrf.Value, "expiresAt": session.ExpiresAt, "workspace": session.Workspace, "execution": s.execution(), "user": user, "memberships": memberships, "role": principal.Role, "capabilities": principal.Capabilities()})
+	cloudWrite(w, 200, map[string]any{"csrf": csrf.Value, "expiresAt": session.ExpiresAt, "workspace": session.Workspace, "execution": s.execution(), "user": user, "memberships": memberships, "role": principal.Role, "capabilities": principal.Capabilities(), "accountFeatures": s.accountFeatures()})
 }
 
 func (s *Server) api(t *Tenant) tenantAPI {

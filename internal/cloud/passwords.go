@@ -7,10 +7,15 @@ import (
 	"slices"
 	"time"
 
+	"github.com/ding-labs/ding/internal/control"
 	"github.com/ding-labs/ding/internal/identity"
 	state "github.com/ding-labs/ding/internal/serverstate"
 	"golang.org/x/time/rate"
 )
+
+func (s *Server) accountFeatures() control.AccountFeatures {
+	return control.AccountFeatures{Passwords: s.passwordsEnabled(), ModelConnections: s.Shared || s.MCP != nil}
+}
 
 func (s *Server) passwordsEnabled() bool {
 	return slices.Contains(s.LoginMethods, "password") || (s.LoginMethods == nil && s.Shared)
