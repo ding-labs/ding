@@ -61,6 +61,9 @@ func serverCommand(version string) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if err := cloud.ValidateServerDirectory(c.DataDir); err != nil {
+				return err
+			}
 			db, err := state.Open(cmd.Context(), c.DataDir)
 			if err != nil {
 				return err

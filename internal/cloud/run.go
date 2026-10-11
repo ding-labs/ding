@@ -96,7 +96,17 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+func ValidateServerDirectory(dir string) error {
+	if _, err := os.Lstat(filepath.Join(dir, "ding.db")); !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("personal watch state cannot be used as server metadata; choose a fresh server data directory")
+	}
+	return nil
+}
+
 func Run(ctx context.Context, c Config, version string, out io.Writer) error {
+	if err := ValidateServerDirectory(c.DataDir); err != nil {
+		return err
+	}
 	if err := c.Validate(); err != nil {
 		return err
 	}
