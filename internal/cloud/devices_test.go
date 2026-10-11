@@ -27,7 +27,7 @@ func TestDeviceBrowserApprovalRequiresVisibleConsentAndCSRF(t *testing.T) {
 	if _, ready, _ := s.DB.ClaimDevice(context.Background(), id, proof, time.Now()); ready {
 		t.Fatal("GET approved device")
 	}
-	r := httptest.NewRequest("POST", "https://ding.example/connect/"+id, strings.NewReader(url.Values{"csrf": {sessions[0].CSRF}}.Encode()))
+	r := httptest.NewRequest("POST", "https://ding.example/connect/"+id, strings.NewReader(url.Values{"csrf": {sessions[0].CSRF}, "workspace": {sessions[0].Workspace}, "scope": {"inspect", "owners"}}.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: sessions[0].Token})
 	r.AddCookie(&http.Cookie{Name: csrfCookie, Value: sessions[0].CSRF})

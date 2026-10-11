@@ -17,7 +17,11 @@ export function SignIn({ config, connected }: { config: AuthConfig; connected: (
       await api(activate ? "/auth/activate" : "/auth/password", { method: "POST", body: activate ? { token: activate, password } : { username, password } });
       setPassword("");
       if (activate) { activation = ""; setActivate(""); setMessage("Password saved. Sign in with your instance username."); }
-      else connected();
+      else {
+        const next = new URLSearchParams(location.search).get("return");
+        if (next && /^\/connect\/[a-f0-9]{64}$/.test(next)) location.assign(next);
+        else connected();
+      }
     } catch (e) { setMessage((e as Error).message); }
     finally { setBusy(false); }
   }
