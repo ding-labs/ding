@@ -1,15 +1,40 @@
 package watchrun
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/ding-labs/ding/internal/source"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watch"
 )
+
+func TestAcceptanceChecksCursorAndFreshnessAtomically(t *testing.T) {
+	a, _ := setup(t)
+	r := apply(t, a, "https://example.com")
+	before := r.Cursor
+	b := source.Batch{Cursor: "next", ExpectedCursor: &before, FreshUntil: start.Add(time.Second), Observations: []watch.Observation{{Health: "waiting", Detail: "warming_up"}}}
+	first, err := a.Accept(ctx, r, b, "one", start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	duplicate, err := a.Accept(ctx, r, b, "one", start.Add(2*time.Second))
+	if err != nil || !duplicate.Duplicate || duplicate.First != first.First {
+		t.Fatal(duplicate, err)
+	}
+	if _, err := a.Accept(ctx, r, b, "two", start); !errors.Is(err, store.ErrStale) {
+		t.Fatal("accepted stale cursor", err)
+	}
+	current := "next"
+	b.ExpectedCursor = &current
+	if _, err := a.Accept(ctx, r, b, "three", start.Add(2*time.Second)); !errors.Is(err, store.ErrStale) {
+		t.Fatal("accepted stale snapshot", err)
+	}
+}
 
 func TestConcurrentPushUsesTransactionAcceptanceTime(t *testing.T) {
 	a, _ := setup(t)

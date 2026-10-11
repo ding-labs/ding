@@ -18,11 +18,13 @@ import (
 
 type Lookup func(string) (string, bool)
 type Batch struct {
-	Entity       string
-	Deadline     time.Time
-	Observations []watch.Observation
-	Cursor       string
-	RetryAt      time.Time
+	ExpectedCursor *string
+	FreshUntil     time.Time
+	Entity         string
+	Deadline       time.Time
+	Observations   []watch.Observation
+	Cursor         string
+	RetryAt        time.Time
 }
 type HTTP struct {
 	Client *http.Client

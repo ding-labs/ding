@@ -384,6 +384,9 @@ func (a *App) accept(ctx context.Context, record store.WatchRecord, batch source
 		if !errors.Is(err, store.ErrNotFound) {
 			return err
 		}
+		if batch.ExpectedCursor != nil && current.Cursor != *batch.ExpectedCursor || !batch.FreshUntil.IsZero() && !now.Before(batch.FreshUntil) {
+			return store.ErrStale
+		}
 		interval, _ := time.ParseDuration(current.Plan.Definition.Spec.Source.Every)
 		next := a.nextPoll(now, interval, id)
 		if batch.RetryAt.After(next) {
