@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ding-labs/ding/internal/cloud/state"
+	state "github.com/ding-labs/ding/internal/serverstate"
 )
 
 // DeleteOffline reapplies an independently recorded deletion to a stopped host
@@ -23,12 +23,12 @@ func DeleteOffline(ctx context.Context, dir, id string) error {
 		return err
 	}
 	defer db.Close()
-	if err := db.BeginAccountDelete(ctx, id); err != nil {
+	if err := db.BeginWorkspaceDelete(ctx, id); err != nil {
 		return err
 	}
 	p := &Pool{root: dir, db: db, tenants: map[string]*Tenant{}, deleting: map[string]bool{}}
 	if err := p.Delete(ctx, id); err != nil {
 		return err
 	}
-	return db.FinishAccountDelete(ctx, id)
+	return db.FinishWorkspaceDelete(ctx, id)
 }

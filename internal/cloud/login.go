@@ -3,11 +3,12 @@ package cloud
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"github.com/ding-labs/ding/internal/identity"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/ding-labs/ding/internal/cloud/state"
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/watch"
 	"golang.org/x/oauth2"
 )
@@ -17,10 +18,11 @@ const csrfCookie = "__Host-ding-csrf"
 const loginCookie = "__Host-ding-login"
 
 type LoginFlow struct {
+	Shared          bool
 	EnrollmentLimit *int
 	DB              *state.DB
 	Vault           *state.Vault
-	Provider        IdentityProvider
+	Provider        identity.Provider
 }
 
 func cloudWrite(w http.ResponseWriter, status int, value any) {
@@ -78,6 +80,7 @@ func (f LoginFlow) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 	identity, err := f.Provider.Exchange(r.Context(), code, login.Nonce, login.Verifier)
 	if err != nil {
+		_ = f.DB.LoginFailure(r.Context(), "oidc")
 		cloudFail(w, 401, "identity_failed", "Could not verify sign-in. Start a new sign-in.")
 		return
 	}
@@ -85,12 +88,17 @@ func (f LoginFlow) Callback(w http.ResponseWriter, r *http.Request) {
 	if f.EnrollmentLimit != nil {
 		limit = *f.EnrollmentLimit
 	}
-	account, err := f.DB.Enroll(r.Context(), identity.Issuer, identity.Subject, limit)
+	var workspace state.Enrollment
+	if f.Shared {
+		workspace, err = f.DB.IdentityWorkspace(r.Context(), identity.Issuer, identity.Subject)
+	} else {
+		workspace, err = f.DB.Enroll(r.Context(), identity.Issuer, identity.Subject, limit)
+	}
 	if err != nil {
 		cloudFail(w, 503, "enrollment_unavailable", "Cloud enrollment is currently unavailable. Local and self-hosted Ding remain free and available.")
 		return
 	}
-	session, err := f.DB.NewSession(r.Context(), account.ID, "browser", time.Now())
+	session, err := f.DB.NewSession(r.Context(), workspace.User, workspace.ID, "browser", nil, time.Now())
 	if err != nil {
 		cloudFail(w, 503, "session_unavailable", "Could not create a cloud session. Try again later.")
 		return

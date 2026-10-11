@@ -45,8 +45,9 @@ func Root(version string) *cobra.Command {
 		cmd.Flags().BoolVar(&structured, "json", false, "emit a versioned JSON response")
 		root.AddCommand(cmd)
 	}
+	connectionFlags(root)
 	runtimeCommands(root)
-	root.AddCommand(testCommand(), migrateCommand(), demoCommand(), notificationCommand(), logsCommand())
+	root.AddCommand(testCommand(), migrateCommand(), demoCommand(), notificationCommand(), serverCommand(version), logsCommand())
 	root.AddCommand(mcpcli.Command(version))
 	compatibilityCommands(root, version)
 	return root

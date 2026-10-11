@@ -34,7 +34,7 @@ backups and operations need separate infrastructure accounting.
 On October 10, 2026, macOS ARM64 development machine:
 
 ```sh
-go run ./cmd/ding-cloud-bench --accounts 100 --duration 30s
+go run ./cmd/ding-cloud-bench --workspaces 100 --duration 30s
 ```
 
 | Measurement | Result |
@@ -88,7 +88,7 @@ synthetic hosts and distinguishing failed from healthy observations, produced:
 | Live / closed durable bytes | 39,318,312 / 24,365,512 |
 | Orderly close | 109.519 ms |
 
-Command: `go run ./cmd/ding-cloud-bench --accounts 100 --duration 10s`.
+Command: `go run ./cmd/ding-cloud-bench --workspaces 100 --duration 10s`.
 Use `--same-host` to exercise the shared host rate limit; its failures must not be
 reported as healthy acquisition. First-observation latency is omitted for runs
 at least five minutes long, where the latest observation is no longer the first.

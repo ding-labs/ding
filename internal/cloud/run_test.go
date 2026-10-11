@@ -1,12 +1,13 @@
 package cloud
 
 import (
+	"github.com/ding-labs/ding/internal/identity"
 	"path/filepath"
 	"testing"
 )
 
 func TestCloudListenerCannotAccidentallyExposePlainHTTP(t *testing.T) {
-	c := Config{PublicURL: "https://ding.example", DataDir: t.TempDir(), KeyFile: filepath.Join(t.TempDir(), "key"), Identity: IdentityConfig{Issuer: "https://identity.example", ClientID: "ding"}}
+	c := Config{PublicURL: "https://ding.example", DataDir: t.TempDir(), KeyFile: filepath.Join(t.TempDir(), "key"), Identity: identity.Config{Issuer: "https://identity.example", ClientID: "ding"}}
 	if err := c.Validate(); err != nil || c.Listen != "127.0.0.1:8787" {
 		t.Fatal(err)
 	}
@@ -29,7 +30,7 @@ func TestCloudListenerCannotAccidentallyExposePlainHTTP(t *testing.T) {
 }
 
 func TestIdentityConfigRejectsIncompleteAndExpandedPrivilegesOffline(t *testing.T) {
-	for _, c := range []IdentityConfig{
+	for _, c := range []identity.Config{
 		{}, {Issuer: "http://identity.example", ClientID: "ding"},
 		{Issuer: "https://identity.example", ClientID: " "},
 		{Issuer: "https://identity.example", ClientID: "ding", Scopes: []string{"repo"}},

@@ -4,12 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"github.com/ding-labs/ding/internal/identity"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 
-	"github.com/ding-labs/ding/internal/cloud/state"
+	state "github.com/ding-labs/ding/internal/serverstate"
 )
 
 type fakeIdentity struct {
@@ -21,12 +22,12 @@ func (f *fakeIdentity) Begin(state, nonce, verifier string) string {
 	f.nonce, f.verifier = nonce, verifier
 	return "https://issuer.example/authorize?state=" + state
 }
-func (f *fakeIdentity) Exchange(_ context.Context, code, nonce, verifier string) (Identity, error) {
+func (f *fakeIdentity) Exchange(_ context.Context, code, nonce, verifier string) (identity.Identity, error) {
 	f.called++
 	if code != "verified-code" || nonce != f.nonce || verifier != f.verifier {
-		return Identity{}, fmt.Errorf("invalid transaction")
+		return identity.Identity{}, fmt.Errorf("invalid transaction")
 	}
-	return Identity{"https://issuer.example", "immutable-user-id"}, nil
+	return identity.Identity{Issuer: "https://issuer.example", Subject: "immutable-user-id"}, nil
 }
 
 func TestLoginRequiresBrowserStateAndCannotReplay(t *testing.T) {
@@ -82,8 +83,8 @@ func TestLoginRequiresBrowserStateAndCannotReplay(t *testing.T) {
 	if again.Code != 400 || provider.called != 1 {
 		t.Fatal("callback replayed")
 	}
-	accounts, err := db.Accounts(ctx)
-	if err != nil || len(accounts) != 1 || accounts[0].Subject != "immutable-user-id" {
+	workspaces, err := db.Workspaces(ctx)
+	if err != nil || len(workspaces) != 1 || workspaces[0].Name != "Personal workspace" {
 		t.Fatal("identity binding failed", err)
 	}
 }

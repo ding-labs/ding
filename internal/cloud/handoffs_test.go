@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ding-labs/ding/internal/cloud/state"
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/source"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watch"
@@ -21,7 +21,7 @@ func TestCloudHandoffRequiresTestsAndRejectsCredentialChanges(t *testing.T) {
 	ctx := context.Background()
 	s, h, sessions := testCloudServer(t)
 	s.TenantHandler = s.serveTenant
-	tenant, err := s.Pool.Get(ctx, sessions[0].Account)
+	tenant, err := s.Pool.Get(ctx, sessions[0].Workspace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestCloudHandoffRequiresTestsAndRejectsCredentialChanges(t *testing.T) {
 		}
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("ok"))}, nil
 	})}
-	if err := s.Vault.Put(ctx, tenant.Account.ID, "WEBHOOK", "https://example.com/hook"); err != nil {
+	if err := s.Vault.Put(ctx, tenant.Workspace.ID, "WEBHOOK", "https://example.com/hook"); err != nil {
 		t.Fatal(err)
 	}
 	localDB, err := store.Open(ctx, t.TempDir())
@@ -53,9 +53,9 @@ func TestCloudHandoffRequiresTestsAndRejectsCredentialChanges(t *testing.T) {
 	if err != nil || !preflight.Ready {
 		t.Fatal(preflight, err)
 	}
-	call := func(path string, body any, account int) (int, []byte) {
+	call := func(path string, body any, workspace int) (int, []byte) {
 		raw, _ := json.Marshal(body)
-		w := cloudRequest(h, "POST", path, string(raw), sessions[account], true)
+		w := cloudRequest(h, "POST", path, string(raw), sessions[workspace], true)
 		return w.Code, w.Body.Bytes()
 	}
 	var preview struct {
@@ -93,7 +93,7 @@ func TestCloudHandoffRequiresTestsAndRejectsCredentialChanges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Vault.Put(ctx, tenant.Account.ID, "WEBHOOK", "https://example.com/replaced"); err != nil {
+	if err := s.Vault.Put(ctx, tenant.Workspace.ID, "WEBHOOK", "https://example.com/replaced"); err != nil {
 		t.Fatal(err)
 	}
 	if code, _ := call("/v1/handoffs/"+id+"/activate", proof, 0); code != 409 {

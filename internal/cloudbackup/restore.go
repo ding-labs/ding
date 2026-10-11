@@ -13,8 +13,8 @@ import (
 	"strings"
 
 	"filippo.io/age"
-	"github.com/ding-labs/ding/internal/cloud/state"
 	"github.com/ding-labs/ding/internal/mcpconfig"
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/store"
 )
 
@@ -69,11 +69,11 @@ func Restore(ctx context.Context, input, dir, identity string) error {
 		return err
 	}
 	var m manifest
-	if json.Unmarshal(raw, &m) != nil || m.Format != 1 || len(m.Accounts) > maxAccounts {
+	if json.Unmarshal(raw, &m) != nil || m.Format != 1 || len(m.Workspaces) > maxAccounts {
 		return fmt.Errorf("unsupported backup manifest")
 	}
 	expected := map[string]bool{"control.db": false}
-	for _, id := range m.Accounts {
+	for _, id := range m.Workspaces {
 		if !idPattern.MatchString(id) {
 			return fmt.Errorf("invalid workspace in backup")
 		}
@@ -127,15 +127,15 @@ func Restore(ctx context.Context, input, dir, identity string) error {
 	if err != nil {
 		return err
 	}
-	accounts, err := db.Accounts(ctx)
+	workspaces, err := db.Workspaces(ctx)
 	if err == nil {
 		ids := []string{}
-		for _, a := range accounts {
+		for _, a := range workspaces {
 			ids = append(ids, a.ID)
 		}
 		slices.Sort(ids)
-		slices.Sort(m.Accounts)
-		if !slices.Equal(ids, m.Accounts) {
+		slices.Sort(m.Workspaces)
+		if !slices.Equal(ids, m.Workspaces) {
 			err = fmt.Errorf("backup workspace inventory mismatch")
 		}
 	}
@@ -149,7 +149,7 @@ func Restore(ctx context.Context, input, dir, identity string) error {
 	if closed != nil {
 		return closed
 	}
-	for _, id := range m.Accounts {
+	for _, id := range m.Workspaces {
 		tenant, err := store.Open(ctx, filepath.Join(dir, "workspaces", id))
 		if err != nil {
 			return err
@@ -178,11 +178,11 @@ func Release(ctx context.Context, dir string) error {
 		return err
 	}
 	defer db.Close()
-	accounts, err := db.Accounts(ctx)
+	workspaces, err := db.Workspaces(ctx)
 	if err != nil {
 		return err
 	}
-	for _, a := range accounts {
+	for _, a := range workspaces {
 		if !idPattern.MatchString(a.ID) {
 			return fmt.Errorf("invalid workspace")
 		}

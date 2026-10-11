@@ -9,11 +9,13 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/ding-labs/ding/internal/access"
 	"github.com/ding-labs/ding/internal/mcpauth"
 	"github.com/ding-labs/ding/internal/mcpclient"
 	"github.com/ding-labs/ding/internal/mcpconfig"
 	"github.com/ding-labs/ding/internal/mcpserver"
 	"github.com/ding-labs/ding/internal/mcpui"
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/modelcontextprotocol/go-sdk/oauthex"
@@ -46,9 +48,11 @@ func (s *Server) MCPHandler(cfg mcpconfig.HTTP, jwks *http.Client) (http.Handler
 			http.Error(w, "invalid MCP route or origin", 403)
 			return
 		}
-		protected.ServeHTTP(w, r)
+		protected.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), mcpWorkspaceKey{}, r.Header.Get("X-Ding-Workspace"))))
 	}), verifier.Close, nil
 }
+
+type mcpWorkspaceKey struct{}
 
 func (s *Server) resolveMCP(issuer string) mcpserver.Resolver {
 	return func(ctx context.Context, scope string, token *auth.TokenInfo) (*mcpclient.Client, error) {
@@ -61,15 +65,30 @@ func (s *Server) resolveMCP(issuer string) mcpserver.Resolver {
 		if subject == "" || clientID == "" {
 			return nil, denied
 		}
-		account, err := s.DB.IdentityAccount(ctx, issuer, subject)
+		user, err := s.DB.IdentityUser(ctx, issuer, subject)
 		if err != nil {
 			return nil, denied
 		}
-		connection, err := s.Vault.MCP(ctx, account.ID, clientID)
+		selected, _ := ctx.Value(mcpWorkspaceKey{}).(string)
+		workspace, err := s.DB.ResolveMCPWorkspace(ctx, user.ID, clientID, selected)
 		if err != nil {
 			return nil, denied
 		}
-		tenant, err := s.Pool.Get(ctx, account.ID)
+		scopes := []string{}
+		for _, s := range token.Scopes {
+			if value, ok := strings.CutPrefix(s, "ding:"); ok {
+				scopes = append(scopes, value)
+			}
+		}
+		principal, err := s.DB.Principal(ctx, user.ID, workspace, "integration", scopes)
+		if err != nil || !principal.Allows(access.Action(scope)) {
+			return nil, denied
+		}
+		connection, err := s.Vault.MCP(ctx, user.ID, workspace, clientID)
+		if err != nil {
+			return nil, denied
+		}
+		tenant, err := s.Pool.Get(ctx, workspace)
 		if err != nil {
 			return nil, denied
 		}
@@ -77,21 +96,38 @@ func (s *Server) resolveMCP(issuer string) mcpserver.Resolver {
 			return nil, denied
 		}
 		api := s.api(tenant)
-		return &mcpclient.Client{Connection: connection, HTTP: &http.Client{Transport: privateTransport{api.handler, s.PublicURL}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
+		principal.Grant = connection.GrantID
+		return &mcpclient.Client{Connection: connection, HTTP: &http.Client{Transport: privateTransport{handler: api.handler, origin: s.PublicURL, db: s.DB, vault: s.Vault, client: clientID, principal: principal}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
 	}
 }
 
 // Calls stay in-process and keep the existing scoped integration authorization.
 // No cloud bearer or tenant credential is sent to a laptop or public network.
 type privateTransport struct {
-	handler http.Handler
-	origin  string
+	handler   http.Handler
+	origin    string
+	db        *state.DB
+	principal access.Principal
+	vault     *state.Vault
+	client    string
 }
 
 func (t privateTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	if r.URL.Scheme+"://"+r.URL.Host != t.origin || !strings.HasPrefix(r.URL.Path, "/v1/integrations/") {
 		return nil, fmt.Errorf("invalid internal route")
 	}
+	t.db.Access.RLock()
+	defer t.db.Access.RUnlock()
+	p, err := t.db.Principal(r.Context(), t.principal.User, t.principal.Workspace, "integration", t.principal.Scopes)
+	if err != nil {
+		return nil, fmt.Errorf("membership revoked")
+	}
+	binding, err := t.vault.MCP(r.Context(), p.User, p.Workspace, t.client)
+	if err != nil || binding.GrantID != t.principal.Grant {
+		return nil, fmt.Errorf("consent revoked")
+	}
+	p.Grant = t.principal.Grant
+	r = r.Clone(access.WithOperation(access.WithPrincipal(r.Context(), p), r.Method, r.URL.Path))
 	w := &privateResponse{header: make(http.Header), status: 200}
 	t.handler.ServeHTTP(w, r)
 	if w.large {

@@ -8,13 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ding-labs/ding/internal/cloud/state"
+	state "github.com/ding-labs/ding/internal/serverstate"
 )
 
 type budgetTransport struct {
-	next    http.RoundTripper
-	db      *state.DB
-	account string
+	next      http.RoundTripper
+	db        *state.DB
+	workspace string
 }
 
 func (b budgetTransport) RoundTrip(r *http.Request) (*http.Response, error) {
@@ -24,7 +24,7 @@ func (b budgetTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	if r.ContentLength < 0 || r.ContentLength > 64<<10 || headerSize(r.Header) > 8<<10 {
 		return nil, fmt.Errorf("cloud outbound request exceeds limit")
 	}
-	reservation, err := b.db.Reserve(r.Context(), b.account, r.Method == "POST", time.Now())
+	reservation, err := b.db.Reserve(r.Context(), b.workspace, r.Method == "POST", time.Now())
 	if err != nil {
 		return nil, err
 	}

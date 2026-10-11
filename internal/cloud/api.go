@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ding-labs/ding/internal/cloud/state"
 	"github.com/ding-labs/ding/internal/control"
 	"github.com/ding-labs/ding/internal/plan"
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watch"
 	"github.com/ding-labs/ding/internal/watchrun"
@@ -35,7 +35,7 @@ func (s *Server) serveTenant(w http.ResponseWriter, r *http.Request, session sta
 		s.accountExport(w, r, t)
 		return
 	}
-	if r.Method == "DELETE" && r.URL.Path == "/v1/cloud/account" {
+	if r.Method == "DELETE" && r.URL.Path == "/v1/workspace" {
 		s.accountDelete(w, r, session)
 		return
 	}
@@ -54,10 +54,10 @@ func (s *Server) serveTenant(w http.ResponseWriter, r *http.Request, session sta
 	if r.Method == "GET" {
 		switch r.URL.Path {
 		case "/v1/info":
-			cloudWrite(w, 200, map[string]any{"version": s.Version, "apiVersion": watch.APIVersion, "schema": store.SchemaVersion, "os": "cloud", "arch": "managed", "console": true, "origin": s.PublicURL, "listen": "", "stateDir": "", "limits": t.App.Limits, "time": time.Now().UTC(), "execution": "cloud", "workspace": session.Account})
+			cloudWrite(w, 200, map[string]any{"version": s.Version, "apiVersion": watch.APIVersion, "schema": store.SchemaVersion, "os": s.execution(), "arch": "managed", "console": true, "origin": s.PublicURL, "listen": "", "stateDir": "", "limits": t.App.Limits, "time": time.Now().UTC(), "execution": s.execution(), "workspace": session.Workspace})
 			return
 		case "/v1/cloud/usage":
-			usage, err := s.DB.Usage(r.Context(), session.Account, time.Now())
+			usage, err := s.DB.Usage(r.Context(), session.Workspace, time.Now())
 			if err != nil {
 				cloudFail(w, 503, "usage_unavailable", "Could not read workspace usage.")
 				return
@@ -65,7 +65,7 @@ func (s *Server) serveTenant(w http.ResponseWriter, r *http.Request, session sta
 			cloudWrite(w, 200, map[string]any{"usage": usage, "limits": map[string]any{"checks": state.MonthlyChecks, "deliveryAttempts": state.MonthlyDeliveries, "bytes": state.MonthlyBytes}, "note": "Failed checks and delivery attempts count. Storage pressure and pinned evidence are reported by Doctor."})
 			return
 		case "/v1/cloud/secrets":
-			names, err := s.Vault.Names(r.Context(), session.Account)
+			names, err := s.Vault.Names(r.Context(), session.Workspace)
 			if err != nil {
 				cloudFail(w, 503, "credentials_unavailable", "Could not read credential names.")
 				return
@@ -83,7 +83,7 @@ func (s *Server) serveTenant(w http.ResponseWriter, r *http.Request, session sta
 			cloudFail(w, 400, "invalid_credential", "Provide a credential name and value.")
 			return
 		}
-		if err := s.Vault.Put(r.Context(), session.Account, req.Name, req.Value); err != nil {
+		if err := s.Vault.Put(r.Context(), session.Workspace, req.Name, req.Value); err != nil {
 			cloudFail(w, 400, "credential_rejected", "Credential name, size, or workspace limit is invalid.")
 			return
 		}
@@ -92,7 +92,7 @@ func (s *Server) serveTenant(w http.ResponseWriter, r *http.Request, session sta
 	}
 	if r.Method == "DELETE" && strings.HasPrefix(r.URL.Path, "/v1/cloud/secrets/") {
 		name := strings.TrimPrefix(r.URL.Path, "/v1/cloud/secrets/")
-		if err := s.Vault.Delete(r.Context(), session.Account, name); err != nil {
+		if err := s.Vault.Delete(r.Context(), session.Workspace, name); err != nil {
 			cloudFail(w, 503, "delete_failed", "Could not delete the credential.")
 			return
 		}
@@ -133,7 +133,7 @@ func (s *Server) serveTenant(w http.ResponseWriter, r *http.Request, session sta
 		if req.Manifest != "" {
 			bundle, err := plan.Parse([]byte(req.Manifest))
 			if err == nil {
-				err = Policy(bundle)
+				err = t.App.ValidateBundle(bundle)
 			}
 			if err != nil {
 				cloudFail(w, 400, "cloud_policy", err.Error())

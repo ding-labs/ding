@@ -11,12 +11,12 @@ This roadmap expands the original [integration plan](llm-integration-plan.md): l
 
 | Area | Decision |
 | --- | --- |
-| Repository | Keep the runtime, official Go SDK MCP adapter, installers, Console, plugins, and future cloud service in this monorepo. Share contracts and evaluation code; keep cloud identity and billing outside the local execution path. |
+| Repository | Keep the runtime, official Go SDK MCP adapter, installers, Console, plugins, and future cloud service in this monorepo. Share contracts and evaluation code; keep required cloud identity and billing outside the personal execution path. Optional shared-server accounts use the common identity and workspace model. |
 | Local product | No Ding account, payment, compiler, Python, Node, model API key, or required telemetry. CLI and Console work without an LLM. Model-host access and pricing remain the user's choice. |
 | Local integration | The desktop host launches a local MCP adapter, which calls the local daemon. The daemon continues after the conversation and host app close. No Ding-operated public relay. |
-| Self-hosting | Support always-on Mac minis, Linux machines, and user-operated servers. Preserve command sources, local/private endpoints, exports, and version pinning. No artificial cloud conversion requirement. |
+| Self-hosting | Support always-on Mac minis, Linux machines, and user-operated servers. Preserve command sources, local/private endpoints, exports, and version pinning. Personal servers remain account-free; optional shared-server mode adds instance accounts and workspace permissions without requiring Ding Cloud. |
 | Cloud value | Ding operates the machine that checks and delivers alerts. Cloud MCP accesses that hosted execution directly; it does not forward requests back to a sleeping laptop. |
-| Account timing | Check watch eligibility locally first. Ask for GitHub sign-in only after the user chooses hosted execution. No credit card or onboarding questionnaire for the proposed free tier. |
+| Account timing | Check watch eligibility locally first. Ask for cloud GitHub sign-in only after the user chooses hosted execution. Shared self-hosted installations can separately require their own login. No credit card or onboarding questionnaire for the proposed free tier. |
 | Distribution | Qualify official desktop-only marketplace distribution separately from local MCP compatibility. A manually configured connector does not satisfy the marketplace goal. |
 | Success | Developers retain useful watches. Local and self-hosted retention count as success alongside optional cloud adoption. |
 
@@ -29,6 +29,8 @@ This roadmap expands the original [integration plan](llm-integration-plan.md): l
 | Ding Cloud | Yes, independent of the user's computer | Yes, at opt-in | Initially public HTTP endpoints; no access to laptop-local services |
 
 Moving a watch changes its observation point. A private development server on a sleeping laptop cannot become reachable merely by moving its watch to the cloud. Show this before sign-in.
+
+The [shared accounts implementation plan](shared-accounts-plan.md) now has its built-in-account milestone implemented in source: optional instance accounts, workspace roles, scoped clients, and recovery. Company SSO and additional self-hosted workspaces remain follow-ups. The table's “Ding account” refers to a cloud account; a company's own login is independent of cloud enrollment. Personal startup remains account-free.
 
 ```mermaid
 flowchart LR

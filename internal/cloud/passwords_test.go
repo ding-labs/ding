@@ -1,0 +1,84 @@
+package cloud
+
+import (
+	"context"
+	"fmt"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/ding-labs/ding/internal/access"
+	state "github.com/ding-labs/ding/internal/serverstate"
+)
+
+func TestBuiltInLoginUsesCloudSessionAndRoleBoundary(t *testing.T) {
+	s, h, sessions := testCloudServer(t)
+	s.Shared = true
+	s.TenantHandler = s.serveTenant
+	ctx := context.Background()
+	owner, _ := s.DB.Principal(ctx, sessions[0].User, sessions[0].Workspace, "browser", nil)
+	invite, err := s.DB.Invite(ctx, owner, "reader", "Reader", access.Viewer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DB.Activate(ctx, invite.Token, "reader correct password"); err != nil {
+		t.Fatal(err)
+	}
+	login := func(origin string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("POST", "https://ding.example/v1/auth/password", strings.NewReader(`{"username":"READER","password":"reader correct password"}`))
+		r.Header.Set("Origin", origin)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+	if w := login(""); w.Code != 403 {
+		t.Fatal("login CSRF", w.Code)
+	}
+	w := login("https://ding.example")
+	if w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	var session state.Session
+	for _, c := range w.Result().Cookies() {
+		if !c.Secure || !c.HttpOnly {
+			t.Fatal("unsafe cookie")
+		}
+		switch c.Name {
+		case sessionCookie:
+			session.Token = c.Value
+		case csrfCookie:
+			session.CSRF = c.Value
+		}
+	}
+	if w := cloudRequest(h, "GET", "/v1/browser/session", "", session, false); w.Code != 200 || !strings.Contains(w.Body.String(), `"role":"viewer"`) {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	if w := cloudRequest(h, "POST", "/v1/apply", "{}", session, true); w.Code != 403 {
+		t.Fatal("password session bypassed roles", w.Code)
+	}
+	if w := cloudRequest(h, "DELETE", "/v1/user", fmt.Sprintf(`{"confirmUser":%q}`, invite.User), session, true); w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	if w := cloudRequest(h, "GET", "/v1/watches", "", session, false); w.Code != 401 {
+		t.Fatal("deleted user session survived", w.Code)
+	}
+}
+
+func TestBrowserIdentitySurvivesLosingDefaultWorkspace(t *testing.T) {
+	s, h, sessions := testCloudServer(t)
+	ctx := context.Background()
+	owner, _ := s.DB.Principal(ctx, sessions[1].User, sessions[1].Workspace, "browser", nil)
+	if err := s.DB.ChangeMember(ctx, owner, sessions[0].User, access.Viewer); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DB.BeginWorkspaceDelete(ctx, sessions[0].Workspace); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DB.FinishWorkspaceDelete(ctx, sessions[0].Workspace); err != nil {
+		t.Fatal(err)
+	}
+	w := cloudRequest(h, "GET", "/v1/browser/session", "", sessions[0], false)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), sessions[1].Workspace) || !strings.Contains(w.Body.String(), `"role":"viewer"`) {
+		t.Fatal(w.Code, w.Body.String())
+	}
+}

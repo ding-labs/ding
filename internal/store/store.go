@@ -14,10 +14,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ding-labs/ding/internal/access"
 	_ "modernc.org/sqlite"
 )
 
-const SchemaVersion = 5
+const SchemaVersion = 6
 
 //go:embed schema.sql
 var initialSchema string
@@ -33,6 +34,9 @@ var integrationSchema string
 
 //go:embed schema5.sql
 var handoffSchema string
+
+//go:embed schema6.sql
+var auditSchema string
 var ErrClosed = errors.New("store closed")
 var ErrNotFound = errors.New("not found")
 var ErrConflict = errors.New("revision conflict")
@@ -106,7 +110,7 @@ func Open(ctx context.Context, dir string) (s *Store, err error) {
 		return nil, err
 	}
 	s = &Store{db: db, lock: lock, dir: dir}
-	if err = s.migrate(ctx, SchemaVersion, []string{initialSchema, inspectionSchema, queueIndexSchema, integrationSchema, handoffSchema}); err != nil {
+	if err = s.migrate(ctx, SchemaVersion, []string{initialSchema, inspectionSchema, queueIndexSchema, integrationSchema, handoffSchema, auditSchema}); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -134,8 +138,26 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 		return err
 	}
 	defer tx.Rollback()
+	p, attributed := access.FromContext(ctx)
+	var before int64
+	if attributed {
+		if err := tx.QueryRowContext(ctx, "SELECT total_changes()").Scan(&before); err != nil {
+			return err
+		}
+	}
 	if err = fn(&Tx{ctx: ctx, sql: tx}); err != nil {
 		return err
+	}
+	if attributed {
+		var after int64
+		if err := tx.QueryRowContext(ctx, "SELECT total_changes()").Scan(&after); err != nil {
+			return err
+		}
+		if after > before {
+			if err := auditMutation(ctx, tx, p); err != nil {
+				return err
+			}
+		}
 	}
 	return tx.Commit()
 }

@@ -31,7 +31,7 @@ func (c Connection) Client() (control.Client, error) {
 	if err != nil {
 		return control.Client{}, err
 	}
-	return control.Client{URL: endpoint, Token: c.Token, HTTP: &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
+	return control.Client{URL: endpoint, Token: c.Token, Workspace: c.Workspace, HTTP: &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
 }
 func Load(dir string) (Connection, error) {
 	var c Connection

@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ding-labs/ding/internal/access"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watch"
 	"github.com/ding-labs/ding/internal/watchrun"
@@ -46,11 +47,25 @@ type Info struct {
 	Execution  string          `json:"execution,omitempty"`
 	Workspace  string          `json:"workspace,omitempty"`
 }
+type SessionUser struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Username string `json:"username,omitempty"`
+}
+type SessionMembership struct {
+	Workspace string `json:"workspace"`
+	Name      string `json:"name"`
+	Role      string `json:"role"`
+}
 type BrowserSession struct {
-	CSRF      string    `json:"csrf"`
-	ExpiresAt time.Time `json:"expiresAt"`
-	Execution string    `json:"execution,omitempty"`
-	Workspace string    `json:"workspace,omitempty"`
+	User         *SessionUser        `json:"user,omitempty"`
+	Memberships  []SessionMembership `json:"memberships,omitempty"`
+	Role         string              `json:"role,omitempty"`
+	Capabilities []string            `json:"capabilities,omitempty"`
+	CSRF         string              `json:"csrf"`
+	ExpiresAt    time.Time           `json:"expiresAt"`
+	Execution    string              `json:"execution,omitempty"`
+	Workspace    string              `json:"workspace,omitempty"`
 }
 type BrowserHandoff struct {
 	Token     string    `json:"token"`
@@ -143,8 +158,19 @@ func ConsoleHandler(app *watchrun.App, c Credentials, cfg ConsoleConfig) http.Ha
 	// New console routes are protected by the same outer authorization boundary.
 	consoleRoutes(api, app, cfg)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !permitPrincipal(w, r) {
+			return
+		}
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
+		if r.URL.Path == "/v1/auth/config" && r.Method == "GET" {
+			if !enabled || r.Host != b.host {
+				fail(w, 403, "invalid_origin", "Use the configured Console origin.")
+				return
+			}
+			write(w, 200, map[string]any{"access": "personal", "execution": "local", "methods": []string{}}, nil)
+			return
+		}
 		if r.URL.Path == "/health" {
 			api.ServeHTTP(w, r)
 			return
@@ -195,13 +221,25 @@ func ConsoleHandler(app *watchrun.App, c Credentials, cfg ConsoleConfig) http.Ha
 			}
 			delete(b.handoffs, request.Token)
 			token := randomToken()
-			s := browserSession{BrowserSession{CSRF: randomToken(), ExpiresAt: b.now().Add(8 * time.Hour), Execution: "local"}}
+			var workspace string
+			if err := app.Store.View(r.Context(), func(tx *store.Tx) error { var err error; workspace, err = tx.Identity(); return err }); err != nil {
+				fail(w, 503, "store_unavailable", "Workspace unavailable.")
+				return
+			}
+			principal := access.Principal{User: "local-owner:" + workspace, Workspace: workspace, Role: access.Owner, Kind: "personal", Operator: true}
+			s := browserSession{BrowserSession{User: &SessionUser{ID: principal.User, Name: "Local owner"}, Workspace: workspace, Role: "owner", Capabilities: principal.Capabilities(), CSRF: randomToken(), ExpiresAt: b.now().Add(8 * time.Hour), Execution: "local"}}
 			b.sessions[token] = s
 			http.SetCookie(w, &http.Cookie{Name: b.cookieName, Value: token, Path: "/v1", HttpOnly: true, Secure: b.secure, SameSite: http.SameSiteStrictMode, Expires: s.ExpiresAt})
 			write(w, 200, s.BrowserSession, nil)
 			return
 		}
 		if bearer(r, c.Admin) {
+			var err error
+			r, err = personalRequest(r, app)
+			if err != nil {
+				fail(w, 503, "store_unavailable", "Workspace unavailable.")
+				return
+			}
 			api.ServeHTTP(w, r)
 			return
 		}
@@ -247,6 +285,11 @@ func ConsoleHandler(app *watchrun.App, c Credentials, cfg ConsoleConfig) http.Ha
 		}
 		if r.URL.Path == "/v1/browser/handoff" {
 			fail(w, 403, "bearer_required", "launch Ding Console with ding ui")
+			return
+		}
+		r, err = personalRequest(r, app)
+		if err != nil {
+			fail(w, 503, "store_unavailable", "Workspace unavailable.")
 			return
 		}
 		forwarded := r.Clone(context.WithValue(r.Context(), browserOwnerKey{}, cookie.Value))

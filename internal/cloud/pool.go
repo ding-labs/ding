@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/cloud/egress"
-	"github.com/ding-labs/ding/internal/cloud/state"
 	"github.com/ding-labs/ding/internal/plan"
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watchrun"
 )
@@ -25,24 +25,26 @@ const MaxAccounts = 100
 var accountID = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 type Tenant struct {
-	Account state.Account
-	App     *watchrun.App
-	stop    context.CancelFunc
-	done    chan struct{}
-	err     error
-	ctx     context.Context
-	failed  atomic.Bool
+	Workspace state.Workspace
+	App       *watchrun.App
+	stop      context.CancelFunc
+	done      chan struct{}
+	err       error
+	ctx       context.Context
+	failed    atomic.Bool
 }
 type Pool struct {
-	root     string
-	db       *state.DB
-	vault    *state.Vault
-	http     *http.Client
-	ctx      context.Context
-	mu       sync.Mutex
-	tenants  map[string]*Tenant
-	closed   bool
-	deleting map[string]bool
+	Shared           bool
+	ApprovedCommands []string
+	root             string
+	db               *state.DB
+	vault            *state.Vault
+	http             *http.Client
+	ctx              context.Context
+	mu               sync.Mutex
+	tenants          map[string]*Tenant
+	closed           bool
+	deleting         map[string]bool
 }
 
 // NewPool requires the control DB's host lock to remain held until Close returns.
@@ -69,7 +71,7 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 	if len(p.tenants) >= MaxAccounts {
 		return nil, fmt.Errorf("cloud worker enrollment capacity reached")
 	}
-	account, err := p.db.Account(ctx, id)
+	workspace, err := p.db.Workspace(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -79,6 +81,10 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 	}
 	app := watchrun.New(db)
 	app.Limits = Limits()
+	if p.Shared {
+		app.Limits = watchrun.DefaultLimits()
+	}
+	app.ApprovedCommands = append([]string(nil), p.ApprovedCommands...)
 	app.AcquisitionWorkers, app.DeliveryWorkers = 1, 1
 	app.PollInterval = time.Second
 	app.SchedulingJitter = 5 * time.Second
@@ -86,21 +92,26 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 	app.HTTP.Lookup = app.Lookup
 	app.Output = io.Discard
 	client := *p.http
-	client.Transport = budgetTransport{p.http.Transport, p.db, id}
+	if !p.Shared {
+		client.Transport = budgetTransport{p.http.Transport, p.db, id}
+	}
 	app.HTTP.Client = &client
 	app.ValidateBundle = Policy
+	if p.Shared {
+		app.ValidateBundle = sharedPolicy(p.ApprovedCommands)
+	}
 	// Revalidate persisted definitions before any worker starts. Database uploads
 	// are not a tenant API; a local/older store still cannot enable command I/O.
 	records, err := app.List(ctx)
 	if err == nil {
-		if len(records) > Limits().MaxWatches {
+		if len(records) > app.Limits.MaxWatches {
 			active := 0
 			for _, r := range records {
 				if r.Status != "deleted" {
 					active++
 				}
 			}
-			if active > Limits().MaxWatches {
+			if active > app.Limits.MaxWatches {
 				err = fmt.Errorf("workspace exceeds active watch limit")
 			}
 		}
@@ -109,7 +120,7 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 				break
 			}
 			if r.Status != "deleted" {
-				err = Policy(plan.Bundle{Watches: []plan.Compiled{r.Plan}})
+				err = app.ValidateBundle(plan.Bundle{Watches: []plan.Compiled{r.Plan}})
 				if err != nil {
 					break
 				}
@@ -126,7 +137,7 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 			for _, d := range destinations {
 				bundle.Destinations = append(bundle.Destinations, plan.CompiledDestination{Definition: d})
 			}
-			return Policy(bundle)
+			return app.ValidateBundle(bundle)
 		})
 	}
 	if err != nil {
@@ -134,21 +145,21 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 		return nil, fmt.Errorf("workspace execution policy requires repair: %w", err)
 	}
 	run, stop := context.WithCancel(p.ctx)
-	t := &Tenant{Account: account, App: app, stop: stop, done: make(chan struct{}), ctx: run}
+	t := &Tenant{Workspace: workspace, App: app, stop: stop, done: make(chan struct{}), ctx: run}
 	p.tenants[id] = t
 	go func() { t.err = app.Run(run); t.failed.Store(true); close(t.done) }()
 	return t, nil
 }
 
 func (p *Pool) Start(ctx context.Context) error {
-	accounts, err := p.db.Accounts(ctx)
+	workspaces, err := p.db.Workspaces(ctx)
 	if err != nil {
 		return err
 	}
-	if len(accounts) > MaxAccounts {
+	if len(workspaces) > MaxAccounts {
 		return fmt.Errorf("stored cohort exceeds this worker's configured capacity")
 	}
-	for _, a := range accounts {
+	for _, a := range workspaces {
 		if _, err := p.Get(ctx, a.ID); err != nil {
 			return err
 		}

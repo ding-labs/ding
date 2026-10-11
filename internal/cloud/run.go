@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ding-labs/ding/internal/identity"
 	"io"
 	"net"
 	"net/http"
@@ -13,28 +14,50 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/cloud/egress"
-	"github.com/ding-labs/ding/internal/cloud/state"
 	"github.com/ding-labs/ding/internal/cloudbackup"
 	"github.com/ding-labs/ding/internal/mcpconfig"
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/webui"
 )
 
 type Config struct {
-	EnrollmentLimit *int            `json:"enrollmentLimit,omitempty"`
-	OperatorListen  string          `json:"operatorListen,omitempty"`
-	PublicURL       string          `json:"publicURL"`
-	Listen          string          `json:"listen"`
-	DataDir         string          `json:"dataDir"`
-	KeyFile         string          `json:"keyFile"`
-	TLSCert         string          `json:"tlsCert,omitempty"`
-	TLSKey          string          `json:"tlsKey,omitempty"`
-	Identity        IdentityConfig  `json:"identity"`
-	MCP             *mcpconfig.HTTP `json:"mcp,omitempty"`
+	Hosting          string          `json:"hosting,omitempty"`
+	Name             string          `json:"name,omitempty"`
+	ApprovedCommands []string        `json:"approvedCommands,omitempty"`
+	EnrollmentLimit  *int            `json:"enrollmentLimit,omitempty"`
+	OperatorListen   string          `json:"operatorListen,omitempty"`
+	PublicURL        string          `json:"publicURL"`
+	Listen           string          `json:"listen"`
+	DataDir          string          `json:"dataDir"`
+	KeyFile          string          `json:"keyFile"`
+	TLSCert          string          `json:"tlsCert,omitempty"`
+	TLSKey           string          `json:"tlsKey,omitempty"`
+	Identity         identity.Config `json:"identity"`
+	MCP              *mcpconfig.HTTP `json:"mcp,omitempty"`
 }
 
 func (c *Config) Validate() error {
-	if err := c.Identity.Validate(); err != nil {
-		return err
+	if c.Hosting == "" {
+		c.Hosting = "cloud"
+	}
+	if c.Hosting != "cloud" && c.Hosting != "self-hosted" {
+		return fmt.Errorf("hosting must be cloud or self-hosted")
+	}
+	if c.Hosting == "cloud" || c.Identity.Issuer != "" {
+		if err := c.Identity.Validate(); err != nil {
+			return err
+		}
+	}
+	if len(c.Name) > 100 {
+		return fmt.Errorf("instance name exceeds 100 bytes")
+	}
+	if c.Hosting == "cloud" && len(c.ApprovedCommands) > 0 {
+		return fmt.Errorf("cloud cannot approve host commands")
+	}
+	for _, revision := range c.ApprovedCommands {
+		if !accountID.MatchString(revision) {
+			return fmt.Errorf("approvedCommands must contain exact watch revisions")
+		}
 	}
 	if c.EnrollmentLimit == nil {
 		limit := MaxAccounts
@@ -73,7 +96,17 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+func ValidateServerDirectory(dir string) error {
+	if _, err := os.Lstat(filepath.Join(dir, "ding.db")); !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("personal watch state cannot be used as server metadata; choose a fresh server data directory")
+	}
+	return nil
+}
+
 func Run(ctx context.Context, c Config, version string, out io.Writer) error {
+	if err := ValidateServerDirectory(c.DataDir); err != nil {
+		return err
+	}
 	if err := c.Validate(); err != nil {
 		return err
 	}
@@ -108,22 +141,39 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 	if err != nil || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))) {
 		return fmt.Errorf("keep the encryption key outside the data and backup volume")
 	}
-	provider, err := NewIdentity(ctx, c.PublicURL, c.Identity)
-	if err != nil {
-		return err
+	var provider identity.Provider
+	if c.Identity.Issuer != "" {
+		provider, err = identity.NewOIDC(ctx, c.PublicURL, c.Identity)
+		if err != nil {
+			return err
+		}
 	}
 	db, err := state.Open(ctx, c.DataDir)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
+	if err := db.ConfigureHosting(ctx, c.Hosting); err != nil {
+		return err
+	}
+	if c.Hosting == "self-hosted" {
+		workspaces, err := db.Workspaces(ctx)
+		if err != nil || len(workspaces) == 0 {
+			return fmt.Errorf("initialize shared accounts with ding server init first")
+		}
+	}
 	vault, err := state.NewVault(db, key)
 	if err != nil {
 		return err
 	}
 	client, closeHTTP := (egress.Guard{}).Client()
 	defer closeHTTP()
+	if c.Hosting == "self-hosted" {
+		client = &http.Client{Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	}
 	pool := NewPool(ctx, c.DataDir, db, vault, client)
+	pool.Shared = c.Hosting == "self-hosted"
+	pool.ApprovedCommands = append([]string(nil), c.ApprovedCommands...)
 	defer pool.Close()
 	stopMaintenance := pool.Maintain(ctx, out)
 	defer stopMaintenance()
@@ -133,7 +183,7 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 	if err := pool.Start(ctx); err != nil {
 		return err
 	}
-	app := &Server{DB: db, Vault: vault, Pool: pool, PublicURL: c.PublicURL, Version: version, Assets: assets, Login: LoginFlow{DB: db, Vault: vault, Provider: provider, EnrollmentLimit: c.EnrollmentLimit}}
+	app := &Server{Shared: pool.Shared, Name: c.Name, DB: db, Vault: vault, Pool: pool, PublicURL: c.PublicURL, Version: version, Assets: assets, Login: LoginFlow{DB: db, Vault: vault, Provider: provider, EnrollmentLimit: c.EnrollmentLimit, Shared: pool.Shared}}
 	if c.MCP != nil {
 		if c.MCP.Issuer != c.Identity.Issuer {
 			return fmt.Errorf("MCP and browser identity must use the same issuer and stable subject")
@@ -172,7 +222,7 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 			done <- server.Serve(listener)
 		}
 	}()
-	fmt.Fprintf(out, "Ding Cloud listening on %s; public origin %s; new enrollment cap %d.\n", listener.Addr(), c.PublicURL, *c.EnrollmentLimit)
+	fmt.Fprintf(out, "Ding %s listening on %s; public origin %s.\n", c.Hosting, listener.Addr(), c.PublicURL)
 	select {
 	case err = <-done:
 	case <-ctx.Done():

@@ -68,5 +68,16 @@
   "service repair": "Host operation: preview and explicitly repair only this installation's user startup.",
   "notification-open": "OS notification activation obtains a fresh local Console handoff; no browser equivalent.",
   "notify status": "Notification setup dialog: read native permission status without prompting.",
-  "notify settings": "Notification setup dialog: open notification settings on the daemon host."
+  "notify settings": "Notification setup dialog: open notification settings on the daemon host.",
+  "server init": "Host operator boundary: shared server setup, process lifecycle, and offline account recovery.",
+  "server run": "Host operator boundary: shared server setup, process lifecycle, and offline account recovery.",
+  "server recover": "Host operator boundary: shared server setup, process lifecycle, and offline account recovery.",
+  "connection login": "CLI connection profile: explicit browser approval and private device credential; no host administrator fallback.",
+  "connection status": "CLI connection profile: explicit browser approval and private device credential; no host administrator fallback.",
+  "connection logout": "CLI connection profile: explicit browser approval and private device credential; no host administrator fallback.",
+  "server backup": "Offline host operation: encrypted backup, quarantine restore, and explicit runner ownership fencing.",
+  "server restore": "Offline host operation: encrypted backup, quarantine restore, and explicit runner ownership fencing.",
+  "server release-restore": "Offline host operation: encrypted backup, quarantine restore, and explicit runner ownership fencing.",
+  "server backup-keygen": "Offline host operation: encrypted backup, quarantine restore, and explicit runner ownership fencing.",
+  "server delete-workspace": "Offline host operation: encrypted backup, quarantine restore, and explicit runner ownership fencing."
 }

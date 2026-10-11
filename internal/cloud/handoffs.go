@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ding-labs/ding/internal/cloud/state"
 	"github.com/ding-labs/ding/internal/delivery"
 	"github.com/ding-labs/ding/internal/plan"
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/source"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watch"
@@ -28,7 +28,7 @@ func (s *Server) cloudHandoff(w http.ResponseWriter, r *http.Request, t *Tenant)
 		if parts[1] == "activate" {
 			h, err := t.App.Handoff(r.Context(), parts[0])
 			if err == nil && h.Phase != "active" {
-				err = s.verifyHandoffProof(r.Context(), t.Account.ID, h)
+				err = s.verifyHandoffProof(r.Context(), t.Workspace.ID, h)
 			}
 			if err != nil {
 				cloudFail(w, 409, "test_required", "Test the prepared source and all destinations with their current credentials before activating.")
@@ -43,8 +43,8 @@ func (s *Server) cloudHandoff(w http.ResponseWriter, r *http.Request, t *Tenant)
 	api.handler.ServeHTTP(w, copy)
 }
 
-func (s *Server) verifyHandoffProof(ctx context.Context, account string, h store.Handoff) error {
-	proof, err := s.DB.HandoffProof(ctx, account, h.ID)
+func (s *Server) verifyHandoffProof(ctx context.Context, workspace string, h store.Handoff) error {
+	proof, err := s.DB.HandoffProof(ctx, workspace, h.ID)
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func (s *Server) verifyHandoffProof(ctx context.Context, account string, h store
 		return fmt.Errorf("test proof expired or changed")
 	}
 	for name, revision := range proof.Credentials {
-		now, err := s.Vault.Revision(ctx, account, name)
+		now, err := s.Vault.Revision(ctx, workspace, name)
 		if err != nil || now != revision {
 			return fmt.Errorf("credential changed after test")
 		}
@@ -88,7 +88,7 @@ func (s *Server) testHandoff(w http.ResponseWriter, r *http.Request, t *Tenant, 
 		if ref == nil {
 			return nil
 		}
-		value, revision, err := s.Vault.GetWithRevision(r.Context(), t.Account.ID, ref.Env)
+		value, revision, err := s.Vault.GetWithRevision(r.Context(), t.Workspace.ID, ref.Env)
 		if err != nil {
 			return err
 		}
@@ -123,13 +123,13 @@ func (s *Server) testHandoff(w http.ResponseWriter, r *http.Request, t *Tenant, 
 		ID, Manifest string
 		Credentials  map[string]string
 	}{id, manifest, revisions})
-	probe, run, err := s.DB.BeginProbe(r.Context(), t.Account.ID, input.OperationKey, digest)
+	probe, run, err := s.DB.BeginProbe(r.Context(), t.Workspace.ID, input.OperationKey, digest)
 	if err != nil {
 		cloudFail(w, 409, "test_conflict", "Keep the same operation key only for the same test and credential revision.")
 		return
 	}
 	if !run {
-		if probe.Outcome == "accepted" && s.verifyHandoffProof(r.Context(), t.Account.ID, h) != nil {
+		if probe.Outcome == "accepted" && s.verifyHandoffProof(r.Context(), t.Workspace.ID, h) != nil {
 			cloudFail(w, 409, "test_expired", "Test proof expired or changed; explicitly send a new labeled test.")
 			return
 		}
@@ -173,9 +173,9 @@ func (s *Server) testHandoff(w http.ResponseWriter, r *http.Request, t *Tenant, 
 	outcome := "failed"
 	if accepted {
 		outcome = "accepted"
-		err = s.DB.SaveHandoffProof(r.Context(), t.Account.ID, id, state.HandoffProof{Revision: h.Revision, Destinations: h.Destinations, Credentials: revisions, At: now})
+		err = s.DB.SaveHandoffProof(r.Context(), t.Workspace.ID, id, state.HandoffProof{Revision: h.Revision, Destinations: h.Destinations, Credentials: revisions, At: now})
 	}
-	if err != nil || s.DB.FinishProbe(r.Context(), t.Account.ID, input.OperationKey, outcome) != nil {
+	if err != nil || s.DB.FinishProbe(r.Context(), t.Workspace.ID, input.OperationKey, outcome) != nil {
 		cloudFail(w, 503, "outcome_unknown", "Inspect this same test operation; do not send a new key automatically.")
 		return
 	}

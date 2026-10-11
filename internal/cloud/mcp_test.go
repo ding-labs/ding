@@ -10,7 +10,7 @@ import (
 func TestHostedMCPUsesSeparateWorkspaceClientScopesAndRevocation(t *testing.T) {
 	s, h, sessions := testCloudServer(t)
 	s.TenantHandler = s.serveTenant
-	if err := s.Vault.Put(context.Background(), sessions[0].Account, "WEBHOOK", "https://hooks.example/test"); err != nil {
+	if err := s.Vault.Put(context.Background(), sessions[0].Workspace, "WEBHOOK", "https://hooks.example/test"); err != nil {
 		t.Fatal(err)
 	}
 	consent := `{"clientID":"chatgpt-client","grant":{"name":"ChatGPT","days":7,"scopes":["inspect","preview","manage"],"secretRefs":["WEBHOOK"]}}`
@@ -50,6 +50,12 @@ func TestHostedMCPUsesSeparateWorkspaceClientScopesAndRevocation(t *testing.T) {
 	bad = strings.ReplaceAll(bad, "https://example.com", "http://127.0.0.1")
 	if _, err := client.Call(ctx, "POST", "/preview", nil, map[string]any{"manifest": bad}); err == nil {
 		t.Fatal("MCP bypassed cloud policy")
+	}
+	if err := s.DB.UnbindMCP(ctx, sessions[0].User, sessions[0].Workspace, "chatgpt-client"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Call(ctx, "GET", "/capabilities", nil, nil); err == nil {
+		t.Fatal("retained connection survived consent removal")
 	}
 	w = cloudRequest(h, "POST", "/v1/cloud/models", `{"clientID":"chatgpt-client","revoke":true}`, sessions[0], true)
 	if w.Code != 200 {

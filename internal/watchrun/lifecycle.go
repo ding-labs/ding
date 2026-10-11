@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ding-labs/ding/internal/access"
+	"github.com/ding-labs/ding/internal/plan"
 	"time"
 
 	"github.com/ding-labs/ding/internal/condition"
@@ -111,6 +113,9 @@ func (a *App) Lifecycle(ctx context.Context, id string, request LifecycleRequest
 }
 
 func (a *App) lifecycle(ctx context.Context, id string, request LifecycleRequest, mutation mutation) (store.WatchRecord, error) {
+	if err := access.Require(ctx, access.Manage); err != nil {
+		return store.WatchRecord{}, err
+	}
 	if mutation == nil {
 		mutation = noMutation{}
 	}
@@ -129,6 +134,9 @@ func (a *App) lifecycle(ctx context.Context, id string, request LifecycleRequest
 		var err error
 		record, err = tx.Watch(id)
 		if err != nil {
+			return err
+		}
+		if err := a.authorizeBundle(ctx, tx, plan.Bundle{Watches: []plan.Compiled{record.Plan}}); err != nil {
 			return err
 		}
 		if request.Expected != "" && request.Expected != record.Plan.Revision {

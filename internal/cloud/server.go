@@ -9,13 +9,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ding-labs/ding/internal/cloud/state"
+	"github.com/ding-labs/ding/internal/access"
 	"github.com/ding-labs/ding/internal/control"
 	"github.com/ding-labs/ding/internal/mcpconfig"
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"golang.org/x/time/rate"
 )
 
 type Server struct {
+	Shared             bool // Self-hosted execution with named accounts; cloud is the default.
+	Name               string
+	passwordLimits     map[string]*rate.Limiter
 	DB                 *state.DB
 	Vault              *state.Vault
 	Pool               *Pool
@@ -33,6 +37,7 @@ type Server struct {
 	global             *rate.Limiter
 }
 type tenantAPI struct {
+	ingest  string
 	handler http.Handler
 	token   string
 	done    <-chan struct{}
@@ -49,6 +54,7 @@ func (s *Server) Handler() (http.Handler, error) {
 	}
 	u, _ := url.Parse(origin)
 	s.private = map[string]tenantAPI{}
+	s.passwordLimits = map[string]*rate.Limiter{}
 	s.limits = map[string]*rate.Limiter{}
 	s.requests = make(chan struct{}, 32)
 	s.global = rate.NewLimiter(30, 60)
@@ -79,6 +85,9 @@ func (s *Server) Handler() (http.Handler, error) {
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
 		r = r.WithContext(ctx)
+		if s.publicIdentity(w, r) {
+			return
+		}
 		if r.Method == "GET" && r.URL.Path == "/healthz" {
 			if !s.Pool.Ready() {
 				cloudFail(w, 503, "worker_unavailable", "Execution worker unavailable.")
@@ -117,9 +126,17 @@ func (s *Server) Handler() (http.Handler, error) {
 				cloudWrite(w, 200, map[string]any{"execution": "cloud", "signInURL": "/auth/login", "limits": Limits()})
 				return
 			case "/auth/login":
+				if s.Login.Provider == nil {
+					http.Redirect(w, r, "/ui/", 302)
+					return
+				}
 				s.Login.Begin(w, r)
 				return
 			case "/auth/callback":
+				if s.Login.Provider == nil {
+					http.NotFound(w, r)
+					return
+				}
 				s.Login.Callback(w, r)
 				return
 			}
@@ -131,13 +148,58 @@ func (s *Server) Handler() (http.Handler, error) {
 			s.connectDevice(w, r)
 			return
 		}
-		session, err := s.authenticate(r)
-		if err != nil {
-			cloudFail(w, 401, "sign_in_required", "Sign in to Ding Cloud. Local watches continue independently.")
+		// Membership mutations take the exclusive lock inside their transaction.
+		// All ordinary operations retain a read lock from authentication through
+		// completion, so a completed revocation fences subsequent operations.
+		administration := r.Method != "GET" && (r.URL.Path == "/v1/services" || strings.HasPrefix(r.URL.Path, "/v1/services/") || r.URL.Path == "/v1/members" || strings.HasPrefix(r.URL.Path, "/v1/members/") || r.URL.Path == "/v1/user" || strings.HasPrefix(r.URL.Path, "/v1/user/"))
+		if !administration {
+			s.DB.Access.RLock()
+			defer s.DB.Access.RUnlock()
+		}
+		if s.serveLocalAgent(w, r) {
 			return
 		}
+		if s.serveService(w, r) {
+			return
+		}
+		session, err := s.authenticate(r)
+		if err != nil {
+			cloudFail(w, 401, "sign_in_required", "Sign in to this Ding instance.")
+			return
+		}
+		if expected := r.Header.Get("X-Ding-Session-User"); expected != "" && expected != session.User {
+			cloudFail(w, 401, "identity_changed", "This browser signed into a different user. Reconnect to continue.")
+			return
+		}
+		if r.URL.Path == "/v1/browser/session" && r.Method == "DELETE" {
+			s.browserSession(w, r, session)
+			return
+		}
+		if s.userAPI(w, r, session) {
+			return
+		}
+		if workspace := r.Header.Get("X-Ding-Workspace"); workspace != "" {
+			if session.Kind != "browser" && workspace != session.Workspace {
+				cloudFail(w, 403, "permission_denied", "This credential is bound to another workspace.")
+				return
+			}
+			session.Workspace = workspace
+		}
+		principal, err := s.DB.Principal(r.Context(), session.User, session.Workspace, session.Kind, session.Scopes)
+		if err != nil && session.Kind == "browser" && r.URL.Path == "/v1/browser/session" && r.Method == "GET" && r.Header.Get("X-Ding-Workspace") == "" {
+			memberships, e := s.DB.Memberships(r.Context(), session.User)
+			if e == nil && len(memberships) > 0 {
+				session.Workspace = memberships[0].Workspace
+				principal, err = s.DB.Principal(r.Context(), session.User, session.Workspace, session.Kind, session.Scopes)
+			}
+		}
+		if err != nil {
+			cloudFail(w, 403, "permission_denied", "Workspace access is unavailable.")
+			return
+		}
+		r = r.WithContext(access.WithOperation(access.WithPrincipal(r.Context(), principal), r.Method, r.URL.Path))
 		s.mu.Lock()
-		limiter := s.limits[session.Account]
+		limiter := s.limits[session.Workspace]
 		if limiter == nil {
 			// Session-only clients may never enter a tenant API. Bound this
 			// expendable cache across enrollment/deletion churn as well.
@@ -148,7 +210,7 @@ func (s *Server) Handler() (http.Handler, error) {
 				}
 			}
 			limiter = rate.NewLimiter(2, 30)
-			s.limits[session.Account] = limiter
+			s.limits[session.Workspace] = limiter
 		}
 		s.mu.Unlock()
 		if !limiter.Allow() {
@@ -159,7 +221,25 @@ func (s *Server) Handler() (http.Handler, error) {
 			s.browserSession(w, r, session)
 			return
 		}
-		tenant, err := s.Pool.Get(r.Context(), session.Account)
+		if s.userAPI(w, r, session) {
+			return
+		}
+		action, known := access.Route(r.Method, r.URL.Path)
+		if !known || action == access.Host || action == access.Ingest {
+			cloudFail(w, 404, "not_found", "This operation is not available.")
+			return
+		}
+		if !principal.Allows(action) {
+			cloudFail(w, 403, "permission_denied", "Your role or credential does not permit this operation.")
+			return
+		}
+		if s.servicesAPI(w, r, principal) {
+			return
+		}
+		if s.membersAPI(w, r, principal) {
+			return
+		}
+		tenant, err := s.Pool.Get(r.Context(), session.Workspace)
 		if err != nil {
 			cloudFail(w, 503, "workspace_unavailable", "Workspace execution is unavailable; inspect service status or contact support.")
 			return
@@ -222,7 +302,18 @@ func (s *Server) browserSession(w http.ResponseWriter, r *http.Request, session 
 		cloudFail(w, 401, "session_incomplete", "Start a new sign-in to repair this browser session.")
 		return
 	}
-	cloudWrite(w, 200, map[string]any{"csrf": csrf.Value, "expiresAt": session.ExpiresAt, "workspace": session.Account, "execution": "cloud"})
+	principal, _ := access.FromContext(r.Context())
+	user, err := s.DB.User(r.Context(), session.User)
+	if err != nil {
+		cloudFail(w, 503, "session_unavailable", "User unavailable.")
+		return
+	}
+	memberships, err := s.DB.Memberships(r.Context(), session.User)
+	if err != nil {
+		cloudFail(w, 503, "session_unavailable", "Memberships unavailable.")
+		return
+	}
+	cloudWrite(w, 200, map[string]any{"csrf": csrf.Value, "expiresAt": session.ExpiresAt, "workspace": session.Workspace, "execution": s.execution(), "user": user, "memberships": memberships, "role": principal.Role, "capabilities": principal.Capabilities()})
 }
 
 func (s *Server) api(t *Tenant) tenantAPI {
@@ -236,11 +327,11 @@ func (s *Server) api(t *Tenant) tenantAPI {
 		default:
 		}
 	}
-	if api, ok := s.private[t.Account.ID]; ok {
+	if api, ok := s.private[t.Workspace.ID]; ok {
 		return api
 	}
 	c := control.Credentials{Admin: state.ID(), Ingest: state.ID()}
-	api := tenantAPI{handler: control.ConsoleHandler(t.App, c, control.ConsoleConfig{Version: s.Version, Origin: s.PublicURL}), token: c.Admin, done: t.ctx.Done()}
-	s.private[t.Account.ID] = api
+	api := tenantAPI{handler: control.ConsoleHandler(t.App, c, control.ConsoleConfig{Version: s.Version, Origin: s.PublicURL}), token: c.Admin, ingest: c.Ingest, done: t.ctx.Done()}
+	s.private[t.Workspace.ID] = api
 	return api
 }

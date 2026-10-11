@@ -31,7 +31,9 @@ import {
 } from "../components/common";
 import packageInfo from "../../package.json";
 import parity from "../../../../testdata/console/parity.json";
-import { useExecution } from "../app/execution";
+import { Services, Audit } from "./WorkspaceAccess";
+import { Members, UserSecurity } from "./Members";
+import { useExecution, useCapability } from "../app/execution";
 import { CloudSystem } from "./CloudSystem";
 import { LocalUpdates } from "./LocalUpdates";
 import { NotificationSetup } from "../components/NotificationSetup";
@@ -40,8 +42,10 @@ function bytes(n: number) {
 }
 export function System() {
   const [p, set] = useSearchParams();
-  const cloud = useExecution().mode === "cloud";
-  const tabs = cloud ? ["Diagnostics", "Destinations", "Cloud"] : ["Diagnostics", "Destinations", "Backup", "Instance", "CLI setup"];
+  const mode = useExecution().mode;
+  const cloud = mode !== "local";
+  const members = useCapability("members");
+  const tabs = cloud ? ["Diagnostics", "Destinations", "Workspace", ...(members ? ["Members", "Services"] : []), "Audit", "Your account"] : ["Diagnostics", "Destinations", "Backup", "Instance", "CLI setup"];
   const selected = p.get("tab") || "Diagnostics";
   const tab = tabs.includes(selected) ? selected : "Diagnostics";
   const info = useRead<ControlInfo>("/info");
@@ -49,7 +53,7 @@ export function System() {
   return (
     <>
       <Heading
-        title={cloud ? "Know your cloud workspace." : "Know your daemon."}
+        title={cloud ? "Know your workspace." : "Know your daemon."}
         eyebrow="System"
         description="Runtime checks, destinations, and the tools to operate this instance."
       >
@@ -65,7 +69,11 @@ export function System() {
       />
       <ErrorBox error={info.error || status.error} />
       {tab === "Diagnostics" && <Diagnostics />}
-      {tab === "Cloud" && <CloudSystem />}
+      {tab === "Workspace" && <CloudSystem />}
+      {tab === "Members" && members && <Members />}
+      {tab === "Your account" && <UserSecurity />}
+      {tab === "Services" && members && <Services />}
+      {tab === "Audit" && <Audit />}
       {tab === "Destinations" && <Destinations />}
       {tab === "Backup" && <Backup info={info.data} />}{" "}
       {tab === "Instance" && info.data && (
