@@ -25,7 +25,7 @@ func TestEncryptedBackupFreshRestoreAndQuarantine(t *testing.T) {
 		t.Fatal(err)
 	}
 	workspace, _ := db.Enroll(ctx, "issuer", "immutable", 1)
-	session, _ := db.NewSession(ctx, workspace.ID, "device", time.Now())
+	session, _ := db.NewSession(ctx, workspace.User, workspace.ID, "device", []string{"inspect"}, time.Now())
 	key := make([]byte, 32)
 	rand.Read(key)
 	vault, _ := state.NewVault(db, key)

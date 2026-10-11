@@ -24,10 +24,10 @@ func TestDeviceApprovalIsBoundToInitiatorAndConsumedOnce(t *testing.T) {
 	if _, ready, err := db.ClaimDevice(ctx, id, verifier, now); err != nil || ready {
 		t.Fatal("unapproved device claimed", err)
 	}
-	if err := db.ApproveDevice(ctx, id, a.ID, now); err != nil {
+	if err := db.ApproveDevice(ctx, id, a.User, a.ID, []string{"inspect"}, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.ApproveDevice(ctx, id, b.ID, now); err == nil {
+	if err := db.ApproveDevice(ctx, id, b.User, b.ID, []string{"inspect"}, now); err == nil {
 		t.Fatal("approval changed workspace")
 	}
 	if _, _, err := db.ClaimDevice(ctx, id, ID(), now); err == nil {
@@ -44,10 +44,10 @@ func TestDeviceApprovalIsBoundToInitiatorAndConsumedOnce(t *testing.T) {
 		t.Fatal("device approval replayed")
 	}
 	id, _ = db.BeginDevice(ctx, TokenHash(verifier), now)
-	if err := db.ApproveDevice(ctx, id, a.ID, now.Add(11*time.Minute)); err == nil {
+	if err := db.ApproveDevice(ctx, id, a.User, a.ID, []string{"inspect"}, now.Add(11*time.Minute)); err == nil {
 		t.Fatal("expired approval accepted")
 	}
-	if err := db.ApproveDevice(ctx, id, a.ID, now); err != nil {
+	if err := db.ApproveDevice(ctx, id, a.User, a.ID, []string{"inspect"}, now); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.BeginWorkspaceDelete(ctx, a.ID); err != nil {

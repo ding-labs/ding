@@ -3,7 +3,9 @@ package state
 import (
 	"context"
 	"crypto/subtle"
+	"encoding/json"
 	"fmt"
+	"github.com/ding-labs/ding/internal/access"
 	"time"
 )
 
@@ -40,8 +42,18 @@ func (d *DB) DevicePending(ctx context.Context, id string, now time.Time) bool {
 	return d.sql.QueryRowContext(ctx, "SELECT COUNT(*) FROM devices WHERE id=? AND workspace IS NULL AND expires_at>?", id, now.Unix()).Scan(&n) == nil && n == 1
 }
 
-func (d *DB) ApproveDevice(ctx context.Context, id, workspace string, now time.Time) error {
-	r, err := d.sql.ExecContext(ctx, "UPDATE devices SET workspace=? WHERE id=? AND workspace IS NULL AND expires_at>? AND EXISTS(SELECT 1 FROM workspaces WHERE id=? AND deleting=0)", workspace, id, now.Unix(), workspace)
+func (d *DB) ApproveDevice(ctx context.Context, id, user, workspace string, scopes []string, now time.Time) error {
+	p, err := d.Principal(ctx, user, workspace, "browser", nil)
+	if err != nil || len(scopes) == 0 {
+		return fmt.Errorf("membership required")
+	}
+	for _, scope := range scopes {
+		if !p.Allows(access.Action(scope)) {
+			return fmt.Errorf("scope not permitted")
+		}
+	}
+	raw, _ := json.Marshal(scopes)
+	r, err := d.sql.ExecContext(ctx, "UPDATE devices SET user=?,workspace=?,scopes=? WHERE id=? AND workspace IS NULL AND expires_at>?", user, workspace, string(raw), id, now.Unix())
 	if err != nil {
 		return err
 	}
@@ -67,8 +79,8 @@ func (d *DB) ClaimDevice(ctx context.Context, id, verifier string, now time.Time
 		return s, false, err
 	}
 	defer tx.Rollback()
-	var challenge, workspace string
-	if err = tx.QueryRowContext(ctx, "SELECT challenge,COALESCE(workspace,'') FROM devices WHERE id=? AND expires_at>?", id, now.Unix()).Scan(&challenge, &workspace); err != nil {
+	var challenge, user, workspace, raw string
+	if err = tx.QueryRowContext(ctx, "SELECT challenge,COALESCE(user,''),COALESCE(workspace,''),COALESCE(scopes,'[]') FROM devices WHERE id=? AND expires_at>?", id, now.Unix()).Scan(&challenge, &user, &workspace, &raw); err != nil {
 		return s, false, err
 	}
 	if subtle.ConstantTimeCompare([]byte(challenge), []byte(TokenHash(verifier))) != 1 {
@@ -77,22 +89,30 @@ func (d *DB) ClaimDevice(ctx context.Context, id, verifier string, now time.Time
 	if workspace == "" {
 		return s, false, nil
 	}
-	var active int
-	if err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM workspaces WHERE id=? AND deleting=0", workspace).Scan(&active); err != nil || active != 1 {
+	principal := access.Principal{User: user, Workspace: workspace, Kind: "browser"}
+	if err = tx.QueryRowContext(ctx, `SELECT m.role FROM memberships m JOIN users u ON u.id=m.user JOIN workspaces w ON w.id=m.workspace WHERE m.user=? AND m.workspace=? AND u.disabled=0 AND w.deleting=0`, user, workspace).Scan(&principal.Role); err != nil {
 		return s, false, fmt.Errorf("workspace is unavailable")
 	}
 	if _, err = tx.ExecContext(ctx, "DELETE FROM sessions WHERE expires_at<=?", now.Unix()); err != nil {
 		return s, false, err
 	}
 	var n int
-	if err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM sessions WHERE workspace=?", workspace).Scan(&n); err != nil {
+	if err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM sessions WHERE user=?", user).Scan(&n); err != nil {
 		return s, false, err
 	}
 	if n >= 20 {
 		return s, false, fmt.Errorf("too many active connections")
 	}
-	s = Session{Workspace: workspace, Kind: "device", Token: ID(), ExpiresAt: now.Add(7 * 24 * time.Hour)}
-	if _, err = tx.ExecContext(ctx, "INSERT INTO sessions(hash,workspace,csrf,kind,expires_at) VALUES(?,?,?,?,?)", TokenHash(s.Token), workspace, "", s.Kind, s.ExpiresAt.Unix()); err != nil {
+	s = Session{User: user, Workspace: workspace, Kind: "device", Token: ID(), ExpiresAt: now.Add(7 * 24 * time.Hour)}
+	if err = json.Unmarshal([]byte(raw), &s.Scopes); err != nil {
+		return s, false, err
+	}
+	for _, scope := range s.Scopes {
+		if !principal.Allows(access.Action(scope)) {
+			return s, false, fmt.Errorf("permissions changed; approve a new connection")
+		}
+	}
+	if _, err = tx.ExecContext(ctx, "INSERT INTO sessions(hash,user,workspace,scopes,csrf,kind,expires_at) VALUES(?,?,?,?,?,?,?)", TokenHash(s.Token), user, workspace, raw, "", s.Kind, s.ExpiresAt.Unix()); err != nil {
 		return s, false, err
 	}
 	if _, err = tx.ExecContext(ctx, "DELETE FROM devices WHERE id=?", id); err != nil {

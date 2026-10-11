@@ -16,13 +16,19 @@ func TestSessionExpiryRevocationAndOneUseLogin(t *testing.T) {
 	defer db.Close()
 	a, _ := db.Enroll(ctx, "issuer", "subject", 1)
 	now := time.Now()
-	s, err := db.NewSession(ctx, a.ID, "browser", now)
+	s, err := db.NewSession(ctx, a.User, a.ID, "browser", nil, now)
 	if err != nil {
 		t.Fatal(err)
 	}
 	read, err := db.Session(ctx, s.Token, now)
 	if err != nil || !read.ValidCSRF(s.CSRF) || read.ValidCSRF("bad") || read.ValidCSRF("") {
 		t.Fatal("session or CSRF failed", err)
+	}
+	if read.User != a.User || read.Workspace != a.ID {
+		t.Fatal("session lost user/workspace binding")
+	}
+	if _, err := db.NewSession(ctx, ID(), a.ID, "browser", nil, now); err == nil {
+		t.Fatal("nonmember received session")
 	}
 	if _, err := db.Session(ctx, s.Token, now.Add(8*24*time.Hour)); err == nil {
 		t.Fatal("expired session accepted")

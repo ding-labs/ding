@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-var devicePage = template.Must(template.New("device").Parse(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Connect Ding</title><style>body{font:18px system-ui;max-width:36rem;margin:10vh auto;padding:1.5rem;line-height:1.6}button{font:inherit;padding:.6rem 1rem}code{font-size:1.3em}</style><main><h1>Connect your local Ding</h1><p>Approve only if you started <code>ding cloud login</code> on your own computer and it displays this code:</p><p><code>{{.Code}}</code></p><p>This connection can manage your cloud watches and credentials for seven days. Signing out locally revokes it. Your local watches keep running.</p><form method="post"><input type="hidden" name="csrf" value="{{.CSRF}}"><button>Connect this computer</button></form><p><a href="/ui/">Cancel</a></p></main></html>`))
+var devicePage = template.Must(template.New("device").Parse(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Connect Ding</title><style>body{font:18px system-ui;max-width:36rem;margin:10vh auto;padding:1.5rem;line-height:1.6}button{font:inherit;padding:.6rem 1rem}code{font-size:1.3em}</style><main><h1>Connect your local Ding</h1><p>Approve only if you started <code>ding cloud login</code> on your own computer and it displays this code:</p><p><code>{{.Code}}</code></p><p>This connection can inspect, preview, manage watches, and retry deliveries in your selected workspace for seven days, within your current role. Signing out locally revokes it. Your local watches keep running.</p><form method="post"><input type="hidden" name="csrf" value="{{.CSRF}}"><button>Connect this computer</button></form><p><a href="/ui/">Cancel</a></p></main></html>`))
 
 func (s *Server) devicePublic(w http.ResponseWriter, r *http.Request) bool {
 	if r.Method != "POST" {
@@ -85,7 +85,7 @@ func (s *Server) connectDevice(w http.ResponseWriter, r *http.Request) {
 		cloudFail(w, 403, "csrf_required", "Refresh the connection page and try again.")
 		return
 	}
-	if err := s.DB.ApproveDevice(r.Context(), id, session.Workspace, time.Now()); err != nil {
+	if err := s.DB.ApproveDevice(r.Context(), id, session.User, session.Workspace, []string{"inspect", "preview", "manage", "retry"}, time.Now()); err != nil {
 		cloudFail(w, 409, "approval_changed", "Return to your terminal to check this connection.")
 		return
 	}

@@ -44,7 +44,7 @@ func testCloudServer(t *testing.T) (*Server, http.Handler, []state.Session) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		session, err := db.NewSession(ctx, a.ID, "browser", time.Now())
+		session, err := db.NewSession(ctx, a.User, a.ID, "browser", nil, time.Now())
 		if err != nil {
 			t.Fatal(err)
 		}

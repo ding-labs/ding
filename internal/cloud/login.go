@@ -91,7 +91,7 @@ func (f LoginFlow) Callback(w http.ResponseWriter, r *http.Request) {
 		cloudFail(w, 503, "enrollment_unavailable", "Cloud enrollment is currently unavailable. Local and self-hosted Ding remain free and available.")
 		return
 	}
-	session, err := f.DB.NewSession(r.Context(), workspace.ID, "browser", time.Now())
+	session, err := f.DB.NewSession(r.Context(), workspace.User, workspace.ID, "browser", nil, time.Now())
 	if err != nil {
 		cloudFail(w, 503, "session_unavailable", "Could not create a cloud session. Try again later.")
 		return

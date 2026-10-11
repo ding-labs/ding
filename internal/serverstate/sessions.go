@@ -16,6 +16,8 @@ func TokenHash(value string) string {
 }
 
 type Session struct {
+	User      string    `json:"user"`
+	Scopes    []string  `json:"scopes,omitempty"`
 	Workspace string    `json:"workspace"`
 	Kind      string    `json:"kind"`
 	ExpiresAt time.Time `json:"expiresAt"`
@@ -28,8 +30,8 @@ func (s Session) ValidCSRF(value string) bool {
 	return value != "" && subtle.ConstantTimeCompare([]byte(TokenHash(value)), []byte(s.csrfHash)) == 1
 }
 
-func (d *DB) NewSession(ctx context.Context, workspace, kind string, now time.Time) (Session, error) {
-	s := Session{Workspace: workspace, Kind: kind, ExpiresAt: now.Add(7 * 24 * time.Hour), Token: ID(), CSRF: ID()}
+func (d *DB) NewSession(ctx context.Context, user, workspace, kind string, scopes []string, now time.Time) (Session, error) {
+	s := Session{User: user, Scopes: scopes, Workspace: workspace, Kind: kind, ExpiresAt: now.Add(7 * 24 * time.Hour), Token: ID(), CSRF: ID()}
 	if kind != "browser" && kind != "device" {
 		return s, fmt.Errorf("invalid session kind")
 	}
@@ -42,21 +44,25 @@ func (d *DB) NewSession(ctx context.Context, workspace, kind string, now time.Ti
 		return s, err
 	}
 	var count int
-	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM sessions WHERE workspace=?", workspace).Scan(&count); err != nil {
+	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM sessions WHERE user=?", user).Scan(&count); err != nil {
 		return s, err
 	}
 	if count >= 20 {
 		return s, fmt.Errorf("too many active sessions; revoke an existing connection")
 	}
 	var active int
-	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM workspaces WHERE id=? AND deleting=0", workspace).Scan(&active); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM memberships m JOIN users u ON u.id=m.user JOIN workspaces w ON w.id=m.workspace WHERE m.user=? AND m.workspace=? AND u.disabled=0 AND w.deleting=0`, user, workspace).Scan(&active); err != nil {
 		return s, err
 	}
 	if active != 1 {
 		return s, fmt.Errorf("workspace unavailable")
 	}
+	if kind == "device" && len(scopes) == 0 {
+		return s, fmt.Errorf("device scopes required")
+	}
+	rawScopes, _ := json.Marshal(scopes)
 	s.csrfHash = TokenHash(s.CSRF)
-	if _, err := tx.ExecContext(ctx, "INSERT INTO sessions(hash,workspace,csrf,kind,expires_at) VALUES(?,?,?,?,?)", TokenHash(s.Token), workspace, s.csrfHash, kind, s.ExpiresAt.Unix()); err != nil {
+	if _, err := tx.ExecContext(ctx, "INSERT INTO sessions(hash,user,workspace,scopes,csrf,kind,expires_at) VALUES(?,?,?,?,?,?,?)", TokenHash(s.Token), user, workspace, string(rawScopes), s.csrfHash, kind, s.ExpiresAt.Unix()); err != nil {
 		return s, err
 	}
 	return s, tx.Commit()
@@ -68,7 +74,11 @@ func (d *DB) Session(ctx context.Context, token string, now time.Time) (Session,
 	if len(token) != 64 {
 		return s, fmt.Errorf("invalid session")
 	}
-	err := d.sql.QueryRowContext(ctx, "SELECT workspace,kind,csrf,expires_at FROM sessions WHERE hash=? AND expires_at>? AND workspace IN (SELECT id FROM workspaces WHERE deleting=0)", TokenHash(token), now.Unix()).Scan(&s.Workspace, &s.Kind, &s.csrfHash, &expiry)
+	var raw string
+	err := d.sql.QueryRowContext(ctx, "SELECT user,workspace,scopes,kind,csrf,expires_at FROM sessions WHERE hash=? AND expires_at>? AND user IN (SELECT id FROM users WHERE disabled=0) AND workspace IN (SELECT id FROM workspaces WHERE deleting=0)", TokenHash(token), now.Unix()).Scan(&s.User, &s.Workspace, &raw, &s.Kind, &s.csrfHash, &expiry)
+	if err == nil {
+		err = json.Unmarshal([]byte(raw), &s.Scopes)
+	}
 	s.ExpiresAt = time.Unix(expiry, 0).UTC()
 	s.Token = token
 	return s, err
