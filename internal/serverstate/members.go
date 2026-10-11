@@ -86,6 +86,13 @@ func (d *DB) ChangeMember(ctx context.Context, actor access.Principal, user stri
 	if err != nil {
 		return err
 	}
+	if role == "" {
+		for _, query := range []string{"DELETE FROM sessions WHERE user=? AND workspace=? AND kind!='browser'", "DELETE FROM devices WHERE user=? AND workspace=?", "DELETE FROM mcp_bindings WHERE user=? AND workspace=?", "DELETE FROM activations WHERE user=? AND workspace=?"} {
+			if _, err := tx.ExecContext(ctx, query, user, actor.Workspace); err != nil {
+				return err
+			}
+		}
+	}
 	if err := audit(ctx, tx, actor.User, actor.Workspace, "membership:"+string(role), user); err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/ding-labs/ding/internal/access"
 	"testing"
+	"time"
 )
 
 func TestMemberAdministrationCannotRemoveLastOwnerOrEscalate(t *testing.T) {
@@ -44,5 +45,33 @@ func TestMemberAdministrationCannotRemoveLastOwnerOrEscalate(t *testing.T) {
 	events, err := db.Audit(ctx, a.ID, 0)
 	if err != nil || len(events) != 2 {
 		t.Fatal("membership audit missing", events, err)
+	}
+}
+
+func TestRemovedMembershipDoesNotResurrectDeviceCredentials(t *testing.T) {
+	ctx := context.Background()
+	db, err := Open(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	a, _ := db.Enroll(ctx, "issuer", "owner", 2)
+	b, _ := db.Enroll(ctx, "issuer", "member", 2)
+	p, _ := db.Principal(ctx, a.User, a.ID, "browser", nil)
+	if err := db.ChangeMember(ctx, p, b.User, access.Viewer); err != nil {
+		t.Fatal(err)
+	}
+	session, err := db.NewSession(ctx, b.User, a.ID, "device", []string{"inspect"}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ChangeMember(ctx, p, b.User, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ChangeMember(ctx, p, b.User, access.Viewer); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Session(ctx, session.Token, time.Now()); err == nil {
+		t.Fatal("re-adding member revived old credential")
 	}
 }
