@@ -66,5 +66,8 @@
   "service repair": "Host operation: preview and explicitly repair only this installation's user startup.",
   "notification-open": "OS notification activation obtains a fresh local Console handoff; no browser equivalent.",
   "notify status": "Notification setup dialog: read native permission status without prompting.",
-  "notify settings": "Notification setup dialog: open notification settings on the daemon host."
+  "notify settings": "Notification setup dialog: open notification settings on the daemon host.",
+  "server init": "Host operator boundary: shared server setup, process lifecycle, and offline account recovery.",
+  "server run": "Host operator boundary: shared server setup, process lifecycle, and offline account recovery.",
+  "server recover": "Host operator boundary: shared server setup, process lifecycle, and offline account recovery."
 }

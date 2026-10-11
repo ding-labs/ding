@@ -42,6 +42,9 @@ func runtimeCommands(root *cobra.Command) {
 		}
 		ctx, cancel := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 		defer cancel()
+		if _, err := os.Lstat(filepath.Join(dir, "control.db")); !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("shared server state cannot be opened by the personal daemon; use ding server run")
+		}
 		database, err := store.Open(ctx, dir)
 		if err != nil {
 			return err
