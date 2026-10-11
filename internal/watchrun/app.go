@@ -502,7 +502,14 @@ func (a *App) accept(ctx context.Context, record store.WatchRecord, batch source
 		if usage.Bytes > a.Limits.MaxBytes {
 			return ErrQuota
 		}
-		return tx.SaveReceipt(id, current.Generation, inputID, receipt.First, receipt.Last, now.Add(24*time.Hour))
+		receiptTTL := 24 * time.Hour
+		if c := current.Plan.Definition.Spec.Source.Logs; c != nil {
+			receiptTTL, _ = time.ParseDuration(c.Retention)
+			if receiptTTL <= 0 {
+				receiptTTL = time.Hour
+			}
+		}
+		return tx.SaveReceipt(id, current.Generation, inputID, receipt.First, receipt.Last, now.Add(receiptTTL))
 	})
 	if err != nil && !errors.Is(err, store.ErrStale) && !errors.Is(err, ErrClosing) && ctx.Err() == nil {
 		detail := "acceptance_failed"

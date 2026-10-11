@@ -259,6 +259,9 @@
           },
           "type": "object"
         },
+        "retention": {
+          "type": "string"
+        },
         "textProfile": {
           "type": "string"
         },

@@ -90,7 +90,21 @@ func (a *App) Maintain(ctx context.Context, now time.Time) error {
 				}
 			}
 		}
-		return tx.Retain(now.Add(-a.Limits.Retention), now, pins, eventPins)
+		if err := tx.Retain(now.Add(-a.Limits.Retention), now, pins, eventPins); err != nil {
+			return err
+		}
+		for _, r := range records {
+			if c := r.Plan.Definition.Spec.Source.Logs; c != nil {
+				retention, _ := time.ParseDuration(c.Retention)
+				if retention == 0 {
+					retention = time.Hour
+				}
+				if err := tx.RetainLogSummaries(r.Plan.Definition.Metadata.ID, now.Add(-retention)); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
 	})
 }
 func (a *App) Budget(ctx context.Context) (store.Usage, error) {

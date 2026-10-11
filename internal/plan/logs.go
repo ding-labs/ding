@@ -36,6 +36,14 @@ func compileLogs(s *watch.Source) error {
 	if c.Window == "" {
 		c.Window = "60s"
 	}
+	if c.Retention == "" {
+		c.Retention = "1h"
+	}
+	retention, err := time.ParseDuration(c.Retention)
+	if err != nil || retention < time.Minute || retention > 7*24*time.Hour {
+		return fmt.Errorf("log summary retention must be between 1m and 168h")
+	}
+	c.Retention = retention.String()
 	if c.EmitEvery == "" {
 		c.EmitEvery = "1s"
 	}

@@ -10,6 +10,7 @@ type LogSource struct {
 	Framing     string            `json:"framing,omitempty" yaml:"framing,omitempty"`
 	Multiline   *LogMultiline     `json:"multiline,omitempty" yaml:"multiline,omitempty"`
 	Window      string            `json:"window,omitempty" yaml:"window,omitempty"`
+	Retention   string            `json:"retention,omitempty" yaml:"retention,omitempty"`
 	EmitEvery   string            `json:"emitEvery,omitempty" yaml:"emitEvery,omitempty"`
 	MinEvents   int               `json:"minEvents,omitempty" yaml:"minEvents,omitempty"`
 	MinCoverage float64           `json:"minCoverage,omitempty" yaml:"minCoverage,omitempty"`
