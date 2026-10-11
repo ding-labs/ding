@@ -96,6 +96,18 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 			write(w, 200, record, nil)
 		}
 	})
+	mux.HandleFunc("GET /v1/ingest/{id}/ready", func(w http.ResponseWriter, r *http.Request) {
+		record, err := app.Record(r.Context(), r.PathValue("id"))
+		if err != nil {
+			fail(w, 404, "not_found", "watch unavailable")
+			return
+		}
+		if record.Status != "running" || record.Plan.Definition.Spec.Source.Type != "push" {
+			fail(w, 409, "inactive_source", "watch is not an active push source")
+			return
+		}
+		write(w, 200, map[string]string{"revision": record.Plan.Revision}, nil)
+	})
 	mux.HandleFunc("POST /v1/ingest/{id}", func(w http.ResponseWriter, r *http.Request) {
 		if err := app.Reserve(); err != nil {
 			fail(w, 503, "busy", "acquisition is unavailable")
