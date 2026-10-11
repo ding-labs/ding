@@ -73,6 +73,11 @@ func (a *App) BundleCredentials(b plan.Bundle, extra []watch.Destination) []Cred
 		for _, r := range s.Env {
 			add(&r)
 		}
+		if s.Logs != nil {
+			for _, r := range s.Logs.Input.Env {
+				add(&r)
+			}
+		}
 	}
 	for _, d := range b.Destinations {
 		extra = append(extra, d.Definition)

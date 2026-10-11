@@ -230,6 +230,11 @@ func (a *App) Doctor(ctx context.Context) (Doctor, error) {
 			for _, ref := range s.Env {
 				add(&ref)
 			}
+			if s.Logs != nil {
+				for _, ref := range s.Logs.Input.Env {
+					add(&ref)
+				}
+			}
 			status := SourceHealth{ID: record.Plan.Definition.Metadata.ID, Status: record.Status, LastInputAt: record.LastInputAt, NextAt: record.NextAt, LastError: record.LastError}
 			status.Acquisition, status.OverdueSeconds = acquisitionHealth(record, a.Now())
 			status.UnhealthyEntities, status.OpenIncidents, err = tx.EntityHealth(status.ID)
