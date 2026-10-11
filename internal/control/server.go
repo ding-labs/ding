@@ -148,6 +148,7 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 		}
 	})
 	inspectionRoutes(mux, app)
+	logRoutes(mux, app)
 	handoffRoutes(mux, app)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { fail(w, 404, "not_found", "route or method not found") })
 	integration := integrationHandler(app, c, mux)
@@ -160,7 +161,7 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		if r.URL.Path != "/health" {
 			want := c.Admin
-			if strings.HasPrefix(r.URL.Path, "/v1/ingest/") {
+			if strings.HasPrefix(r.URL.Path, "/v1/ingest/") || strings.HasPrefix(r.URL.Path, "/v1/logs/") {
 				want = c.Ingest
 			}
 			token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
