@@ -2,9 +2,13 @@ package watchrun
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"time"
 
+	"github.com/ding-labs/ding/internal/source"
 	"github.com/ding-labs/ding/internal/store"
+	"github.com/ding-labs/ding/internal/watch"
 )
 
 const maxLogReaders = 8
@@ -51,7 +55,18 @@ func (w *logWorkers) reconcile(ctx context.Context, records []store.WatchRecord,
 		if _, ok := desired[id]; !ok {
 			continue
 		}
-		if _, ok := w.active[id]; ok || len(w.active) >= maxLogReaders || w.retry[id].After(now) {
+		if _, ok := w.active[id]; ok || w.retry[id].After(now) {
+			continue
+		}
+		if len(w.active) >= maxLogReaders {
+			var c logCheckpoint
+			json.Unmarshal([]byte(r.Cursor), &c)
+			if c.Status != "capacity" || c.Generation != r.Generation {
+				c.Status, c.Generation = "capacity", r.Generation
+				key, _ := watch.Revision(r.Cursor)
+				_, err := w.app.accept(ctx, r, source.Batch{ExpectedCursor: &r.Cursor, Cursor: c.encode(), Observations: []watch.Observation{{Health: "unknown", Detail: "collector_capacity", Fields: map[string]any{"reason": "collector_capacity", "source_status": "capacity"}}}}, fmt.Sprintf("log-capacity:%d:%s", r.Generation, key), w.app.Now)
+				w.app.note(err)
+			}
 			continue
 		}
 		readerCtx, cancel := context.WithCancel(ctx)

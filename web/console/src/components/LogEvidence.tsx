@@ -2,6 +2,7 @@ import type { WatchLogSource, WatchObservation } from "../api/contracts";
 import { Time } from "./common";
 
 const reasons: Record<string, string> = {
+	collector_capacity: "Waiting for a daemon-reader slot (eight readers maximum)",
   warming_up: "Building the first complete window",
   insufficient_records: "Waiting for enough output",
   insufficient_coverage: "Waiting for enough recognized severity labels",
