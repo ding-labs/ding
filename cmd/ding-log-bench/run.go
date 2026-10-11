@@ -108,7 +108,7 @@ func run(parent context.Context, o options) (report Report, err error) {
 	report.FiringLatencyMS = latency(report.Runtime.FiringCommitted)
 	report.DeliveryLatencyMS = latency(report.Runtime.FiringDelivered)
 	report.FiringP95MS, report.DeliveryP95MS = p95(report.FiringLatencyMS), p95(report.DeliveryLatencyMS)
-	report.Passed = report.Collector.Records == report.Producer.Records && report.Collector.Warnings == report.Producer.Warnings && report.Collector.Invalid == 0 && report.Collector.Dropped == 0 && report.ForwardedBytes == report.Producer.Bytes && report.Runtime.PollingHealthy && report.Runtime.Events["firing"] > 0 && report.Runtime.Events["recovered"] > 0 && len(report.FiringLatencyMS) > 0 && report.FiringP95MS <= 2000 && report.DeliveryP95MS <= 3000 && report.Producer.LateWrites == 0
+	report.Passed = report.Producer.Records == int64(o.duration.Seconds()*float64(o.rate)) && report.Collector.Records == report.Producer.Records && report.Collector.Warnings == report.Producer.Warnings && report.Collector.Invalid == 0 && report.Collector.Dropped == 0 && report.ForwardedBytes == report.Producer.Bytes && report.Runtime.PollingHealthy && report.Runtime.Events["firing"] > 0 && report.Runtime.Events["recovered"] > 0 && report.Runtime.Events["source_error"] == 0 && len(report.FiringLatencyMS) > 0 && len(report.DeliveryLatencyMS) == len(report.FiringLatencyMS) && report.FiringP95MS <= 2000 && report.DeliveryP95MS <= 3000 && report.Producer.LateWrites == 0
 	if !report.Passed {
 		return report, fmt.Errorf("log qualification gate failed; inspect report.json")
 	}

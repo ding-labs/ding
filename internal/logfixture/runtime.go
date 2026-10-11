@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sync"
 	"time"
 
@@ -21,6 +23,7 @@ type Runtime struct {
 	client              control.Client
 	session             watchrun.LogSession
 	sequence, lastEvent int64
+	lastWindow          time.Time
 	stop                context.CancelFunc
 	done                chan error
 	server, poll        *httptest.Server
@@ -108,6 +111,9 @@ func (r *Runtime) Write(data []byte) (int, error) {
 }
 
 func (r *Runtime) Publish(ctx context.Context, summary logs.Summary, ended bool) error {
+	if !ended && summary.WindowEnd.Equal(r.lastWindow) {
+		return nil
+	}
 	r.sequence++
 	attempt, cancel := context.WithTimeout(ctx, 900*time.Millisecond)
 	defer cancel()
@@ -116,6 +122,9 @@ func (r *Runtime) Publish(ctx context.Context, summary logs.Summary, ended bool)
 	committed := time.Now()
 	if err != nil {
 		return err
+	}
+	if !ended {
+		r.lastWindow = summary.WindowEnd
 	}
 	var events []watch.Event
 	err = r.app.Store.View(ctx, func(tx *store.Tx) error {
@@ -153,6 +162,9 @@ func (r *Runtime) Metrics(ctx context.Context) (RuntimeMetrics, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	m := r.metrics
+	m.Events = maps.Clone(m.Events)
+	m.FiringCommitted = slices.Clone(m.FiringCommitted)
+	m.FiringDelivered = slices.Clone(m.FiringDelivered)
 	m.Usage, m.PollingHealthy = usage, poll.LastError == "" && time.Since(poll.LastInputAt) < 3*time.Second
 	return m, nil
 }
