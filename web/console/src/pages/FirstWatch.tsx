@@ -5,6 +5,7 @@ import { api, APIError } from "../api/client";
 import type { ControlFirstWatchPreview } from "../api/contracts";
 import { Heading, ErrorBox } from "../components/common";
 import { NotificationSetup } from "../components/NotificationSetup";
+import { Demo } from "../components/Demo";
 
 export function FirstWatch() {
   const [id, setID] = useState("first-watch");
@@ -48,7 +49,7 @@ export function FirstWatch() {
 
   return <>
     <Heading eyebrow="Runs on this computer" title="Your first useful watch"
-      description="Monitor a service you care about. No account, credit card, or AI connection needed." />
+      description="Monitor a service you care about. No account, credit card, or AI connection needed."><Demo /></Heading>
     <section className="panel">
       <form className="onboarding-form" onSubmit={review}>
         <fieldset disabled={busy || uncertain}>
