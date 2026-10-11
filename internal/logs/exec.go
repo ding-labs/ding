@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sync"
 	"time"
 )
 
@@ -25,14 +26,21 @@ type ExecResult struct {
 }
 
 type forwarding struct {
-	out   io.Writer
-	frame *Framer
+	out    io.Writer
+	frame  *Framer
+	failed func(error)
 }
 
 func (f forwarding) Write(p []byte) (int, error) {
 	n, err := f.out.Write(p)
+	if err == nil && n != len(p) {
+		err = io.ErrShortWrite
+	}
 	// Analyze exactly the bytes that reached the original destination.
 	f.frame.Write(p[:n])
+	if err != nil {
+		f.failed(err)
+	}
 	return n, err
 }
 
@@ -56,7 +64,10 @@ func (c *Collector) Exec(ctx context.Context, opts ExecOptions) ExecResult {
 	if opts.Stderr == nil {
 		opts.Stderr = io.Discard
 	}
-	cmd.Stdout, cmd.Stderr = forwarding{opts.Stdout, a}, forwarding{opts.Stderr, b}
+	var captureError error
+	var failedOnce sync.Once
+	failed := func(err error) { c.Gap(); failedOnce.Do(func() { captureError = err }) }
+	cmd.Stdout, cmd.Stderr = forwarding{opts.Stdout, a, failed}, forwarding{opts.Stderr, b, failed}
 	cmd.WaitDelay = 2 * time.Second
 	setupCapture(cmd)
 	if err := cmd.Start(); err != nil {
@@ -89,6 +100,7 @@ func (c *Collector) Exec(ctx context.Context, opts ExecOptions) ExecResult {
 			if errors.As(err, &exit) {
 				err = nil // A nonzero child status is a result, not a capture failure.
 			}
+			err = errors.Join(err, captureError)
 			if err != nil {
 				c.Gap()
 			}
