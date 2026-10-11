@@ -30,10 +30,15 @@ func (a *App) runLogReader(ctx context.Context, r store.WatchRecord) {
 	readerCtx, stop := context.WithCancel(ctx)
 	defer stop()
 	sequence := int64(0)
+	var lastWindow time.Time
 	var file *logs.FileFollower
 	publish := func(failure string) error {
+		summary := c.Snapshot()
+		if failure == "" && summary.WindowEnd.Equal(lastWindow) {
+			return nil
+		}
 		sequence++
-		s := LogSnapshot{Session: session.ID, Sequence: sequence, Summary: c.Snapshot(), Ended: failure != "", Failure: failure}
+		s := LogSnapshot{Session: session.ID, Sequence: sequence, Summary: summary, Ended: failure != "", Failure: failure}
 		if file != nil {
 			pos := file.Position()
 			s.Position = &pos
@@ -41,6 +46,9 @@ func (a *App) runLogReader(ctx context.Context, r store.WatchRecord) {
 		attempt, cancel := context.WithTimeout(ctx, 900*time.Millisecond)
 		defer cancel()
 		_, err := a.AcceptLogSnapshot(attempt, id, s)
+		if err == nil && failure == "" {
+			lastWindow = summary.WindowEnd
+		}
 		return err
 	}
 	if runtime.GOOS == "windows" {

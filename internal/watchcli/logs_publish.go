@@ -21,16 +21,29 @@ func publishLogs(parent context.Context, client control.Client, id string, colle
 	done := make(chan struct{})
 	epoch := rand.Text()
 	sequence := 0
+	var lastWindow time.Time
 	connected := true
 	permanent := false
 	path := "/v1/ingest/" + url.PathEscape(id)
 	send := func(ctx context.Context, summary logs.Summary, ended bool, exitCode *int) error {
+		if session != nil && !ended {
+			if summary.WindowEnd.Equal(lastWindow) {
+				return nil
+			}
+			if summary.WindowEnd.Before(lastWindow) {
+				return fmt.Errorf("log collection clock moved backwards")
+			}
+		}
 		sequence++
 		attempt, stop := context.WithTimeout(ctx, 900*time.Millisecond)
 		defer stop()
 		if session != nil {
 			input := watchrun.LogSnapshot{Session: session.ID, Sequence: int64(sequence), Summary: summary, Ended: ended, ExitCode: exitCode}
-			return client.Produce(attempt, "/v1/logs/"+url.PathEscape(id)+"/summary", fmt.Sprintf("logs:%s:%d", session.ID, sequence), input)
+			err := client.Produce(attempt, "/v1/logs/"+url.PathEscape(id)+"/summary", fmt.Sprintf("logs:%s:%d", session.ID, sequence), input)
+			if err == nil && !ended {
+				lastWindow = summary.WindowEnd
+			}
+			return err
 		}
 		data, _ := json.Marshal(summary)
 		var fields map[string]any
@@ -78,6 +91,7 @@ func publishLogs(parent context.Context, client control.Client, id string, colle
 						continue
 					}
 					session, sequence, connected = &next, 0, true
+					lastWindow = time.Time{}
 					collector.Reset()
 					previous = at
 					fmt.Fprintln(diagnostics, "ding: log monitoring reconnected; rebuilding the live window")
