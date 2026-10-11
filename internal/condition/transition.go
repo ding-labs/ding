@@ -19,6 +19,7 @@ type Sample struct {
 	Sequence int64     `json:"sequence"`
 }
 type State struct {
+	WaitingReason    string    `json:"waitingReason,omitempty"`
 	BaselineSequence int64     `json:"baselineSequence,omitempty"`
 	IncidentEvent    string    `json:"incidentEvent,omitempty"`
 	HealthEvent      string    `json:"healthEvent,omitempty"`
@@ -100,6 +101,7 @@ func New(def watch.Definition, revision string) (*Evaluator, error) {
 // returned state becomes authoritative only after the caller's durable commit.
 func (e *Evaluator) Evaluate(previous State, o watch.Observation, now time.Time) (Transition, error) {
 	state := previous
+	state.WaitingReason = ""
 	state.Samples = append([]Sample(nil), previous.Samples...)
 	state.Evidence = append([]int64(nil), previous.Evidence...)
 	if previous.Seen != nil {
@@ -260,6 +262,22 @@ func (e *Evaluator) Evaluate(previous State, o watch.Observation, now time.Time)
 		state.LastSequence = o.Sequence
 		result.State = state
 		result.Reason = "unchanged"
+		return result, nil
+	}
+	if o.Health == "waiting" && e.definition.Spec.Condition.MissingFor == "" {
+		state.Matches, state.Recoveries = 0, 0
+		state.Evidence = nil
+		state.WaitingReason = o.DetailOrDefault()
+		state.LastAt, state.LastSequence = now, o.Sequence
+		// A connected, healthy collector can recover its source while still
+		// lacking enough records to decide the application's condition.
+		if state.SourceUnhealthy && o.Detail != "collection_ended" {
+			if err := emit("source_recovered", "source_recovered"); err != nil {
+				return result, err
+			}
+			state.SourceUnhealthy, state.HealthEvent = false, ""
+		}
+		result.State, result.Reason = state, state.WaitingReason
 		return result, nil
 	}
 	if o.Health != "ok" && !(e.definition.Spec.Condition.MissingFor != "" && (o.Health == "timer" || o.Health == "unchanged")) {
