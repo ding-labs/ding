@@ -184,7 +184,7 @@ small {
   gap: 6px;
 }
 .theme-select select {
-  background: transparent;
+  background: var(--panel);
   border: 0;
   max-width: 90px;
   font-size: 12px;
@@ -1835,4 +1835,15 @@ a:hover {
 }
 .brand strong {
   font: inherit;
+}
+
+@media (max-width: 768px) {
+  .location-bar > .shared-toolbar {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+  .shared-toolbar > span {
+    overflow-wrap: anywhere;
+    max-width: 100%;
+  }
 }

@@ -197,7 +197,7 @@ export function App() {
             <div>
               Console <span>/</span> {current?.label || "Watches"}
             </div>
-            <div className="toolbar">
+            <div className={execution.mode === "local" ? "toolbar" : "toolbar shared-toolbar"}>
               {execution.mode !== "local" && <>
                 <span>{execution.user?.name} · {execution.role}</span>
                 <select aria-label="Workspace" value={execution.workspace || ""} onChange={async e => {
