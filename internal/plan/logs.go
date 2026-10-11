@@ -2,6 +2,8 @@ package plan
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/ding-labs/ding/internal/logs"
@@ -16,8 +18,8 @@ func compileLogs(s *watch.Source) error {
 	if c.Input.Type == "" {
 		c.Input.Type = "external"
 	}
-	if c.Input.Type != "external" {
-		return fmt.Errorf("unsupported log input type")
+	if err := compileLogInput(&c.Input); err != nil {
+		return err
 	}
 	if c.Format == "" {
 		c.Format = "auto"
@@ -54,5 +56,52 @@ func compileLogs(s *watch.Source) error {
 		return err
 	}
 	c.Window = window.String()
+	return nil
+}
+
+func compileLogInput(i *watch.LogInput) error {
+	switch i.Type {
+	case "external":
+		if i.Path != "" || i.Start != "" || len(i.Argv) > 0 || i.Directory != "" || len(i.Env) > 0 || i.ReconnectEvery != "" {
+			return fmt.Errorf("external logs do not accept file or command settings")
+		}
+	case "file":
+		if !filepath.IsAbs(i.Path) || strings.ContainsRune(i.Path, 0) || len(i.Argv) > 0 || i.Directory != "" || len(i.Env) > 0 || i.ReconnectEvery != "" {
+			return fmt.Errorf("file logs require an absolute path without command settings")
+		}
+		if i.Start == "" {
+			i.Start = "end"
+		}
+		if i.Start != "end" {
+			return fmt.Errorf("file logs support only live collection from end")
+		}
+	case "command":
+		if i.Path != "" || i.Start != "" || len(i.Argv) == 0 || len(i.Argv) > 100 || i.Argv[0] == "" || !filepath.IsAbs(i.Directory) {
+			return fmt.Errorf("log reader requires explicit argv and absolute directory without file settings")
+		}
+		for _, arg := range i.Argv {
+			if len(arg) > 8192 || strings.ContainsRune(arg, 0) {
+				return fmt.Errorf("invalid log reader argument")
+			}
+		}
+		if err := refs(i.Env); err != nil {
+			return err
+		}
+		for name := range i.Env {
+			if !envName.MatchString(name) {
+				return fmt.Errorf("invalid log reader environment name")
+			}
+		}
+		if i.ReconnectEvery == "" {
+			i.ReconnectEvery = "5s"
+		}
+		d, err := time.ParseDuration(i.ReconnectEvery)
+		if err != nil || d < 5*time.Second || d > 5*time.Minute {
+			return fmt.Errorf("log reader reconnectEvery must be between 5s and 5m")
+		}
+		i.ReconnectEvery = d.String()
+	default:
+		return fmt.Errorf("unsupported log input type")
+	}
 	return nil
 }

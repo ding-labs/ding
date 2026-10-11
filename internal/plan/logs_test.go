@@ -28,6 +28,10 @@ func TestLogSourceContract(t *testing.T) {
 		`source: {type: logs, logs: {format: xml}}`,
 		`source: {type: logs, logs: {window: 500ms}}`,
 		`source: {type: logs, logs: {minCoverage: 2}}`,
+		`source: {type: logs, logs: {input: {type: external, path: /tmp/app.log}}}`,
+		`source: {type: logs, logs: {input: {type: file, path: relative.log}}}`,
+		`source: {type: logs, logs: {input: {type: file, path: /tmp/app.log, start: beginning}}}`,
+		`source: {type: logs, logs: {input: {type: command, argv: [tail], directory: /tmp, reconnectEvery: 1ms}}}`,
 	} {
 		bad := strings.Replace(logManifest, `source: {type: logs, logs: {input: {type: external}}}`, replacement, 1)
 		if _, err := Parse([]byte(bad)); err == nil {

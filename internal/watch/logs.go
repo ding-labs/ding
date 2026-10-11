@@ -15,5 +15,11 @@ type LogSource struct {
 }
 
 type LogInput struct {
-	Type string `json:"type" yaml:"type"`
+	Type           string               `json:"type" yaml:"type"`
+	Path           string               `json:"path,omitempty" yaml:"path,omitempty"`
+	Start          string               `json:"start,omitempty" yaml:"start,omitempty"`
+	Argv           []string             `json:"argv,omitempty" yaml:"argv,omitempty"`
+	Directory      string               `json:"directory,omitempty" yaml:"directory,omitempty"`
+	Env            map[string]SecretRef `json:"env,omitempty" yaml:"env,omitempty"`
+	ReconnectEvery string               `json:"reconnectEvery,omitempty" yaml:"reconnectEvery,omitempty"`
 }

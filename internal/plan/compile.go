@@ -469,7 +469,16 @@ func Compile(d watch.Definition) (Compiled, error) {
 	if err != nil {
 		return Compiled{}, err
 	}
-	return Compiled{d, rev, fingerprint, ExecutionPermissions(d.Spec.Source.Type)}, nil
+	permissions := ExecutionPermissions(d.Spec.Source.Type)
+	if s.Type == "logs" {
+		switch s.Logs.Input.Type {
+		case "file":
+			permissions = []string{"local-file-read (trusted configuration): " + s.Logs.Input.Path}
+		case "command":
+			permissions = []string{"local-log-reader (trusted configuration; not sandboxed)"}
+		}
+	}
+	return Compiled{d, rev, fingerprint, permissions}, nil
 }
 func ValidEventType(s string) bool {
 	switch s {

@@ -178,6 +178,30 @@
     "LogInput": {
       "additionalProperties": false,
       "properties": {
+        "argv": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "directory": {
+          "type": "string"
+        },
+        "env": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SecretRef"
+          },
+          "type": "object"
+        },
+        "path": {
+          "type": "string"
+        },
+        "reconnectEvery": {
+          "type": "string"
+        },
+        "start": {
+          "type": "string"
+        },
         "type": {
           "type": "string"
         }
