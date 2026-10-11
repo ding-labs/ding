@@ -196,6 +196,7 @@ func (a *App) Run(ctx context.Context) error {
 			a.note(err)
 			return
 		}
+		a.expireLogSessions(ctx, records, now)
 		activeMu.Lock()
 		known := map[string]bool{}
 		for _, record := range records {

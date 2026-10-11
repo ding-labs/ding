@@ -3,6 +3,7 @@ package watchrun
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,6 +24,7 @@ import (
 )
 
 type App struct {
+	logEpoch                            string
 	SchedulingJitter                    time.Duration
 	Store                               *store.Store
 	HTTP                                source.HTTP
@@ -45,7 +47,7 @@ type App struct {
 }
 
 func New(s *store.Store) *App {
-	return &App{Store: s, HTTP: source.HTTP{Client: &http.Client{}, Lookup: os.LookupEnv}, Lookup: os.LookupEnv, Now: func() time.Time { return time.Now().UTC() }, Output: os.Stdout, AcquisitionWorkers: 32, DeliveryWorkers: 8, Limits: DefaultLimits(), cancels: map[string]acquisition{}}
+	return &App{logEpoch: rand.Text(), Store: s, HTTP: source.HTTP{Client: &http.Client{}, Lookup: os.LookupEnv}, Lookup: os.LookupEnv, Now: func() time.Time { return time.Now().UTC() }, Output: os.Stdout, AcquisitionWorkers: 32, DeliveryWorkers: 8, Limits: DefaultLimits(), cancels: map[string]acquisition{}}
 }
 
 type Change struct {
