@@ -8,7 +8,5 @@ import (
 var version = "dev"
 
 func main() {
-	if watchcli.Execute(version, os.Args[1:], os.Stdout, os.Stderr) != nil {
-		os.Exit(1)
-	}
+	os.Exit(watchcli.ExitCode(watchcli.Execute(version, os.Args[1:], os.Stdout, os.Stderr)))
 }

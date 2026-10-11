@@ -81,6 +81,10 @@ func Execute(version string, args []string, stdout, stderr io.Writer) error {
 	if errors.As(err, &reported) {
 		return err
 	}
+	var status *ExitStatus
+	if errors.As(err, &status) {
+		return err
+	}
 	structured := false
 	for _, arg := range args {
 		if arg == "--" {
