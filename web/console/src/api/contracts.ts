@@ -499,6 +499,7 @@ export interface WatchLogSource {
   format?: string;
   levelField?: string;
   patterns?: Record<string, string>;
+  levelMap?: Record<string, string>;
   textProfile?: string;
   framing?: string;
   multiline?: WatchLogMultiline | null;

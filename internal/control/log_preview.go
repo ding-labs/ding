@@ -35,7 +35,7 @@ func logPreviewRoute(mux *http.ServeMux) {
 			fail(w, 400, "invalid_preview", "provide a log sample of at most 64 KiB")
 			return
 		}
-		p, err := logs.NewParser(logs.ParserConfig{Format: input.Config.Format, LevelField: input.Config.LevelField, Patterns: input.Config.Patterns})
+		p, err := logs.NewParser(logs.ParserConfig{Format: input.Config.Format, LevelField: input.Config.LevelField, Patterns: input.Config.Patterns, LevelMap: input.Config.LevelMap})
 		if err != nil {
 			fail(w, 400, "invalid_parser", err.Error())
 			return

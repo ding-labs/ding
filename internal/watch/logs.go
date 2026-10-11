@@ -6,6 +6,7 @@ type LogSource struct {
 	Format      string            `json:"format,omitempty" yaml:"format,omitempty"`
 	LevelField  string            `json:"levelField,omitempty" yaml:"levelField,omitempty"`
 	Patterns    map[string]string `json:"patterns,omitempty" yaml:"patterns,omitempty"`
+	LevelMap    map[string]string `json:"levelMap,omitempty" yaml:"levelMap,omitempty"`
 	TextProfile string            `json:"textProfile,omitempty" yaml:"textProfile,omitempty"`
 	Framing     string            `json:"framing,omitempty" yaml:"framing,omitempty"`
 	Multiline   *LogMultiline     `json:"multiline,omitempty" yaml:"multiline,omitempty"`

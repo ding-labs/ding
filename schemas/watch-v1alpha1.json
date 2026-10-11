@@ -244,6 +244,12 @@
         "levelField": {
           "type": "string"
         },
+        "levelMap": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
         "minCoverage": {
           "type": "number"
         },

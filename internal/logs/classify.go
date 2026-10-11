@@ -26,6 +26,7 @@ type ParserConfig struct {
 	Format     string            `json:"format,omitempty" yaml:"format,omitempty"`
 	LevelField string            `json:"levelField,omitempty" yaml:"levelField,omitempty"`
 	Patterns   map[string]string `json:"patterns,omitempty" yaml:"patterns,omitempty"`
+	LevelMap   map[string]string `json:"levelMap,omitempty" yaml:"levelMap,omitempty"`
 }
 
 type Classification struct {
@@ -58,10 +59,15 @@ func NewParser(c ParserConfig) (*Parser, error) {
 	if c.LevelField == "" {
 		c.LevelField = "level"
 	}
-	if len(c.LevelField) > 256 || len(c.Patterns) > 16 {
+	if len(c.LevelField) > 256 || len(c.Patterns) > 16 || len(c.LevelMap) > 32 {
 		return nil, fmt.Errorf("log parser exceeds configuration limits")
 	}
 	p := &Parser{config: c}
+	for label, mapped := range c.LevelMap {
+		if len(label) == 0 || len(label) > 64 || severity(mapped) == Unclassified {
+			return nil, fmt.Errorf("levelMap requires bounded labels mapped to known severities")
+		}
+	}
 	for key := range c.Patterns {
 		if severity(key) == Unclassified {
 			return nil, fmt.Errorf("unknown severity in log pattern")
@@ -130,7 +136,17 @@ func (p *Parser) Classify(raw []byte) Classification {
 				}
 				value = object[key]
 			}
-			if label, ok := value.(string); ok {
+			var label string
+			switch v := value.(type) {
+			case string:
+				label = v
+			case float64:
+				label = fmt.Sprint(v)
+			}
+			if mapped, ok := p.config.LevelMap[label]; ok {
+				label = mapped
+			}
+			if label != "" {
 				if level := severity(label); level != Unclassified {
 					return Classification{Level: level}
 				}

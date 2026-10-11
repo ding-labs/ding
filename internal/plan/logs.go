@@ -70,7 +70,7 @@ func compileLogs(s *watch.Source) error {
 	if _, err := logs.NewConfiguredFramer(framing, func([]byte, bool) {}); err != nil {
 		return err
 	}
-	if _, err := logs.NewParser(logs.ParserConfig{Format: c.Format, LevelField: c.LevelField, Patterns: c.Patterns}); err != nil {
+	if _, err := logs.NewParser(logs.ParserConfig{Format: c.Format, LevelField: c.LevelField, Patterns: c.Patterns, LevelMap: c.LevelMap}); err != nil {
 		return err
 	}
 	window, err := time.ParseDuration(c.Window)

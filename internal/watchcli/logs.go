@@ -51,6 +51,7 @@ func logsCommand() *cobra.Command {
 		cmd.Flags().StringVar(&parser.Format, "format", "auto", "auto, text, or jsonl")
 		cmd.Flags().StringVar(&parser.LevelField, "level-field", "level", "JSON severity field, with optional dotted path")
 		cmd.Flags().StringToStringVar(&parser.Patterns, "patterns", nil, "explicit severity-to-regex rules")
+		cmd.Flags().StringToStringVar(&parser.LevelMap, "level-map", nil, "explicit JSON severity aliases, including numeric labels")
 		cmd.Flags().DurationVar(&window.Window, "window", time.Minute, "whole-second counting window (at most one hour)")
 		cmd.Flags().IntVar(&window.MinEvents, "min-events", 100, "minimum records required before evaluating a ratio")
 		cmd.Flags().Float64Var(&window.MinCoverage, "min-coverage", 0, "required recognized severity fraction (0–1)")
@@ -80,7 +81,7 @@ func logsCommand() *cobra.Command {
 			var session *watchrun.LogSession
 			framing := logs.FrameConfig{}
 			if preflight.Source == "logs" {
-				for _, flag := range []string{"format", "level-field", "patterns", "window", "min-events", "min-coverage"} {
+				for _, flag := range []string{"format", "level-field", "patterns", "level-map", "window", "min-events", "min-coverage"} {
 					if cmd.Flags().Changed(flag) {
 						return fmt.Errorf("configure --%s in the native log watch manifest", flag)
 					}
@@ -95,7 +96,7 @@ func logsCommand() *cobra.Command {
 				}
 				config := session.Config
 				framing = watchrun.LogFraming(config)
-				parser = logs.ParserConfig{Format: config.Format, LevelField: config.LevelField, Patterns: config.Patterns}
+				parser = logs.ParserConfig{Format: config.Format, LevelField: config.LevelField, Patterns: config.Patterns, LevelMap: config.LevelMap}
 				duration, _ := time.ParseDuration(config.Window)
 				window = logs.WindowConfig{Window: duration, MinEvents: config.MinEvents, MinCoverage: config.MinCoverage}
 			}
