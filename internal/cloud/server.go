@@ -161,7 +161,14 @@ func (s *Server) Handler() (http.Handler, error) {
 		}
 		session, err := s.authenticate(r)
 		if err != nil {
-			cloudFail(w, 401, "sign_in_required", "Sign in to Ding Cloud. Local watches continue independently.")
+			cloudFail(w, 401, "sign_in_required", "Sign in to this Ding instance.")
+			return
+		}
+		if r.URL.Path == "/v1/browser/session" && r.Method == "DELETE" {
+			s.browserSession(w, r, session)
+			return
+		}
+		if s.userAPI(w, r, session) {
 			return
 		}
 		if workspace := r.Header.Get("X-Ding-Workspace"); workspace != "" {
@@ -172,6 +179,13 @@ func (s *Server) Handler() (http.Handler, error) {
 			session.Workspace = workspace
 		}
 		principal, err := s.DB.Principal(r.Context(), session.User, session.Workspace, session.Kind, session.Scopes)
+		if err != nil && session.Kind == "browser" && r.URL.Path == "/v1/browser/session" && r.Method == "GET" && r.Header.Get("X-Ding-Workspace") == "" {
+			memberships, e := s.DB.Memberships(r.Context(), session.User)
+			if e == nil && len(memberships) > 0 {
+				session.Workspace = memberships[0].Workspace
+				principal, err = s.DB.Principal(r.Context(), session.User, session.Workspace, session.Kind, session.Scopes)
+			}
+		}
 		if err != nil {
 			cloudFail(w, 403, "permission_denied", "Workspace access is unavailable.")
 			return

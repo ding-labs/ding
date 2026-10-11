@@ -63,3 +63,22 @@ func TestBuiltInLoginUsesCloudSessionAndRoleBoundary(t *testing.T) {
 		t.Fatal("deleted user session survived", w.Code)
 	}
 }
+
+func TestBrowserIdentitySurvivesLosingDefaultWorkspace(t *testing.T) {
+	s, h, sessions := testCloudServer(t)
+	ctx := context.Background()
+	owner, _ := s.DB.Principal(ctx, sessions[1].User, sessions[1].Workspace, "browser", nil)
+	if err := s.DB.ChangeMember(ctx, owner, sessions[0].User, access.Viewer); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DB.BeginWorkspaceDelete(ctx, sessions[0].Workspace); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DB.FinishWorkspaceDelete(ctx, sessions[0].Workspace); err != nil {
+		t.Fatal(err)
+	}
+	w := cloudRequest(h, "GET", "/v1/browser/session", "", sessions[0], false)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), sessions[1].Workspace) || !strings.Contains(w.Body.String(), `"role":"viewer"`) {
+		t.Fatal(w.Code, w.Body.String())
+	}
+}

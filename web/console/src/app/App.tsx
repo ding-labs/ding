@@ -68,11 +68,14 @@ export function App() {
     sessionAttempt ??= discoverAuth().then(config => { setAuth(config); setExecution(current => ({ ...current, mode: config.execution })); return connect(); });
     sessionAttempt
       .then((details) => {
+        const back = new URLSearchParams(window.location.search).get("return");
+        if (back && /^\/connect\/[a-f0-9]{64}$/.test(back)) { window.location.assign(back); return; }
         const next = `${window.location.origin}:${details.user?.id || "personal"}:${details.workspace || ""}`;
         if (workspace.current !== next) { client.clear(); resetDraft(); }
         workspace.current = next;
         setPreferenceWorkspace(next);
         setExecution({ mode: details.execution === "cloud" ? "cloud" : details.execution === "shared" ? "shared" : "local", workspace: details.workspace, user: details.user, role: details.role, capabilities: details.capabilities });
+        selectWorkspace(details.workspace || "");
         setMemberships(details.memberships);
         setTheme(preference("ding.theme", "system")); setDensity(preference("ding.density", "comfortable")); setTimeMode(preference("ding.time", "local"));
         setSession("ready");

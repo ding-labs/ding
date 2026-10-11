@@ -75,7 +75,7 @@ func (d *DB) Session(ctx context.Context, token string, now time.Time) (Session,
 		return s, fmt.Errorf("invalid session")
 	}
 	var raw string
-	err := d.sql.QueryRowContext(ctx, "SELECT user,workspace,scopes,kind,csrf,expires_at FROM sessions WHERE hash=? AND expires_at>? AND user IN (SELECT id FROM users WHERE disabled=0) AND workspace IN (SELECT id FROM workspaces WHERE deleting=0)", TokenHash(token), now.Unix()).Scan(&s.User, &s.Workspace, &raw, &s.Kind, &s.csrfHash, &expiry)
+	err := d.sql.QueryRowContext(ctx, "SELECT user,workspace,scopes,kind,csrf,expires_at FROM sessions WHERE hash=? AND expires_at>? AND user IN (SELECT id FROM users WHERE disabled=0) AND ((kind='browser' AND EXISTS(SELECT 1 FROM memberships m JOIN workspaces w ON w.id=m.workspace WHERE m.user=sessions.user AND w.deleting=0)) OR (kind!='browser' AND workspace IN (SELECT id FROM workspaces WHERE deleting=0)))", TokenHash(token), now.Unix()).Scan(&s.User, &s.Workspace, &raw, &s.Kind, &s.csrfHash, &expiry)
 	if err == nil {
 		err = json.Unmarshal([]byte(raw), &s.Scopes)
 	}
