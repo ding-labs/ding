@@ -234,6 +234,12 @@ func ConsoleHandler(app *watchrun.App, c Credentials, cfg ConsoleConfig) http.Ha
 			return
 		}
 		if bearer(r, c.Admin) {
+			var err error
+			r, err = personalRequest(r, app)
+			if err != nil {
+				fail(w, 503, "store_unavailable", "Workspace unavailable.")
+				return
+			}
 			api.ServeHTTP(w, r)
 			return
 		}
@@ -279,6 +285,11 @@ func ConsoleHandler(app *watchrun.App, c Credentials, cfg ConsoleConfig) http.Ha
 		}
 		if r.URL.Path == "/v1/browser/handoff" {
 			fail(w, 403, "bearer_required", "launch Ding Console with ding ui")
+			return
+		}
+		r, err = personalRequest(r, app)
+		if err != nil {
+			fail(w, 503, "store_unavailable", "Workspace unavailable.")
 			return
 		}
 		forwarded := r.Clone(context.WithValue(r.Context(), browserOwnerKey{}, cookie.Value))

@@ -167,6 +167,14 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 				return
 			}
 		}
+		if r.URL.Path != "/health" {
+			var err error
+			r, err = personalRequest(r, app)
+			if err != nil {
+				fail(w, 503, "store_unavailable", "Workspace unavailable.")
+				return
+			}
+		}
 		mux.ServeHTTP(w, r)
 	})
 }
