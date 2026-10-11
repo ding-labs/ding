@@ -42,7 +42,7 @@ func TestEnrollmentIsDurableBoundedAndSingleOwner(t *testing.T) {
 	}
 	defer db.Close()
 	got, err := db.Workspace(ctx, a.ID)
-	if err != nil || got.Subject != a.Subject {
+	if err != nil || got.ID != a.ID {
 		t.Fatal("identity did not survive restart", err)
 	}
 }

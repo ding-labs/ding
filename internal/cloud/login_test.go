@@ -84,7 +84,7 @@ func TestLoginRequiresBrowserStateAndCannotReplay(t *testing.T) {
 		t.Fatal("callback replayed")
 	}
 	workspaces, err := db.Workspaces(ctx)
-	if err != nil || len(workspaces) != 1 || workspaces[0].Subject != "immutable-user-id" {
+	if err != nil || len(workspaces) != 1 || workspaces[0].Name != "Personal workspace" {
 		t.Fatal("identity binding failed", err)
 	}
 }

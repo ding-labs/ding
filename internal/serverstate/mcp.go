@@ -7,10 +7,6 @@ import (
 	"github.com/ding-labs/ding/internal/mcpconfig"
 )
 
-func (d *DB) IdentityWorkspace(ctx context.Context, issuer, subject string) (Workspace, error) {
-	return scanAccount(d.sql.QueryRowContext(ctx, "SELECT id,issuer,subject,created_at FROM workspaces WHERE issuer=? AND subject=? AND deleting=0", issuer, subject))
-}
-
 // MCP connections are separate from source credentials and never appear in the
 // secret-name inventory. Both tenant and signed OAuth client ID bind the cipher.
 func (v *Vault) BindMCP(ctx context.Context, workspace, client string, c mcpconfig.Connection) error {
