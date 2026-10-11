@@ -12,11 +12,13 @@ export class APIError extends Error {
 }
 let csrf = "";
 let workspace = "";
+let expectedUser = "";
+export function selectIdentity(user: string) { expectedUser = user; }
 let generation = 0;
 export function selectWorkspace(value: string) { workspace = value; generation++; }
-export function forgetSession() { csrf = ""; selectWorkspace(""); }
+export function forgetSession() { csrf = ""; expectedUser = ""; selectWorkspace(""); }
 function current(requestGeneration: number) { if (requestGeneration !== generation) throw new DOMException("Session changed", "AbortError"); }
-function headers() { return { "Content-Type": "application/json", ...(csrf ? { "X-Ding-CSRF": csrf } : {}), ...(workspace ? { "X-Ding-Workspace": workspace } : {}) }; }
+function headers() { return { "Content-Type": "application/json", ...(csrf ? { "X-Ding-CSRF": csrf } : {}), ...(workspace ? { "X-Ding-Workspace": workspace } : {}), ...(expectedUser ? { "X-Ding-Session-User": expectedUser } : {}) }; }
 
 // Consume bounded NDJSON progress from a request-scoped operation. Aborting the
 // request stops its temporary runtime on the daemon as well.

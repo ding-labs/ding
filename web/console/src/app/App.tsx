@@ -19,7 +19,7 @@ import {
   SquareTerminal,
 } from "lucide-react";
 import { useConnection } from "../api/connection";
-import { api, connect, logout, selectWorkspace, forgetSession } from "../api/client";
+import { api, connect, logout, selectWorkspace, selectIdentity, forgetSession } from "../api/client";
 import type { ControlInfo, ControlBrowserSession } from "../api/contracts";
 
 import { preference, savePreference, setPreferenceWorkspace } from "./preferences";
@@ -76,6 +76,7 @@ export function App() {
         workspace.current = next;
         setPreferenceWorkspace(next);
         setExecution({ mode: details.execution === "cloud" ? "cloud" : details.execution === "shared" ? "shared" : "local", workspace: details.workspace, user: details.user, role: details.role, capabilities: details.capabilities });
+        selectIdentity(details.user?.id || "");
         selectWorkspace(details.workspace || "");
         setMemberships(details.memberships);
         setTheme(preference("ding.theme", "system")); setDensity(preference("ding.density", "comfortable")); setTimeMode(preference("ding.time", "local"));

@@ -2,6 +2,7 @@ package cloud
 
 import (
 	"context"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -66,5 +67,17 @@ func TestDeviceWorkspaceAndScopesCannotBeOverridden(t *testing.T) {
 		if w.Code != test.want {
 			t.Errorf("%+v: %d %s", test, w.Code, w.Body.String())
 		}
+	}
+}
+
+func TestBrowserIdentityAssertionCannotFollowAnotherTabsLogin(t *testing.T) {
+	_, h, sessions := testCloudServer(t)
+	r := httptest.NewRequest("GET", "https://ding.example/v1/info", nil)
+	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: sessions[0].Token})
+	r.Header.Set("X-Ding-Session-User", sessions[1].User)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != 401 {
+		t.Fatal("stale tab accepted a different identity", w.Code)
 	}
 }

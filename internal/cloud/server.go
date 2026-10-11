@@ -167,6 +167,10 @@ func (s *Server) Handler() (http.Handler, error) {
 			cloudFail(w, 401, "sign_in_required", "Sign in to this Ding instance.")
 			return
 		}
+		if expected := r.Header.Get("X-Ding-Session-User"); expected != "" && expected != session.User {
+			cloudFail(w, 401, "identity_changed", "This browser signed into a different user. Reconnect to continue.")
+			return
+		}
 		if r.URL.Path == "/v1/browser/session" && r.Method == "DELETE" {
 			s.browserSession(w, r, session)
 			return
