@@ -3,6 +3,7 @@ package watchcli
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -31,7 +32,10 @@ func TestSharedServerBootstrapAndRecovery(t *testing.T) {
 	run := func(args ...string) error {
 		t.Helper()
 		var out bytes.Buffer
-		return Execute("test", append([]string{"server", "--config", config}, args...), &out, &out)
+		if err := Execute("test", append([]string{"server", "--config", config}, args...), &out, &out); err != nil {
+			return fmt.Errorf("%w: %s", err, out.String())
+		}
+		return nil
 	}
 	if err := run("run", "--check-config"); err != nil {
 		t.Fatal(err)
