@@ -79,7 +79,8 @@ previews, reviews, applies, inspects, and pauses an external log watch.
 `go test -race ./...`, `go vet ./...`, the example manifest validation, Console
 unit tests, TypeScript/production build, and JavaScript size budget passed.
 The current-channel documentation also passed its strict build.
-The new browser flow passed in Chromium and WebKit. The installed Firefox
+The full Chromium regression suite passed 23 tests, with two opt-in performance
+and visual tests skipped. The new browser flow also passed in WebKit. The installed Firefox
 headless binary failed before the test ran with `Could not find profile folder`,
 including with a different temporary directory; Firefox verification remains
 pending.
