@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ding-labs/ding/internal/access"
 	"github.com/ding-labs/ding/internal/condition"
 	"github.com/ding-labs/ding/internal/notify"
 	"github.com/ding-labs/ding/internal/plan"
@@ -31,6 +32,7 @@ type App struct {
 	Output                              io.Writer
 	Notify                              func(context.Context, notify.Message) error
 	ValidateBundle                      func(plan.Bundle) error // Optional execution policy; immutable after startup.
+	ApprovedCommands                    []string                // Exact revisions approved by the host operator.
 	AcquisitionWorkers, DeliveryWorkers int
 	PollInterval                        time.Duration // Zero preserves the local 100ms scheduler cadence.
 	mu                                  sync.Mutex
@@ -79,6 +81,13 @@ func (a *App) Apply(ctx context.Context, request ApplyRequest) (ApplyResult, err
 }
 
 func (a *App) apply(ctx context.Context, request ApplyRequest, mutation mutation) (ApplyResult, error) {
+	action := access.Manage
+	if request.DryRun {
+		action = access.Preview
+	}
+	if err := access.Require(ctx, action); err != nil {
+		return ApplyResult{}, err
+	}
 	if mutation == nil {
 		mutation = noMutation{}
 	}
@@ -101,6 +110,9 @@ func (a *App) apply(ctx context.Context, request ApplyRequest, mutation mutation
 	now := a.Now()
 	changed := map[string]int64{}
 	apply := func(tx *store.Tx) error {
+		if err := a.authorizeBundle(ctx, tx, bundle); err != nil {
+			return err
+		}
 		if done, err := mutation.begin(tx, &result, a.Now()); done || err != nil {
 			return err
 		}

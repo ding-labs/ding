@@ -4,6 +4,7 @@ package access
 
 import (
 	"context"
+	"errors"
 	"slices"
 )
 
@@ -61,7 +62,11 @@ func (p Principal) Allows(action Action) bool {
 		return false
 	}
 	if p.Kind == "device" || p.Kind == "integration" || p.Kind == "service" || p.Kind == "ingest" {
-		if !slices.Contains(p.Scopes, string(action)) {
+		scope := string(action)
+		if p.Kind == "integration" && action == Destinations {
+			scope = "manage"
+		}
+		if !slices.Contains(p.Scopes, scope) {
 			return false
 		}
 	}
@@ -78,6 +83,15 @@ func (p Principal) Allows(action Action) bool {
 		return p.Kind == "ingest" || p.Kind == "service"
 	}
 	return false
+}
+
+var ErrDenied = errors.New("workspace permission denied")
+
+func Require(ctx context.Context, action Action) error {
+	if p, ok := FromContext(ctx); ok && !p.Allows(action) {
+		return ErrDenied
+	}
+	return nil
 }
 
 func (p Principal) Capabilities() []string {

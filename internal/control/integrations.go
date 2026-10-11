@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/ding-labs/ding/internal/access"
 	"time"
 
 	"github.com/ding-labs/ding/internal/plan"
@@ -16,6 +18,8 @@ import (
 
 func integrationError(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, access.ErrDenied):
+		fail(w, 403, "permission_denied", err.Error())
 	case errors.Is(err, store.ErrIntegrationDenied):
 		fail(w, 403, "integration_denied", "grant expired, revoked, missing a required scope, or command/secret reference is not locally allowed")
 	case errors.Is(err, store.ErrIntegrationLimit):

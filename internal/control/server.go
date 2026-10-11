@@ -27,6 +27,10 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 			return
 		}
 		result, err := app.Apply(r.Context(), request)
+		if errors.Is(err, access.ErrDenied) {
+			fail(w, 403, "permission_denied", err.Error())
+			return
+		}
 		if errors.Is(err, watchrun.ErrQuota) {
 			fail(w, 429, "quota_exceeded", "resource quota exceeded")
 			return
@@ -83,6 +87,8 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 		}
 		record, err := app.Lifecycle(r.Context(), r.PathValue("id"), request)
 		switch {
+		case errors.Is(err, access.ErrDenied):
+			fail(w, 403, "permission_denied", err.Error())
 		case errors.Is(err, store.ErrNotFound):
 			fail(w, 404, "not_found", "watch not found")
 		case errors.Is(err, store.ErrConflict):

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/ding-labs/ding/internal/access"
 	"sort"
 	"strings"
 	"time"
@@ -125,6 +126,9 @@ func (a *App) Retry(ctx context.Context, id int64) error {
 }
 
 func (a *App) retry(ctx context.Context, id int64, mutation *integrationMutation) error {
+	if err := access.Require(ctx, access.Retry); err != nil {
+		return err
+	}
 	return a.Store.Update(ctx, func(tx *store.Tx) error {
 		result := map[string]any{"id": id, "status": "pending"}
 		if done, err := mutation.begin(tx, &result, a.Now()); done || err != nil {

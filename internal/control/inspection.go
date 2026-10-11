@@ -6,12 +6,15 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/ding-labs/ding/internal/access"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watchrun"
 )
 
 func inspectionError(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, access.ErrDenied):
+		fail(w, 403, "permission_denied", err.Error())
 	case errors.Is(err, store.ErrCursor):
 		fail(w, 400, "invalid_cursor", "cursor is invalid for this store or watch")
 	case errors.Is(err, store.ErrCursorExpired):
