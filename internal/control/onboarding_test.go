@@ -42,6 +42,15 @@ func TestFirstWatchPreviewRequiresAuthAndCannotReplaceExistingWatch(t *testing.T
 			t.Fatal(path, w.Code)
 		}
 	}
+	for method, path := range map[string]string{"GET": "/v1/desktop/status", "POST": "/v1/desktop/settings"} {
+		r := httptest.NewRequest(method, "http://localhost"+path, nil)
+		r.Header.Set("Authorization", "Bearer ingest")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != 401 {
+			t.Fatal(path, w.Code)
+		}
+	}
 	if calls != 0 {
 		t.Fatal("unauthorized notification")
 	}
@@ -65,5 +74,9 @@ func TestFirstWatchPreviewRequiresAuthAndCannotReplaceExistingWatch(t *testing.T
 	}
 	if w := call("/v1/desktop/test", "admin", struct{}{}); w.Code != 200 || calls != 1 {
 		t.Fatal(w.Code, calls)
+	}
+	a.Notify = func(context.Context, notify.Message) error { return notify.Failure{Code: "notification_helper_failed"} }
+	if w := call("/v1/desktop/test", "admin", struct{}{}); !bytes.Contains(w.Body.Bytes(), []byte(`"code":"notification_helper_failed"`)) {
+		t.Fatal("lost actionable notification error", w.Body.String())
 	}
 }
