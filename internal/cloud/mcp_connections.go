@@ -16,6 +16,10 @@ func (s *Server) modelConnections(w http.ResponseWriter, r *http.Request, t *Ten
 	// Serialize consent/revocation, including the two durable stores. A crash may
 	// leave an unusable orphan grant; it never creates a public implicit binding.
 	principal, _ := access.FromContext(r.Context())
+	if principal.Kind != "browser" {
+		cloudFail(w, 403, "browser_required", "Use your browser to approve or revoke model access.")
+		return
+	}
 	s.modelMu.Lock()
 	defer s.modelMu.Unlock()
 	if r.Method == "GET" {
@@ -81,6 +85,10 @@ func (s *Server) modelConnections(w http.ResponseWriter, r *http.Request, t *Ten
 	}
 	if (!s.Shared && len(input.Grant.CommandRevisions) != 0) || input.Grant.Days > 30 {
 		cloudFail(w, 400, "invalid_grant", "Cloud grants allow at most thirty days and no command revisions.")
+		return
+	}
+	if (len(input.Grant.SecretRefs) > 0 || len(input.Grant.CommandRevisions) > 0) && !principal.Allows(access.Credentials) {
+		cloudFail(w, 403, "resource_consent_denied", "Administrator permission is required to authorize credentials or commands.")
 		return
 	}
 	for _, revision := range input.Grant.CommandRevisions {

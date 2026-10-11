@@ -1,15 +1,18 @@
 import { useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useExecution } from "../app/execution";
+import { useExecution, useCapability } from "../app/execution";
 import { api, download } from "../api/client";
 import { ErrorBox, useRead } from "../components/common";
 
 type Model = { clientID: string; grant: { name: string; scopes: string[]; secretRefs: string[]; expiresAt: string; revoked: boolean } };
 export function CloudModels() {
+  const mayPreview = useCapability("preview");
+  const mayManage = useCapability("manage");
+  const mayUseCredentials = useCapability("credentials");
   const shared = useExecution().mode === "shared";
   const [pairing, setPairing] = useState<unknown>();
   const models = useRead<Model[]>("/cloud/models");
-  const credentials = useRead<{ names: string[] }>("/cloud/secrets");
+  const credentials = useRead<{ names: string[] }>("/cloud/secrets",false,mayUseCredentials);
   const query = useQueryClient();
   const [name, setName] = useState(""); const [clientID, setClientID] = useState("");
   const [manage, setManage] = useState(false); const [refs, setRefs] = useState<string[]>([]);
@@ -17,7 +20,7 @@ export function CloudModels() {
   async function connect(e: FormEvent) {
     e.preventDefault(); setBusy(true); setError(undefined);
     try {
-      const result = await api<{connection?: unknown}>("/cloud/models", { method: "POST", body: { local: shared, clientID, grant: { name, days: 7, scopes: manage ? ["inspect", "preview", "manage", "retry"] : ["inspect", "preview"], secretRefs: refs } } });
+      const result = await api<{connection?: unknown}>("/cloud/models", { method: "POST", body: { local: shared, clientID, grant: { name, days: 7, scopes: manage ? ["inspect", "preview", "manage", "retry"] : mayPreview ? ["inspect", "preview"] : ["inspect"], secretRefs: refs } } });
       setPairing(result.connection);
       setName(""); setClientID(""); setRefs([]); await query.invalidateQueries();
     } catch (e) { setError(e); } finally { setBusy(false); }
@@ -38,7 +41,7 @@ export function CloudModels() {
     <form onSubmit={connect} className="onboarding-form"><fieldset disabled={busy}>
       <label>Connection name<input required maxLength={100} value={name} onChange={e => setName(e.target.value)} /></label>
       {!shared && <label>Registered OAuth client ID<input required maxLength={512} value={clientID} onChange={e => setClientID(e.target.value)} /></label>}
-      <label><input type="checkbox" checked={manage} onChange={e => setManage(e.target.checked)} />Allow reviewed changes and watch management</label>
+      {mayManage && <label><input type="checkbox" checked={manage} onChange={e => setManage(e.target.checked)} />Allow reviewed changes and watch management</label>}
       <p>Allow these credential references in model-created definitions. The model never receives their values.</p>
       {credentials.data?.names.map(ref => <label key={ref}><input type="checkbox" checked={refs.includes(ref)} onChange={e => setRefs(e.target.checked ? [...refs, ref] : refs.filter(r => r !== ref))} />{ref}</label>)}
       <button className="button primary" type="submit">Approve model connection</button>

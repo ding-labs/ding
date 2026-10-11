@@ -54,6 +54,14 @@ func TestSharedAgentPairingRetainsGrantAndMembershipChecks(t *testing.T) {
 	if code := request("POST", "/v1/integrations/preview"); code != 403 {
 		t.Fatal("agent escaped downgrade", code)
 	}
+	w = cloudRequest(h, "POST", "/v1/cloud/models", `{"local":true,"grant":{"name":"Read only","days":1,"scopes":["inspect"]}}`, sessions[0], true)
+	if w.Code != 201 {
+		t.Fatal("viewer could not approve own read-only agent", w.Code, w.Body.String())
+	}
+	w = cloudRequest(h, "POST", "/v1/cloud/models", `{"local":true,"grant":{"name":"Escalation","days":1,"scopes":["inspect","manage"]}}`, sessions[0], true)
+	if w.Code != 403 {
+		t.Fatal("viewer delegated management", w.Code, w.Body.String())
+	}
 	if err := s.DB.UnbindMCP(ctx, sessions[0].User, sessions[0].Workspace, out.Data.ClientID); err != nil {
 		t.Fatal(err)
 	}

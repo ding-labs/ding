@@ -24,7 +24,7 @@ func TestSharedRoleChecksSurviveInternalAdminForwarding(t *testing.T) {
 	if w := cloudRequest(h, "GET", "/v1/watches", "", viewer, false); w.Code != 200 {
 		t.Fatal(w.Code, w.Body.String())
 	}
-	for _, path := range []string{"/v1/apply", "/v1/cloud/secrets", "/v1/cloud/models", "/v1/tools/test"} {
+	for _, path := range []string{"/v1/apply", "/v1/cloud/secrets", "/v1/tools/test"} {
 		if w := cloudRequest(h, "POST", path, "{}", viewer, true); w.Code != 403 {
 			t.Fatalf("%s: %d %s", path, w.Code, w.Body.String())
 		}

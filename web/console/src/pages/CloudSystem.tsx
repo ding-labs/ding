@@ -11,8 +11,8 @@ type Usage = { usage: { period: string; checks: number; deliveries: number; byte
 export function CloudSystem() {
   const cloud = useExecution().mode === "cloud";
   const credentials = useCapability("credentials");
-  const members = useCapability("members");
-  return <>{cloud && <HostedUsage />}{credentials && <Credentials />}{members && <CloudModels />}<CloudAccount /></>;
+
+  return <>{cloud && <HostedUsage />}{credentials && <Credentials />}<CloudModels /><CloudAccount /></>;
 }
 function Credentials() {
   const names = useRead<{ names: string[] }>("/cloud/secrets");
