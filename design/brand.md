@@ -40,11 +40,12 @@ current website illustration is explicitly a design preview, not a released
 console screenshot. Update `content/product.json` only after verifying the
 runtime artifacts and console minimum version.
 
-## Original-green design draft — October 9, 2026
+## Official brand review — October 10, 2026
 
 Review `draft/index.html` for light and dark captures of all three working surfaces.
 These captures use isolated console fixtures; they are not live operational data.
-The draft is based on main `dd4715e` and is not a production deployment.
+The captures show the 0.15.2 source with the official artwork. They are review
+fixtures, not evidence of a production deployment.
 
 | Role                | Color                 | Use                                                        |
 | ------------------- | --------------------- | ---------------------------------------------------------- |
