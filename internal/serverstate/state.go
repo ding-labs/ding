@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/ding-labs/ding/internal/install"
@@ -22,6 +23,10 @@ import (
 type DB struct {
 	sql    *sql.DB
 	unlock func() error
+	// Access serializes permission changes with admitted runtime operations.
+	// Request adapters hold RLock until the operation completes; administration
+	// methods take Lock before rechecking permissions in their transaction.
+	Access sync.RWMutex
 }
 type Workspace struct {
 	ID        string    `json:"id"`
@@ -153,6 +158,7 @@ CREATE TABLE users(id TEXT PRIMARY KEY,name TEXT NOT NULL,username TEXT UNIQUE,p
 CREATE TABLE identities(issuer TEXT NOT NULL,subject TEXT NOT NULL,user TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,PRIMARY KEY(issuer,subject));
 CREATE TABLE workspaces(id TEXT PRIMARY KEY,name TEXT NOT NULL,created_at INTEGER NOT NULL,deleting INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE memberships(user TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,workspace TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,role TEXT NOT NULL CHECK(role IN ('viewer','editor','administrator','owner')),PRIMARY KEY(user,workspace));
+CREATE TABLE audit(sequence INTEGER PRIMARY KEY AUTOINCREMENT,actor TEXT NOT NULL,workspace TEXT NOT NULL,action TEXT NOT NULL,target TEXT NOT NULL,at INTEGER NOT NULL);
 CREATE TABLE secrets(workspace TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,name TEXT NOT NULL,ciphertext BLOB NOT NULL,PRIMARY KEY(workspace,name));
 CREATE TABLE usage(workspace TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,period TEXT NOT NULL,checks INTEGER NOT NULL DEFAULT 0,deliveries INTEGER NOT NULL DEFAULT 0,bytes INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(workspace,period));
 CREATE TABLE reservations(id TEXT PRIMARY KEY,workspace TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,period TEXT NOT NULL,created_at INTEGER NOT NULL);
