@@ -37,7 +37,7 @@ func TestFirstWatchPreviewRequiresAuthAndCannotReplaceExistingWatch(t *testing.T
 		return w
 	}
 	payload := map[string]string{"id": "first", "url": "http://127.0.0.1:3000/health", "delivery": "desktop"}
-	for _, path := range []string{"/v1/onboarding/preview", "/v1/desktop/test"} {
+	for _, path := range []string{"/v1/onboarding/preview", "/v1/desktop/test", "/v1/demo"} {
 		if w := call(path, "ingest", payload); w.Code != 401 {
 			t.Fatal(path, w.Code)
 		}

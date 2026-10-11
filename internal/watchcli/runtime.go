@@ -96,6 +96,7 @@ func runtimeCommands(root *cobra.Command) {
 		config := control.ConsoleConfig{Version: root.Version, Origin: origin, Listen: listener.Addr().String(), StateDir: dir, Assets: webui.Handler(), Reference: consoleReference}
 		config.Shutdown = cancel
 		server := &http.Server{Handler: control.ConsoleHandler(app, credentials, config), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 2 * time.Minute, IdleTimeout: 60 * time.Second}
+		server.BaseContext = func(net.Listener) context.Context { return ctx }
 		served := make(chan error, 1)
 		go func() { served <- server.Serve(listener) }()
 		running := make(chan error, 1)
