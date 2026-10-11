@@ -24,35 +24,45 @@ type LogSession struct {
 }
 
 type LogSnapshot struct {
-	Session  string       `json:"session"`
-	Sequence int64        `json:"sequence"`
-	Summary  logs.Summary `json:"summary"`
-	Ended    bool         `json:"ended,omitempty"`
-	ExitCode *int         `json:"exitCode,omitempty"`
+	Session  string             `json:"session"`
+	Sequence int64              `json:"sequence"`
+	Summary  logs.Summary       `json:"summary"`
+	Ended    bool               `json:"ended,omitempty"`
+	ExitCode *int               `json:"exitCode,omitempty"`
+	Failure  string             `json:"failure,omitempty"`
+	Position *logs.FilePosition `json:"position,omitempty"`
 }
 
 // The existing transactional source cursor stores this versioned checkpoint.
 // It contains no raw log output and is committed with observations and alerts.
 type logCheckpoint struct {
-	Revision   string    `json:"revision"`
-	Generation int64     `json:"generation"`
-	Version    int       `json:"version"`
-	ID         string    `json:"id"`
-	Epoch      string    `json:"epoch"`
-	Sequence   int64     `json:"sequence"`
-	Started    time.Time `json:"started"`
-	Last       time.Time `json:"last"`
-	Status     string    `json:"status"`
+	Revision   string             `json:"revision"`
+	Generation int64              `json:"generation"`
+	Version    int                `json:"version"`
+	ID         string             `json:"id"`
+	Epoch      string             `json:"epoch"`
+	Sequence   int64              `json:"sequence"`
+	Started    time.Time          `json:"started"`
+	Last       time.Time          `json:"last"`
+	Status     string             `json:"status"`
+	Position   *logs.FilePosition `json:"position,omitempty"`
 }
 
 func (c logCheckpoint) encode() string { b, _ := json.Marshal(c); return string(b) }
 
 func (a *App) StartLogSession(ctx context.Context, id string) (LogSession, error) {
+	return a.startLogSession(ctx, id, nil)
+}
+
+func (a *App) startLogSession(ctx context.Context, id string, owned *store.WatchRecord) (LogSession, error) {
 	r, err := a.Record(ctx, id)
 	if err != nil {
 		return LogSession{}, err
 	}
-	if r.Status != "running" || r.Plan.Definition.Spec.Source.Type != "logs" || r.Plan.Definition.Spec.Source.Logs.Input.Type != "external" {
+	if r.Status != "running" || r.Plan.Definition.Spec.Source.Type != "logs" {
+		return LogSession{}, store.ErrStale
+	}
+	if owned == nil && r.Plan.Definition.Spec.Source.Logs.Input.Type != "external" || owned != nil && (r.Generation != owned.Generation || r.Plan.Revision != owned.Plan.Revision) {
 		return LogSession{}, store.ErrStale
 	}
 	now := a.Now()
@@ -100,6 +110,15 @@ func (a *App) AcceptLogSnapshot(ctx context.Context, id string, input LogSnapsho
 	freshUntil := now.Add(time.Second)
 	if input.Ended {
 		checkpoint.Status = "ended"
+		if input.Failure != "" {
+			switch input.Failure {
+			case "log_file_unavailable", "log_reader_ended", "log_reader_failed", "log_capture_failed":
+			default:
+				return Receipt{}, ErrInput
+			}
+			checkpoint.Status, o.Health, o.Detail = "failed", "unknown", input.Failure
+			o.Fields["reason"], o.Fields["source_status"] = input.Failure, "failed"
+		}
 		if input.ExitCode != nil {
 			if *input.ExitCode < 0 || *input.ExitCode > 255 {
 				return Receipt{}, ErrInput
@@ -127,6 +146,16 @@ func (a *App) AcceptLogSnapshot(ctx context.Context, id string, input LogSnapsho
 		o.Fields["source_status"] = "active"
 		freshUntil = s.WindowEnd.Add(3 * time.Second)
 	}
+	if input.Position != nil {
+		p := input.Position
+		if r.Plan.Definition.Spec.Source.Logs.Input.Type != "file" || len(p.Identity) > 128 || p.Offset < 0 || p.LagBytes < 0 || p.SkippedFrom < 0 || p.SkippedTo < 0 {
+			return Receipt{}, ErrInput
+		}
+		checkpoint.Position = p
+		o.Fields["lag_bytes"], o.Fields["file_offset"] = p.LagBytes, p.Offset
+	}
+	config := r.Plan.Definition.Spec.Source.Logs
+	o.Fields["input_type"], o.Fields["parser_profile"], o.Fields["framing"] = config.Input.Type, config.TextProfile, config.Framing
 	o.Fields["session"], o.Fields["summary_sequence"] = input.Session, input.Sequence
 	checkpoint.Sequence, checkpoint.Last = input.Sequence, now
 	return a.accept(ctx, r, source.Batch{ExpectedCursor: &r.Cursor, FreshUntil: freshUntil, Cursor: checkpoint.encode(), Observations: []watch.Observation{o}}, key, a.Now)
