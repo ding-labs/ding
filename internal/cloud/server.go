@@ -37,6 +37,7 @@ type Server struct {
 	global             *rate.Limiter
 }
 type tenantAPI struct {
+	ingest  string
 	handler http.Handler
 	token   string
 	done    <-chan struct{}
@@ -150,10 +151,13 @@ func (s *Server) Handler() (http.Handler, error) {
 		// Membership mutations take the exclusive lock inside their transaction.
 		// All ordinary operations retain a read lock from authentication through
 		// completion, so a completed revocation fences subsequent operations.
-		administration := r.Method != "GET" && (r.URL.Path == "/v1/members" || strings.HasPrefix(r.URL.Path, "/v1/members/") || r.URL.Path == "/v1/user" || strings.HasPrefix(r.URL.Path, "/v1/user/"))
+		administration := r.Method != "GET" && (r.URL.Path == "/v1/services" || strings.HasPrefix(r.URL.Path, "/v1/services/") || r.URL.Path == "/v1/members" || strings.HasPrefix(r.URL.Path, "/v1/members/") || r.URL.Path == "/v1/user" || strings.HasPrefix(r.URL.Path, "/v1/user/"))
 		if !administration {
 			s.DB.Access.RLock()
 			defer s.DB.Access.RUnlock()
+		}
+		if s.serveService(w, r) {
+			return
 		}
 		session, err := s.authenticate(r)
 		if err != nil {
@@ -206,6 +210,9 @@ func (s *Server) Handler() (http.Handler, error) {
 		}
 		if !principal.Allows(action) {
 			cloudFail(w, 403, "permission_denied", "Your role or credential does not permit this operation.")
+			return
+		}
+		if s.servicesAPI(w, r, principal) {
 			return
 		}
 		if s.membersAPI(w, r, principal) {
@@ -303,7 +310,7 @@ func (s *Server) api(t *Tenant) tenantAPI {
 		return api
 	}
 	c := control.Credentials{Admin: state.ID(), Ingest: state.ID()}
-	api := tenantAPI{handler: control.ConsoleHandler(t.App, c, control.ConsoleConfig{Version: s.Version, Origin: s.PublicURL}), token: c.Admin, done: t.ctx.Done()}
+	api := tenantAPI{handler: control.ConsoleHandler(t.App, c, control.ConsoleConfig{Version: s.Version, Origin: s.PublicURL}), token: c.Admin, ingest: c.Ingest, done: t.ctx.Done()}
 	s.private[t.Workspace.ID] = api
 	return api
 }
