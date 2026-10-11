@@ -102,11 +102,12 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 			fail(w, 404, "not_found", "watch unavailable")
 			return
 		}
-		if record.Status != "running" || record.Plan.Definition.Spec.Source.Type != "push" {
-			fail(w, 409, "inactive_source", "watch is not an active push source")
+		typ := record.Plan.Definition.Spec.Source.Type
+		if record.Status != "running" || typ != "push" && typ != "logs" {
+			fail(w, 409, "inactive_source", "watch is not an active log or push source")
 			return
 		}
-		write(w, 200, map[string]string{"revision": record.Plan.Revision}, nil)
+		write(w, 200, map[string]any{"revision": record.Plan.Revision, "source": typ, "logs": record.Plan.Definition.Spec.Source.Logs}, nil)
 	})
 	mux.HandleFunc("POST /v1/ingest/{id}", func(w http.ResponseWriter, r *http.Request) {
 		if err := app.Reserve(); err != nil {

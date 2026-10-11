@@ -30,6 +30,12 @@ func TestLogCLIChild(t *testing.T) {
 }
 
 func TestLogsExecThroughRealIngestion(t *testing.T) {
+	for _, native := range []bool{false, true} {
+		t.Run(fmt.Sprint("native=", native), func(t *testing.T) { testLogCapture(t, native) })
+	}
+}
+
+func testLogCapture(t *testing.T, native bool) {
 	if runtime.GOOS == "windows" {
 		t.Skip("capture is not yet qualified on Windows")
 	}
@@ -40,13 +46,17 @@ func TestLogsExecThroughRealIngestion(t *testing.T) {
 	}
 	defer s.Close()
 	a := watchrun.New(s)
-	_, err = a.Apply(context.Background(), watchrun.ApplyRequest{Manifest: `apiVersion: ding.ing/v1alpha1
+	manifest := `apiVersion: ding.ing/v1alpha1
 kind: Watch
 metadata: {id: app-logs}
 spec:
   source: {type: push}
   condition: {field: warning_match_ratio, operator: gt, value: 0.5}
-`})
+`
+	if native {
+		manifest = strings.Replace(manifest, "source: {type: push}", "source: {type: logs, logs: {window: 1s, minEvents: 1}}", 1)
+	}
+	_, err = a.Apply(context.Background(), watchrun.ApplyRequest{Manifest: manifest})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +66,12 @@ spec:
 	control.SaveConnection(dir, server.URL)
 	t.Setenv("DING_LOG_CLI_CHILD", "1")
 	var out, diagnostics bytes.Buffer
-	err = Execute("test", []string{"logs", "exec", "--state-dir", dir, "--watch", "app-logs", "--window", "1s", "--min-events", "1", "--", os.Args[0], "-test.run=^TestLogCLIChild$"}, &out, &diagnostics)
+	args := []string{"logs", "exec", "--state-dir", dir, "--watch", "app-logs"}
+	if !native {
+		args = append(args, "--window", "1s", "--min-events", "1")
+	}
+	args = append(args, "--", os.Args[0], "-test.run=^TestLogCLIChild$")
+	err = Execute("test", args, &out, &diagnostics)
 	if ExitCode(err) != 7 {
 		t.Fatal(err, diagnostics.String())
 	}
@@ -73,5 +88,8 @@ spec:
 	})
 	if err != nil || kinds["firing"] != 1 || kinds["recovered"] != 1 {
 		t.Fatal(err, kinds, diagnostics.String())
+	}
+	if native && kinds["source_error"] != 0 {
+		t.Fatal("native warmup or EOF became a source error", kinds)
 	}
 }

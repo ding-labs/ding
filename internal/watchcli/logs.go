@@ -1,6 +1,7 @@
 package watchcli
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/ding-labs/ding/internal/control"
 	"github.com/ding-labs/ding/internal/logs"
+	"github.com/ding-labs/ding/internal/watchrun"
 	"github.com/spf13/cobra"
 )
 
@@ -44,7 +46,7 @@ func logsCommand() *cobra.Command {
 			cmd.Short = "Monitor and forward an application's piped output until EOF"
 		}
 		cmd.Flags().SetInterspersed(false)
-		cmd.Flags().StringVar(&id, "watch", "", "existing active push watch receiving log summaries")
+		cmd.Flags().StringVar(&id, "watch", "", "existing active log or push watch receiving summaries")
 		cmd.Flags().StringVar(&parser.Format, "format", "auto", "auto, text, or jsonl")
 		cmd.Flags().StringVar(&parser.LevelField, "level-field", "level", "JSON severity field, with optional dotted path")
 		cmd.Flags().StringToStringVar(&parser.Patterns, "patterns", nil, "explicit severity-to-regex rules")
@@ -59,28 +61,57 @@ func logsCommand() *cobra.Command {
 			if id == "" || len(id) > 128 {
 				return fmt.Errorf("a valid watch ID is required")
 			}
-			collector, err := logs.NewCollector(parser, window)
-			if err != nil {
-				return err
-			}
-			defer collector.Close()
 			dir, _ := cmd.Flags().GetString("state-dir")
 			client, err := control.ConnectIngest(dir)
 			if err != nil {
 				return err
 			}
-			if _, err := client.Call(cmd.Context(), http.MethodGet, "/v1/ingest/"+url.PathEscape(id)+"/ready", nil); err != nil {
+			ready, err := client.Call(cmd.Context(), http.MethodGet, "/v1/ingest/"+url.PathEscape(id)+"/ready", nil)
+			if err != nil {
 				return err
 			}
+			var preflight struct {
+				Source string `json:"source"`
+			}
+			if err := json.Unmarshal(ready, &preflight); err != nil {
+				return err
+			}
+			var session *watchrun.LogSession
+			if preflight.Source == "logs" {
+				for _, flag := range []string{"format", "level-field", "patterns", "window", "min-events", "min-coverage"} {
+					if cmd.Flags().Changed(flag) {
+						return fmt.Errorf("configure --%s in the native log watch manifest", flag)
+					}
+				}
+				data, err := client.Call(cmd.Context(), http.MethodPost, "/v1/logs/"+url.PathEscape(id)+"/session", nil)
+				if err != nil {
+					return err
+				}
+				session = &watchrun.LogSession{}
+				if err := json.Unmarshal(data, session); err != nil {
+					return err
+				}
+				config := session.Config
+				parser = logs.ParserConfig{Format: config.Format, LevelField: config.LevelField, Patterns: config.Patterns}
+				duration, _ := time.ParseDuration(config.Window)
+				window = logs.WindowConfig{Window: duration, MinEvents: config.MinEvents, MinCoverage: config.MinCoverage}
+			}
+			collector, err := logs.NewCollector(parser, window)
+			if err != nil {
+				return err
+			}
+			defer collector.Close()
 			mu := &sync.Mutex{}
 			out, diagnostics := lockedLogOutput{mu, cmd.OutOrStdout()}, lockedLogOutput{mu, cmd.ErrOrStderr()}
-			finish := publishLogs(cmd.Context(), client, id, collector, diagnostics)
-			defer finish()
+			finish := publishLogs(cmd.Context(), client, id, collector, diagnostics, session)
+			var exitCode *int
+			defer func() { finish(exitCode) }()
 			if mode == "exec" {
 				signals := make(chan os.Signal, 2)
 				signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 				defer signal.Stop(signals)
 				r := collector.Exec(cmd.Context(), logs.ExecOptions{Argv: args, Stdin: cmd.InOrStdin(), Stdout: out, Stderr: diagnostics, Signals: signals})
+				exitCode = &r.ExitCode
 				if r.Err != nil {
 					fmt.Fprintln(diagnostics, "ding: application capture:", r.Err)
 				}
