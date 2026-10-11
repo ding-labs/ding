@@ -447,7 +447,7 @@ export function Workbench() {
           <ArrowRight size={15} />
         </button>
       </Heading>
-      {!draft.manifest && (
+      {!draft.manifest && tab === "Definition" && (
         <section className="template-grid">
           <button onClick={() => pick("HTTP")}>
             <Globe size={23} />
