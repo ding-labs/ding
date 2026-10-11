@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/ding-labs/ding/internal/access"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watch"
 	"github.com/ding-labs/ding/internal/watchrun"
@@ -140,6 +141,9 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { fail(w, 404, "not_found", "route or method not found") })
 	integration := integrationHandler(app, c, mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !permitPrincipal(w, r) {
+			return
+		}
 		if strings.HasPrefix(r.URL.Path, "/v1/integrations/") {
 			integration.ServeHTTP(w, r)
 			return
@@ -159,6 +163,20 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 		}
 		mux.ServeHTTP(w, r)
 	})
+}
+
+// Local callers still authenticate through their existing credential boundary.
+// An authenticated shared-server actor must never gain that credential's full
+// privileges merely because an internal transport forwards the request.
+func permitPrincipal(w http.ResponseWriter, r *http.Request) bool {
+	if p, ok := access.FromContext(r.Context()); ok {
+		action, known := access.Route(r.Method, r.URL.Path)
+		if !known || !p.Allows(action) {
+			fail(w, 403, "permission_denied", "operation is not permitted")
+			return false
+		}
+	}
+	return true
 }
 func write(w http.ResponseWriter, status int, data any, err *watch.Error) {
 	w.Header().Set("Content-Type", "application/json")

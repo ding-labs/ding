@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ding-labs/ding/internal/access"
 	"github.com/ding-labs/ding/internal/control"
 	"github.com/ding-labs/ding/internal/mcpconfig"
 	state "github.com/ding-labs/ding/internal/serverstate"
@@ -131,11 +132,32 @@ func (s *Server) Handler() (http.Handler, error) {
 			s.connectDevice(w, r)
 			return
 		}
+		// Membership mutations take the exclusive lock inside their transaction.
+		// All ordinary operations retain a read lock from authentication through
+		// completion, so a completed revocation fences subsequent operations.
+		administration := r.Method != "GET" && (r.URL.Path == "/v1/members" || strings.HasPrefix(r.URL.Path, "/v1/members/") || r.URL.Path == "/v1/user")
+		if !administration {
+			s.DB.Access.RLock()
+			defer s.DB.Access.RUnlock()
+		}
 		session, err := s.authenticate(r)
 		if err != nil {
 			cloudFail(w, 401, "sign_in_required", "Sign in to Ding Cloud. Local watches continue independently.")
 			return
 		}
+		if workspace := r.Header.Get("X-Ding-Workspace"); workspace != "" {
+			if session.Kind != "browser" && workspace != session.Workspace {
+				cloudFail(w, 403, "permission_denied", "This credential is bound to another workspace.")
+				return
+			}
+			session.Workspace = workspace
+		}
+		principal, err := s.DB.Principal(r.Context(), session.User, session.Workspace, session.Kind, session.Scopes)
+		if err != nil {
+			cloudFail(w, 403, "permission_denied", "Workspace access is unavailable.")
+			return
+		}
+		r = r.WithContext(access.WithPrincipal(r.Context(), principal))
 		s.mu.Lock()
 		limiter := s.limits[session.Workspace]
 		if limiter == nil {
@@ -157,6 +179,15 @@ func (s *Server) Handler() (http.Handler, error) {
 		}
 		if r.URL.Path == "/v1/browser/session" {
 			s.browserSession(w, r, session)
+			return
+		}
+		action, known := access.Route(r.Method, r.URL.Path)
+		if !known || action == access.Host || action == access.Ingest {
+			cloudFail(w, 404, "not_found", "This operation is not available.")
+			return
+		}
+		if !principal.Allows(action) {
+			cloudFail(w, 403, "permission_denied", "Your role or credential does not permit this operation.")
 			return
 		}
 		tenant, err := s.Pool.Get(r.Context(), session.Workspace)
@@ -222,7 +253,18 @@ func (s *Server) browserSession(w http.ResponseWriter, r *http.Request, session 
 		cloudFail(w, 401, "session_incomplete", "Start a new sign-in to repair this browser session.")
 		return
 	}
-	cloudWrite(w, 200, map[string]any{"csrf": csrf.Value, "expiresAt": session.ExpiresAt, "workspace": session.Workspace, "execution": "cloud"})
+	principal, _ := access.FromContext(r.Context())
+	user, err := s.DB.User(r.Context(), session.User)
+	if err != nil {
+		cloudFail(w, 503, "session_unavailable", "User unavailable.")
+		return
+	}
+	memberships, err := s.DB.Memberships(r.Context(), session.User)
+	if err != nil {
+		cloudFail(w, 503, "session_unavailable", "Memberships unavailable.")
+		return
+	}
+	cloudWrite(w, 200, map[string]any{"csrf": csrf.Value, "expiresAt": session.ExpiresAt, "workspace": session.Workspace, "execution": "cloud", "user": user, "memberships": memberships, "role": principal.Role, "capabilities": principal.Capabilities()})
 }
 
 func (s *Server) api(t *Tenant) tenantAPI {

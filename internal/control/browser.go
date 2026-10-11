@@ -143,6 +143,9 @@ func ConsoleHandler(app *watchrun.App, c Credentials, cfg ConsoleConfig) http.Ha
 	// New console routes are protected by the same outer authorization boundary.
 	consoleRoutes(api, app, cfg)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !permitPrincipal(w, r) {
+			return
+		}
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		if r.URL.Path == "/health" {
