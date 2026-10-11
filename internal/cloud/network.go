@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ding-labs/ding/internal/cloud/state"
+	state "github.com/ding-labs/ding/internal/serverstate"
 )
 
 type budgetTransport struct {

@@ -15,7 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ding-labs/ding/internal/cloud/state"
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/watchrun"
 )
 

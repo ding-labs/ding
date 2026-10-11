@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/cloud/egress"
-	"github.com/ding-labs/ding/internal/cloud/state"
+	state "github.com/ding-labs/ding/internal/serverstate"
 )
 
 func testCloudServer(t *testing.T) (*Server, http.Handler, []state.Session) {

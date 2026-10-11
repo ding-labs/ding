@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ding-labs/ding/internal/cloud/state"
 	"github.com/ding-labs/ding/internal/control"
 	"github.com/ding-labs/ding/internal/mcpconfig"
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"golang.org/x/time/rate"
 )
 

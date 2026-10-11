@@ -3,7 +3,7 @@ package cloud
 import (
 	"context"
 	"fmt"
-	"github.com/ding-labs/ding/internal/cloud/state"
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"net/http"
 	"net/http/httptest"
 	"net/url"

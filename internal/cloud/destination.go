@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/cloud/egress"
-	"github.com/ding-labs/ding/internal/cloud/state"
 	"github.com/ding-labs/ding/internal/delivery"
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/watch"
 )
 

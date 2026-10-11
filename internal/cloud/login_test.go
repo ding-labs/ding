@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/ding-labs/ding/internal/cloud/state"
+	state "github.com/ding-labs/ding/internal/serverstate"
 )
 
 type fakeIdentity struct {

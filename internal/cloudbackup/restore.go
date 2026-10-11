@@ -13,8 +13,8 @@ import (
 	"strings"
 
 	"filippo.io/age"
-	"github.com/ding-labs/ding/internal/cloud/state"
 	"github.com/ding-labs/ding/internal/mcpconfig"
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/store"
 )
 

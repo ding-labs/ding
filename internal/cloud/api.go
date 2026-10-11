@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ding-labs/ding/internal/cloud/state"
 	"github.com/ding-labs/ding/internal/control"
 	"github.com/ding-labs/ding/internal/plan"
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watch"
 	"github.com/ding-labs/ding/internal/watchrun"

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ding-labs/ding/internal/cloud/state"
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/watch"
 	"golang.org/x/oauth2"
 )
