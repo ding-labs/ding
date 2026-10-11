@@ -13,6 +13,7 @@ func TestRailwayProbeHostCannotReachAuthenticatedOrLoginRoutes(t *testing.T) {
 		want              int
 	}{
 		{"healthcheck.railway.app", "/healthz", "", 200},
+		{"healthcheck.railway.app", "/readyz", "", 200},
 		{"healthcheck.railway.app", "/ui/", "https", 403},
 		{"healthcheck.railway.app", "/auth/login", "https", 403},
 		{"healthcheck.railway.app", "/v1/watches", "https", 403},

@@ -65,7 +65,7 @@ func (s *Server) Handler() (http.Handler, error) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
-		probe := r.Method == "GET" && r.URL.Path == "/healthz"
+		probe := r.Method == "GET" && (r.URL.Path == "/healthz" || r.URL.Path == "/readyz")
 		if r.Host != u.Host && !(s.Railway && probe && r.Host == "healthcheck.railway.app") {
 			cloudFail(w, 403, "invalid_host", "Unrecognized cloud host.")
 			return
