@@ -2,8 +2,10 @@ package cloud
 
 import (
 	"github.com/ding-labs/ding/internal/access"
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/ding-labs/ding/internal/mcpconfig"
 	"github.com/ding-labs/ding/internal/store"
@@ -45,11 +47,23 @@ func (s *Server) modelConnections(w http.ResponseWriter, r *http.Request, t *Ten
 		return
 	}
 	var input struct {
+		Local    bool                  `json:"local"`
 		ClientID string                `json:"clientID"`
 		Revoke   bool                  `json:"revoke"`
 		Grant    watchrun.GrantRequest `json:"grant"`
 	}
-	if decodeCloud(r, &input) != nil || input.ClientID == "" || len(input.ClientID) > 512 {
+	if decodeCloud(r, &input) != nil {
+		cloudFail(w, 400, "invalid_client", "Provide connection details.")
+		return
+	}
+	if input.Local {
+		if !s.Shared {
+			cloudFail(w, 403, "local_pairing_unavailable", "Cloud requires OAuth client consent.")
+			return
+		}
+		input.ClientID = "local:" + state.ID()
+	}
+	if input.ClientID == "" || len(input.ClientID) > 512 || (!input.Local && !input.Revoke && strings.HasPrefix(input.ClientID, "local:")) {
 		cloudFail(w, 400, "invalid_client", "Provide the OAuth client ID shown by the identity provider.")
 		return
 	}
@@ -65,9 +79,21 @@ func (s *Server) modelConnections(w http.ResponseWriter, r *http.Request, t *Ten
 		cloudWrite(w, 200, map[string]bool{"revoked": true})
 		return
 	}
-	if len(input.Grant.CommandRevisions) != 0 || input.Grant.Days > 30 {
+	if (!s.Shared && len(input.Grant.CommandRevisions) != 0) || input.Grant.Days > 30 {
 		cloudFail(w, 400, "invalid_grant", "Cloud grants allow at most thirty days and no command revisions.")
 		return
+	}
+	for _, revision := range input.Grant.CommandRevisions {
+		if !slices.Contains(t.App.ApprovedCommands, revision) {
+			cloudFail(w, 403, "command_denied", "Command revision must be approved by the host operator.")
+			return
+		}
+	}
+	for _, scope := range input.Grant.Scopes {
+		if !principal.Allows(access.Action(scope)) {
+			cloudFail(w, 403, "scope_denied", "This scope exceeds your role.")
+			return
+		}
 	}
 	names, err := s.Vault.Names(r.Context(), t.Workspace.ID)
 	if err != nil {
@@ -89,6 +115,10 @@ func (s *Server) modelConnections(w http.ResponseWriter, r *http.Request, t *Ten
 	if err := s.Vault.BindMCP(r.Context(), principal.User, t.Workspace.ID, input.ClientID, c); err != nil {
 		_ = t.App.Store.Update(r.Context(), func(tx *store.Tx) error { return tx.RevokeIntegrationGrant(grant.Grant.ID) })
 		cloudFail(w, 409, "binding_conflict", "Disconnect the existing client before approving a replacement, or check the ten-client limit.")
+		return
+	}
+	if input.Local {
+		cloudWrite(w, 201, map[string]any{"clientID": input.ClientID, "grant": grant.Grant, "connection": c})
 		return
 	}
 	cloudWrite(w, 201, map[string]any{"clientID": input.ClientID, "grant": grant.Grant})

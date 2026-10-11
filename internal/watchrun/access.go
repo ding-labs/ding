@@ -32,7 +32,7 @@ func (a *App) authorizeBundle(ctx context.Context, tx *store.Tx, b plan.Bundle) 
 		if src.Type != "command" && src.Type != "http" && src.Type != "push" {
 			return access.ErrDenied
 		}
-		if !p.Allows(access.Credentials) && (src.URLRef != nil || len(src.Headers) > 0 || len(src.Env) > 0) {
+		if !(p.Allows(access.Credentials) || (p.Kind == "integration" && (p.Role == access.Administrator || p.Role == access.Owner))) && (src.URLRef != nil || len(src.Headers) > 0 || len(src.Env) > 0) {
 			old, err := tx.Watch(w.Definition.Metadata.ID)
 			if err != nil {
 				return access.ErrDenied

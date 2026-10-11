@@ -65,7 +65,7 @@ func (v *Vault) BindMCP(ctx context.Context, user, workspace, client string, c m
 	if n >= 10 {
 		return fmt.Errorf("disconnect an existing model client first")
 	}
-	_, err = tx.ExecContext(ctx, "INSERT INTO mcp_bindings(user,workspace,client,ciphertext) VALUES(?,?,?,?)", user, workspace, client, cipher)
+	_, err = tx.ExecContext(ctx, "INSERT INTO mcp_bindings(user,workspace,client,credential_hash,ciphertext) VALUES(?,?,?,?,?)", user, workspace, client, TokenHash(c.Token), cipher)
 	if err != nil {
 		return fmt.Errorf("client already connected or workspace unavailable")
 	}
@@ -109,4 +109,11 @@ func (d *DB) MCPClients(ctx context.Context, user, workspace string) ([]string, 
 func (d *DB) UnbindMCP(ctx context.Context, user, workspace, client string) error {
 	_, err := d.sql.ExecContext(ctx, "DELETE FROM mcp_bindings WHERE user=? AND workspace=? AND client=?", user, workspace, client)
 	return err
+}
+
+// LocalAgentBinding resolves an explicitly exported self-hosted pairing file.
+// Hosted public MCP continues to require its separate JWT identity boundary.
+func (d *DB) LocalAgentBinding(ctx context.Context, token string) (user, workspace, client string, err error) {
+	err = d.sql.QueryRowContext(ctx, "SELECT user,workspace,client FROM mcp_bindings WHERE credential_hash=? AND client LIKE 'local:%'", TokenHash(token)).Scan(&user, &workspace, &client)
+	return
 }

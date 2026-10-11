@@ -156,6 +156,9 @@ func (s *Server) Handler() (http.Handler, error) {
 			s.DB.Access.RLock()
 			defer s.DB.Access.RUnlock()
 		}
+		if s.serveLocalAgent(w, r) {
+			return
+		}
 		if s.serveService(w, r) {
 			return
 		}
