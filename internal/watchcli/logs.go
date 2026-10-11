@@ -78,6 +78,7 @@ func logsCommand() *cobra.Command {
 				return err
 			}
 			var session *watchrun.LogSession
+			framing := logs.FrameConfig{}
 			if preflight.Source == "logs" {
 				for _, flag := range []string{"format", "level-field", "patterns", "window", "min-events", "min-coverage"} {
 					if cmd.Flags().Changed(flag) {
@@ -93,11 +94,12 @@ func logsCommand() *cobra.Command {
 					return err
 				}
 				config := session.Config
+				framing = watchrun.LogFraming(config)
 				parser = logs.ParserConfig{Format: config.Format, LevelField: config.LevelField, Patterns: config.Patterns}
 				duration, _ := time.ParseDuration(config.Window)
 				window = logs.WindowConfig{Window: duration, MinEvents: config.MinEvents, MinCoverage: config.MinCoverage}
 			}
-			collector, err := logs.NewCollector(parser, window)
+			collector, err := logs.NewCollector(parser, window, framing)
 			if err != nil {
 				return err
 			}

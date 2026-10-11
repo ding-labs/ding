@@ -42,8 +42,25 @@ func compileLogs(s *watch.Source) error {
 	if c.MinEvents == 0 {
 		c.MinEvents = 100
 	}
-	if c.TextProfile != "common" || c.Framing != "line" || c.EmitEvery != "1s" {
-		return fmt.Errorf("logs requires common text profile, line framing, and emitEvery: 1s")
+	if c.TextProfile != "common" || c.EmitEvery != "1s" {
+		return fmt.Errorf("logs requires common text profile and emitEvery: 1s")
+	}
+	framing := logs.FrameConfig{Mode: c.Framing}
+	if c.Multiline != nil {
+		m := c.Multiline
+		if m.MaxLines == 0 {
+			m.MaxLines = 100
+		}
+		if m.FlushAfter == "" {
+			m.FlushAfter = "1s"
+		}
+		framing.Start, framing.Continue, framing.MaxLines, framing.FlushAfter = m.Start, m.Continue, m.MaxLines, m.FlushAfter
+	}
+	if c.Format == "jsonl" && c.Framing == "multiline" {
+		return fmt.Errorf("JSONL uses one object per line")
+	}
+	if _, err := logs.NewConfiguredFramer(framing, func([]byte, bool) {}); err != nil {
+		return err
 	}
 	if _, err := logs.NewParser(logs.ParserConfig{Format: c.Format, LevelField: c.LevelField, Patterns: c.Patterns}); err != nil {
 		return err

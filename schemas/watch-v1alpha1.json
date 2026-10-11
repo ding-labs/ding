@@ -208,6 +208,24 @@
       },
       "type": "object"
     },
+    "LogMultiline": {
+      "additionalProperties": false,
+      "properties": {
+        "continue": {
+          "type": "string"
+        },
+        "flushAfter": {
+          "type": "string"
+        },
+        "maxLines": {
+          "type": "integer"
+        },
+        "start": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "LogSource": {
       "additionalProperties": false,
       "properties": {
@@ -231,6 +249,9 @@
         },
         "minEvents": {
           "type": "integer"
+        },
+        "multiline": {
+          "$ref": "#/$defs/LogMultiline"
         },
         "patterns": {
           "additionalProperties": {

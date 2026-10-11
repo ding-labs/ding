@@ -17,16 +17,24 @@ type record struct {
 // Collector separates output draining from analysis. Its 64-record queue uses
 // at most 4 MiB of record bytes; overload invalidates the window, not the child.
 type Collector struct {
-	window *Window
-	parser *Parser
-	queue  chan record
-	done   chan struct{}
-	once   sync.Once
-	mu     sync.Mutex
-	epoch  uint64
+	window  *Window
+	parser  *Parser
+	queue   chan record
+	done    chan struct{}
+	once    sync.Once
+	mu      sync.Mutex
+	epoch   uint64
+	framing FrameConfig
 }
 
-func NewCollector(parser ParserConfig, window WindowConfig) (*Collector, error) {
+func NewCollector(parser ParserConfig, window WindowConfig, frames ...FrameConfig) (*Collector, error) {
+	framing := FrameConfig{}
+	if len(frames) > 0 {
+		framing = frames[0]
+	}
+	if _, err := NewConfiguredFramer(framing, func([]byte, bool) {}); err != nil {
+		return nil, err
+	}
 	p, err := NewParser(parser)
 	if err != nil {
 		return nil, err
@@ -35,7 +43,7 @@ func NewCollector(parser ParserConfig, window WindowConfig) (*Collector, error) 
 	if err != nil {
 		return nil, err
 	}
-	c := &Collector{parser: p, window: w, queue: make(chan record, 64), done: make(chan struct{})}
+	c := &Collector{parser: p, window: w, queue: make(chan record, 64), done: make(chan struct{}), framing: framing}
 	go func() {
 		defer close(c.done)
 		for r := range c.queue {
@@ -64,7 +72,7 @@ func (c *Collector) Stream(channels ...string) *Framer {
 	if len(channels) > 0 {
 		channel = channels[0]
 	}
-	return NewFramer(func(data []byte, invalid bool) {
+	f, _ := NewConfiguredFramer(c.framing, func(data []byte, invalid bool) {
 		at := time.Now() // The reader completed this record; event timestamps are ignored.
 		c.mu.Lock()
 		defer c.mu.Unlock()
@@ -74,6 +82,7 @@ func (c *Collector) Stream(channels ...string) *Framer {
 			c.window.Drop(at)
 		}
 	})
+	return f
 }
 
 func (c *Collector) Snapshot() Summary {

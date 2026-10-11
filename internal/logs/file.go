@@ -47,6 +47,11 @@ func (f *FileFollower) Run(ctx context.Context) error {
 	}()
 	var info os.FileInfo
 	var frame *Framer
+	defer func() {
+		if frame != nil {
+			frame.Discard()
+		}
+	}()
 	var base, offset int64
 	var fingerprint []byte
 	open := func() error {
@@ -89,6 +94,7 @@ func (f *FileFollower) Run(ctx context.Context) error {
 		if current.Size() < offset || current.Size()-offset > 4<<20 || !bytes.Equal(fingerprint, fileTail(file, offset)) {
 			f.Collector.Gap()
 			old := base + frame.Completed()
+			frame.Discard()
 			offset, err = file.Seek(0, io.SeekEnd)
 			if err != nil {
 				return ErrFileRead
@@ -121,6 +127,7 @@ func (f *FileFollower) Run(ctx context.Context) error {
 		}
 		if !os.SameFile(info, pathInfo) {
 			f.Collector.Gap() // Includes an abandoned partial record, if any.
+			frame.Discard()
 			file.Close()
 			if err := open(); err != nil {
 				return err

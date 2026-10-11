@@ -21,7 +21,7 @@ func (a *App) runLogReader(ctx context.Context, r store.WatchRecord) {
 	}
 	config := session.Config
 	window, _ := time.ParseDuration(config.Window)
-	c, err := logs.NewCollector(logs.ParserConfig{Format: config.Format, LevelField: config.LevelField, Patterns: config.Patterns}, logs.WindowConfig{Window: window, MinEvents: config.MinEvents, MinCoverage: config.MinCoverage})
+	c, err := logs.NewCollector(logs.ParserConfig{Format: config.Format, LevelField: config.LevelField, Patterns: config.Patterns}, logs.WindowConfig{Window: window, MinEvents: config.MinEvents, MinCoverage: config.MinCoverage}, LogFraming(config))
 	if err != nil {
 		a.note(err)
 		return
