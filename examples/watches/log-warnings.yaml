@@ -1,0 +1,31 @@
+apiVersion: ding.ing/v1alpha1
+kind: Destination
+metadata: {id: log-console}
+spec: {type: console}
+---
+apiVersion: ding.ing/v1alpha1
+kind: Watch
+metadata:
+  id: application-logs
+  name: Application warning rate
+spec:
+  source:
+    type: logs
+    logs:
+      input: {type: external}
+      format: auto
+      framing: line
+      window: 60s
+      minEvents: 100
+      minCoverage: 0
+      retention: 1h
+  condition: {field: warning_match_ratio, operator: gt, value: 0.5}
+  policy:
+    trigger: transition
+    consecutive: 1
+    recoverAfter: 3
+    onUnknown: hold-incident
+    maxGap: 5s
+  destinations:
+    - ref: log-console
+      events: [firing, recovered, source_error, source_recovered]
