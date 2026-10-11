@@ -17,6 +17,7 @@ import (
 
 type Client struct {
 	URL, Token string
+	Workspace  string
 	HTTP       *http.Client
 }
 type APIError struct{ Code, Message string }
@@ -51,6 +52,9 @@ func (c Client) Call(ctx context.Context, method, path string, request any) (jso
 	}
 	req.Header.Set("Authorization", "Bearer "+c.Token)
 	req.Header.Set("Content-Type", "application/json")
+	if c.Workspace != "" {
+		req.Header.Set("X-Ding-Workspace", c.Workspace)
+	}
 	client := c.HTTP
 	if client == nil {
 		client = http.DefaultClient

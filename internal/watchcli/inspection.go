@@ -22,7 +22,7 @@ import (
 )
 
 func request(cmd *cobra.Command, dir string, structured bool, method, path string, body any) (json.RawMessage, error) {
-	client, err := control.Connect(dir)
+	client, err := requestClient(cmd, dir)
 	if err != nil {
 		return nil, Fail(cmd.ErrOrStderr(), structured, "daemon_unavailable", err.Error())
 	}
