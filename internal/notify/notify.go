@@ -6,8 +6,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/ding-labs/ding/internal/nativehelper"
 	"html"
 	"os"
 	"os/exec"
@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/ding-labs/ding/internal/nativehelper"
 	"github.com/godbus/dbus/v5"
 )
 
@@ -82,8 +83,22 @@ func helper(ctx context.Context, path string, args []string, m Message) error {
 	}
 	cmd := exec.CommandContext(ctx, path, args...)
 	cmd.Stdin = bytes.NewReader(data)
+	var out limitedOutput
+	cmd.Stdout = &out
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("desktop notification unavailable or permission denied; check Ding's OS notification settings")
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) && m.RequestPermission {
+			return Failure{Code: "notification_permission_pending"}
+		}
+		var reply struct {
+			Error string `json:"error"`
+		}
+		if json.Unmarshal(out.Bytes(), &reply) == nil {
+			switch reply.Error {
+			case "notification_permission_denied", "notification_permission_pending":
+				return Failure{Code: reply.Error}
+			}
+		}
+		return Failure{Code: "notification_helper_failed"}
 	}
 	return nil
 }

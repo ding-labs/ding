@@ -47,6 +47,20 @@ func createFirstWatch(cmd *cobra.Command, dir, id, url, delivery string, yes boo
 
 func notifyCommand(dir *string) *cobra.Command {
 	group := &cobra.Command{Use: "notify", Short: "Verify notification delivery from the daemon"}
+	var jsonOutput bool
+	status := &cobra.Command{Use: "status", Short: "Inspect desktop notification permission without requesting it", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+		data, err := request(cmd, *dir, jsonOutput, "GET", "/v1/desktop/status", nil)
+		if err != nil {
+			return err
+		}
+		return present(cmd, jsonOutput, data)
+	}}
+	status.Flags().BoolVar(&jsonOutput, "json", false, "emit a versioned JSON response")
+	group.AddCommand(status)
+	group.AddCommand(&cobra.Command{Use: "settings", Short: "Open notification settings on the Mac running Ding", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+		_, err := request(cmd, *dir, false, "POST", "/v1/desktop/settings", struct{}{})
+		return err
+	}})
 	group.AddCommand(&cobra.Command{Use: "test", Short: "Ask for desktop permission and send a labeled test notification", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		client, err := control.Connect(*dir)
 		if err != nil {

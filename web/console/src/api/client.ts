@@ -11,6 +11,60 @@ export class APIError extends Error {
   }
 }
 let csrf = "";
+
+// Consume bounded NDJSON progress from a request-scoped operation. Aborting the
+// request stops its temporary runtime on the daemon as well.
+export async function stream<T>(
+  path: string,
+  body: unknown,
+  signal: AbortSignal,
+  receive: (value: T) => void,
+): Promise<void> {
+  const response = await fetch("/v1" + path, {
+    method: "POST",
+    credentials: "same-origin",
+    signal,
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "X-Ding-CSRF": csrf } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const result = await response.json();
+    if (response.status === 401)
+      window.dispatchEvent(new Event("ding:unauthorized"));
+    throw new APIError(
+      result.error?.code || "request_failed",
+      result.error?.message || "Ding could not start this operation.",
+      response.status,
+    );
+  }
+  if (
+    !response.body ||
+    !response.headers.get("Content-Type")?.includes("application/x-ndjson")
+  )
+    throw new Error("Ding returned an unreadable progress stream.");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffered = "";
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      buffered += decoder.decode(value, { stream: !done });
+      if (buffered.length > 1 << 20)
+        throw new Error("Ding's progress response exceeded its limit.");
+      const lines = buffered.split("\n");
+      buffered = lines.pop() || "";
+      for (const line of lines) if (line.trim()) receive(JSON.parse(line) as T);
+      if (done) break;
+    }
+    if (buffered.trim()) receive(JSON.parse(buffered) as T);
+  } finally {
+    await reader.cancel();
+    reader.releaseLock();
+  }
+}
 export async function api<T>(
   path: string,
   options: { method?: string; body?: unknown; signal?: AbortSignal } = {},

@@ -4,6 +4,9 @@ Ding Console is included in the **v0.15.0 Homebrew package**. Run `ding setup` o
 then `ding ui` whenever you want to open it. See the
 [setup guide](../operate/local-setup.md) for installation and your first watch.
 
+Version 0.15.1 adds **Try a one-minute demo** on Watches and first-watch setup,
+plus a guided **Set up notifications** dialog in System and onboarding.
+
 The interface follows the evidence: what was observed, how the condition was
 evaluated, what event was recorded, and what happened to delivery. For a headless
 installation, use the [first-watch CLI walkthrough](../guides/first-watch.md).

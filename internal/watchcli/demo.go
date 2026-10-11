@@ -3,22 +3,11 @@ package watchcli
 import (
 	"context"
 	"fmt"
-	"io"
-	"net"
-	"net/http"
+	"github.com/ding-labs/ding/internal/demo"
+	"github.com/spf13/cobra"
 	"os"
 	"os/signal"
-	"strings"
-	"sync"
-	"sync/atomic"
 	"time"
-
-	"github.com/ding-labs/ding/internal/notify"
-	"github.com/ding-labs/ding/internal/onboarding"
-	"github.com/ding-labs/ding/internal/store"
-	"github.com/ding-labs/ding/internal/watch"
-	"github.com/ding-labs/ding/internal/watchrun"
-	"github.com/spf13/cobra"
 )
 
 func demoCommand() *cobra.Command {
@@ -34,96 +23,9 @@ func demoCommand() *cobra.Command {
 }
 
 func runDemo(ctx context.Context, cmd *cobra.Command, desktop bool, phase time.Duration) error {
-	// Progress and delivery workers share one stream, which may be a buffer or
-	// another writer that does not support concurrent writes.
-	out := &demoWriter{Writer: cmd.OutOrStdout()}
-	dir, err := os.MkdirTemp("", "ding-demo-")
-	if err != nil {
+	if err := demo.Run(ctx, demo.Options{Desktop: desktop, Phase: phase, Output: cmd.OutOrStdout()}); err != nil {
 		return err
 	}
-	defer os.RemoveAll(dir)
-	db, err := store.Open(ctx, dir)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return err
-	}
-	defer listener.Close()
-	var failing atomic.Bool
-	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		if failing.Load() {
-			w.WriteHeader(503)
-		} else {
-			w.WriteHeader(200)
-		}
-	}), ReadHeaderTimeout: time.Second}
-	go server.Serve(listener)
-	defer server.Close()
-	delivery := "console"
-	if desktop {
-		if err := notify.Send(ctx, notify.Message{ID: "ding-demo-test", Title: "Ding demonstration", Body: "This is a temporary demo. A failure and recovery will follow.", RequestPermission: true}); err != nil {
-			return err
-		}
-		delivery = "desktop"
-	}
-	manifest, _, err := onboarding.Manifest(onboarding.Request{ID: "demo", URL: "http://" + listener.Addr().String(), Delivery: delivery})
-	if err != nil {
-		return err
-	}
-	manifest = strings.ReplaceAll(manifest, "every: 30s", "every: "+(phase/5).String())
-	app := watchrun.New(db)
-	app.Output = out
-	app.Notify = notify.Send
-	app.AcquisitionWorkers, app.DeliveryWorkers = 1, 1
-	if _, err := app.Apply(ctx, watchrun.ApplyRequest{Manifest: manifest}); err != nil {
-		return err
-	}
-	runningCtx, stop := context.WithCancel(ctx)
-	done := make(chan error, 1)
-	go func() { done <- app.Run(runningCtx) }()
-	defer func() { stop(); <-done }()
-	for _, state := range []bool{false, true, false} {
-		failing.Store(state)
-		label := "healthy"
-		if state {
-			label = "failing (HTTP 503)"
-		}
-		fmt.Fprintln(out, "Demo fixture:", label)
-		timer := time.NewTimer(phase)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return ctx.Err()
-		case <-timer.C:
-		}
-	}
-	var events []watch.Event
-	err = app.Store.View(ctx, func(tx *store.Tx) error { var err error; events, err = tx.Events("demo", 0, 100); return err })
-	if err != nil {
-		return err
-	}
-	fired, recovered := false, false
-	for _, event := range events {
-		fired = fired || event.Type == "firing"
-		recovered = recovered || event.Type == "recovered"
-	}
-	if !fired || !recovered {
-		return fmt.Errorf("demo did not record both transitions; it is not a successful alert-pipeline test")
-	}
-	fmt.Fprintln(out, "Demo recorded a firing and a recovery. Temporary fixture and watch state are being removed. Create a real watch with ding setup or ding watch create.")
+	fmt.Fprintln(cmd.OutOrStdout(), "Demo recorded a firing and a recovery. Temporary fixture and watch state were removed. Create a real watch with ding setup or ding watch create.")
 	return nil
-}
-
-type demoWriter struct {
-	sync.Mutex
-	io.Writer
-}
-
-func (w *demoWriter) Write(p []byte) (int, error) {
-	w.Lock()
-	defer w.Unlock()
-	return w.Writer.Write(p)
 }

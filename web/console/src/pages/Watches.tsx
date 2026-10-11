@@ -35,6 +35,7 @@ import { savedViews, savePreference } from "../app/preferences";
 import { WatchActions } from "../components/Actions";
 import { Events, Evidence } from "./Events";
 import { Deliveries } from "./Deliveries";
+import { Demo } from "../components/Demo";
 export function Watches() {
   const location = useLocation();
   const [p, set] = useSearchParams();
@@ -55,6 +56,7 @@ export function Watches() {
         eyebrow="Watches"
         description="See what needs attention, then follow the evidence."
       >
+        <Demo />
         <Link className="button primary" to="/workbench">
           <Plus size={16} /> New watch
         </Link>

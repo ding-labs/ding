@@ -12,12 +12,44 @@ struct Message: Decodable {
     let stateDir: String?
 }
 
+struct NotificationSettings: Encodable, Sendable {
+    let authorization: String
+    let alerts: String
+}
+
+// Copy scalar settings on the notification service's callback queue. Moving
+// UNNotificationSettings itself across the main actor is unnecessary.
+func notificationSettings() async -> NotificationSettings {
+    await withCheckedContinuation { continuation in
+        UNUserNotificationCenter.current().getNotificationSettings { @Sendable settings in
+            let authorization: String
+            switch settings.authorizationStatus {
+            case .notDetermined: authorization = "not_determined"
+            case .denied: authorization = "denied"
+            case .authorized: authorization = "authorized"
+            case .provisional: authorization = "provisional"
+            @unknown default: authorization = "unknown"
+            }
+            let alerts = settings.alertSetting == .enabled ? "enabled" : "disabled"
+            continuation.resume(returning: NotificationSettings(authorization: authorization, alerts: alerts))
+        }
+    }
+}
+
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = self
         if CommandLine.arguments.dropFirst() == ["--deliver"] {
             Task { await deliver() }
+        } else if CommandLine.arguments.dropFirst() == ["--status"] {
+            Task {
+                let settings = await notificationSettings()
+                if let data = try? JSONEncoder().encode(settings) {
+                    FileHandle.standardOutput.write(data)
+                }
+                NSApplication.shared.terminate(nil)
+            }
         } else {
             // A notification click relaunches the helper without stdin. Wait for
             // the OS response callback instead of trying to decode an empty pipe.
@@ -41,12 +73,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 guard try await center.requestAuthorization(options: [.alert, .sound, .badge])
                 else { throw Failure.permissionDenied }
             }
-            let authorization: Int = await withCheckedContinuation { continuation in
-                center.getNotificationSettings { settings in
-                    continuation.resume(returning: settings.authorizationStatus.rawValue)
-                }
-            }
-            guard authorization == UNAuthorizationStatus.authorized.rawValue || authorization == UNAuthorizationStatus.provisional.rawValue
+            let settings = await notificationSettings()
+            if settings.authorization == "not_determined" { throw Failure.permissionPending }
+            guard settings.authorization == "authorized" || settings.authorization == "provisional"
             else { throw Failure.permissionDenied }
             let content = UNMutableNotificationContent()
             content.title = message.title
@@ -60,7 +89,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             FileHandle.standardOutput.write(Data("{\"accepted\":true}\n".utf8))
             NSApplication.shared.terminate(nil)
         } catch {
-            FileHandle.standardError.write(Data("Ding notification unavailable; inspect OS notification permissions.\n".utf8))
+            let code: String
+            switch error {
+            case Failure.permissionDenied: code = "notification_permission_denied"
+            case Failure.permissionPending: code = "notification_permission_pending"
+            default: code = "notification_helper_failed"
+            }
+            FileHandle.standardOutput.write(Data("{\"error\":\"\(code)\"}\n".utf8))
             exit(1)
         }
     }
@@ -97,7 +132,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         try? process.run()
     }
 
-    enum Failure: Error { case invalidInput, permissionDenied }
+    enum Failure: Error { case invalidInput, permissionDenied, permissionPending }
 }
 
 @main

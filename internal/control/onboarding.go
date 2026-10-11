@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -43,6 +44,25 @@ func onboardingRoutes(mux *http.ServeMux, app *watchrun.App) {
 		write(w, 200, FirstWatchPreview{Manifest: manifest, Descriptions: desc, Review: review}, nil)
 	})
 	slot := make(chan struct{}, 1)
+	mux.HandleFunc("GET /v1/desktop/status", func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+		settings, err := notify.Status(ctx)
+		if err != nil {
+			fail(w, 503, "notification_helper_failed", err.Error())
+			return
+		}
+		write(w, 200, settings, nil)
+	})
+	mux.HandleFunc("POST /v1/desktop/settings", func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+		if err := notify.OpenSettings(ctx); err != nil {
+			fail(w, 503, "notification_settings_unavailable", "Open System Settings → Notifications on the computer running Ding.")
+			return
+		}
+		write(w, 200, map[string]bool{"opened": true}, nil)
+	})
 	mux.HandleFunc("POST /v1/desktop/test", func(w http.ResponseWriter, r *http.Request) {
 		if app.Notify == nil {
 			fail(w, 503, "desktop_unavailable", "desktop delivery is not enabled on this instance")
@@ -59,7 +79,12 @@ func onboardingRoutes(mux *http.ServeMux, app *watchrun.App) {
 		defer cancel()
 		err := app.Notify(ctx, notify.Message{ID: randomToken(), Title: "Ding test notification", Body: "Your computer accepted this test. Real alerts will identify their watch and event.", RequestPermission: true})
 		if err != nil {
-			fail(w, 503, "notification_unavailable", err.Error())
+			code := "notification_unavailable"
+			var failure notify.Failure
+			if errors.As(err, &failure) {
+				code = failure.Code
+			}
+			fail(w, 503, code, err.Error())
 			return
 		}
 		write(w, 200, map[string]any{"accepted": true, "meaning": "OS accepted the test; confirm that you can see it."}, nil)

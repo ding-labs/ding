@@ -9,7 +9,7 @@
   "delivery inspect": "deliveries/detail",
   "delivery retry": "deliveries/detail",
   "doctor": "system/doctor",
-  "demo": "Explicit temporary host demonstration; not a production watch or an activation metric.",
+  "demo": "Watches and first-watch setup: cancellable one-minute demonstration with real temporary HTTP checks and live firing/recovery evidence.",
   "events": "events",
   "events inspect": "events/detail",
   "events observations": "events/detail/observations",
@@ -47,7 +47,7 @@
   "secret set": "Host-only private credential write from stdin; browser and models never read stored secret values.",
   "secret list": "Host-only credential names; Console Doctor reports reference presence without values.",
   "watch create": "First-watch Console flow uses the same compiled preview and reviewed apply.",
-  "notify test": "First-watch Console flow requests native notification permission and a labeled test.",
+  "notify test": "First-watch and System notification setup dialog: request permission, explain failures, retry and confirm visibility.",
   "update check": "Host updater verifies signed release metadata independently of the daemon.",
   "update install": "Host updater preserves a backup, enforces installation ownership and waits for service readiness.",
   "update recover": "Host updater reconciles its persistent journal even when the daemon cannot start.",
@@ -64,5 +64,7 @@
   "service host": "Host operation: Windows SCM entrypoint launched by a reviewed boot service.",
   "service boot-template": "Host operation: print an administrator-reviewed boot service for an explicit dedicated account.",
   "service repair": "Host operation: preview and explicitly repair only this installation's user startup.",
-  "notification-open": "OS notification activation obtains a fresh local Console handoff; no browser equivalent."
+  "notification-open": "OS notification activation obtains a fresh local Console handoff; no browser equivalent.",
+  "notify status": "Notification setup dialog: read native permission status without prompting.",
+  "notify settings": "Notification setup dialog: open notification settings on the daemon host."
 }

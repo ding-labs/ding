@@ -4,6 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { api, APIError } from "../api/client";
 import type { ControlFirstWatchPreview } from "../api/contracts";
 import { Heading, ErrorBox } from "../components/common";
+import { NotificationSetup } from "../components/NotificationSetup";
+import { Demo } from "../components/Demo";
 
 export function FirstWatch() {
   const [id, setID] = useState("first-watch");
@@ -29,13 +31,6 @@ export function FirstWatch() {
       }));
     } catch (e) { setError(e); } finally { setBusy(false); }
   }
-  async function testNotification() {
-    setBusy(true); setError(undefined); setNotification(false); setSawNotification(false);
-    try {
-      await api("/desktop/test", { method: "POST", body: {} });
-      setNotification(true);
-    } catch (e) { setError(e); } finally { setBusy(false); }
-  }
   async function activate() {
     if (!preview?.review.review) return;
     setBusy(true); setError(undefined);
@@ -54,7 +49,7 @@ export function FirstWatch() {
 
   return <>
     <Heading eyebrow="Runs on this computer" title="Your first useful watch"
-      description="Monitor a service you care about. No account, credit card, or AI connection needed." />
+      description="Monitor a service you care about. No account, credit card, or AI connection needed."><Demo /></Heading>
     <section className="panel">
       <form className="onboarding-form" onSubmit={review}>
         <fieldset disabled={busy || uncertain}>
@@ -80,7 +75,9 @@ export function FirstWatch() {
       <p>Timeouts and unreachable endpoints produce source-error alerts separately. They never count as successful checks.</p>
       <p>This watch runs while this computer is awake and connected. Closing Ding's Console or your AI app does not stop the background service.</p>
       {delivery === "desktop" ? <>
-        <button className="button" disabled={busy || uncertain} onClick={testNotification}>Send a test notification</button>
+        <NotificationSetup label="Send a test notification" disabled={busy || uncertain}
+          onTest={() => { setNotification(false); setSawNotification(false); }}
+          onAccepted={() => setNotification(true)} onUseConsole={() => edit(setDelivery, "console")} />
         {notification ? <label><input type="checkbox" checked={sawNotification} onChange={e => setSawNotification(e.target.checked)} /> I saw the test notification</label> : null}
         <p className="muted">Your OS may ask for notification permission. Acceptance by the OS does not guarantee you saw the alert.</p>
       </> : <p className="notice">Console-only delivery records alerts in Ding and the daemon output. It does not notify you outside Ding.</p>}

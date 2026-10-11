@@ -34,6 +34,7 @@ import parity from "../../../../testdata/console/parity.json";
 import { useExecution } from "../app/execution";
 import { CloudSystem } from "./CloudSystem";
 import { LocalUpdates } from "./LocalUpdates";
+import { NotificationSetup } from "../components/NotificationSetup";
 function bytes(n: number) {
   return `${(n / (1 << 20)).toFixed(1)} MiB`;
 }
@@ -52,6 +53,7 @@ export function System() {
         eyebrow="System"
         description="Runtime checks, destinations, and the tools to operate this instance."
       >
+        {!cloud && <NotificationSetup />}
         <span className="subtle">
           Last status <Time value={status.data?.at} />
         </span>

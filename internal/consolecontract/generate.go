@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/control"
+	"github.com/ding-labs/ding/internal/demo"
+	"github.com/ding-labs/ding/internal/notify"
 	"github.com/ding-labs/ding/internal/plan"
 	"github.com/ding-labs/ding/internal/replay"
 	"github.com/ding-labs/ding/internal/store"
@@ -82,7 +84,7 @@ func Generate() []byte {
 			panic("unsupported API type " + t.String())
 		}
 	}
-	for _, v := range []any{control.LocalUpdates{}, control.FirstWatchPreview{}, store.WatchPage{}, store.EventSummaryPage{}, store.DeliveryPage{}, store.DestinationPage{}, watchrun.Status{}, control.Conversion{}, control.BackupArtifact{}, control.CompileResult{}, control.Verification{}, control.Info{}, control.BrowserSession{}, plan.Bundle{}, watch.Definition{}, watch.Event{}, watch.Observation{}, store.WatchSummary{}, store.DeliveryInspection{}, store.EventPage{}, store.ObservationPage{}, watchrun.Doctor{}, watchrun.ApplyRequest{}, watchrun.ApplyResult{}, replay.Evidence{}, replay.Report{}} {
+	for _, v := range []any{demo.Update{}, notify.Settings{}, control.LocalUpdates{}, control.FirstWatchPreview{}, store.WatchPage{}, store.EventSummaryPage{}, store.DeliveryPage{}, store.DestinationPage{}, watchrun.Status{}, control.Conversion{}, control.BackupArtifact{}, control.CompileResult{}, control.Verification{}, control.Info{}, control.BrowserSession{}, plan.Bundle{}, watch.Definition{}, watch.Event{}, watch.Observation{}, store.WatchSummary{}, store.DeliveryInspection{}, store.EventPage{}, store.ObservationPage{}, watchrun.Doctor{}, watchrun.ApplyRequest{}, watchrun.ApplyResult{}, replay.Evidence{}, replay.Report{}} {
 		typeOf(reflect.TypeOf(v))
 	}
 	names := make([]string, 0, len(definitions))
