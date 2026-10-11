@@ -67,7 +67,7 @@ func (d *DB) ChangeMember(ctx context.Context, actor access.Principal, user stri
 	}
 	if old == access.Owner && role != access.Owner {
 		var owners int
-		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM memberships m JOIN users u ON u.id=m.user WHERE workspace=? AND role='owner' AND u.disabled=0`, actor.Workspace).Scan(&owners); err != nil {
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM memberships m JOIN users u ON u.id=m.user WHERE workspace=? AND role='owner' AND u.disabled=0 AND (u.password IS NOT NULL OR EXISTS(SELECT 1 FROM identities i WHERE i.user=u.id))`, actor.Workspace).Scan(&owners); err != nil {
 			return err
 		}
 		if owners <= 1 {
@@ -103,7 +103,7 @@ func (d *DB) DeleteUser(ctx context.Context, user string) error {
 	}
 	defer tx.Rollback()
 	var sole int
-	err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM memberships mine WHERE mine.user=? AND mine.role='owner' AND NOT EXISTS(SELECT 1 FROM memberships other JOIN users u ON u.id=other.user WHERE other.workspace=mine.workspace AND other.user!=mine.user AND other.role='owner' AND u.disabled=0)`, user).Scan(&sole)
+	err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM memberships mine WHERE mine.user=? AND mine.role='owner' AND NOT EXISTS(SELECT 1 FROM memberships other JOIN users u ON u.id=other.user WHERE other.workspace=mine.workspace AND other.user!=mine.user AND other.role='owner' AND u.disabled=0 AND (u.password IS NOT NULL OR EXISTS(SELECT 1 FROM identities i WHERE i.user=u.id)))`, user).Scan(&sole)
 	if err != nil {
 		return err
 	}

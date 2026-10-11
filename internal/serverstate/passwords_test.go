@@ -88,3 +88,33 @@ func TestInvitationCannotEscalatePrivileges(t *testing.T) {
 		t.Fatal("administrator reset owner")
 	}
 }
+
+func TestPendingOwnerCannotReplaceLastActiveOwner(t *testing.T) {
+	ctx := context.Background()
+	db, err := Open(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	a, err := db.Bootstrap(ctx, "owner", "Owner", "correct horse battery")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, _ := db.Principal(ctx, a.User, a.ID, "browser", nil)
+	invite, err := db.Invite(ctx, p, "pending", "Pending", access.Owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ChangeMember(ctx, p, a.User, access.Editor); err == nil {
+		t.Fatal("pending invitation counted as usable owner")
+	}
+	if err := db.DeleteUser(ctx, a.User); err == nil {
+		t.Fatal("deleted only usable owner")
+	}
+	if err := db.Activate(ctx, invite.Token, "replacement owner password"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ChangeMember(ctx, p, a.User, access.Editor); err != nil {
+		t.Fatal(err)
+	}
+}

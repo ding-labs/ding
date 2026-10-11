@@ -97,7 +97,7 @@ func (s *Server) resolveMCP(issuer string) mcpserver.Resolver {
 		}
 		api := s.api(tenant)
 		principal.Grant = connection.GrantID
-		return &mcpclient.Client{Connection: connection, HTTP: &http.Client{Transport: privateTransport{handler: api.handler, origin: s.PublicURL, db: s.DB, principal: principal}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
+		return &mcpclient.Client{Connection: connection, HTTP: &http.Client{Transport: privateTransport{handler: api.handler, origin: s.PublicURL, db: s.DB, vault: s.Vault, client: clientID, principal: principal}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
 	}
 }
 
@@ -108,6 +108,8 @@ type privateTransport struct {
 	origin    string
 	db        *state.DB
 	principal access.Principal
+	vault     *state.Vault
+	client    string
 }
 
 func (t privateTransport) RoundTrip(r *http.Request) (*http.Response, error) {
@@ -119,6 +121,10 @@ func (t privateTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	p, err := t.db.Principal(r.Context(), t.principal.User, t.principal.Workspace, "integration", t.principal.Scopes)
 	if err != nil {
 		return nil, fmt.Errorf("membership revoked")
+	}
+	binding, err := t.vault.MCP(r.Context(), p.User, p.Workspace, t.client)
+	if err != nil || binding.GrantID != t.principal.Grant {
+		return nil, fmt.Errorf("consent revoked")
 	}
 	p.Grant = t.principal.Grant
 	r = r.Clone(access.WithPrincipal(r.Context(), p))

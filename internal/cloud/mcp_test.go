@@ -51,6 +51,12 @@ func TestHostedMCPUsesSeparateWorkspaceClientScopesAndRevocation(t *testing.T) {
 	if _, err := client.Call(ctx, "POST", "/preview", nil, map[string]any{"manifest": bad}); err == nil {
 		t.Fatal("MCP bypassed cloud policy")
 	}
+	if err := s.DB.UnbindMCP(ctx, sessions[0].User, sessions[0].Workspace, "chatgpt-client"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Call(ctx, "GET", "/capabilities", nil, nil); err == nil {
+		t.Fatal("retained connection survived consent removal")
+	}
 	w = cloudRequest(h, "POST", "/v1/cloud/models", `{"clientID":"chatgpt-client","revoke":true}`, sessions[0], true)
 	if w.Code != 200 {
 		t.Fatal(w.Code)
