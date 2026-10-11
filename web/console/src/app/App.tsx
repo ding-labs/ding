@@ -161,7 +161,7 @@ export function App() {
             <img className="brand-bell" src={bell} width="36" height="36" alt="" /><strong>Ding<span>.</span></strong>
           </NavLink>
           <nav aria-label="Main navigation">
-            {nav.map((n) => (
+            {nav.filter(n => n.path !== "/workbench" || execution.mode === "local" || execution.capabilities?.includes("preview")).map((n) => (
               <NavLink
                 key={n.path}
                 to={n.path}
@@ -281,7 +281,7 @@ export function App() {
               <Route path="/events/:id" element={<EventDetail />} />
               <Route path="/deliveries" element={<Deliveries />} />
               <Route path="/deliveries/:id" element={<DeliveryDetail />} />
-              <Route path="/workbench" element={<Workbench />} />
+              <Route path="/workbench" element={execution.mode === "local" || execution.capabilities?.includes("preview") ? <Workbench /> : <Navigate to="/watches" replace />} />
               <Route path="/start" element={execution.mode === "cloud" ? <CloudFirstWatch /> : execution.mode === "shared" ? <Workbench /> : <FirstWatch />} />
               <Route path="/system" element={<System />} />
               <Route

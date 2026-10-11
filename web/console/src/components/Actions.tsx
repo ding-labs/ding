@@ -10,6 +10,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { useCapability } from "../app/execution";
 import { useConnection } from "../api/connection";
 import { api, unknownOutcome } from "../api/client";
 import type { StoreWatchRecord, StoreIntent } from "../api/contracts";
@@ -62,6 +63,7 @@ function Confirm({
   );
 }
 export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
+  const allowed = useCapability("manage");
   const [action, setAction] = useState("");
   const [expected, setExpected] = useState("");
   const [typed, setTyped] = useState("");
@@ -91,7 +93,7 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
     setCancelPending(false);
     change.reset();
   };
-  if (watch.status === "deleted") return null;
+  if (!allowed || watch.status === "deleted") return null;
   const title =
     action === "delete"
       ? `Delete ${id}?`
@@ -244,6 +246,7 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
   );
 }
 export function RetryAction({ intent }: { intent: StoreIntent }) {
+ const allowed = useCapability("retry");
   const [open, setOpen] = useState(false);
   const client = useQueryClient();
   const connected = useConnection();
@@ -255,6 +258,7 @@ export function RetryAction({ intent }: { intent: StoreIntent }) {
       setOpen(false);
     },
   });
+  if (!allowed) return null;
   if (!["permanent", "exhausted", "canceled"].includes(intent.status) && !open)
     return null;
   return (
