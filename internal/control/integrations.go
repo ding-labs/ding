@@ -55,6 +55,16 @@ func integrationHandler(app *watchrun.App, c Credentials, base http.Handler) htt
 			integrationError(w, err)
 			return g, false
 		}
+		if _, shared := access.FromContext(r.Context()); !shared {
+			updated, e := personalRequest(r, app)
+			if e != nil {
+				integrationError(w, e)
+				return g, false
+			}
+			p, _ := access.FromContext(updated.Context())
+			p.Grant = g.ID
+			*r = *updated.WithContext(access.WithPrincipal(updated.Context(), p))
+		}
 		return g, true
 	}
 	admin := func(w http.ResponseWriter, r *http.Request) bool {
