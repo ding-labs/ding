@@ -2,10 +2,10 @@ name: CI
 
 on:
   pull_request:
-    paths: ['.gitattributes', '**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'web/mcp-app/**', 'design/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'testdata/**', 'scripts/**', 'native/**', 'deploy/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
+    paths: ['.gitattributes', '**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'web/mcp-app/**', 'design/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'testdata/**', 'scripts/**', 'native/**', 'deploy/**', '.railway/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
   push:
     branches: [main, "codex/**"]
-    paths: ['.gitattributes', '**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'web/mcp-app/**', 'design/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'testdata/**', 'scripts/**', 'native/**', 'deploy/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
+    paths: ['.gitattributes', '**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'web/mcp-app/**', 'design/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'testdata/**', 'scripts/**', 'native/**', 'deploy/**', '.railway/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
   workflow_dispatch:
 
 permissions:
@@ -92,6 +92,12 @@ jobs:
           docker build -f Dockerfile.cloud -t ding-cloud-ci .
           test "$(docker image inspect --format '{{.Config.User}}' ding-cloud-ci)" = '10001:10001'
           docker run --rm --network none ding-cloud-ci --help
+      - name: Railway startup, persistence and restore
+        run: |
+          npm ci --prefix .railway --ignore-scripts
+          npm run check --prefix .railway
+          docker build -f Dockerfile.railway -t ding-cloud-railway-ci .
+          python3 deploy/railway/qualify.py ding-cloud-railway-ci
 
   adapters:
     name: Native artifact (${{ matrix.goos }}/${{ matrix.goarch }})
