@@ -44,6 +44,7 @@ type logCheckpoint struct {
 	Sequence   int64              `json:"sequence"`
 	Started    time.Time          `json:"started"`
 	Last       time.Time          `json:"last"`
+	WindowEnd  time.Time          `json:"windowEnd,omitempty"`
 	Status     string             `json:"status"`
 	Position   *logs.FilePosition `json:"position,omitempty"`
 }
@@ -73,7 +74,7 @@ func (a *App) startLogSession(ctx context.Context, id string, owned *store.Watch
 	}
 	next := logCheckpoint{Version: 1, ID: rand.Text(), Epoch: a.logEpoch, Revision: r.Plan.Revision, Generation: r.Generation, Started: now, Last: now, Status: "active"}
 	o := watch.Observation{Health: "waiting", Detail: "warming_up", Fields: map[string]any{"reason": "warming_up"}}
-	if r.Cursor != "" {
+	if previous.ID != "" {
 		o.Health, o.Detail = "gap", "collector_reconnected"
 	}
 	_, err = a.accept(ctx, r, source.Batch{ExpectedCursor: &r.Cursor, Cursor: next.encode(), FreshUntil: now.Add(time.Second), Observations: []watch.Observation{o}}, "log-start:"+next.ID, a.Now)
@@ -143,6 +144,10 @@ func (a *App) AcceptLogSnapshot(ctx context.Context, id string, input LogSnapsho
 		if err != nil {
 			return Receipt{}, fmt.Errorf("%w: %s", ErrInput, err)
 		}
+		if !checkpoint.WindowEnd.IsZero() && !s.WindowEnd.After(checkpoint.WindowEnd) {
+			return Receipt{}, store.ErrStale
+		}
+		checkpoint.WindowEnd = s.WindowEnd
 		o.Fields, err = s.Fields()
 		if err != nil {
 			return Receipt{}, ErrInput

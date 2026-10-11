@@ -84,7 +84,8 @@ func (a *App) runLogReader(ctx context.Context, r store.WatchRecord) {
 				_ = publish(failure)
 			}
 			return
-		case at := <-tick.C:
+		case <-tick.C:
+			at := time.Now()
 			if !previous.IsZero() && at.Sub(previous) > 2*time.Second {
 				c.Gap()
 			}

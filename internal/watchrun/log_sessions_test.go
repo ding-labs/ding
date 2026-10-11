@@ -47,6 +47,11 @@ func TestLogSessionsFenceProducersAndPreserveIncident(t *testing.T) {
 		t.Fatal(err)
 	}
 	input.Sequence, input.Summary.Total, input.Summary.Classified, input.Summary.Warnings = 2, 0, 0, 0
+	if _, err := a.AcceptLogSnapshot(ctx, "output", input); !errors.Is(err, store.ErrStale) {
+		t.Fatal("re-evaluated the same completed second", err)
+	}
+	now = now.Add(time.Second)
+	input.Summary.WindowStart, input.Summary.WindowEnd = now.Add(-time.Second), now
 	if _, err := a.AcceptLogSnapshot(ctx, "output", input); err != nil {
 		t.Fatal(err)
 	}

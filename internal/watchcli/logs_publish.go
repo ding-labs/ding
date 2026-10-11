@@ -52,7 +52,8 @@ func publishLogs(parent context.Context, client control.Client, id string, colle
 			select {
 			case <-ctx.Done():
 				return
-			case at := <-tick.C:
+			case <-tick.C:
+				at := time.Now()
 				if session != nil && !connected {
 					if permanent || at.Before(reconnectAt) {
 						continue
