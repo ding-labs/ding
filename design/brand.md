@@ -12,11 +12,16 @@ evidence-first console plan. Use system sans-serif and system monospace; no
 external font request is required. Keep body text at least 14px in product views
 and 16px in long-form public content. Use 4/8/12/16/24/32px spacing increments.
 
-The fire-alarm bell in `assets/mark.svg` is restored from the original website,
-`workers/website/site/ding-logo-light.svg`, introduced in website commit `c449b07`.
-Its paths and colors are unchanged. `bell-light.svg` and `bell-dark.svg` preserve
-the original two treatments. The website, docs, and console use this same mark
-and favicon. Keep the light mark on a small ivory backing in dark navigation.
+The official fire-alarm bell reference is `reference/ding-green-official.png`,
+provided by the owner on October 10, 2026. `assets/mark.svg` is its scalable
+equivalent, retaining the original paths and colors. The full green circle must
+appear **in front of the gray mounting rectangle**. The earlier light SVG had
+the wrong draw order; do not restore it from older website snapshots.
+`bell-light.svg` and `bell-dark.svg` are compatibility filenames for this same
+official artwork, not alternative designs. The website, docs, Console, MCP app,
+plugin assets, and macOS notifications use it. Keep the mark on a small ivory
+backing in dark navigation. `scripts/render-macos-icon.swift` renders native icon
+sizes directly from the shared SVG using build-time AppKit.
 Social artwork lives in `assets/social.svg` with its matching rendered PNG.
 All source SVG assets are covered by the repository's Apache-2.0 license.
 
@@ -35,11 +40,12 @@ current website illustration is explicitly a design preview, not a released
 console screenshot. Update `content/product.json` only after verifying the
 runtime artifacts and console minimum version.
 
-## Original-green design draft — October 9, 2026
+## Official brand review — October 10, 2026
 
 Review `draft/index.html` for light and dark captures of all three working surfaces.
 These captures use isolated console fixtures; they are not live operational data.
-The draft is based on main `dd4715e` and is not a production deployment.
+The captures show the 0.15.2 source with the official artwork. They are review
+fixtures, not evidence of a production deployment.
 
 | Role                | Color                 | Use                                                        |
 | ------------------- | --------------------- | ---------------------------------------------------------- |

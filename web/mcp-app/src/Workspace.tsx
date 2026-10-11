@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import bell from "../../../design/assets/mark.svg?raw";
 import type { Bridge, DingView, ToolResult } from "./bridge";
 import { parseResult } from "./bridge";
 import type {
@@ -205,16 +206,8 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
     <main aria-busy={busy}>
       <header>
         <div className="brand">
-          <svg viewBox="0 0 24 24" width="23" height="23" aria-hidden="true">
-            <path
-              d="M5 16h14l-2-3V9a5 5 0 0 0-10 0v4l-2 3Zm5 3a2 2 0 0 0 4 0"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.7"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          {/* Trusted artwork bundled at build time; no remote image requests. */}
+          <span className="brand-icon" aria-hidden="true" dangerouslySetInnerHTML={{ __html: bell }} />
           <strong>Ding</strong>
         </div>
         <span className="connection">

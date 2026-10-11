@@ -6,7 +6,7 @@ on:
       version:
         description: Stable version, without the v prefix
         required: true
-        default: '0.15.1'
+        default: '0.15.2'
 
 permissions:
   contents: read
@@ -68,6 +68,9 @@ jobs:
           go test -v -count=1 ./internal/qualification
           if [ '${{ matrix.os }}' = darwin ]; then
             codesign --verify --strict dist/extracted/DingNotifications.app
+            test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' dist/extracted/DingNotifications.app/Contents/Info.plist)" = "${RELEASE_VERSION#v}"
+            test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' dist/extracted/DingNotifications.app/Contents/Info.plist)" = Ding.icns
+            iconutil --convert iconset --output dist/icon-check.iconset dist/extracted/DingNotifications.app/Contents/Resources/Ding.icns
             DING_TEST_NOTIFICATION_HELPER="$PWD/dist/extracted/DingNotifications.app/Contents/MacOS/DingNotifications" \
               go test -v -count=1 ./internal/notify -run TestNativeNotification
           fi

@@ -32,7 +32,7 @@ CGO_ENABLED=0 go build -trimpath -tags console,mcpui \
   -o "$ding_temp/payload/ding" ./cmd/ding
 cp LICENSE README.md ding.yaml.example "$ding_temp/payload/"
 if [ "$ding_os" = darwin ]; then
-  sh scripts/build-notifications-macos.sh "$ding_temp/payload/DingNotifications.app"
+  sh scripts/build-notifications-macos.sh "$ding_temp/payload/DingNotifications.app" "$ding_version"
   if [ "$ding_release" = 1 ]; then
     codesign --force --options runtime --timestamp --sign "$DING_CODESIGN_IDENTITY" "$ding_temp/payload/ding"
     ditto -c -k --keepParent "$ding_temp/payload" "$ding_temp/notarize.zip"

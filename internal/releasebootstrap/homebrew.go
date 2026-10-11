@@ -90,7 +90,10 @@ class {{.Class}} < Formula
 
   test do
     assert_match "{{.Version}}", shell_output("#{bin}/ding version")
-    assert_path_exists libexec/"DingNotifications.app/Contents/MacOS/DingNotifications" if OS.mac?
+    if OS.mac?
+      assert_path_exists libexec/"DingNotifications.app/Contents/MacOS/DingNotifications"
+      assert_path_exists libexec/"DingNotifications.app/Contents/Resources/Ding.icns"
+    end
     system bin/"ding", "demo"
   end
 end

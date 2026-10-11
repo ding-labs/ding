@@ -1,4 +1,5 @@
 import AppKit
+import CoreServices
 import Foundation
 import UserNotifications
 import Darwin
@@ -141,6 +142,10 @@ struct NotificationApplication {
         if CommandLine.arguments.dropFirst() == ["--credentials"] {
             exit(credentials())
         }
+        // The CLI launches our executable directly instead of opening the .app.
+        // Refresh this bundle's metadata so Launch Services sees its icon and
+        // current Homebrew location after an upgrade. This changes no permissions.
+        _ = LSRegisterURL(Bundle.main.bundleURL as CFURL, true)
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.setActivationPolicy(.accessory)

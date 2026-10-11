@@ -12,6 +12,7 @@ const result = await build({
   format: "iife",
   platform: "browser",
   target: ["es2022"],
+  loader: { ".svg": "text" },
   define: { "process.env.NODE_ENV": '"production"' },
   outfile: "workspace.js",
 });
