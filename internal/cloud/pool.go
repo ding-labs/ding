@@ -34,15 +34,17 @@ type Tenant struct {
 	failed    atomic.Bool
 }
 type Pool struct {
-	root     string
-	db       *state.DB
-	vault    *state.Vault
-	http     *http.Client
-	ctx      context.Context
-	mu       sync.Mutex
-	tenants  map[string]*Tenant
-	closed   bool
-	deleting map[string]bool
+	Shared           bool
+	ApprovedCommands []string
+	root             string
+	db               *state.DB
+	vault            *state.Vault
+	http             *http.Client
+	ctx              context.Context
+	mu               sync.Mutex
+	tenants          map[string]*Tenant
+	closed           bool
+	deleting         map[string]bool
 }
 
 // NewPool requires the control DB's host lock to remain held until Close returns.
@@ -79,6 +81,10 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 	}
 	app := watchrun.New(db)
 	app.Limits = Limits()
+	if p.Shared {
+		app.Limits = watchrun.DefaultLimits()
+	}
+	app.ApprovedCommands = append([]string(nil), p.ApprovedCommands...)
 	app.AcquisitionWorkers, app.DeliveryWorkers = 1, 1
 	app.PollInterval = time.Second
 	app.SchedulingJitter = 5 * time.Second
@@ -86,21 +92,26 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 	app.HTTP.Lookup = app.Lookup
 	app.Output = io.Discard
 	client := *p.http
-	client.Transport = budgetTransport{p.http.Transport, p.db, id}
+	if !p.Shared {
+		client.Transport = budgetTransport{p.http.Transport, p.db, id}
+	}
 	app.HTTP.Client = &client
 	app.ValidateBundle = Policy
+	if p.Shared {
+		app.ValidateBundle = sharedPolicy(p.ApprovedCommands)
+	}
 	// Revalidate persisted definitions before any worker starts. Database uploads
 	// are not a tenant API; a local/older store still cannot enable command I/O.
 	records, err := app.List(ctx)
 	if err == nil {
-		if len(records) > Limits().MaxWatches {
+		if len(records) > app.Limits.MaxWatches {
 			active := 0
 			for _, r := range records {
 				if r.Status != "deleted" {
 					active++
 				}
 			}
-			if active > Limits().MaxWatches {
+			if active > app.Limits.MaxWatches {
 				err = fmt.Errorf("workspace exceeds active watch limit")
 			}
 		}
@@ -109,7 +120,7 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 				break
 			}
 			if r.Status != "deleted" {
-				err = Policy(plan.Bundle{Watches: []plan.Compiled{r.Plan}})
+				err = app.ValidateBundle(plan.Bundle{Watches: []plan.Compiled{r.Plan}})
 				if err != nil {
 					break
 				}
@@ -126,7 +137,7 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 			for _, d := range destinations {
 				bundle.Destinations = append(bundle.Destinations, plan.CompiledDestination{Definition: d})
 			}
-			return Policy(bundle)
+			return app.ValidateBundle(bundle)
 		})
 	}
 	if err != nil {

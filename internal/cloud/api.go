@@ -54,7 +54,7 @@ func (s *Server) serveTenant(w http.ResponseWriter, r *http.Request, session sta
 	if r.Method == "GET" {
 		switch r.URL.Path {
 		case "/v1/info":
-			cloudWrite(w, 200, map[string]any{"version": s.Version, "apiVersion": watch.APIVersion, "schema": store.SchemaVersion, "os": "cloud", "arch": "managed", "console": true, "origin": s.PublicURL, "listen": "", "stateDir": "", "limits": t.App.Limits, "time": time.Now().UTC(), "execution": "cloud", "workspace": session.Workspace})
+			cloudWrite(w, 200, map[string]any{"version": s.Version, "apiVersion": watch.APIVersion, "schema": store.SchemaVersion, "os": s.execution(), "arch": "managed", "console": true, "origin": s.PublicURL, "listen": "", "stateDir": "", "limits": t.App.Limits, "time": time.Now().UTC(), "execution": s.execution(), "workspace": session.Workspace})
 			return
 		case "/v1/cloud/usage":
 			usage, err := s.DB.Usage(r.Context(), session.Workspace, time.Now())
@@ -133,7 +133,7 @@ func (s *Server) serveTenant(w http.ResponseWriter, r *http.Request, session sta
 		if req.Manifest != "" {
 			bundle, err := plan.Parse([]byte(req.Manifest))
 			if err == nil {
-				err = Policy(bundle)
+				err = t.App.ValidateBundle(bundle)
 			}
 			if err != nil {
 				cloudFail(w, 400, "cloud_policy", err.Error())

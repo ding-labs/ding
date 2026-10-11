@@ -154,6 +154,7 @@ func (d *DB) Workspaces(ctx context.Context) ([]Workspace, error) {
 const schemaVersion = 100
 
 const schema = `
+CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
 CREATE TABLE users(id TEXT PRIMARY KEY,name TEXT NOT NULL,username TEXT UNIQUE,password TEXT,disabled INTEGER NOT NULL DEFAULT 0,created_at INTEGER NOT NULL);
 CREATE TABLE identities(issuer TEXT NOT NULL,subject TEXT NOT NULL,user TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,PRIMARY KEY(issuer,subject));
 CREATE TABLE workspaces(id TEXT PRIMARY KEY,name TEXT NOT NULL,created_at INTEGER NOT NULL,deleting INTEGER NOT NULL DEFAULT 0);

@@ -18,6 +18,7 @@ const csrfCookie = "__Host-ding-csrf"
 const loginCookie = "__Host-ding-login"
 
 type LoginFlow struct {
+	Shared          bool
 	EnrollmentLimit *int
 	DB              *state.DB
 	Vault           *state.Vault
@@ -86,7 +87,12 @@ func (f LoginFlow) Callback(w http.ResponseWriter, r *http.Request) {
 	if f.EnrollmentLimit != nil {
 		limit = *f.EnrollmentLimit
 	}
-	workspace, err := f.DB.Enroll(r.Context(), identity.Issuer, identity.Subject, limit)
+	var workspace state.Enrollment
+	if f.Shared {
+		workspace, err = f.DB.IdentityWorkspace(r.Context(), identity.Issuer, identity.Subject)
+	} else {
+		workspace, err = f.DB.Enroll(r.Context(), identity.Issuer, identity.Subject, limit)
+	}
 	if err != nil {
 		cloudFail(w, 503, "enrollment_unavailable", "Cloud enrollment is currently unavailable. Local and self-hosted Ding remain free and available.")
 		return
