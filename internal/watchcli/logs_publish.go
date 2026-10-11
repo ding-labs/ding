@@ -78,6 +78,7 @@ func publishLogs(parent context.Context, client control.Client, id string, colle
 					}
 					session, sequence, connected = &next, 0, true
 					collector.Reset()
+					previous = at
 					fmt.Fprintln(diagnostics, "ding: log monitoring reconnected; rebuilding the live window")
 				}
 				if !previous.IsZero() && at.Sub(previous) > 2*time.Second {
