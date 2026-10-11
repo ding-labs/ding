@@ -18,6 +18,12 @@ func Describe(p Compiled) Description {
 	switch s.Source.Type {
 	case "logs":
 		d.Source = fmt.Sprintf("Receive live application output summaries over %s; require %d records. Start capture with ding logs exec or ding logs ingest.", s.Source.Logs.Window, s.Source.Logs.MinEvents)
+		switch i := s.Source.Logs.Input; i.Type {
+		case "file":
+			d.Source = fmt.Sprintf("Follow %q read-only on the daemon host, starting at its current end. Rebuild the live window after rotation or interruption.", i.Path)
+		case "command":
+			d.Source = fmt.Sprintf("Run log reader %q in %q on the daemon host; reconnect after %s. Pause stops the reader. Configure the reader for live output only.", i.Argv, i.Directory, i.ReconnectEvery)
+		}
 	case "http":
 		target := s.Source.URL
 		if s.Source.URLRef != nil {
