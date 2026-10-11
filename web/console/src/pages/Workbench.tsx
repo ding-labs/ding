@@ -32,6 +32,9 @@ import {
   useRead,
 } from "../components/common";
 import { LegacyImport } from "./LegacyImport";
+import { LogSetup } from "./LogSetup";
+import { LogPreview } from "../components/LogPreview";
+import { useExecution } from "../app/execution";
 import { DefinitionDiff } from "../components/DefinitionDiff";
 import { useDraft, setDraft } from "../app/draft";
 const CodeEditor = lazy(() => import("../components/CodeEditor"));
@@ -66,6 +69,7 @@ async function readFile(file: File, max: number) {
   return file.text();
 }
 export function Workbench() {
+  const execution = useExecution();
   const draft = useDraft();
   const connected = useConnection();
   const [params, setParams] = useSearchParams();
@@ -130,6 +134,11 @@ export function Workbench() {
   useEffect(() => () => controller.current?.abort(), []);
   const valid =
     compiled?.valid && compiledText === draft.manifest && !compiling;
+  const logConfig = valid
+    ? compiled?.bundle.watches.find(
+        (w) => w.definition.metadata.id === selected,
+      )?.definition.spec.source.logs
+    : undefined;
   const pick = (kind: string) => {
     if (
       draft.dirty &&
@@ -438,7 +447,7 @@ export function Workbench() {
           <ArrowRight size={15} />
         </button>
       </Heading>
-      {!draft.manifest && (
+      {!draft.manifest && tab === "Definition" && (
         <section className="template-grid">
           <button onClick={() => pick("HTTP")}>
             <Globe size={23} />
@@ -464,19 +473,55 @@ export function Workbench() {
               Command watch <ArrowRight size={14} />
             </span>
           </button>
+          {execution.mode === "local" && (
+            <button onClick={() => setTab("Log setup")}>
+              <SquareTerminal size={23} />
+              <h2>Monitor application logs</h2>
+              <p>
+                Count warnings and errors from text, JSON, stdout, pipes, or
+                files.
+              </p>
+              <span>
+                Log watch <ArrowRight size={14} />
+              </span>
+            </button>
+          )}
         </section>
       )}
       <Tabs
-        items={["Definition", "Simulation", "Verify evidence", "Legacy import"]}
+        items={[
+          "Definition",
+          ...(execution.mode === "local" ? ["Log setup"] : []),
+          "Simulation",
+          "Verify evidence",
+          "Legacy import",
+        ]}
         active={tab}
         onChange={setTab}
       />
       <ErrorBox error={error || compileError} />
+      {tab === "Log setup" && execution.mode === "local" && (
+        <LogSetup
+          onDraft={(manifest) => {
+            if (
+              draft.dirty &&
+              draft.manifest &&
+              !confirm("Replace your current draft with this log watch?")
+            )
+              return;
+            setDraft({ manifest, fixture: "", dirty: true });
+            setTab("Definition");
+          }}
+        />
+      )}
       {tab === "Legacy import" && (
         <LegacyImport onEdit={() => setTab("Definition")} />
       )}
       {tab === "Definition" && (
         <>
+          {logConfig && execution.mode === "local" && (
+            <LogPreview config={logConfig} />
+          )}
           <div className="editor-toolbar">
             <div className="actions">
               {upload("manifest", 1 << 20)}

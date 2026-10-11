@@ -15,6 +15,7 @@ notifications through a durable outbox. The Go daemon runs on your infrastructur
 | Watch an API for repeated failures | [HTTP monitoring](guides/http.md) |
 | Notice a missing heartbeat | [Missing data](guides/missing-data.md) |
 | Run a trusted local check | [Command sources](guides/command.md) |
+| Alert on warnings or errors in application output | [Live log monitoring](guides/logs.md) |
 | Understand why an alert happened | [Investigate an event](guides/investigate.md) |
 | Operate a persistent daemon | [Operating Ding](operate/index.md) |
 | Open the local graphical interface | [Ding Console](console/index.md) |

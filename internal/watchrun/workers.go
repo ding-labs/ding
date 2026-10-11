@@ -157,6 +157,7 @@ func (a *App) Run(ctx context.Context) error {
 		}()
 	}
 	var acquisitions sync.WaitGroup
+	logReaders := &logWorkers{app: a, active: map[string]logWorker{}, retry: map[string]time.Time{}}
 	active := map[string]bool{}
 	retry := map[string]time.Time{}
 	var activeMu sync.Mutex
@@ -196,6 +197,8 @@ func (a *App) Run(ctx context.Context) error {
 			a.note(err)
 			return
 		}
+		a.expireLogSessions(ctx, records, now)
+		logReaders.reconcile(ctx, records, now)
 		activeMu.Lock()
 		known := map[string]bool{}
 		for _, record := range records {
@@ -211,7 +214,7 @@ func (a *App) Run(ctx context.Context) error {
 		activeMu.Unlock()
 		for _, record := range records {
 			id := record.Plan.Definition.Metadata.ID
-			if record.Status != "running" || record.Plan.Definition.Spec.Source.Type == "push" || record.NextAt.After(now) {
+			if record.Status != "running" || record.Plan.Definition.Spec.Source.Type == "push" || record.Plan.Definition.Spec.Source.Type == "logs" || record.NextAt.After(now) {
 				continue
 			}
 			activeMu.Lock()
@@ -282,6 +285,7 @@ loop:
 	a.closing = true
 	a.mu.Unlock()
 	acquisitions.Wait()
+	logReaders.stop()
 	drainDeadline := time.NewTimer(5 * time.Second)
 	defer drainDeadline.Stop()
 	for {

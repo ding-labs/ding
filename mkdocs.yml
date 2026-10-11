@@ -70,6 +70,7 @@ nav:
     - HTTP monitoring: guides/http.md
     - Receive JSON: guides/push.md
     - Command checks: guides/command.md
+    - Live application logs: guides/logs.md
     - Missing heartbeats: guides/missing-data.md
     - Changes and provider events: guides/changes.md
     - Grouped watches: guides/grouping.md

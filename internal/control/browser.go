@@ -191,7 +191,7 @@ func ConsoleHandler(app *watchrun.App, c Credentials, cfg ConsoleConfig) http.Ha
 			cfg.Assets.ServeHTTP(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/v1/ingest/") || strings.HasPrefix(r.URL.Path, "/v1/integrations/") {
+		if strings.HasPrefix(r.URL.Path, "/v1/ingest/") || strings.HasPrefix(r.URL.Path, "/v1/logs/") || strings.HasPrefix(r.URL.Path, "/v1/integrations/") {
 			api.ServeHTTP(w, r)
 			return
 		}

@@ -197,7 +197,17 @@ func Compile(d watch.Definition) (Compiled, error) {
 	}
 	d = normalized
 	s := &d.Spec.Source
+	if s.Logs != nil && s.Type != "logs" {
+		return Compiled{}, fmt.Errorf("source.logs belongs to log sources")
+	}
 	switch s.Type {
+	case "logs":
+		if err := compileLogs(s); err != nil {
+			return Compiled{}, err
+		}
+		if len(d.Spec.GroupBy) > 0 || len(d.Spec.Match) > 0 || d.Spec.Condition.Numeric != "" || d.Spec.Condition.MissingFor != "" || d.Spec.Condition.Operator == "changed" || d.Spec.Condition.Operator == "new-event" {
+			return Compiled{}, fmt.Errorf("logs evaluates scalar summary fields for one stream without grouping or filtering")
+		}
 	case "http":
 		if (s.URL == "") == (s.URLRef == nil) {
 			return Compiled{}, fmt.Errorf("HTTP source requires exactly one of url or urlRef")
@@ -238,7 +248,7 @@ func Compile(d watch.Definition) (Compiled, error) {
 	default:
 		return Compiled{}, fmt.Errorf("unsupported source type %q", s.Type)
 	}
-	if s.Type != "push" {
+	if s.Type != "push" && s.Type != "logs" {
 		if s.Every == "" {
 			s.Every = "5s"
 		}
@@ -459,7 +469,16 @@ func Compile(d watch.Definition) (Compiled, error) {
 	if err != nil {
 		return Compiled{}, err
 	}
-	return Compiled{d, rev, fingerprint, ExecutionPermissions(d.Spec.Source.Type)}, nil
+	permissions := ExecutionPermissions(d.Spec.Source.Type)
+	if s.Type == "logs" {
+		switch s.Logs.Input.Type {
+		case "file":
+			permissions = []string{"local-file-read (trusted configuration): " + s.Logs.Input.Path}
+		case "command":
+			permissions = []string{"local-log-reader (trusted configuration; not sandboxed)"}
+		}
+	}
+	return Compiled{d, rev, fingerprint, permissions}, nil
 }
 func ValidEventType(s string) bool {
 	switch s {
@@ -566,6 +585,8 @@ func ExecutionPermissions(sourceType string) []string {
 		return []string{"local-command (trusted configuration; not sandboxed)"}
 	case "push":
 		return []string{"authenticated-ingest"}
+	case "logs":
+		return []string{"authenticated-log-input"}
 	}
 	return []string{}
 }

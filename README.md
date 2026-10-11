@@ -3,9 +3,9 @@
 Persistent watches and durable alerts for developers and agents.
 
 Ding watches for conditions you care about and tells you when they fire or
-recover. Poll an HTTP endpoint, run a local command, or push JSON from your own
-systems. Define each watch in YAML, then let a local daemon evaluate it, retain
-the evidence, and deliver alerts—even across restarts.
+recover. Poll an HTTP endpoint, monitor application output, run a local command,
+or push JSON from your own systems. Define each watch in YAML, then let a local
+daemon evaluate it, retain the evidence, and deliver alerts—even across restarts.
 
 Use it to alert after three failed health checks, detect a changed value, catch
 missing data, or notify on a new provider event. Developers and agents use the
@@ -46,7 +46,7 @@ keep those boundaries explicit.
 
 | Part | Supported capabilities |
 | --- | --- |
-| Sources | HTTP polling, explicit local commands returning JSON, authenticated JSON push |
+| Sources | HTTP polling, explicit local commands returning JSON, authenticated JSON push, live text/JSON logs |
 | Conditions | Typed comparisons, numeric aggregates and windows, value changes, missing data, new provider IDs |
 | Alert policies | Fire on transitions or at configured intervals; consecutive checks, recovery counts, cooldowns, and provider-ID deduplication |
 | Destinations | Console, native desktop notifications, webhooks, Slack incoming webhooks, Discord webhooks |
@@ -61,6 +61,11 @@ Start with the [HTTP health](examples/watches/api-health.yaml),
 [provider event](examples/watches/provider-events.yaml) examples. Replace example
 URLs and command paths with real sources. External data feeds require your own
 provider access and credentials.
+
+For warning and error percentages from stdout, stderr, pipes, or files, see
+[live application logs](docs/guides/logs.md). Foreground capture uses
+`ding logs exec --watch application-logs -- your-command`; applications do not
+need JSON logging or a Ding SDK.
 
 ## Develop from source
 

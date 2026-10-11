@@ -35,6 +35,7 @@ type Spec struct {
 	Limits       Limits         `json:"limits" yaml:"limits"`
 }
 type Source struct {
+	Logs            *LogSource           `json:"logs,omitempty" yaml:"logs,omitempty"`
 	ObservedAtField string               `json:"observedAtField,omitempty" yaml:"observedAtField,omitempty"`
 	Type            string               `json:"type" yaml:"type"`
 	URL             string               `json:"url,omitempty" yaml:"url,omitempty"`

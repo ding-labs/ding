@@ -124,7 +124,8 @@ func integrationHandler(app *watchrun.App, c Credentials, base http.Handler) htt
 			integrationError(w, err)
 			return
 		}
-		write(w, 200, map[string]any{"version": watchrun.IntegrationVersion, "instance": instance, "grant": g, "previewTTLSeconds": 900, "maxPageSize": 100, "maxManifestBytes": 1 << 20, "maxFixtureBytes": 8 << 20, "operationReceipts": "durable; no automatic expiration; maximum 10000", "eventsSubscriptions": false}, nil)
+		write(w, 200, map[string]any{"version": watchrun.IntegrationVersion, "instance": instance, "grant": g, "previewTTLSeconds": 900, "maxPageSize": 100, "maxManifestBytes": 1 << 20, "maxFixtureBytes": 8 << 20, "operationReceipts": "durable; no automatic expiration; maximum 10000", "eventsSubscriptions": false,
+			"logMonitoring": map[string]any{"available": app.ValidateBundle == nil, "sourceType": "logs", "inputs": []string{"external", "file", "command"}, "formats": []string{"auto", "text", "jsonl"}, "intervalSeconds": 1, "maxDaemonReaders": 8, "localReaderPermission": "exact revision in grant.commandRevisions; environment references also require secretRefs", "externalCapture": "explicit local ding logs exec or ding logs ingest invocation; applying an external watch launches nothing"}}, nil)
 	})
 	for _, kind := range []string{"watches", "events", "deliveries", "destinations"} {
 		mux.HandleFunc("GET /v1/integrations/"+kind, func(w http.ResponseWriter, r *http.Request) {

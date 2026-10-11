@@ -103,6 +103,19 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 			write(w, 200, record, nil)
 		}
 	})
+	mux.HandleFunc("GET /v1/ingest/{id}/ready", func(w http.ResponseWriter, r *http.Request) {
+		record, err := app.Record(r.Context(), r.PathValue("id"))
+		if err != nil {
+			fail(w, 404, "not_found", "watch unavailable")
+			return
+		}
+		typ := record.Plan.Definition.Spec.Source.Type
+		if record.Status != "running" || typ != "push" && typ != "logs" {
+			fail(w, 409, "inactive_source", "watch is not an active log or push source")
+			return
+		}
+		write(w, 200, map[string]any{"revision": record.Plan.Revision, "source": typ, "logs": record.Plan.Definition.Spec.Source.Logs}, nil)
+	})
 	mux.HandleFunc("POST /v1/ingest/{id}", func(w http.ResponseWriter, r *http.Request) {
 		if err := app.Reserve(); err != nil {
 			fail(w, 503, "busy", "acquisition is unavailable")
@@ -143,6 +156,7 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 		}
 	})
 	inspectionRoutes(mux, app)
+	logRoutes(mux, app)
 	handoffRoutes(mux, app)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { fail(w, 404, "not_found", "route or method not found") })
 	integration := integrationHandler(app, c, mux)
@@ -158,7 +172,7 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		if r.URL.Path != "/health" {
 			want := c.Admin
-			if strings.HasPrefix(r.URL.Path, "/v1/ingest/") {
+			if strings.HasPrefix(r.URL.Path, "/v1/ingest/") || strings.HasPrefix(r.URL.Path, "/v1/logs/") {
 				want = c.Ingest
 			}
 			token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")

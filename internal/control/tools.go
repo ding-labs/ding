@@ -75,6 +75,7 @@ func decodeBounded(w http.ResponseWriter, r *http.Request, out any, max int64) e
 	return nil
 }
 func toolRoutes(mux *http.ServeMux, app *watchrun.App) {
+	logPreviewRoute(mux)
 	slots := make(chan struct{}, 2)
 	for _, kind := range []string{"compile", "test", "replay"} {
 		mux.HandleFunc("POST /v1/tools/"+kind, func(w http.ResponseWriter, r *http.Request) {
