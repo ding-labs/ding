@@ -109,6 +109,17 @@ func (a *App) AcceptLogSnapshot(ctx context.Context, id string, input LogSnapsho
 	o := watch.Observation{Health: "waiting", Detail: "collection_ended", Fields: map[string]any{"reason": "collection_ended", "source_status": "ended"}}
 	freshUntil := now.Add(time.Second)
 	if input.Ended {
+		if input.Summary.Version != 0 {
+			config := r.Plan.Definition.Spec.Source.Logs
+			window, _ := time.ParseDuration(config.Window)
+			s, err := input.Summary.Assess(logs.WindowConfig{Window: window, MinEvents: config.MinEvents, MinCoverage: config.MinCoverage}, checkpoint.Started, now)
+			if err != nil {
+				return Receipt{}, ErrInput
+			}
+			s.Ready, s.Reason, s.WarningRatio, s.ErrorRatio = false, "collection_ended", nil, nil
+			o.Fields, _ = s.Fields()
+			o.Fields["source_status"] = "ended"
+		}
 		checkpoint.Status = "ended"
 		if input.Failure != "" {
 			switch input.Failure {
