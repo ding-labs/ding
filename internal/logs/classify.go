@@ -46,8 +46,11 @@ type Parser struct {
 }
 
 var ansi = regexp.MustCompile("\x1b(?:\\[[0-?]*[ -/]*[@-~]|\\][^\x07\x1b]*(?:\x07|\x1b\\\\))")
-var header = regexp.MustCompile(`(?i)^(?:(?:\[?\d{4}[-/]\d\d[-/]\d\d[T ][0-9:.+Z-]+\]?|\d\d:\d\d:\d\d(?:[.,]\d+)?)\s+)?\[?(TRACE|DEBUG|INFO|WARN(?:ING)?|ERROR|ERR|FATAL|CRITICAL|PANIC)\]?(?:\s|:|$)`)
-var levelKey = regexp.MustCompile(`(?i)(?:^|\s)level=(?:"|')?(trace|debug|info|warn(?:ing)?|error|err|fatal|critical|panic)(?:"|')?(?:\s|$)`)
+
+const timestampPrefix = `(?:(?:\[?\d{4}[-/]\d\d[-/]\d\d[T ][0-9:.+Z-]+\]?|\d\d:\d\d:\d\d(?:[.,]\d+)?)\s+)?`
+
+var header = regexp.MustCompile(`(?i)^` + timestampPrefix + `\[?(TRACE|DEBUG|INFO|WARN(?:ING)?|ERROR|ERR|FATAL|CRITICAL|PANIC)\]?(?:\s|:|$)`)
+var levelKey = regexp.MustCompile(`(?i)^` + timestampPrefix + `(?:[\w.-]+=(?:"(?:\\.|[^"\\])*"|'[^']*'|[^\s"']+)\s+)*level=(?:"|')?(trace|debug|info|warn(?:ing)?|error|err|fatal|critical|panic)(?:"|')?(?:\s|$)`)
 
 func NewParser(c ParserConfig) (*Parser, error) {
 	if c.Format == "" {
@@ -166,10 +169,8 @@ func (p *Parser) Classify(raw []byte) Classification {
 	if match := header.FindSubmatch(line); match != nil {
 		return Classification{Level: severity(string(match[1]))}
 	}
-	// Ignore key-looking strings inside the usual logfmt message field.
-	if i := bytes.Index(line, []byte("msg=")); i >= 0 {
-		line = line[:i]
-	}
+	// Logfmt severity must follow a sequence of complete key/value fields.
+	// Quoted values and arbitrary prose cannot supply embedded severity keys.
 	if match := levelKey.FindSubmatch(line); match != nil {
 		return Classification{Level: severity(string(match[1]))}
 	}
