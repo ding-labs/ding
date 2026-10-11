@@ -1,0 +1,112 @@
+package cloud
+
+import (
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/ding-labs/ding/internal/access"
+	state "github.com/ding-labs/ding/internal/serverstate"
+)
+
+func (s *Server) membersAPI(w http.ResponseWriter, r *http.Request, p access.Principal) bool {
+	path := r.URL.Path
+	if path == "/v1/audit" && r.Method == "GET" {
+		before, err := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64)
+		if r.URL.Query().Get("before") == "" {
+			before, err = 0, nil
+		}
+		if err != nil || before < 0 {
+			cloudFail(w, 400, "invalid_cursor", "Invalid audit cursor.")
+			return true
+		}
+		out, err := s.DB.Audit(r.Context(), p.Workspace, before)
+		if err != nil {
+			cloudFail(w, 503, "audit_unavailable", "Audit unavailable.")
+		} else {
+			cloudWrite(w, 200, out)
+		}
+		return true
+	}
+	if path != "/v1/members" && !strings.HasPrefix(path, "/v1/members/") {
+		return false
+	}
+	if path == "/v1/members" && r.Method == "GET" {
+		out, err := s.DB.Members(r.Context(), p.Workspace)
+		if err != nil {
+			cloudFail(w, 503, "members_unavailable", "Members unavailable.")
+		} else {
+			cloudWrite(w, 200, out)
+		}
+		return true
+	}
+	var input struct {
+		User     string      `json:"user"`
+		Username string      `json:"username"`
+		Name     string      `json:"name"`
+		Role     access.Role `json:"role"`
+		Reset    bool        `json:"reset"`
+	}
+	if r.Method != "DELETE" && decodeCloud(r, &input) != nil {
+		cloudFail(w, 400, "invalid_request", "Provide member details.")
+		return true
+	}
+	if path == "/v1/members" && r.Method == "POST" && input.User == "" {
+		if !s.Shared {
+			cloudFail(w, 400, "identity_required", "Add an existing verified user by ID.")
+			return true
+		}
+		out, err := s.DB.Invite(r.Context(), p, input.Username, input.Name, input.Role)
+		if err != nil {
+			cloudFail(w, 400, "invite_failed", err.Error())
+		} else {
+			cloudWrite(w, 201, map[string]any{"user": out.User, "url": s.PublicURL + "/ui/#activate=" + out.Token, "expiresAt": out.ExpiresAt})
+		}
+		return true
+	}
+	user := input.User
+	if strings.HasPrefix(path, "/v1/members/") {
+		user = strings.TrimPrefix(path, "/v1/members/")
+	}
+	if input.Reset && r.Method == "PATCH" && s.Shared {
+		out, err := s.DB.ResetInvitation(r.Context(), p, user)
+		if err != nil {
+			cloudFail(w, 403, "reset_denied", err.Error())
+		} else {
+			cloudWrite(w, 200, map[string]any{"user": out.User, "url": s.PublicURL + "/ui/#activate=" + out.Token, "expiresAt": out.ExpiresAt})
+		}
+		return true
+	}
+	if r.Method == "DELETE" {
+		input.Role = ""
+	}
+	if err := s.DB.ChangeMember(r.Context(), p, user, input.Role); err != nil {
+		cloudFail(w, 403, "membership_denied", err.Error())
+	} else {
+		cloudWrite(w, 200, map[string]bool{"saved": true})
+	}
+	return true
+}
+
+func (s *Server) userAPI(w http.ResponseWriter, r *http.Request, session state.Session) bool {
+	if r.URL.Path != "/v1/user" || r.Method != "DELETE" {
+		return false
+	}
+	if session.Kind != "browser" {
+		cloudFail(w, 403, "browser_required", "Use a browser session to delete your user.")
+		return true
+	}
+	var input struct {
+		ConfirmUser string `json:"confirmUser"`
+	}
+	if decodeCloud(r, &input) != nil || input.ConfirmUser != session.User {
+		cloudFail(w, 400, "confirmation_required", "Confirm your exact user ID.")
+		return true
+	}
+	if err := s.DB.DeleteUser(r.Context(), session.User); err != nil {
+		cloudFail(w, 409, "user_delete_denied", err.Error())
+	} else {
+		cloudWrite(w, 200, map[string]bool{"deleted": true})
+	}
+	return true
+}
