@@ -11,6 +11,12 @@ export class APIError extends Error {
   }
 }
 let csrf = "";
+let workspace = "";
+let generation = 0;
+export function selectWorkspace(value: string) { workspace = value; generation++; }
+export function forgetSession() { csrf = ""; selectWorkspace(""); }
+function current(requestGeneration: number) { if (requestGeneration !== generation) throw new DOMException("Session changed", "AbortError"); }
+function headers() { return { "Content-Type": "application/json", ...(csrf ? { "X-Ding-CSRF": csrf } : {}), ...(workspace ? { "X-Ding-Workspace": workspace } : {}) }; }
 
 // Consume bounded NDJSON progress from a request-scoped operation. Aborting the
 // request stops its temporary runtime on the daemon as well.
@@ -20,16 +26,15 @@ export async function stream<T>(
   signal: AbortSignal,
   receive: (value: T) => void,
 ): Promise<void> {
+  const requestGeneration = generation;
   const response = await fetch("/v1" + path, {
     method: "POST",
     credentials: "same-origin",
     signal,
-    headers: {
-      "Content-Type": "application/json",
-      ...(csrf ? { "X-Ding-CSRF": csrf } : {}),
-    },
+    headers: headers(),
     body: JSON.stringify(body),
   });
+  current(requestGeneration);
   if (!response.ok) {
     const result = await response.json();
     if (response.status === 401)
@@ -51,6 +56,7 @@ export async function stream<T>(
   try {
     for (;;) {
       const { value, done } = await reader.read();
+      current(requestGeneration);
       buffered += decoder.decode(value, { stream: !done });
       if (buffered.length > 1 << 20)
         throw new Error("Ding's progress response exceeded its limit.");
@@ -69,6 +75,7 @@ export async function api<T>(
   path: string,
   options: { method?: string; body?: unknown; signal?: AbortSignal } = {},
 ): Promise<T> {
+  const requestGeneration = generation;
   const method = options.method || "GET";
   let res: Response;
   try {
@@ -76,15 +83,12 @@ export async function api<T>(
       method,
       credentials: "same-origin",
       signal: options.signal,
-      headers: {
-        "Content-Type": "application/json",
-        ...(csrf ? { "X-Ding-CSRF": csrf } : {}),
-      },
+      headers: headers(),
       body:
         options.body === undefined ? undefined : JSON.stringify(options.body),
     });
   } catch (error) {
-    if (!options.signal?.aborted) setConnection(false);
+    if (requestGeneration === generation && !options.signal?.aborted) setConnection(false);
     throw error;
   }
   let result: {
@@ -101,6 +105,7 @@ export async function api<T>(
       res.status,
     );
   }
+  current(requestGeneration);
   if (!res.ok || result.error) {
     if (
       res.status === 401 ||
@@ -140,7 +145,7 @@ export async function connect(): Promise<ControlBrowserSession> {
 }
 export async function logout() {
   await api("/browser/session", { method: "DELETE" });
-  csrf = "";
+  forgetSession();
 }
 export function download(
   name: string,

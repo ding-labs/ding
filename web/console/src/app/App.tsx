@@ -19,11 +19,12 @@ import {
   SquareTerminal,
 } from "lucide-react";
 import { useConnection } from "../api/connection";
-import { api, connect, logout } from "../api/client";
-import type { ControlInfo } from "../api/contracts";
+import { api, connect, logout, selectWorkspace, forgetSession } from "../api/client";
+import type { ControlInfo, ControlBrowserSession } from "../api/contracts";
 
 import { preference, savePreference, setPreferenceWorkspace } from "./preferences";
-import { ExecutionContext, discoverCloud, type Execution } from "./execution";
+import { ExecutionContext, discoverAuth, type AuthConfig, type Execution } from "./execution";
+import { SignIn } from "../components/SignIn";
 import { CommandMenu } from "../components/CommandMenu";
 import { System } from "../pages/System";
 import { Workbench } from "../pages/Workbench";
@@ -50,6 +51,8 @@ export function App() {
   const connected = useConnection();
   const [execution, setExecution] = useState<Execution>({ mode: "local" });
   const workspace = useRef("");
+  const [auth, setAuth] = useState<AuthConfig>();
+  const [memberships, setMemberships] = useState<ControlBrowserSession["memberships"]>([]);
   const [density, setDensity] = useState(
     preference("ding.density", "comfortable"),
   );
@@ -62,14 +65,16 @@ export function App() {
   const client = useQueryClient();
   const location = useLocation();
   const establish = () => {
-    sessionAttempt ??= connect();
+    sessionAttempt ??= discoverAuth().then(config => { setAuth(config); setExecution(current => ({ ...current, mode: config.execution })); return connect(); });
     sessionAttempt
       .then((details) => {
-        const next = details.workspace || "";
+        const next = `${window.location.origin}:${details.user?.id || "personal"}:${details.workspace || ""}`;
         if (workspace.current !== next) { client.clear(); resetDraft(); }
         workspace.current = next;
         setPreferenceWorkspace(next);
-        setExecution({ mode: details.execution === "cloud" ? "cloud" : "local", workspace: next });
+        setExecution({ mode: details.execution === "cloud" ? "cloud" : details.execution === "shared" ? "shared" : "local", workspace: details.workspace, user: details.user, role: details.role, capabilities: details.capabilities });
+        setMemberships(details.memberships);
+        setTheme(preference("ding.theme", "system")); setDensity(preference("ding.density", "comfortable")); setTimeMode(preference("ding.time", "local"));
         setSession("ready");
         setError("");
       })
@@ -82,9 +87,10 @@ export function App() {
       });
   };
   useEffect(() => {
-    void discoverCloud().then(cloud => { if (cloud) setExecution(current => ({ ...current, mode: "cloud" })); });
     establish();
     const lock = () => {
+      forgetSession();
+      void client.cancelQueries();
       client.clear();
       if (workspace.current) resetDraft();
       setSession("locked");
@@ -117,7 +123,7 @@ export function App() {
           <h1>
             {session === "loading"
               ? "Connecting to Ding…"
-              : execution.mode === "cloud" ? "Your watches, always on." : "Open your console."}
+              : auth?.access === "shared" ? `Sign in to ${auth.name || "Ding"}.` : "Open your console."}
           </h1>
           <p>
             Inspect your watches, follow the evidence, and see what happened to
@@ -128,18 +134,8 @@ export function App() {
               {error}
             </div>
           )}
-          {execution.mode === "cloud" ? <div className="launch-instructions">
-            <p>Sign in with GitHub when you choose hosted execution. No credit card or onboarding questionnaire. Local Ding remains free and account-free.</p>
-            <a className="button primary" href="/auth/login">Continue with GitHub <ArrowRight size={16} /></a>
-          </div> : <div className="launch-instructions">
-            <span>Run in your terminal</span>
-            <code>ding ui</code>
-            <p>
-              The command opens a one-use link. Credentials stay on your
-              machine.
-            </p>
-          </div>}
-          {session === "locked" && execution.mode === "local" && (
+          {auth && <SignIn config={auth} connected={establish} />}
+          {session === "locked" && (!auth || auth.access === "personal") && (
             <button
               className="button primary"
               onClick={() => {
@@ -185,7 +181,7 @@ export function App() {
             <span>
               {info.isError || !connected
                 ? "Connection interrupted"
-                : execution.mode === "cloud" ? "Runs in Ding Cloud" : "Runs on this computer"}
+                : execution.mode === "cloud" ? "Runs in Ding Cloud" : execution.mode === "shared" ? `Runs on ${auth?.name || "this server"}` : "Runs on this computer"}
             </span>
             <code>{info.data?.listen || window.location.host}</code>
             <small>{info.data?.version || "Ding"}</small>
@@ -197,6 +193,13 @@ export function App() {
               Console <span>/</span> {current?.label || "Watches"}
             </div>
             <div className="toolbar">
+              {execution.mode !== "local" && <>
+                <span>{execution.user?.name} · {execution.role}</span>
+                <select aria-label="Workspace" value={execution.workspace || ""} onChange={async e => {
+                  const next = e.target.value; setSession("loading");
+                  await client.cancelQueries(); selectWorkspace(next); client.clear(); resetDraft(); sessionAttempt = undefined; establish();
+                }}>{memberships?.map(m => <option key={m.workspace} value={m.workspace}>{m.name}</option>)}</select>
+              </>}
               <CommandMenu />
               <select
                 aria-label="Display density"
@@ -236,7 +239,7 @@ export function App() {
                 onClick={async () => {
                   try {
                     await logout();
-                    client.clear();
+                    await client.cancelQueries(); client.clear();
                     if (workspace.current) resetDraft();
                     setSession("locked");
                   } catch (e) {
@@ -269,7 +272,7 @@ export function App() {
               .
             </div>
           )}
-          <main id="main" className="page">
+          <main id="main" className="page" key={workspace.current}>
             <Routes>
               <Route path="/" element={<Navigate to="/watches" replace />} />
               <Route path="/watches" element={<Watches />} />
@@ -279,7 +282,7 @@ export function App() {
               <Route path="/deliveries" element={<Deliveries />} />
               <Route path="/deliveries/:id" element={<DeliveryDetail />} />
               <Route path="/workbench" element={<Workbench />} />
-              <Route path="/start" element={execution.mode === "cloud" ? <CloudFirstWatch /> : <FirstWatch />} />
+              <Route path="/start" element={execution.mode === "cloud" ? <CloudFirstWatch /> : execution.mode === "shared" ? <Workbench /> : <FirstWatch />} />
               <Route path="/system" element={<System />} />
               <Route
                 path="*"
