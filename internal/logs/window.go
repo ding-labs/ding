@@ -14,9 +14,11 @@ type WindowConfig struct {
 }
 
 type bucket struct {
-	second  int64
-	counts  [7]int64
-	invalid int64
+	second   int64
+	counts   [7]int64
+	invalid  int64
+	channels [3]int64
+	dropped  int64
 }
 
 // Window stores counters, never output text or one sample per record.
@@ -41,6 +43,10 @@ type Summary struct {
 	Errors        int64     `json:"error_count"`
 	Fatal         int64     `json:"fatal_count"`
 	Invalid       int64     `json:"invalid_count"`
+	Stdout        int64     `json:"stdout_count"`
+	Stderr        int64     `json:"stderr_count"`
+	Other         int64     `json:"other_channel_count"`
+	Dropped       int64     `json:"dropped_analysis_count"`
 	Coverage      float64   `json:"classification_coverage"`
 	WarningRatio  *float64  `json:"warning_match_ratio"`
 	ErrorRatio    *float64  `json:"error_match_ratio"`
@@ -73,13 +79,19 @@ func (w *Window) Reset(at time.Time) {
 }
 
 func (w *Window) gap(at time.Time) {
-	until := at.Add(w.config.Window)
+	// A loss in second S must remain visible while bucket S is in the window,
+	// including when the loss happens exactly on a second boundary.
+	until := at.Truncate(time.Second).Add(w.config.Window + time.Second)
 	if until.After(w.gapUntil) {
 		w.gapUntil = until
 	}
 }
 
 func (w *Window) Add(at time.Time, c Classification) {
+	w.AddFrom(at, c, "")
+}
+
+func (w *Window) AddFrom(at time.Time, c Classification, channel string) {
 	if c.Blank {
 		return
 	}
@@ -110,8 +122,31 @@ func (w *Window) Add(at time.Time, c Classification) {
 		return
 	}
 	b.counts[c.Level]++
+	switch channel {
+	case "stdout":
+		b.channels[0]++
+	case "stderr":
+		b.channels[1]++
+	default:
+		b.channels[2]++
+	}
 	if c.Invalid {
 		b.invalid++
+	}
+}
+
+func (w *Window) Drop(at time.Time) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.gap(at)
+	second := at.Unix()
+	index := (second%int64(len(w.buckets)) + int64(len(w.buckets))) % int64(len(w.buckets))
+	b := &w.buckets[index]
+	if b.second != second {
+		*b = bucket{second: second}
+	}
+	if b.dropped < (1<<53)/int64(len(w.buckets)) {
+		b.dropped++
 	}
 }
 
@@ -131,6 +166,10 @@ func (w *Window) Snapshot(at time.Time) Summary {
 			s.Total += n
 		}
 		s.Invalid += b.invalid
+		s.Stdout += b.channels[0]
+		s.Stderr += b.channels[1]
+		s.Other += b.channels[2]
+		s.Dropped += b.dropped
 	}
 	s.Unclassified, s.Warnings, s.Errors, s.Fatal = counts[Unclassified], counts[Warning], counts[Error], counts[Fatal]
 	s.Classified = s.Total - s.Unclassified

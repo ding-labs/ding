@@ -47,7 +47,7 @@ func (c *Collector) Exec(ctx context.Context, opts ExecOptions) ExecResult {
 	}
 	cmd := exec.Command(opts.Argv[0], opts.Argv[1:]...)
 	cmd.Dir, cmd.Env, cmd.Stdin = opts.Directory, opts.Env, opts.Stdin
-	a, b := c.Stream(), c.Stream()
+	a, b := c.Stream("stdout"), c.Stream("stderr")
 	defer a.Close()
 	defer b.Close()
 	if opts.Stdout == nil {

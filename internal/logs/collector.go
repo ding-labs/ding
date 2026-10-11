@@ -9,6 +9,9 @@ type record struct {
 	data     []byte
 	invalid  bool
 	snapshot chan Summary
+	at       time.Time
+	channel  string
+	epoch    uint64
 }
 
 // Collector separates output draining from analysis. Its 64-record queue uses
@@ -19,6 +22,8 @@ type Collector struct {
 	queue  chan record
 	done   chan struct{}
 	once   sync.Once
+	mu     sync.Mutex
+	epoch  uint64
 }
 
 func NewCollector(parser ParserConfig, window WindowConfig) (*Collector, error) {
@@ -42,9 +47,11 @@ func NewCollector(parser ParserConfig, window WindowConfig) (*Collector, error) 
 			if !r.invalid {
 				classification = p.Classify(r.data)
 			}
-			// Collection time is when the bounded analysis queue accepts a record
-			// for classification. No application timestamp enters the window.
-			w.Add(time.Now(), classification)
+			c.mu.Lock()
+			if r.epoch == c.epoch {
+				w.AddFrom(r.at, classification, r.channel)
+			}
+			c.mu.Unlock()
 		}
 	}()
 	return c, nil
@@ -52,12 +59,19 @@ func NewCollector(parser ParserConfig, window WindowConfig) (*Collector, error) 
 
 // Stream returns a framer for a single output channel. Close each stream before
 // closing the collector. Callers preserve original bytes separately.
-func (c *Collector) Stream() *Framer {
+func (c *Collector) Stream(channels ...string) *Framer {
+	channel := ""
+	if len(channels) > 0 {
+		channel = channels[0]
+	}
 	return NewFramer(func(data []byte, invalid bool) {
+		at := time.Now() // The reader completed this record; event timestamps are ignored.
+		c.mu.Lock()
+		defer c.mu.Unlock()
 		select {
-		case c.queue <- record{data: append([]byte(nil), data...), invalid: invalid}:
+		case c.queue <- record{data: append([]byte(nil), data...), invalid: invalid, at: at, channel: channel, epoch: c.epoch}:
 		default:
-			c.window.Gap(time.Now())
+			c.window.Drop(at)
 		}
 	})
 }
@@ -87,7 +101,12 @@ func (c *Collector) Snapshot() Summary {
 
 func (c *Collector) Gap() { c.window.Gap(time.Now()) }
 
-func (c *Collector) Reset() { c.window.Reset(time.Now()) }
+func (c *Collector) Reset() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.epoch++
+	c.window.Reset(time.Now())
+}
 
 // Close is called after all stream writers and snapshot publishers have stopped.
 func (c *Collector) Close() {

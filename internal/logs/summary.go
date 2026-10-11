@@ -12,7 +12,7 @@ func (s Summary) Assess(c WindowConfig, started, now time.Time) (Summary, error)
 	if s.Version != 1 || s.WindowSeconds != int(c.Window/time.Second) || !s.WindowStart.Equal(s.WindowEnd.Add(-c.Window)) || !s.WindowEnd.Equal(s.WindowEnd.Truncate(time.Second)) || s.WindowEnd.After(now.Add(time.Second)) || !now.Before(s.WindowEnd.Add(3*time.Second)) {
 		return s, fmt.Errorf("invalid or stale log summary window")
 	}
-	for _, n := range []int64{s.Total, s.Classified, s.Unclassified, s.Warnings, s.Errors, s.Fatal, s.Invalid} {
+	for _, n := range []int64{s.Total, s.Classified, s.Unclassified, s.Warnings, s.Errors, s.Fatal, s.Invalid, s.Stdout, s.Stderr, s.Other, s.Dropped} {
 		if n < 0 || n > 1<<53-1 {
 			return s, fmt.Errorf("invalid log summary count")
 		}
@@ -20,11 +20,20 @@ func (s Summary) Assess(c WindowConfig, started, now time.Time) (Summary, error)
 	if s.Classified+s.Unclassified != s.Total || s.Warnings+s.Errors+s.Fatal > s.Classified || s.Invalid > s.Unclassified {
 		return s, fmt.Errorf("inconsistent log summary counts")
 	}
+	channels := s.Stdout + s.Stderr + s.Other
+	if channels != 0 && channels != s.Total {
+		return s, fmt.Errorf("inconsistent channel counts")
+	}
+	if channels == 0 {
+		s.Other = s.Total
+	}
 	s.WarningRatio, s.ErrorRatio, s.Ready, s.Coverage = nil, nil, false, 0
 	if s.Total > 0 {
 		s.Coverage = float64(s.Classified) / float64(s.Total)
 	}
 	switch {
+	case s.Dropped > 0:
+		s.Complete, s.Reason = false, "collection_gap"
 	case s.Invalid > 0:
 		s.Complete, s.Reason = false, "invalid_records"
 	case s.WindowStart.Before(started):
