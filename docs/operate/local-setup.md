@@ -62,6 +62,17 @@ and recovered states, then removes its temporary database and watch. Add
 `--desktop` for native demo notifications. It never edits existing watches and
 does not count as a first useful watch.
 
+In Console, **Try a one-minute demo** offers the same real temporary checks with
+live firing and recovery evidence. It is available on Watches and first-watch
+setup. Close the dialog to stop it and remove its temporary state.
+
+**System → Set up notifications** walks through permission, opening macOS settings,
+and sending another test. First-watch setup uses the same dialog and can switch
+to Console-only delivery. `ding notify status --json` inspects permission without
+prompting; `ding notify settings` opens the Mac's notification settings. If Ding
+is missing from the list, send a test first and respond to the permission prompt,
+then reopen Settings. A helper failure is reported separately from a denial.
+
 ## Operate and connect
 
 `ding status --json` works without a running daemon and separates native service
