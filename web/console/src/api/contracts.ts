@@ -36,6 +36,10 @@ export interface ControlBackupArtifact {
 }
 
 export interface ControlBrowserSession {
+  user?: ControlSessionUser | null;
+  memberships?: Array<ControlSessionMembership>;
+  role?: string;
+  capabilities?: Array<string>;
   csrf: string;
   expiresAt: string;
   execution?: string;
@@ -96,6 +100,18 @@ export interface ControlLocalUpdates {
   check?: UpdateCheckStatus | null;
   configured: boolean;
   owner?: string;
+}
+
+export interface ControlSessionMembership {
+  workspace: string;
+  name: string;
+  role: string;
+}
+
+export interface ControlSessionUser {
+  id: string;
+  name: string;
+  username?: string;
 }
 
 export interface ControlVerification {
