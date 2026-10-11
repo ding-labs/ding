@@ -4,10 +4,12 @@ set -eu
 ding_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 ding_output=${1:-"$ding_root/dist/DingNotifications.app"}
 ding_identity=${DING_CODESIGN_IDENTITY:--}
-mkdir -p "$ding_output/Contents/MacOS"
+mkdir -p "$ding_output/Contents/MacOS" "$ding_output/Contents/Resources"
 cp "$ding_root/native/macos/notifications/Info.plist" "$ding_output/Contents/Info.plist"
 ding_temp=$(mktemp -d)
 trap 'rm -rf "$ding_temp"' EXIT HUP INT TERM
+xcrun swift "$ding_root/scripts/render-macos-icon.swift" "$ding_root/design/assets/mark.svg" "$ding_temp/Ding.iconset"
+iconutil --convert icns --output "$ding_output/Contents/Resources/Ding.icns" "$ding_temp/Ding.iconset"
 for ding_arch in arm64 x86_64; do
   xcrun swiftc -O -swift-version 6 -parse-as-library -target "$ding_arch-apple-macos13" \
     "$ding_root/native/macos/notifications/main.swift" "$ding_root/native/macos/notifications/credentials.swift" -o "$ding_temp/$ding_arch"
