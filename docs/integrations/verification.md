@@ -1,4 +1,31 @@
-# Local qualification evidence
+# Integration qualification evidence
+
+## Cloud MCP implementation — October 11, 2026
+
+Qualified locally on macOS ARM64 with the current main changes through `9341ccc`.
+These results cover the implementation; no production OAuth configuration or
+deployment was changed.
+
+| Area | Result |
+| --- | --- |
+| Hosted boundary | Composed server tests use signed JWTs, a synthetic HTTPS issuer and real tenant stores; both supported protocol versions, watch lifecycle, embedded resource reads, workspace selection, scope/role/consent changes and revocation pass |
+| Cloud policy | Preview/body limits agree across REST and MCP; workspace admission, usage/health reporting and effective permissions pass |
+| Native bridge | HTTPS session tests verify refresh rotation, durable credentials, restart and pinned workspace/instance; target journals reject reused keys across connections |
+| Reviewed transfers | Real daemon tests cover separate move consent, prepare/test/finish, lost activation, restart, first observation, cancellation and move-back; stale reviews do not contact the target |
+| Account transition | Explicit existing-user OIDC linking preserves the workspace, pins the issuer and keeps enrollment closed; optional Railway configuration and secret-environment removal pass |
+| UI and client | Seven MCP component tests, thirteen Console tests, both UI builds, eighteen-tool independent TypeScript client and two browser journeys pass; Console initial JavaScript is 163.3 KiB gzip against a 250 KiB budget |
+| Repository | Normal and `console,mcpui` Go race suites, Go vet, Railway TypeScript check and Git whitespace checks pass |
+| Cross-compilation | Windows AMD64 MCP executable and Linux AMD64 cloud server/Railway entrypoint build; this does not establish native Windows behavior |
+| Packaged instructions | Both updated shared skills pass the skill-creator validator |
+
+Read-only production probes returned password-only login and 404 for `/mcp` and
+protected-resource discovery. A real issuer, browser/model/native client
+registrations, existing-account identity link and deployment remain necessary.
+Actual provider login/refresh, model-host consent/revocation and laptop-off cloud
+delivery remain unqualified. Follow the [cloud rollout and acceptance
+guide](cloud-mcp.md); synthetic test results are not evidence of those live flows.
+
+## Earlier native adapter qualification
 
 Verified October 10, 2026 on macOS ARM64. The adapter now uses the official MCP
 Go SDK v1.8.0 and JWX v3.3.0. These are local development results, not marketplace

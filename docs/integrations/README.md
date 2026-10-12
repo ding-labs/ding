@@ -107,6 +107,18 @@ event evidence, and delivery history. It uses only the MCP host bridge, contains
 all scripts/styles locally, renders source text as text, and works in light/dark
 and narrow layouts. Text tool results remain available without UI support.
 
+## Ding Cloud MCP
+
+The cloud runtime includes an optional OAuth-protected `/mcp` endpoint using the
+same watch tools and embedded views. See the [cloud source preview](../operate/cloud-preview.md#public-mcp-preview)
+for configuration and explicit client consent. This is source support, not a
+claim that a public endpoint or marketplace install is available.
+
+Local pairing and `ding cloud login` do not connect the local MCP adapter to that
+endpoint. Cloud usage, workspace discovery, and watch transfer are not yet MCP
+tools. The [cloud MCP plan](../development/mcp-cloud-plan.md) records the current
+gaps, policy corrections, and implementation sequence.
+
 ## Self-hosted HTTP
 
 HTTP is opt-in and **cannot start without explicit OAuth configuration**. The
@@ -192,3 +204,18 @@ automatic OS-service installation, updater/signing infrastructure, or an
 operator-facing per-object permission editor. Ordinary Ding webhook/Slack/
 Discord delivery remains the notification path. Those are explicit remaining
 milestones in [the plan](../development/llm-integration-plan.md).
+
+## Cloud and combined connections
+
+See [Cloud MCP connections and qualification](cloud-mcp.md) for the configured
+`/mcp` endpoint, Railway OAuth setup, existing-account linking, workspace consent,
+and the optional local/cloud bridge. Capabilities report `ding.mcp/v1.2`, effective
+permissions and execution limits. Cloud previews allow 64 KiB manifests/fixtures
+inside a 1 MiB request; local/self-hosted limits remain 1 MiB/8 MiB with a 12 MiB
+request cap. Cloud calls share workspace admission with the browser API.
+
+Local and self-hosted adapters add three transfer-inspection tools to the original
+15 watch tools. Hosted adapters also add workspace discovery and cloud status.
+The optional combined adapter adds explicit connection discovery and five reviewed
+transfer actions. Provider configuration and actual host qualification are still
+required before claiming the deployed service supports these flows.

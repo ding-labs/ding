@@ -44,13 +44,16 @@ type GrantPairing struct {
 
 func (a *App) CreateIntegrationGrant(ctx context.Context, r GrantRequest) (GrantPairing, error) {
 	var out GrantPairing
-	if len(r.Name) < 1 || len(r.Name) > 100 || len(r.Scopes) == 0 || len(r.Scopes) > 4 || r.Days < 1 || r.Days > 365 || len(r.CommandRevisions) > 100 || len(r.SecretRefs) > 100 {
+	if len(r.Name) < 1 || len(r.Name) > 100 || len(r.Scopes) == 0 || len(r.Scopes) > 5 || r.Days < 1 || r.Days > 365 || len(r.CommandRevisions) > 100 || len(r.SecretRefs) > 100 {
 		return out, fmt.Errorf("invalid integration grant")
 	}
 	for _, scope := range r.Scopes {
-		if !slices.Contains([]string{"inspect", "preview", "manage", "retry"}, scope) {
+		if !slices.Contains([]string{"inspect", "preview", "manage", "retry", "move"}, scope) {
 			return out, fmt.Errorf("unknown integration scope")
 		}
+	}
+	if slices.Contains(r.Scopes, "move") && (!slices.Contains(r.Scopes, "manage") || !slices.Contains(r.Scopes, "preview")) {
+		return out, fmt.Errorf("move requires explicit preview and manage consent")
 	}
 	for _, revision := range r.CommandRevisions {
 		if b, err := hex.DecodeString(revision); err != nil || len(b) != 32 {
@@ -159,8 +162,8 @@ type IntegrationPreview struct {
 
 func (a *App) PreviewIntegration(ctx context.Context, grant, manifest string) (IntegrationPreview, error) {
 	var out IntegrationPreview
-	if len(manifest) > 1<<20 {
-		return out, fmt.Errorf("manifest exceeds 1 MiB")
+	if len(manifest) > a.Integration.MaxManifestBytes {
+		return out, fmt.Errorf("manifest exceeds %d bytes", a.Integration.MaxManifestBytes)
 	}
 	b, err := plan.Parse([]byte(manifest))
 	if err != nil {

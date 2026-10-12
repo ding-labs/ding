@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -44,6 +45,7 @@ func integrationHandler(app *watchrun.App, c Credentials, base http.Handler) htt
 	reader := http.NewServeMux()
 	reader.Handle("/", base)
 	consoleRoutes(reader, app, ConsoleConfig{})
+	handoffRoutes(reader, app)
 	access := func(w http.ResponseWriter, r *http.Request, scope string) (store.IntegrationGrant, bool) {
 		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if !ok {
@@ -124,8 +126,9 @@ func integrationHandler(app *watchrun.App, c Credentials, base http.Handler) htt
 			integrationError(w, err)
 			return
 		}
-		write(w, 200, map[string]any{"version": watchrun.IntegrationVersion, "instance": instance, "grant": g, "previewTTLSeconds": 900, "maxPageSize": 100, "maxManifestBytes": 1 << 20, "maxFixtureBytes": 8 << 20, "operationReceipts": "durable; no automatic expiration; maximum 10000", "eventsSubscriptions": false,
-			"logMonitoring": map[string]any{"available": app.ValidateBundle == nil, "sourceType": "logs", "inputs": []string{"external", "file", "command"}, "formats": []string{"auto", "text", "jsonl"}, "intervalSeconds": 1, "maxDaemonReaders": 8, "localReaderPermission": "exact revision in grant.commandRevisions; environment references also require secretRefs", "externalCapture": "explicit local ding logs exec or ding logs ingest invocation; applying an external watch launches nothing"}}, nil)
+		caps := integrationCapabilities(r.Context(), app, instance, g)
+		caps["logMonitoring"] = map[string]any{"available": app.ValidateBundle == nil, "sourceType": "logs", "inputs": []string{"external", "file", "command"}, "formats": []string{"auto", "text", "jsonl"}, "intervalSeconds": 1, "maxDaemonReaders": 8, "localReaderPermission": "exact revision in grant.commandRevisions; environment references also require secretRefs", "externalCapture": "explicit local ding logs exec or ding logs ingest invocation; applying an external watch launches nothing"}
+		write(w, 200, caps, nil)
 	})
 	for _, kind := range []string{"watches", "events", "deliveries", "destinations"} {
 		mux.HandleFunc("GET /v1/integrations/"+kind, func(w http.ResponseWriter, r *http.Request) {
@@ -153,6 +156,53 @@ func integrationHandler(app *watchrun.App, c Credentials, base http.Handler) htt
 			reader.ServeHTTP(w, forwarded)
 		})
 	}
+	for _, pattern := range []string{"/v1/integrations/transfers", "/v1/integrations/transfers/{id}", "/v1/integrations/transfers/preflight/{watch}"} {
+		mux.HandleFunc("GET "+pattern, func(w http.ResponseWriter, r *http.Request) {
+			if _, ok := access(w, r, "inspect"); !ok {
+				return
+			}
+			if r.URL.Path == "/v1/integrations/transfers" {
+				var records []store.Handoff
+				err := app.Store.View(r.Context(), func(tx *store.Tx) error { var e error; records, e = tx.Handoffs(); return e })
+				if err != nil {
+					integrationError(w, err)
+					return
+				}
+				if records == nil {
+					records = []store.Handoff{}
+				}
+				for i := range records {
+					records[i].ProbeDigest = ""
+				}
+				write(w, 200, map[string]any{"transfers": records}, nil)
+				return
+			}
+			if id := r.PathValue("id"); id != "" {
+				h, err := app.Handoff(r.Context(), id)
+				if err != nil {
+					integrationError(w, err)
+					return
+				}
+				h.ProbeDigest = ""
+				write(w, 200, h, nil)
+				return
+			}
+			if id := r.PathValue("watch"); id == "." || id == ".." || strings.ContainsAny(id, "/\\\x00") {
+				fail(w, 400, "invalid_request", "invalid watch ID")
+				return
+			}
+			forward := r.Clone(r.Context())
+			forward.URL.Path = strings.Replace(r.URL.Path, "/v1/integrations/transfers/", "/v1/handoffs/", 1)
+			forward.URL.RawPath = ""
+			reader.ServeHTTP(w, forward)
+		})
+	}
+	mux.HandleFunc("POST /v1/integrations/transfers/step", func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := access(w, r, "move"); !ok {
+			return
+		}
+		TransferStep(w, r, app, reader)
+	})
 	slots := make(chan struct{}, 2)
 	mux.HandleFunc("POST /v1/integrations/preview", func(w http.ResponseWriter, r *http.Request) {
 		g, ok := access(w, r, "preview")
@@ -169,8 +219,9 @@ func integrationHandler(app *watchrun.App, c Credentials, base http.Handler) htt
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
 		var req ToolRequest
-		if decodeBounded(w, r, &req, 12<<20) != nil || len(req.Manifest) > 1<<20 || len(req.Fixture) > 8<<20 || len(req.Evidence) > 0 {
-			fail(w, 400, "invalid_request", "preview requires a manifest up to 1 MiB and optional fixture up to 8 MiB")
+		limits := app.Integration
+		if decodeBounded(w, r, &req, int64(limits.MaxRequestBytes)) != nil || len(req.Manifest) > limits.MaxManifestBytes || len(req.Fixture) > limits.MaxFixtureBytes || len(req.Evidence) > 0 {
+			fail(w, 400, "invalid_request", fmt.Sprintf("preview permits %d manifest bytes and %d fixture bytes within %d encoded request bytes", limits.MaxManifestBytes, limits.MaxFixtureBytes, limits.MaxRequestBytes))
 			return
 		}
 		compiled := compileTool(app, req.Manifest)

@@ -11,6 +11,7 @@ import (
 
 	"github.com/ding-labs/ding/internal/access"
 	"github.com/ding-labs/ding/internal/control"
+	"github.com/ding-labs/ding/internal/integrationpolicy"
 	"github.com/ding-labs/ding/internal/mcpconfig"
 	state "github.com/ding-labs/ding/internal/serverstate"
 	"golang.org/x/time/rate"
@@ -29,6 +30,7 @@ type Server struct {
 	PublicURL, Version string
 	Assets             http.Handler
 	MCP                http.Handler
+	MCPBridgeClients   []string
 	TenantHandler      func(http.ResponseWriter, *http.Request, state.Session, *Tenant)
 	mu                 sync.Mutex
 	modelMu            sync.Mutex
@@ -101,7 +103,11 @@ func (s *Server) Handler() (http.Handler, error) {
 			cloudFail(w, 503, "busy", "Cloud request capacity reached; retry later.")
 			return
 		}
-		r.Body = http.MaxBytesReader(w, r.Body, 96<<10)
+		requestLimit := int64(96 << 10)
+		if r.URL.Path == "/mcp" || r.URL.Path == "/v1/apply" || r.URL.Path == "/v1/integrations/preview" || strings.HasPrefix(r.URL.Path, "/v1/tools/") {
+			requestLimit = int64(integrationpolicy.Hosted("", "", s.Shared).MaxRequestBytes)
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, requestLimit)
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
 		r = r.WithContext(ctx)
@@ -210,22 +216,7 @@ func (s *Server) Handler() (http.Handler, error) {
 			return
 		}
 		r = r.WithContext(access.WithOperation(access.WithPrincipal(r.Context(), principal), r.Method, r.URL.Path))
-		s.mu.Lock()
-		limiter := s.limits[session.Workspace]
-		if limiter == nil {
-			// Session-only clients may never enter a tenant API. Bound this
-			// expendable cache across enrollment/deletion churn as well.
-			if len(s.limits) >= MaxAccounts*2 {
-				for id := range s.limits {
-					delete(s.limits, id)
-					break
-				}
-			}
-			limiter = rate.NewLimiter(2, 30)
-			s.limits[session.Workspace] = limiter
-		}
-		s.mu.Unlock()
-		if !limiter.Allow() {
+		if !s.allowWorkspaceRequest(session.Workspace) {
 			cloudFail(w, 429, "workspace_rate", "Workspace request rate exceeded; retry later.")
 			return
 		}
@@ -346,4 +337,26 @@ func (s *Server) api(t *Tenant) tenantAPI {
 	api := tenantAPI{handler: control.ConsoleHandler(t.App, c, control.ConsoleConfig{Version: s.Version, Origin: s.PublicURL}), token: c.Admin, ingest: c.Ingest, done: t.ctx.Done()}
 	s.private[t.Workspace.ID] = api
 	return api
+}
+
+// All authenticated API and MCP calls share the workspace's admission budget.
+func (s *Server) allowWorkspaceRequest(workspace string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	limiter := s.limits[workspace]
+	if limiter == nil {
+		if len(s.limits) >= MaxAccounts*2 {
+			for id, candidate := range s.limits {
+				if candidate.Tokens() >= float64(candidate.Burst()) {
+					delete(s.limits, id)
+				}
+			}
+		}
+		if len(s.limits) >= MaxAccounts*2 {
+			return false
+		}
+		limiter = rate.NewLimiter(2, 30)
+		s.limits[workspace] = limiter
+	}
+	return limiter.Allow()
 }

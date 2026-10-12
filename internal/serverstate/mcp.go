@@ -7,6 +7,25 @@ import (
 	"github.com/ding-labs/ding/internal/mcpconfig"
 )
 
+// MCPWorkspaces returns only this user's membership-backed client bindings.
+// The caller also checks the underlying grant's current expiry and revocation.
+func (d *DB) MCPWorkspaces(ctx context.Context, user, client string) ([]Membership, error) {
+	rows, err := d.sql.QueryContext(ctx, `SELECT w.id,w.name,m.role FROM mcp_bindings b JOIN memberships m ON m.user=b.user AND m.workspace=b.workspace JOIN workspaces w ON w.id=b.workspace JOIN users u ON u.id=b.user WHERE b.user=? AND b.client=? AND w.deleting=0 AND u.disabled=0 ORDER BY w.id`, user, client)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Membership{}
+	for rows.Next() {
+		var member Membership
+		if err := rows.Scan(&member.Workspace, &member.Name, &member.Role); err != nil {
+			return nil, err
+		}
+		out = append(out, member)
+	}
+	return out, rows.Err()
+}
+
 // ResolveMCPWorkspace never borrows the browser's selection. With no explicit
 // workspace, only an unambiguous approved connection may be used.
 func (d *DB) ResolveMCPWorkspace(ctx context.Context, user, client, selected string) (string, error) {

@@ -70,6 +70,27 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [scopes, setScopes] = useState<string[]>([]);
+  const [location, setLocation] = useState("your Ding");
+  const [cloud, setCloud] = useState(false);
+  const workspaceRef = useRef<string | undefined>(undefined);
+  const [workspaceID, setWorkspaceID] = useState("");
+  const [workspaces, setWorkspaces] = useState<{ id: string; name: string }[]>(
+    [],
+  );
+  const connectionRef = useRef<string | undefined>(undefined);
+  const executionRef = useRef<string | undefined>(undefined);
+  const [connectionID, setConnectionID] = useState("");
+  const [connections, setConnections] = useState<
+    { id: string; name: string }[]
+  >([]);
+  function targetArgs(id = workspaceRef.current) {
+    return {
+      ...(connectionRef.current
+        ? { connection_id: connectionRef.current }
+        : {}),
+      ...(id ? { workspace_id: id } : {}),
+    };
+  }
   const [pending, setPending] = useState<Pending>();
   const pendingRef = useRef<Pending | undefined>(undefined);
   const connected = useRef(false);
@@ -81,6 +102,34 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
   function receive(result: ToolResult) {
     try {
       const next = parseResult(result);
+      if (next.target) {
+        if (
+          pendingRef.current &&
+          (next.target.workspace !== pendingRef.current.args.workspace_id ||
+            next.target.connection !== pendingRef.current.args.connection_id)
+        ) {
+          setError(
+            "Resolve the pending change before viewing another workspace.",
+          );
+          return;
+        }
+        const changed =
+          workspaceRef.current &&
+          (workspaceRef.current !== next.target.workspace ||
+            connectionRef.current !== next.target.connection);
+        if (changed) {
+          setScopes([]);
+          setCloud(false);
+        }
+        connectionRef.current = next.target.connection;
+        setConnectionID(next.target.connection ?? "");
+        workspaceRef.current = next.target.workspace;
+        setWorkspaceID(next.target.workspace);
+        if (changed)
+          void loadCapabilities(next.target.workspace).catch((e) =>
+            setError(String(e.message)),
+          );
+      }
       setView(next);
       setQuery(next.query ?? {});
       setSearch(String(next.query?.search ?? ""));
@@ -89,24 +138,128 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
       setError(String((e as Error).message));
     }
   }
+  async function loadCapabilities(id = workspaceRef.current) {
+    const connection = connectionRef.current;
+    const result = parseResult(
+      await bridge.call("ding_get_capabilities", targetArgs(id)),
+    );
+    if (
+      connection !== connectionRef.current ||
+      (id && workspaceRef.current && id !== workspaceRef.current)
+    )
+      return;
+    const grant = result.data.grant as { scopes?: string[] };
+    setScopes(
+      Array.isArray(result.data.effectiveScopes)
+        ? (result.data.effectiveScopes as string[])
+        : (grant.scopes ?? []),
+    );
+    const execution = result.data.execution;
+    executionRef.current = String(execution);
+    setCloud(execution === "cloud");
+    const workspace =
+      typeof result.data.workspaceName === "string"
+        ? result.data.workspaceName
+        : "";
+    setLocation(
+      execution === "cloud"
+        ? `Ding Cloud${workspace ? ` · ${workspace}` : ""}`
+        : execution === "shared"
+          ? `your server${workspace ? ` · ${workspace}` : ""}`
+          : "this computer",
+    );
+    if (result.target) {
+      connectionRef.current = result.target.connection;
+      setConnectionID(result.target.connection ?? "");
+      workspaceRef.current = result.target.workspace;
+      setWorkspaceID(result.target.workspace);
+    }
+  }
+  async function loadWorkspaces() {
+    const result = parseResult(
+      await bridge.call(
+        "ding_list_workspaces",
+        connectionRef.current ? { connection_id: connectionRef.current } : {},
+      ),
+    );
+    if (!Array.isArray(result.data.workspaces))
+      throw new Error("Workspace discovery is unavailable.");
+    setWorkspaces(result.data.workspaces as { id: string; name: string }[]);
+  }
+  async function selectWorkspace(id: string) {
+    if (!id || pendingRef.current || inFlight.current) return;
+    inFlight.current = true;
+    workspaceRef.current = id;
+    setWorkspaceID(id);
+    setBusy(true);
+    setScopes([]);
+    setView(undefined);
+    try {
+      await loadCapabilities(id);
+      receive(await bridge.call("ding_list_watches", targetArgs(id)));
+    } catch (e) {
+      setError(String((e as Error).message));
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  }
+  async function loadConnections() {
+    const result = parseResult(await bridge.call("ding_list_connections", {}));
+    if (!Array.isArray(result.data.connections))
+      throw new Error("Connection discovery is unavailable.");
+    setConnections(result.data.connections as { id: string; name: string }[]);
+  }
+  async function selectConnection(id: string) {
+    if (!id || pendingRef.current || inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    setError("");
+    connectionRef.current = id;
+    setConnectionID(id);
+    workspaceRef.current = undefined;
+    setWorkspaceID("");
+    setWorkspaces([]);
+    setScopes([]);
+    setCloud(false);
+    setView(undefined);
+    setLocation("the selected connection");
+    try {
+      await loadCapabilities();
+      if (executionRef.current !== "local") await loadWorkspaces();
+      receive(await bridge.call("ding_list_watches", targetArgs()));
+    } catch (e) {
+      setError(String((e as Error).message));
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  }
   useEffect(() => {
     if (connected.current) return;
     connected.current = true;
     bridge
       .connect(receive)
       .then(async () => {
+        try {
+          await loadCapabilities();
+          if (connectionRef.current) await loadConnections();
+          if (workspaceRef.current && executionRef.current !== "local")
+            await loadWorkspaces();
+        } catch (e) {
+          if (String((e as Error).message).includes("connection_required")) {
+            await loadConnections();
+            setError("Choose a connection to continue.");
+          } else if (
+            String((e as Error).message).includes("workspace_required")
+          ) {
+            await loadWorkspaces();
+            setError("Choose a workspace to continue.");
+          } else throw e;
+        }
         setReady(true);
-        const result = parseResult(
-          await bridge.call("ding_get_capabilities", {}),
-        );
-        const grant = result.data.grant as { scopes?: string[] };
-        setScopes(grant.scopes ?? []);
       })
-      .catch(() =>
-        setError(
-          "The host connection is unavailable. You can still ask Ding for a text result.",
-        ),
-      );
+      .catch((e) => setError(String((e as Error).message)));
   }, [bridge]);
 
   async function call(
@@ -116,6 +269,7 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
     retry?: Pending,
   ) {
     if (inFlight.current || !ready) return;
+    args = { ...targetArgs(), ...args };
     if (mutation && !retry && pendingRef.current) {
       const { operation_key: _key, ...priorArgs } = pendingRef.current.args;
       if (
@@ -155,9 +309,11 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
     } catch (e) {
       const message = String((e as Error).message);
       setError(message);
+      if (/(?:^|: )(integration_denied|permission_denied):/.test(message))
+        setScopes([]);
       if (
         mutation &&
-        /(?:^|: )(integration_denied|revision_conflict|preview_expired|operation_conflict|invalid_request|integration_limit|quota_exceeded|shutting_down|integration_failed):/.test(
+        /(?:^|: )(integration_denied|permission_denied|workspace_rate|revision_conflict|preview_expired|operation_conflict|invalid_request|integration_limit|quota_exceeded|shutting_down|integration_failed):/.test(
           message,
         )
       ) {
@@ -200,6 +356,11 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
     evidence: "The story behind this event",
     lifecycle: "Watch updated",
     delivery: "Delivery details",
+    cloud_status: "Cloud usage and health",
+    transfer_preflight: "Review a watch transfer",
+    transfer_summary: "Watch transfer",
+    transfers: "Transfers on this instance",
+    transfer: "Transfer receipt",
   };
 
   return (
@@ -207,25 +368,81 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
       <header>
         <div className="brand">
           {/* Trusted artwork bundled at build time; no remote image requests. */}
-          <span className="brand-icon" aria-hidden="true" dangerouslySetInnerHTML={{ __html: bell }} />
+          <span
+            className="brand-icon"
+            aria-hidden="true"
+            dangerouslySetInnerHTML={{ __html: bell }}
+          />
           <strong>Ding</strong>
         </div>
         <span className="connection">
           <i />
-          {ready ? "Connected to your Ding" : "Connecting…"}
+          {ready ? `Connected to ${location}` : "Connecting…"}
         </span>
       </header>
+      {connections.length > 0 && (
+        <label>
+          Connection
+          <select
+            value={connectionID}
+            disabled={busy || Boolean(pending)}
+            onChange={(event) => void selectConnection(event.target.value)}
+          >
+            <option value="" disabled>
+              Choose a connection
+            </option>
+            {connections.map((connection) => (
+              <option key={connection.id} value={connection.id}>
+                {connection.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {workspaces.length > 0 && (
+        <label>
+          Workspace
+          <select
+            value={workspaceID}
+            disabled={busy || Boolean(pending)}
+            onChange={(event) => void selectWorkspace(event.target.value)}
+          >
+            <option value="" disabled>
+              Choose a workspace
+            </option>
+            {workspaces.map((workspace) => (
+              <option key={workspace.id} value={workspace.id}>
+                {workspace.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <nav aria-label="Ding views">
         {["watches", "events", "deliveries"].map((kind) => (
           <button
             key={kind}
-            disabled={!ready || busy}
+            disabled={
+              !ready ||
+              busy ||
+              (workspaces.length > 0 && !workspaceID) ||
+              (connections.length > 0 && !connectionID)
+            }
             aria-current={view?.view === kind ? "page" : undefined}
             onClick={() => navigate(kind)}
           >
             {kind[0].toUpperCase() + kind.slice(1)}
           </button>
         ))}
+        {cloud && (
+          <button
+            disabled={!ready || busy}
+            aria-current={view?.view === "cloud_status" ? "page" : undefined}
+            onClick={() => void call("ding_get_cloud_status")}
+          >
+            Cloud usage
+          </button>
+        )}
       </nav>
       {error && (
         <div className="error" role="alert">
@@ -261,7 +478,12 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
           <p>Ding keeps watch while you get on with your day.</p>
           <button
             className="primary"
-            disabled={!ready || busy}
+            disabled={
+              !ready ||
+              busy ||
+              (workspaces.length > 0 && !workspaceID) ||
+              (connections.length > 0 && !connectionID)
+            }
             onClick={() => navigate("watches")}
           >
             See my watches
@@ -277,6 +499,36 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
             </span>
             <h1>{title[view.view] ?? "Ding activity"}</h1>
           </div>
+          {view.view === "transfer_preflight" && (
+            <section>
+              <p>
+                {data?.ready
+                  ? "This watch is eligible. Review the exact definition and destination references before approving an upload."
+                  : String(data?.reason ?? "This watch cannot move yet.")}
+              </p>
+              <p>Inspection has not uploaded or paused this watch.</p>
+              <Details
+                title="Definition that would be transferred"
+                value={data?.manifest}
+              />
+            </section>
+          )}
+          {view.view === "transfer_summary" && (
+            <section>
+              <p>
+                <Badge value={String(data?.phase ?? "unknown")} />
+              </p>
+              <p>{String(data?.note ?? "")}</p>
+              {data?.outcome != null && (
+                <p>Test outcome: {String(data.outcome)}</p>
+              )}
+              <Details title="Execution locations and receipts" value={data} />
+            </section>
+          )}
+          {["transfers", "transfer"].includes(view.view) && (
+            <Details title="Saved transfer receipts" value={data} />
+          )}
+          {view.view === "cloud_status" && <CloudStatus data={view.data} />}
           {view.view === "watches" && (
             <>
               <div className="metrics">
@@ -420,8 +672,8 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
                 </div>
                 {!canManage && (
                   <p className="muted">
-                    This connection has view access. Management is enabled
-                    during local pairing.
+                    This connection has view access. Review management
+                    permission in this instance’s model connection settings.
                   </p>
                 )}
                 <Details
@@ -525,7 +777,7 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
                   </button>
                   {!canManage && (
                     <p className="muted">
-                      Enable manage permission locally to apply changes.
+                      Enable management for this connection to apply changes.
                     </p>
                   )}
                 </div>
@@ -684,5 +936,53 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
         <span>{busy ? "Working…" : "Stored on your Ding instance"}</span>
       </footer>
     </main>
+  );
+}
+
+function CloudStatus({ data }: { data: Record<string, unknown> }) {
+  const usage = data.usage as Record<string, number>;
+  const limits = data.limits as Record<string, number>;
+  const health = data.health as { healthy: boolean; running: boolean };
+  return (
+    <section aria-label="Cloud usage">
+      <p>
+        {data.budgetExhausted
+          ? "Monthly allowance reached. Outbound work is paused until capacity is available."
+          : "Your workspace’s monthly activity."}
+      </p>
+      <div className="metrics">
+        <div>
+          <b>
+            {usage.checks} / {limits.checks}
+          </b>
+          <span>Checks</span>
+        </div>
+        <div>
+          <b>
+            {usage.deliveries} / {limits.deliveryAttempts}
+          </b>
+          <span>Delivery attempts</span>
+        </div>
+        <div>
+          <b>
+            {(usage.bytes / 1048576).toFixed(1)} /{" "}
+            {(limits.bytes / 1048576).toFixed(0)} MiB
+          </b>
+          <span>Outbound traffic</span>
+        </div>
+      </div>
+      <p>Allowance resets {date(String(data.resetsAt))}.</p>
+      <p>
+        {health.healthy
+          ? "Workspace health is good."
+          : "Workspace health needs attention."}{" "}
+        {health.running ? "The runner is active." : "The runner is stopped."}
+      </p>
+      <p>{String(data.note ?? "")}</p>
+      <Details
+        title="Storage and execution limits"
+        value={{ health, policy: data.policy }}
+      />
+    </section>
   );
 }

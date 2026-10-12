@@ -16,6 +16,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/ding-labs/ding/internal/mcpconfig"
+	"github.com/ding-labs/ding/internal/mcpcontract"
 )
 
 const MaxResponse = 16 << 20
@@ -43,6 +44,7 @@ func HTTPClient() *http.Client {
 }
 
 type Client struct {
+	Target     *mcpcontract.Target
 	Connection mcpconfig.Connection
 	HTTP       *http.Client
 }
@@ -161,6 +163,12 @@ func allowed(method, path string) bool {
 		}
 	}
 	if method == http.MethodGet {
+		if path == "/transfers" || len(parts) == 2 && parts[0] == "transfers" || len(parts) == 3 && parts[0] == "transfers" && parts[1] == "preflight" {
+			return true
+		}
+		if path == "/cloud/status" {
+			return true
+		}
 		if len(parts) == 1 {
 			switch parts[0] {
 			case "capabilities", "watches", "events", "deliveries", "destinations":
@@ -175,6 +183,9 @@ func allowed(method, path string) bool {
 		}
 	}
 	if method == http.MethodPost {
+		if path == "/transfers/step" {
+			return true
+		}
 		return path == "/preview" || path == "/apply" || len(parts) == 3 && (parts[0] == "watches" && parts[2] == "lifecycle" || parts[0] == "deliveries" && parts[2] == "retry")
 	}
 	return false

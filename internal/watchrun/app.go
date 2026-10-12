@@ -16,6 +16,7 @@ import (
 
 	"github.com/ding-labs/ding/internal/access"
 	"github.com/ding-labs/ding/internal/condition"
+	"github.com/ding-labs/ding/internal/integrationpolicy"
 	"github.com/ding-labs/ding/internal/notify"
 	"github.com/ding-labs/ding/internal/plan"
 	"github.com/ding-labs/ding/internal/replay"
@@ -26,6 +27,7 @@ import (
 
 type App struct {
 	logEpoch                            string
+	Integration                         integrationpolicy.Profile // Immutable after startup.
 	SchedulingJitter                    time.Duration
 	Store                               *store.Store
 	HTTP                                source.HTTP
@@ -49,7 +51,7 @@ type App struct {
 }
 
 func New(s *store.Store) *App {
-	return &App{logEpoch: rand.Text(), Store: s, HTTP: source.HTTP{Client: &http.Client{}, Lookup: os.LookupEnv}, Lookup: os.LookupEnv, Now: func() time.Time { return time.Now().UTC() }, Output: os.Stdout, AcquisitionWorkers: 32, DeliveryWorkers: 8, Limits: DefaultLimits(), cancels: map[string]acquisition{}}
+	return &App{logEpoch: rand.Text(), Store: s, Integration: integrationpolicy.Local(), HTTP: source.HTTP{Client: &http.Client{}, Lookup: os.LookupEnv}, Lookup: os.LookupEnv, Now: func() time.Time { return time.Now().UTC() }, Output: os.Stdout, AcquisitionWorkers: 32, DeliveryWorkers: 8, Limits: DefaultLimits(), cancels: map[string]acquisition{}}
 }
 
 type Change struct {
@@ -83,6 +85,9 @@ func (a *App) Apply(ctx context.Context, request ApplyRequest) (ApplyResult, err
 }
 
 func (a *App) apply(ctx context.Context, request ApplyRequest, mutation mutation) (ApplyResult, error) {
+	if len(request.Manifest) > a.Integration.MaxManifestBytes {
+		return ApplyResult{}, fmt.Errorf("manifest exceeds %d bytes", a.Integration.MaxManifestBytes)
+	}
 	action := access.Manage
 	if request.DryRun {
 		action = access.Preview

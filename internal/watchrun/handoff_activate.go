@@ -18,6 +18,9 @@ func (a *App) ActivateHandoff(ctx context.Context, id string, source store.Hando
 		if err != nil {
 			return err
 		}
+		if err := a.authorizeHandoff(ctx, tx, "", h.WatchID); err != nil {
+			return err
+		}
 		if h.Role != "target" || source.Role != "source" || source.Phase != "paused" || !source.Held || source.ID != h.ID || source.Peer != h.Instance || source.Instance != h.Peer || source.WatchID != h.WatchID || source.Revision != h.Revision || !reflect.DeepEqual(source.Destinations, h.Destinations) {
 			return fmt.Errorf("source pause receipt does not match this prepared transfer")
 		}
@@ -76,6 +79,9 @@ func (a *App) CancelPreparedHandoff(ctx context.Context, id string) (store.Hando
 	err := a.Store.Update(ctx, func(tx *store.Tx) error {
 		h, err := tx.Handoff(id)
 		if err != nil {
+			return err
+		}
+		if err := a.authorizeHandoff(ctx, tx, "", h.WatchID); err != nil {
 			return err
 		}
 		if h.Role != "target" {
@@ -142,6 +148,9 @@ func (a *App) ReleaseHandoff(ctx context.Context, id string, target store.Handof
 	err := a.Store.Update(ctx, func(tx *store.Tx) error {
 		h, err := tx.Handoff(id)
 		if err != nil {
+			return err
+		}
+		if err := a.authorizeHandoff(ctx, tx, "", h.WatchID); err != nil {
 			return err
 		}
 		if h.Role != "source" || target.Role != "target" || target.ID != id || target.Phase != "canceled" || target.Held || target.Peer != h.Instance || target.Instance != h.Peer || target.WatchID != h.WatchID || target.Revision != h.Revision {

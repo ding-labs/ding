@@ -20,8 +20,8 @@
   "migrate": "workbench/migrate",
   "replay": "workbench/replay",
   "run": "system/legacy",
-	"logs exec": "Host-only foreground application launch and stream forwarding. Console Log setup authors the watch and shows the capture command; it cannot own terminal stdin or process signals.",
-	"logs ingest": "Host-only stdin capture. Console authors, previews, and inspects the same log watch; daemon file and command inputs continue independently of the browser.",
+  "logs exec": "Host-only foreground application launch and stream forwarding. Console Log setup authors the watch and shows the capture command; it cannot own terminal stdin or process signals.",
+  "logs ingest": "Host-only stdin capture. Console authors, previews, and inspects the same log watch; daemon file and command inputs continue independently of the browser.",
   "serve": "system/legacy",
   "test": "workbench/test",
   "test-rule": "system/legacy",
@@ -79,5 +79,7 @@
   "server restore": "Offline host operation: encrypted backup, quarantine restore, and explicit runner ownership fencing.",
   "server release-restore": "Offline host operation: encrypted backup, quarantine restore, and explicit runner ownership fencing.",
   "server backup-keygen": "Offline host operation: encrypted backup, quarantine restore, and explicit runner ownership fencing.",
-  "server delete-workspace": "Offline host operation: encrypted backup, quarantine restore, and explicit runner ownership fencing."
+  "server delete-workspace": "Offline host operation: encrypted backup, quarantine restore, and explicit runner ownership fencing.",
+  "mcp cloud connect": "CLI-only: native OAuth callback and private bridge profile; workspace consent remains in Model connections.",
+  "mcp cloud doctor": "CLI-only: inspect the local private OAuth profile against current cloud workspace consent."
 }

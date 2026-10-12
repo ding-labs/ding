@@ -59,7 +59,7 @@ func TestRealDaemonPairingReviewLifecycleRevocation(t *testing.T) {
 	}
 	daemon := mcpclient.New(connection)
 	defer daemon.Close()
-	s, err := mcpserver.New(mcpserver.Options{Version: "test", HTML: "<title>Ding</title>", Resolve: func(context.Context, string, *auth.TokenInfo) (*mcpclient.Client, error) { return daemon, nil }})
+	s, err := mcpserver.New(mcpserver.Options{TransferInspection: true, Version: "test", HTML: "<title>Ding</title>", Resolve: func(context.Context, string, *auth.TokenInfo) (*mcpclient.Client, error) { return daemon, nil }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,6 +105,13 @@ func TestRealDaemonPairingReviewLifecycleRevocation(t *testing.T) {
 		t.Fatal("receipt replay changed result")
 	}
 	watch := call("ding_get_watch", map[string]any{"watch_id": "heartbeat"})["watch"].(map[string]any)
+	if transfers := call("ding_list_transfers", nil)["transfers"].([]any); len(transfers) != 0 {
+		t.Fatal("unexpected transfers", transfers)
+	}
+	preflight := call("ding_get_transfer_preflight", map[string]any{"watch_id": "heartbeat"})
+	if preflight["ready"] != false || preflight["manifest"] == "" {
+		t.Fatal("ineligible local watch preflight", preflight)
+	}
 	revision := watch["plan"].(map[string]any)["revision"]
 	paused := call("ding_pause_watch", map[string]any{"watch_id": "heartbeat", "expected_revision": revision, "expected_generation": watch["generation"], "operation_key": "real_pause_key_000001"})
 	if paused["status"] != "paused" {

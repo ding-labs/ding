@@ -7,7 +7,7 @@ import { runtime, manifest } from "./runtime.mjs";
 const r = await runtime();
 try {
   const tools = await r.client.listTools();
-  assert.equal(tools.tools.length, 15);
+  assert.equal(tools.tools.length, 18);
   const call = async (name, args = {}, client = r.client) => {
     const result = await client.callTool({ name, arguments: args });
     assert.ok(!result.isError, JSON.stringify(result));
@@ -23,6 +23,7 @@ try {
     "ding_list_events",
     "ding_list_deliveries",
     "ding_list_destinations",
+    "ding_list_transfers",
   ])
     await call(name);
   const page = await r.client.readResource({ uri: "ui://ding/workspace.html" });
@@ -89,7 +90,7 @@ try {
     200,
   );
   console.log(
-    "Independent TypeScript SDK: native stdio, 15 tools, UI bytes, pairing, both CLI entry points, review/apply, receipt retry, lifecycle, evidence, revocation, daemon independence passed.",
+    "Independent TypeScript SDK: native stdio, 18 tools, UI bytes, pairing, both CLI entry points, review/apply, receipt retry, lifecycle, evidence, revocation, daemon independence passed.",
   );
 } finally {
   await r.close();

@@ -72,6 +72,9 @@ func (a *App) TestHandoff(ctx context.Context, id, key string) (HandoffTestResul
 		if err != nil {
 			return err
 		}
+		if err := a.authorizeHandoff(ctx, tx, "", h.WatchID); err != nil {
+			return err
+		}
 		if h.Role != "target" || h.Phase != "prepared" || !h.Held {
 			return store.ErrConflict
 		}
@@ -133,6 +136,9 @@ func (a *App) TestHandoff(ctx context.Context, id, key string) (HandoffTestResul
 	err = a.Store.Update(ctx, func(tx *store.Tx) error {
 		h, err := tx.Handoff(id)
 		if err != nil {
+			return err
+		}
+		if err := a.authorizeHandoff(ctx, tx, "", h.WatchID); err != nil {
 			return err
 		}
 		if h.ProbeKey != key || h.ProbeDigest != digest || h.Phase != "prepared" {

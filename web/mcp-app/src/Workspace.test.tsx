@@ -152,3 +152,195 @@ test("expired previews cannot apply", async () => {
     ).disabled,
   ).toBe(true);
 });
+
+test("cloud location and effective permissions override the original grant", async () => {
+  const bridge = mockBridge(preview);
+  bridge.call = vi.fn(async () =>
+    result("capabilities", {
+      execution: "cloud",
+      workspaceName: "Team",
+      grant: { scopes: ["inspect", "manage"] },
+      effectiveScopes: ["inspect"],
+    }),
+  );
+  render(<Workspace bridge={bridge} />);
+  await screen.findByText("Connected to Ding Cloud · Team");
+  expect(
+    (
+      screen.getByRole("button", {
+        name: "Apply reviewed changes",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+});
+
+test("ambiguous cloud connections require selection and keep navigation targeted", async () => {
+  const a = "a".repeat(64),
+    b = "b".repeat(64);
+  const bridge: Bridge = {
+    async connect() {},
+    call: vi.fn(async (name, args) => {
+      if (name === "ding_list_workspaces")
+        return result("workspaces", {
+          workspaces: [
+            { id: a, name: "Alpha" },
+            { id: b, name: "Beta" },
+          ],
+        });
+      if (name === "ding_get_capabilities") {
+        if (!args.workspace_id)
+          return {
+            isError: true,
+            content: [{ text: "workspace_required: choose a workspace" }],
+          };
+        return {
+          structuredContent: {
+            view: "capabilities",
+            target: {
+              instance: "instance",
+              workspace: args.workspace_id,
+              execution: "cloud",
+            },
+            data: {
+              execution: "cloud",
+              workspaceName: args.workspace_id === a ? "Alpha" : "Beta",
+              grant: { scopes: ["inspect"] },
+              effectiveScopes: ["inspect"],
+            },
+          },
+        };
+      }
+      return result("watches", {
+        watches: [],
+        total: 0,
+        more: false,
+        cursor: "",
+      });
+    }),
+  };
+  render(<Workspace bridge={bridge} />);
+  const select = await screen.findByLabelText("Workspace");
+  fireEvent.change(select, { target: { value: a } });
+  await screen.findByText("Connected to Ding Cloud · Alpha");
+  await waitFor(() =>
+    expect((select as HTMLSelectElement).disabled).toBe(false),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Events" }));
+  await waitFor(() =>
+    expect(bridge.call).toHaveBeenCalledWith("ding_list_events", {
+      workspace_id: a,
+    }),
+  );
+  await waitFor(() =>
+    expect((select as HTMLSelectElement).disabled).toBe(false),
+  );
+  fireEvent.change(select, { target: { value: b } });
+  await screen.findByText("Connected to Ding Cloud · Beta");
+  expect(bridge.call).toHaveBeenCalledWith("ding_list_watches", {
+    workspace_id: b,
+  });
+});
+
+test("cloud usage explains exhausted budgets and their reset", async () => {
+  render(
+    <Workspace
+      bridge={mockBridge(
+        result("cloud_status", {
+          usage: { checks: 30000, deliveries: 12, bytes: 1048576 },
+          limits: { checks: 30000, deliveryAttempts: 1000, bytes: 134217728 },
+          budgetExhausted: true,
+          resetsAt: "2026-11-01T00:00:00Z",
+          health: { healthy: true, running: true },
+          policy: { publicHTTPOnly: true },
+        }),
+      )}
+    />,
+  );
+  await screen.findByText("Cloud usage and health");
+  expect(screen.getByText(/Monthly allowance reached/)).toBeTruthy();
+  expect(screen.getByText("30000 / 30000")).toBeTruthy();
+  expect(screen.getByText(/Allowance resets/)).toBeTruthy();
+});
+
+test("bridge requires a connection and pins pending changes to it", async () => {
+  const workspace = "c".repeat(64);
+  const bridge: Bridge = {
+    async connect() {},
+    call: vi.fn(async (name, args) => {
+      if (name === "ding_list_connections")
+        return result("connections", {
+          connections: [
+            { id: "local", name: "This computer" },
+            { id: "cloud", name: "Ding Cloud" },
+          ],
+        });
+      if (!args.connection_id)
+        return {
+          isError: true,
+          content: [{ text: "connection_required: select a connection" }],
+        };
+      if (name === "ding_get_capabilities")
+        return {
+          structuredContent: {
+            view: "capabilities",
+            target: {
+              connection: args.connection_id,
+              instance: workspace,
+              workspace,
+              execution: "local",
+            },
+            data: {
+              execution: "local",
+              effectiveScopes: ["inspect", "manage"],
+              grant: { scopes: ["inspect", "manage"] },
+            },
+          },
+        };
+      if (name === "ding_list_watches")
+        return {
+          ...preview,
+          structuredContent: {
+            ...(preview.structuredContent as object),
+            target: {
+              connection: args.connection_id,
+              instance: workspace,
+              workspace,
+              execution: "local",
+            },
+          },
+        };
+      return {
+        isError: true,
+        content: [{ text: "outcome_unknown: reconcile the same request" }],
+      };
+    }),
+  };
+  render(<Workspace bridge={bridge} />);
+  const select = await screen.findByLabelText("Connection");
+  fireEvent.change(select, { target: { value: "local" } });
+  const apply = await screen.findByRole("button", {
+    name: "Apply reviewed changes",
+  });
+  await waitFor(() =>
+    expect((apply as HTMLButtonElement).disabled).toBe(false),
+  );
+  fireEvent.click(apply);
+  const retry = await screen.findByRole("button", {
+    name: "Retry same request",
+  });
+  expect((select as HTMLSelectElement).disabled).toBe(true);
+  fireEvent.click(retry);
+  await waitFor(() =>
+    expect(
+      vi
+        .mocked(bridge.call)
+        .mock.calls.filter((c) => c[0] === "ding_apply_changes"),
+    ).toHaveLength(2),
+  );
+  const calls = vi
+    .mocked(bridge.call)
+    .mock.calls.filter((c) => c[0] === "ding_apply_changes");
+  expect(calls[0][1].connection_id).toBe("local");
+  expect(calls[0][1].workspace_id).toBe(workspace);
+  expect(calls[1][1]).toEqual(calls[0][1]);
+});

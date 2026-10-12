@@ -59,13 +59,13 @@ var Routes = map[string]Action{
 	"GET /v1/handoffs":                             Inspect,
 	"GET /v1/handoffs/{id}":                        Inspect,
 	"GET /v1/handoffs/preflight/{watch}":           Inspect,
-	"POST /v1/handoffs/prepare":                    Owners,
-	"POST /v1/handoffs/pause":                      Owners,
-	"POST /v1/handoffs/{id}/test":                  Owners,
-	"POST /v1/handoffs/{id}/activate":              Owners,
-	"POST /v1/handoffs/{id}/finish":                Owners,
-	"POST /v1/handoffs/{id}/cancel":                Owners,
-	"POST /v1/handoffs/{id}/release":               Owners,
+	"POST /v1/handoffs/prepare":                    Move,
+	"POST /v1/handoffs/pause":                      Move,
+	"POST /v1/handoffs/{id}/test":                  Move,
+	"POST /v1/handoffs/{id}/activate":              Move,
+	"POST /v1/handoffs/{id}/finish":                Move,
+	"POST /v1/handoffs/{id}/cancel":                Move,
+	"POST /v1/handoffs/{id}/release":               Move,
 	"POST /v1/integrations/grants":                 Members,
 	"GET /v1/integrations/grants":                  Members,
 	"DELETE /v1/integrations/grants/{id}":          Members,
@@ -78,6 +78,10 @@ var Routes = map[string]Action{
 }
 
 var routeMux = func() *http.ServeMux {
+	Routes["POST /v1/integrations/transfers/step"] = Move
+	for _, path := range []string{"/v1/integrations/transfers", "/v1/integrations/transfers/{id}", "/v1/integrations/transfers/preflight/{watch}"} {
+		Routes["GET "+path] = Inspect
+	}
 	for _, kind := range []string{"watches", "events", "deliveries", "destinations"} {
 		Routes["GET /v1/console/"+kind] = Inspect
 		Routes["GET /v1/integrations/"+kind] = Inspect

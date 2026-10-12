@@ -48,7 +48,7 @@ func run() error {
 	env := []string{}
 	for _, pair := range os.Environ() {
 		name, _, _ := strings.Cut(pair, "=")
-		if name == "DING_DATA_KEY_BASE64" || strings.HasPrefix(name, "DING_BOOTSTRAP_") {
+		if railway.SecretEnvironment(name) {
 			continue
 		}
 		env = append(env, pair)

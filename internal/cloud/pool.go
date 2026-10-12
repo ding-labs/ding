@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/cloud/egress"
+	"github.com/ding-labs/ding/internal/integrationpolicy"
 	"github.com/ding-labs/ding/internal/plan"
 	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/store"
@@ -80,6 +81,7 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 		return nil, err
 	}
 	app := watchrun.New(db)
+	app.Integration = integrationpolicy.Hosted(workspace.ID, workspace.Name, p.Shared)
 	app.Limits = Limits()
 	if p.Shared {
 		app.Limits = watchrun.DefaultLimits()

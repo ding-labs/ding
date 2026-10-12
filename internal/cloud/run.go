@@ -36,6 +36,7 @@ type Config struct {
 	TLSKey           string          `json:"tlsKey,omitempty"`
 	Identity         identity.Config `json:"identity"`
 	MCP              *mcpconfig.HTTP `json:"mcp,omitempty"`
+	MCPBridgeClients []string        `json:"mcpBridgeClients,omitempty"`
 }
 
 func (c *Config) Validate() error {
@@ -66,6 +67,14 @@ func (c *Config) Validate() error {
 	}
 	if !seen["oidc"] && (c.Identity.Issuer != "" || c.Identity.ClientID != "" || c.Identity.ClientSecret != "" || len(c.Identity.Scopes) > 0) {
 		return fmt.Errorf("identity configuration requires the oidc login method")
+	}
+	if len(c.MCPBridgeClients) > 32 || (len(c.MCPBridgeClients) > 0 && c.MCP == nil) {
+		return fmt.Errorf("MCP bridge clients require configured public MCP and at most 32 native client IDs")
+	}
+	for _, client := range c.MCPBridgeClients {
+		if client == "" || len(client) > 512 {
+			return fmt.Errorf("invalid native MCP bridge client ID")
+		}
 	}
 	if c.MCP != nil && !seen["oidc"] {
 		return fmt.Errorf("public MCP requires oidc login and an OAuth issuer")
@@ -104,6 +113,15 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("publicURL must be an HTTPS origin")
 	}
 	c.PublicURL = origin
+	if c.MCP != nil {
+		c.MCP.PublicURL = origin
+		if err := c.MCP.ValidateAuthority(); err != nil {
+			return fmt.Errorf("invalid MCP OAuth authority")
+		}
+		if c.MCP.Issuer != c.Identity.Issuer || c.MCP.Audience != origin+"/mcp" || len(c.MCP.Subjects) > 0 {
+			return fmt.Errorf("MCP must share the browser issuer, use the exact public /mcp audience, and use workspace consent")
+		}
+	}
 	if c.Listen == "" {
 		c.Listen = "127.0.0.1:8787"
 	}
@@ -177,6 +195,11 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 	if err := db.ConfigureLoginMethods(ctx, c.LoginMethods); err != nil {
 		return err
 	}
+	if slices.Contains(c.LoginMethods, "oidc") {
+		if err := db.ConfigureOIDCIssuer(ctx, c.Identity.Issuer); err != nil {
+			return err
+		}
+	}
 	if slices.Contains(c.LoginMethods, "password") {
 		workspaces, err := db.Workspaces(ctx)
 		if err != nil || len(workspaces) == 0 {
@@ -204,7 +227,7 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 	if err := pool.Start(ctx); err != nil {
 		return err
 	}
-	app := &Server{Railway: c.Deployment == "railway", LoginMethods: c.LoginMethods, Shared: pool.Shared, Name: c.Name, DB: db, Vault: vault, Pool: pool, PublicURL: c.PublicURL, Version: version, Assets: assets, Login: LoginFlow{DB: db, Vault: vault, Provider: provider, EnrollmentLimit: c.EnrollmentLimit, Shared: pool.Shared}}
+	app := &Server{MCPBridgeClients: c.MCPBridgeClients, Railway: c.Deployment == "railway", LoginMethods: c.LoginMethods, Shared: pool.Shared, Name: c.Name, DB: db, Vault: vault, Pool: pool, PublicURL: c.PublicURL, Version: version, Assets: assets, Login: LoginFlow{DB: db, Vault: vault, Provider: provider, EnrollmentLimit: c.EnrollmentLimit, Shared: pool.Shared}}
 	if c.MCP != nil {
 		if c.MCP.Issuer != c.Identity.Issuer {
 			return fmt.Errorf("MCP and browser identity must use the same issuer and stable subject")

@@ -60,6 +60,7 @@ type SessionMembership struct {
 type AccountFeatures struct {
 	Passwords        bool `json:"passwords"`
 	ModelConnections bool `json:"modelConnections"`
+	ModelTransfers   bool `json:"modelTransfers,omitempty"`
 }
 type BrowserSession struct {
 	AccountFeatures *AccountFeatures    `json:"accountFeatures,omitempty"`

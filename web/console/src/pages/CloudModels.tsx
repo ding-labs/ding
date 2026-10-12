@@ -6,6 +6,9 @@ import { ErrorBox, useRead } from "../components/common";
 
 type Model = { clientID: string; grant: { name: string; scopes: string[]; secretRefs: string[]; expiresAt: string; revoked: boolean } };
 export function CloudModels() {
+  const mayMove = useCapability("move");
+  const transferEnabled = useExecution().accountFeatures?.modelTransfers;
+  const [move, setMove] = useState(false);
   const mayPreview = useCapability("preview");
   const mayManage = useCapability("manage");
   const mayUseCredentials = useCapability("credentials");
@@ -20,7 +23,7 @@ export function CloudModels() {
   async function connect(e: FormEvent) {
     e.preventDefault(); setBusy(true); setError(undefined);
     try {
-      const result = await api<{connection?: unknown}>("/cloud/models", { method: "POST", body: { local: shared, clientID, grant: { name, days: 7, scopes: manage ? ["inspect", "preview", "manage", "retry"] : mayPreview ? ["inspect", "preview"] : ["inspect"], secretRefs: refs } } });
+      const result = await api<{connection?: unknown}>("/cloud/models", { method: "POST", body: { local: shared, clientID, grant: { name, days: 7, scopes: manage ? ["inspect", "preview", "manage", "retry", ...(move ? ["move"] : [])] : mayPreview ? ["inspect", "preview"] : ["inspect"], secretRefs: refs } } });
       setPairing(result.connection);
       setName(""); setClientID(""); setRefs([]); await query.invalidateQueries();
     } catch (e) { setError(e); } finally { setBusy(false); }
@@ -41,7 +44,8 @@ export function CloudModels() {
     <form onSubmit={connect} className="onboarding-form"><fieldset disabled={busy}>
       <label>Connection name<input required maxLength={100} value={name} onChange={e => setName(e.target.value)} /></label>
       {!shared && <label>Registered OAuth client ID<input required maxLength={512} value={clientID} onChange={e => setClientID(e.target.value)} /></label>}
-      {mayManage && <label><input type="checkbox" checked={manage} onChange={e => setManage(e.target.checked)} />Allow reviewed changes and watch management</label>}
+      {mayManage && <label><input type="checkbox" checked={manage} onChange={e => {setManage(e.target.checked);if(!e.target.checked)setMove(false);}} />Allow reviewed changes and watch management</label>}
+      {!shared && transferEnabled && mayMove && <label><input type="checkbox" checked={move} disabled={!manage} onChange={e => setMove(e.target.checked)} />Allow reviewed watch transfers through the approved Ding bridge client</label>}
       <p>Allow these credential references in model-created definitions. The model never receives their values.</p>
       {credentials.data?.names.map(ref => <label key={ref}><input type="checkbox" checked={refs.includes(ref)} onChange={e => setRefs(e.target.checked ? [...refs, ref] : refs.filter(r => r !== ref))} />{ref}</label>)}
       <button className="button primary" type="submit">Approve model connection</button>

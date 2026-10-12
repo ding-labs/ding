@@ -38,6 +38,17 @@ func TestModelBindingNeedsExactWorkspaceAndClient(t *testing.T) {
 	if got, e := v.MCP(ctx, b.User, a.ID, "client-a"); e != nil || got.Token != other.Token {
 		t.Fatal("wrong user's grant", e)
 	}
+	for _, check := range []struct {
+		user, client string
+		count        int
+	}{
+		{a.User, "client-a", 1}, {b.User, "client-a", 1}, {a.User, "client-b", 0},
+	} {
+		memberships, err := db.MCPWorkspaces(ctx, check.user, check.client)
+		if err != nil || len(memberships) != check.count || len(memberships) > 0 && memberships[0].Workspace != a.ID {
+			t.Fatal("discovery crossed a consent boundary", memberships, err)
+		}
+	}
 	for _, pair := range [][2]string{{b.ID, "client-a"}, {a.ID, "client-b"}} {
 		if _, e := v.MCP(ctx, a.User, pair[0], pair[1]); e == nil {
 			t.Fatal("connection crossed boundary")
@@ -55,5 +66,8 @@ func TestModelBindingNeedsExactWorkspaceAndClient(t *testing.T) {
 	}
 	if _, e := v.MCP(ctx, a.User, a.ID, "client-a"); e == nil {
 		t.Fatal("revoked binding resurrected")
+	}
+	if memberships, err := db.MCPWorkspaces(ctx, a.User, "client-a"); err != nil || len(memberships) != 0 {
+		t.Fatal("discovery retained revoked consent", memberships, err)
 	}
 }

@@ -16,8 +16,22 @@ import (
 
 type Resolver func(context.Context, string, *auth.TokenInfo) (*mcpclient.Client, error)
 type Options struct {
-	Version, HTML string
-	Resolve       Resolver
+	Version, HTML      string
+	Resolve            Resolver
+	ListWorkspaces     func(context.Context, *auth.TokenInfo) ([]mcpcontract.Workspace, error)
+	TransferInspection bool
+	TransferTransport  bool
+}
+
+type workspaceKey struct{}
+
+func WithWorkspace(ctx context.Context, workspace string) context.Context {
+	return context.WithValue(ctx, workspaceKey{}, workspace)
+}
+
+func RequestedWorkspace(ctx context.Context) string {
+	workspace, _ := ctx.Value(workspaceKey{}).(string)
+	return workspace
 }
 
 func New(options Options) (*mcp.Server, error) {
@@ -27,6 +41,15 @@ func New(options Options) (*mcp.Server, error) {
 	catalog, err := mcpcontract.Load()
 	if err != nil {
 		return nil, err
+	}
+	if options.TransferTransport {
+		catalog = mcpcontract.TransferTransport(catalog)
+	}
+	if options.TransferInspection {
+		catalog = mcpcontract.TransferInspection(catalog)
+	}
+	if options.ListWorkspaces != nil {
+		catalog = mcpcontract.Cloud(catalog)
 	}
 	s := mcp.NewServer(&mcp.Implementation{Name: "Ding", Version: options.Version}, &mcp.ServerOptions{Instructions: mcpcontract.Instructions, Capabilities: &mcp.ServerCapabilities{}})
 	// SDK 1.8.0 applies schema defaults to explicit null arguments before
@@ -60,18 +83,38 @@ func New(options Options) (*mcp.Server, error) {
 			if req.Extra != nil {
 				identity = req.Extra.TokenInfo
 			}
-			client, err := options.Resolve(ctx, r.scope, identity)
+			var data any
+			var target *mcpcontract.Target
+			if tool.Name == "ding_list_workspaces" {
+				var workspaces []mcpcontract.Workspace
+				workspaces, err = options.ListWorkspaces(ctx, identity)
+				data = map[string]any{"workspaces": workspaces}
+			} else {
+				if workspace, ok := args["workspace_id"].(string); ok {
+					ctx = WithWorkspace(ctx, workspace)
+				}
+				var client *mcpclient.Client
+				client, err = options.Resolve(ctx, r.scope, identity)
+				if err == nil {
+					data, err = client.Call(ctx, r.method, r.path, r.query, r.body)
+					target = client.Target
+				}
+			}
 			if err != nil {
 				return nil, mcpcontract.View{}, err
 			}
-			data, err := client.Call(ctx, r.method, r.path, r.query, r.body)
-			if err != nil {
-				return nil, mcpcontract.View{}, err
+			if r.view == "capabilities" {
+				data = tokenCapabilities(data, identity)
+				if options.TransferTransport {
+					if caps, ok := data.(map[string]any); ok {
+						caps["transferTransport"] = true
+					}
+				}
 			}
 			if r.query == nil {
 				r.query = map[string]any{}
 			}
-			view, err := mcpcontract.Normalize(schema, mcpcontract.View{View: r.view, Data: data, Query: r.query, EvidenceNotice: mcpcontract.EvidenceNotice})
+			view, err := mcpcontract.Normalize(schema, mcpcontract.View{Target: target, View: r.view, Data: data, Query: r.query, EvidenceNotice: mcpcontract.EvidenceNotice})
 			// Even a successful HTTP response can be unreadable to this version.
 			// Never encourage a fresh-key retry after a possibly committed write.
 			if err != nil && r.method == http.MethodPost && r.path != "/preview" {
@@ -108,6 +151,25 @@ func route(name string, a map[string]any) (request, error) {
 		return m
 	}
 	switch name {
+	case "ding_bridge_transfer_step":
+		r.scope, r.method, r.path, r.view = "move", http.MethodPost, "/transfers/step", "transfer_step"
+		r.body = fields("action", "transfer_id", "input")
+	case "ding_get_transfer_preflight", "ding_get_transfer":
+		key, prefix, view := "transfer_id", "/transfers/", "transfer"
+		if name == "ding_get_transfer_preflight" {
+			key, prefix, view = "watch_id", "/transfers/preflight/", "transfer_preflight"
+		}
+		value, err := id(key)
+		if err != nil {
+			return r, err
+		}
+		r.path, r.view = prefix+value, view
+	case "ding_list_transfers":
+		r.path, r.view = "/transfers", "transfers"
+	case "ding_list_workspaces":
+		r.view = "workspaces"
+	case "ding_get_cloud_status":
+		r.path, r.view = "/cloud/status", "cloud_status"
 	case "ding_get_capabilities":
 		r.path = "/capabilities"
 		r.view = "capabilities"
