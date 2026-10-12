@@ -1,8 +1,9 @@
 # Railway owner pilot: 72-hour soak
 
-Status: planned, not started. Prepared October 11, 2026, after PR #34 merged.
-This document plans the work; it does not provision resources, add watches or
-start a scheduled run. See the [cloud plan](railway-cloud-plan.md) and
+Status: implementation in progress; measurement has not started. Prepared
+October 11, 2026, after PR #34 merged. The harness and follow-up procedure are
+in [deploy/soak](../../deploy/soak/README.md); actual start/end times live in the
+private run manifest. See the [cloud plan](railway-cloud-plan.md) and
 [operations runbook](../../deploy/railway/README.md).
 
 ## Objective and scope
@@ -186,8 +187,8 @@ health/observation gaps, incident comparisons, resource trends, costs and open
 issues. Under the current Console-only preference, no Slack/email/webhook
 notification is configured. Operator review of the independent report is needed
 to learn about an outage when Ding's Console is unavailable. Optional Codex
-follow-ups can be configured when execution is requested; none is created by
-this planning task.
+follow-ups are now configured through the hourly `ding-cloud-soak-follow-up`
+heartbeat, which reports meaningful failures and final findings.
 
 At 72 hours, return synthetic endpoints to healthy responses, wait for a healthy
 observation and expected recovery, then pause/delete only the synthetic watches

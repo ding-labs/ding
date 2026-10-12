@@ -1,0 +1,15 @@
+apiVersion: ding.ing/v1alpha1
+kind: Watch
+metadata:
+  id: soak-projection
+spec:
+  source:
+    type: http
+    url: FIXTURE_BASE/projection
+    every: 5m
+    timeout: 5s
+    fields: {value: value}
+  condition: {field: value, operator: gte, value: 1}
+  policy: {trigger: transition, consecutive: 1, recoverAfter: 1, onUnknown: hold-incident, maxGap: 10m}
+  destinations: []
+  limits: {maxBytes: 65536, maxEntities: 10, maxSamples: 100, maxOutputs: 10}
