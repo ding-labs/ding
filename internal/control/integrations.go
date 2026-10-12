@@ -180,6 +180,12 @@ func integrationHandler(app *watchrun.App, c Credentials, base http.Handler) htt
 			reader.ServeHTTP(w, forward)
 		})
 	}
+	mux.HandleFunc("POST /v1/integrations/transfers/step", func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := access(w, r, "move"); !ok {
+			return
+		}
+		TransferStep(w, r, app, reader)
+	})
 	slots := make(chan struct{}, 2)
 	mux.HandleFunc("POST /v1/integrations/preview", func(w http.ResponseWriter, r *http.Request) {
 		g, ok := access(w, r, "preview")

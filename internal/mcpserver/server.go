@@ -20,6 +20,7 @@ type Options struct {
 	Resolve            Resolver
 	ListWorkspaces     func(context.Context, *auth.TokenInfo) ([]mcpcontract.Workspace, error)
 	TransferInspection bool
+	TransferTransport  bool
 }
 
 type workspaceKey struct{}
@@ -40,6 +41,9 @@ func New(options Options) (*mcp.Server, error) {
 	catalog, err := mcpcontract.Load()
 	if err != nil {
 		return nil, err
+	}
+	if options.TransferTransport {
+		catalog = mcpcontract.TransferTransport(catalog)
 	}
 	if options.TransferInspection {
 		catalog = mcpcontract.TransferInspection(catalog)
@@ -142,6 +146,9 @@ func route(name string, a map[string]any) (request, error) {
 		return m
 	}
 	switch name {
+	case "ding_bridge_transfer_step":
+		r.scope, r.method, r.path, r.view = "move", http.MethodPost, "/transfers/step", "transfer_step"
+		r.body = fields("action", "transfer_id", "input")
 	case "ding_get_transfer_preflight", "ding_get_transfer":
 		key, prefix, view := "transfer_id", "/transfers/", "transfer"
 		if name == "ding_get_transfer_preflight" {

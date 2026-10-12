@@ -183,6 +183,9 @@ func allowed(method, path string) bool {
 		}
 	}
 	if method == http.MethodPost {
+		if path == "/transfers/step" {
+			return true
+		}
 		return path == "/preview" || path == "/apply" || len(parts) == 3 && (parts[0] == "watches" && parts[2] == "lifecycle" || parts[0] == "deliveries" && parts[2] == "retry")
 	}
 	return false
