@@ -10,6 +10,9 @@ packaging is not publication approval.
 
 ## Finish the service first
 
+Use the [private connection runbook](chatgpt-private-test.md) to qualify the
+customer journey while public publisher verification is pending.
+
 1. Use **WorkOS AuthKit with Connect**. The [provider runbook](workos-authkit.md)
    records the configured staging client, public identifiers, deployment profile,
    and remaining qualification gates. The provider choice is complete.
@@ -20,9 +23,9 @@ packaging is not publication approval.
    cancellation, disconnect, and a genuinely new consent on reconnect. Local
    tests cover automatic personal-workspace creation and revocation tombstones.
    WorkOS consent reset/new `sid` behavior still needs live qualification.
-4. Activate and configure a production WorkOS environment, then deploy reviewed
-   code with `DING_AUTHKIT_JSON`. Verify `/mcp`, metadata, issuer, audience and
-   scopes. Railway was pinned to `c5d9213` at the last inspection.
+4. Deploy reviewed code with `DING_AUTHKIT_JSON` and the private revocation key.
+   Production WorkOS is active. Verify `/mcp`, metadata, issuer, audience and
+   scopes; record the actual deployed commit in the qualification evidence.
 5. Keep the pilot to personal accounts with one workspace until organization and
    multi-workspace authorization have an explicit provider-to-workspace mapping.
 

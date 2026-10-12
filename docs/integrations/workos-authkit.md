@@ -16,7 +16,8 @@ Use a separate **first-party public OAuth application with PKCE** for the Ding
 Console. Its only requested scope is `openid`, and its callback is
 `https://cloud.ding.ing/auth/callback`. Keeping the browser and ChatGPT clients
 separate prevents a Console login token from being accepted as ChatGPT consent.
-No WorkOS API key or OAuth client secret is required by this configuration.
+No API key or OAuth client secret is required for sign-in or token verification.
+Hosted consent revocation uses a server-only `DING_AUTHKIT_API_KEY`.
 
 WorkOS supports CIMD/DCR, but dynamically registered clients receive only its
 standard OIDC scopes by default. Custom default scopes require WorkOS support.
@@ -193,13 +194,17 @@ A required live qualification is WorkOS's reconnect behavior after disconnect.
 WorkOS normally reuses existing consent. Merely obtaining another access token
 is therefore insufficient after Ding disconnects it. WorkOS documents
 [`DELETE /user_management/users/:user_id/authorized_applications/:application_id`](https://workos.com/docs/reference/authkit/user#delete-an-authorized-application)
-to revoke a user's Connect authorization. Integrate this into disconnect using
-the verified immutable user identity and a server-held WorkOS API key; no key has
-been created or configured yet. Confirm the actual application identifier and
-prove that subsequent authorization produces a new `sid`. Keep local revocation
-effective even when the provider is unavailable, with a retry path for cleanup.
-Until implemented and demonstrated, reconnect remains a launch blocker;
-do not weaken tombstone checks to make an old token work again.
+to revoke a user's Connect authorization. Disconnect now resolves the stored,
+verified subject at the pinned issuer and uses a server-held API key to find the
+application by exact OAuth client ID. It revokes the local grant first and keeps
+the disabled binding as a durable retry record until provider cleanup succeeds.
+Console exposes Retry disconnect after failure. The same old consent remains
+blocked. Provision `DING_AUTHKIT_API_KEY` privately and prove that subsequent
+authorization produces a new `sid`; live reconnect remains a launch gate.
+
+Use the separate [private ChatGPT test](chatgpt-private-test.md) for qualification.
+`additionalChatgptClientIds` adds test clients without replacing the public client;
+each client receives a separate grant and can be revoked or removed independently.
 
 Also verify consent cancellation, account capacity, browser session reuse,
 refresh after access-token expiry, insufficient scopes, membership revocation,
