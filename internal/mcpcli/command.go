@@ -13,6 +13,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/ding-labs/ding/internal/mcpbridge"
 	"github.com/ding-labs/ding/internal/mcpclient"
 	"github.com/ding-labs/ding/internal/mcpconfig"
 	"github.com/ding-labs/ding/internal/mcpserver"
@@ -26,6 +27,7 @@ import (
 func Command(version string) *cobra.Command {
 	root := &cobra.Command{Use: "mcp", Short: "Connect Ding to LLM clients through MCP", Version: version, SilenceUsage: true, SilenceErrors: true}
 	root.SetVersionTemplate("{{.Version}}\n")
+	root.AddCommand(cloudCommand())
 	var config, state, name string
 	var days int
 	var manage, retry bool
@@ -89,12 +91,15 @@ func Command(version string) *cobra.Command {
 	_ = grants.MarkFlagRequired("state")
 	grants.Flags().StringVar(&revoke, "revoke", "", "Grant ID to revoke")
 	root.AddCommand(grants)
-	var serveConfig, httpConfig, transport, host string
+	var serveConfig, httpConfig, transport, host, cloudProfile string
 	var port int
 	serve := &cobra.Command{Use: "serve", Short: "Serve the paired MCP integration", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		if transport == "http" {
+			if cloudProfile != "" {
+				return safe(mcpconfig.ErrConfig)
+			}
 			return safe(serveHTTP(ctx, version, httpConfig, host, port))
 		}
 		if transport != "stdio" || httpConfig != "" {
@@ -106,7 +111,12 @@ func Command(version string) *cobra.Command {
 		}
 		client := mcpclient.New(c)
 		defer client.Close()
-		s, err := mcpserver.New(mcpserver.Options{Version: version, HTML: mcpui.WorkspaceHTML, Resolve: func(context.Context, string, *auth.TokenInfo) (*mcpclient.Client, error) { return client, nil }})
+		var s *mcp.Server
+		if cloudProfile != "" {
+			s, err = mcpbridge.New(version, mcpui.WorkspaceHTML, cloudProfile, client)
+		} else {
+			s, err = mcpserver.New(mcpserver.Options{Version: version, HTML: mcpui.WorkspaceHTML, Resolve: func(context.Context, string, *auth.TokenInfo) (*mcpclient.Client, error) { return client, nil }})
+		}
 		if err != nil {
 			return safe(err)
 		}
@@ -117,6 +127,7 @@ func Command(version string) *cobra.Command {
 		return safe(s.Run(ctx, &mcp.IOTransport{Reader: input, Writer: nopCloser{cmd.OutOrStdout()}}))
 	}}
 	serve.Flags().StringVar(&serveConfig, "config", mcpconfig.DefaultPath(), "Private connection file")
+	serve.Flags().StringVar(&cloudProfile, "cloud-profile", "", "Opt in to explicit local/cloud routing using this separate OAuth profile")
 	serve.Flags().StringVar(&transport, "transport", "stdio", "stdio or http")
 	serve.Flags().StringVar(&httpConfig, "http-config", "", "Private self-hosted OAuth configuration")
 	serve.Flags().StringVar(&host, "host", "127.0.0.1", "HTTP bind address")
