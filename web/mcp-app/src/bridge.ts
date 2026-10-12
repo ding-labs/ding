@@ -6,7 +6,12 @@ export type ToolResult = {
   content?: unknown[];
 };
 export type DingView = {
-  target?: { instance: string; workspace: string; execution: string };
+  target?: {
+    connection?: string;
+    instance: string;
+    workspace: string;
+    execution: string;
+  };
   view: string;
   data: Record<string, unknown>;
   query?: Record<string, unknown>;

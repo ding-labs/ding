@@ -77,6 +77,20 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
   const [workspaces, setWorkspaces] = useState<{ id: string; name: string }[]>(
     [],
   );
+  const connectionRef = useRef<string | undefined>(undefined);
+  const executionRef = useRef<string | undefined>(undefined);
+  const [connectionID, setConnectionID] = useState("");
+  const [connections, setConnections] = useState<
+    { id: string; name: string }[]
+  >([]);
+  function targetArgs(id = workspaceRef.current) {
+    return {
+      ...(connectionRef.current
+        ? { connection_id: connectionRef.current }
+        : {}),
+      ...(id ? { workspace_id: id } : {}),
+    };
+  }
   const [pending, setPending] = useState<Pending>();
   const pendingRef = useRef<Pending | undefined>(undefined);
   const connected = useRef(false);
@@ -91,7 +105,8 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
       if (next.target) {
         if (
           pendingRef.current &&
-          next.target.workspace !== pendingRef.current.args.workspace_id
+          (next.target.workspace !== pendingRef.current.args.workspace_id ||
+            next.target.connection !== pendingRef.current.args.connection_id)
         ) {
           setError(
             "Resolve the pending change before viewing another workspace.",
@@ -100,11 +115,14 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
         }
         const changed =
           workspaceRef.current &&
-          workspaceRef.current !== next.target.workspace;
+          (workspaceRef.current !== next.target.workspace ||
+            connectionRef.current !== next.target.connection);
         if (changed) {
           setScopes([]);
           setCloud(false);
         }
+        connectionRef.current = next.target.connection;
+        setConnectionID(next.target.connection ?? "");
         workspaceRef.current = next.target.workspace;
         setWorkspaceID(next.target.workspace);
         if (changed)
@@ -121,13 +139,15 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
     }
   }
   async function loadCapabilities(id = workspaceRef.current) {
+    const connection = connectionRef.current;
     const result = parseResult(
-      await bridge.call(
-        "ding_get_capabilities",
-        id ? { workspace_id: id } : {},
-      ),
+      await bridge.call("ding_get_capabilities", targetArgs(id)),
     );
-    if (id && workspaceRef.current && id !== workspaceRef.current) return;
+    if (
+      connection !== connectionRef.current ||
+      (id && workspaceRef.current && id !== workspaceRef.current)
+    )
+      return;
     const grant = result.data.grant as { scopes?: string[] };
     setScopes(
       Array.isArray(result.data.effectiveScopes)
@@ -135,6 +155,7 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
         : (grant.scopes ?? []),
     );
     const execution = result.data.execution;
+    executionRef.current = String(execution);
     setCloud(execution === "cloud");
     const workspace =
       typeof result.data.workspaceName === "string"
@@ -148,12 +169,19 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
           : "this computer",
     );
     if (result.target) {
+      connectionRef.current = result.target.connection;
+      setConnectionID(result.target.connection ?? "");
       workspaceRef.current = result.target.workspace;
       setWorkspaceID(result.target.workspace);
     }
   }
   async function loadWorkspaces() {
-    const result = parseResult(await bridge.call("ding_list_workspaces", {}));
+    const result = parseResult(
+      await bridge.call(
+        "ding_list_workspaces",
+        connectionRef.current ? { connection_id: connectionRef.current } : {},
+      ),
+    );
     if (!Array.isArray(result.data.workspaces))
       throw new Error("Workspace discovery is unavailable.");
     setWorkspaces(result.data.workspaces as { id: string; name: string }[]);
@@ -168,7 +196,38 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
     setView(undefined);
     try {
       await loadCapabilities(id);
-      receive(await bridge.call("ding_list_watches", { workspace_id: id }));
+      receive(await bridge.call("ding_list_watches", targetArgs(id)));
+    } catch (e) {
+      setError(String((e as Error).message));
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  }
+  async function loadConnections() {
+    const result = parseResult(await bridge.call("ding_list_connections", {}));
+    if (!Array.isArray(result.data.connections))
+      throw new Error("Connection discovery is unavailable.");
+    setConnections(result.data.connections as { id: string; name: string }[]);
+  }
+  async function selectConnection(id: string) {
+    if (!id || pendingRef.current || inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    setError("");
+    connectionRef.current = id;
+    setConnectionID(id);
+    workspaceRef.current = undefined;
+    setWorkspaceID("");
+    setWorkspaces([]);
+    setScopes([]);
+    setCloud(false);
+    setView(undefined);
+    setLocation("the selected connection");
+    try {
+      await loadCapabilities();
+      if (executionRef.current !== "local") await loadWorkspaces();
+      receive(await bridge.call("ding_list_watches", targetArgs()));
     } catch (e) {
       setError(String((e as Error).message));
     } finally {
@@ -184,9 +243,16 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
       .then(async () => {
         try {
           await loadCapabilities();
-          if (workspaceRef.current) await loadWorkspaces();
+          if (connectionRef.current) await loadConnections();
+          if (workspaceRef.current && executionRef.current !== "local")
+            await loadWorkspaces();
         } catch (e) {
-          if (String((e as Error).message).includes("workspace_required")) {
+          if (String((e as Error).message).includes("connection_required")) {
+            await loadConnections();
+            setError("Choose a connection to continue.");
+          } else if (
+            String((e as Error).message).includes("workspace_required")
+          ) {
             await loadWorkspaces();
             setError("Choose a workspace to continue.");
           } else throw e;
@@ -203,8 +269,7 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
     retry?: Pending,
   ) {
     if (inFlight.current || !ready) return;
-    if (workspaceRef.current)
-      args = { workspace_id: workspaceRef.current, ...args };
+    args = { ...targetArgs(), ...args };
     if (mutation && !retry && pendingRef.current) {
       const { operation_key: _key, ...priorArgs } = pendingRef.current.args;
       if (
@@ -311,6 +376,25 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
           {ready ? `Connected to ${location}` : "Connecting…"}
         </span>
       </header>
+      {connections.length > 0 && (
+        <label>
+          Connection
+          <select
+            value={connectionID}
+            disabled={busy || Boolean(pending)}
+            onChange={(event) => void selectConnection(event.target.value)}
+          >
+            <option value="" disabled>
+              Choose a connection
+            </option>
+            {connections.map((connection) => (
+              <option key={connection.id} value={connection.id}>
+                {connection.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {workspaces.length > 0 && (
         <label>
           Workspace
@@ -334,7 +418,12 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
         {["watches", "events", "deliveries"].map((kind) => (
           <button
             key={kind}
-            disabled={!ready || busy || (workspaces.length > 0 && !workspaceID)}
+            disabled={
+              !ready ||
+              busy ||
+              (workspaces.length > 0 && !workspaceID) ||
+              (connections.length > 0 && !connectionID)
+            }
             aria-current={view?.view === kind ? "page" : undefined}
             onClick={() => navigate(kind)}
           >
@@ -385,7 +474,12 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
           <p>Ding keeps watch while you get on with your day.</p>
           <button
             className="primary"
-            disabled={!ready || busy || (workspaces.length > 0 && !workspaceID)}
+            disabled={
+              !ready ||
+              busy ||
+              (workspaces.length > 0 && !workspaceID) ||
+              (connections.length > 0 && !connectionID)
+            }
             onClick={() => navigate("watches")}
           >
             See my watches

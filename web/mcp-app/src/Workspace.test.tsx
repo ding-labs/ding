@@ -261,3 +261,86 @@ test("cloud usage explains exhausted budgets and their reset", async () => {
   expect(screen.getByText("30000 / 30000")).toBeTruthy();
   expect(screen.getByText(/Allowance resets/)).toBeTruthy();
 });
+
+test("bridge requires a connection and pins pending changes to it", async () => {
+  const workspace = "c".repeat(64);
+  const bridge: Bridge = {
+    async connect() {},
+    call: vi.fn(async (name, args) => {
+      if (name === "ding_list_connections")
+        return result("connections", {
+          connections: [
+            { id: "local", name: "This computer" },
+            { id: "cloud", name: "Ding Cloud" },
+          ],
+        });
+      if (!args.connection_id)
+        return {
+          isError: true,
+          content: [{ text: "connection_required: select a connection" }],
+        };
+      if (name === "ding_get_capabilities")
+        return {
+          structuredContent: {
+            view: "capabilities",
+            target: {
+              connection: args.connection_id,
+              instance: workspace,
+              workspace,
+              execution: "local",
+            },
+            data: {
+              execution: "local",
+              effectiveScopes: ["inspect", "manage"],
+              grant: { scopes: ["inspect", "manage"] },
+            },
+          },
+        };
+      if (name === "ding_list_watches")
+        return {
+          ...preview,
+          structuredContent: {
+            ...(preview.structuredContent as object),
+            target: {
+              connection: args.connection_id,
+              instance: workspace,
+              workspace,
+              execution: "local",
+            },
+          },
+        };
+      return {
+        isError: true,
+        content: [{ text: "outcome_unknown: reconcile the same request" }],
+      };
+    }),
+  };
+  render(<Workspace bridge={bridge} />);
+  const select = await screen.findByLabelText("Connection");
+  fireEvent.change(select, { target: { value: "local" } });
+  const apply = await screen.findByRole("button", {
+    name: "Apply reviewed changes",
+  });
+  await waitFor(() =>
+    expect((apply as HTMLButtonElement).disabled).toBe(false),
+  );
+  fireEvent.click(apply);
+  const retry = await screen.findByRole("button", {
+    name: "Retry same request",
+  });
+  expect((select as HTMLSelectElement).disabled).toBe(true);
+  fireEvent.click(retry);
+  await waitFor(() =>
+    expect(
+      vi
+        .mocked(bridge.call)
+        .mock.calls.filter((c) => c[0] === "ding_apply_changes"),
+    ).toHaveLength(2),
+  );
+  const calls = vi
+    .mocked(bridge.call)
+    .mock.calls.filter((c) => c[0] === "ding_apply_changes");
+  expect(calls[0][1].connection_id).toBe("local");
+  expect(calls[0][1].workspace_id).toBe(workspace);
+  expect(calls[1][1]).toEqual(calls[0][1]);
+});
