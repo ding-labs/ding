@@ -171,7 +171,24 @@ func integrationHandler(app *watchrun.App, c Credentials, base http.Handler) htt
 				if records == nil {
 					records = []store.Handoff{}
 				}
+				for i := range records {
+					records[i].ProbeDigest = ""
+				}
 				write(w, 200, map[string]any{"transfers": records}, nil)
+				return
+			}
+			if id := r.PathValue("id"); id != "" {
+				h, err := app.Handoff(r.Context(), id)
+				if err != nil {
+					integrationError(w, err)
+					return
+				}
+				h.ProbeDigest = ""
+				write(w, 200, h, nil)
+				return
+			}
+			if id := r.PathValue("watch"); id == "." || id == ".." || strings.ContainsAny(id, "/\\\x00") {
+				fail(w, 400, "invalid_request", "invalid watch ID")
 				return
 			}
 			forward := r.Clone(r.Context())
