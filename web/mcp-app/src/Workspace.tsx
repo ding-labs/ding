@@ -71,6 +71,7 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
   const [error, setError] = useState("");
   const [scopes, setScopes] = useState<string[]>([]);
   const [location, setLocation] = useState("your Ding");
+  const [cloud, setCloud] = useState(false);
   const workspaceRef = useRef<string | undefined>(undefined);
   const [workspaceID, setWorkspaceID] = useState("");
   const [workspaces, setWorkspaces] = useState<{ id: string; name: string }[]>(
@@ -97,13 +98,19 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
           );
           return;
         }
-        if (
+        const changed =
           workspaceRef.current &&
-          workspaceRef.current !== next.target.workspace
-        )
+          workspaceRef.current !== next.target.workspace;
+        if (changed) {
           setScopes([]);
+          setCloud(false);
+        }
         workspaceRef.current = next.target.workspace;
         setWorkspaceID(next.target.workspace);
+        if (changed)
+          void loadCapabilities(next.target.workspace).catch((e) =>
+            setError(String(e.message)),
+          );
       }
       setView(next);
       setQuery(next.query ?? {});
@@ -128,6 +135,7 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
         : (grant.scopes ?? []),
     );
     const execution = result.data.execution;
+    setCloud(execution === "cloud");
     const workspace =
       typeof result.data.workspaceName === "string"
         ? result.data.workspaceName
@@ -283,6 +291,7 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
     evidence: "The story behind this event",
     lifecycle: "Watch updated",
     delivery: "Delivery details",
+    cloud_status: "Cloud usage and health",
   };
 
   return (
@@ -332,6 +341,15 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
             {kind[0].toUpperCase() + kind.slice(1)}
           </button>
         ))}
+        {cloud && (
+          <button
+            disabled={!ready || busy}
+            aria-current={view?.view === "cloud_status" ? "page" : undefined}
+            onClick={() => void call("ding_get_cloud_status")}
+          >
+            Cloud usage
+          </button>
+        )}
       </nav>
       {error && (
         <div className="error" role="alert">
@@ -383,6 +401,7 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
             </span>
             <h1>{title[view.view] ?? "Ding activity"}</h1>
           </div>
+          {view.view === "cloud_status" && <CloudStatus data={view.data} />}
           {view.view === "watches" && (
             <>
               <div className="metrics">
@@ -790,5 +809,53 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
         <span>{busy ? "Working…" : "Stored on your Ding instance"}</span>
       </footer>
     </main>
+  );
+}
+
+function CloudStatus({ data }: { data: Record<string, unknown> }) {
+  const usage = data.usage as Record<string, number>;
+  const limits = data.limits as Record<string, number>;
+  const health = data.health as { healthy: boolean; running: boolean };
+  return (
+    <section aria-label="Cloud usage">
+      <p>
+        {data.budgetExhausted
+          ? "Monthly allowance reached. Outbound work is paused until capacity is available."
+          : "Your workspace’s monthly activity."}
+      </p>
+      <div className="metrics">
+        <div>
+          <b>
+            {usage.checks} / {limits.checks}
+          </b>
+          <span>Checks</span>
+        </div>
+        <div>
+          <b>
+            {usage.deliveries} / {limits.deliveryAttempts}
+          </b>
+          <span>Delivery attempts</span>
+        </div>
+        <div>
+          <b>
+            {(usage.bytes / 1048576).toFixed(1)} /{" "}
+            {(limits.bytes / 1048576).toFixed(0)} MiB
+          </b>
+          <span>Outbound traffic</span>
+        </div>
+      </div>
+      <p>Allowance resets {date(String(data.resetsAt))}.</p>
+      <p>
+        {health.healthy
+          ? "Workspace health is good."
+          : "Workspace health needs attention."}{" "}
+        {health.running ? "The runner is active." : "The runner is stopped."}
+      </p>
+      <p>{String(data.note ?? "")}</p>
+      <Details
+        title="Storage and execution limits"
+        value={{ health, policy: data.policy }}
+      />
+    </section>
   );
 }

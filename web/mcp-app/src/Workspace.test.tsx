@@ -240,3 +240,24 @@ test("ambiguous cloud connections require selection and keep navigation targeted
     workspace_id: b,
   });
 });
+
+test("cloud usage explains exhausted budgets and their reset", async () => {
+  render(
+    <Workspace
+      bridge={mockBridge(
+        result("cloud_status", {
+          usage: { checks: 30000, deliveries: 12, bytes: 1048576 },
+          limits: { checks: 30000, deliveryAttempts: 1000, bytes: 134217728 },
+          budgetExhausted: true,
+          resetsAt: "2026-11-01T00:00:00Z",
+          health: { healthy: true, running: true },
+          policy: { publicHTTPOnly: true },
+        }),
+      )}
+    />,
+  );
+  await screen.findByText("Cloud usage and health");
+  expect(screen.getByText(/Monthly allowance reached/)).toBeTruthy();
+  expect(screen.getByText("30000 / 30000")).toBeTruthy();
+  expect(screen.getByText(/Allowance resets/)).toBeTruthy();
+});
