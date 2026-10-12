@@ -24,7 +24,7 @@ func integrationCapabilities(ctx context.Context, app *watchrun.App, instance st
 	return map[string]any{
 		"version": watchrun.IntegrationVersion, "instance": instance, "grant": grant,
 		"toolContractVersion": "ding.mcp/v1.1",
-		"features":            map[string]bool{"workspaceSelection": profile.Execution != "local", "cloudStatus": profile.Execution == "cloud", "watchTransfer": false},
+		"features":            map[string]bool{"workspaceSelection": profile.Execution != "local", "cloudStatus": profile.Execution == "cloud", "watchTransfer": false, "transferInspection": true},
 		"execution":           profile.Execution, "workspace": workspace, "workspaceName": profile.WorkspaceName,
 		"effectiveScopes":       effective,
 		"canManageDestinations": grant.Allows("manage", app.Now()) && (!present || p.Allows(access.Destinations)),

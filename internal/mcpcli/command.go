@@ -115,7 +115,7 @@ func Command(version string) *cobra.Command {
 		if cloudProfile != "" {
 			s, err = mcpbridge.New(version, mcpui.WorkspaceHTML, cloudProfile, client)
 		} else {
-			s, err = mcpserver.New(mcpserver.Options{Version: version, HTML: mcpui.WorkspaceHTML, Resolve: func(context.Context, string, *auth.TokenInfo) (*mcpclient.Client, error) { return client, nil }})
+			s, err = mcpserver.New(mcpserver.Options{TransferInspection: true, Version: version, HTML: mcpui.WorkspaceHTML, Resolve: func(context.Context, string, *auth.TokenInfo) (*mcpclient.Client, error) { return client, nil }})
 		}
 		if err != nil {
 			return safe(err)

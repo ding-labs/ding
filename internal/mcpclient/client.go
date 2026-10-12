@@ -163,6 +163,9 @@ func allowed(method, path string) bool {
 		}
 	}
 	if method == http.MethodGet {
+		if path == "/transfers" || len(parts) == 2 && parts[0] == "transfers" || len(parts) == 3 && parts[0] == "transfers" && parts[1] == "preflight" {
+			return true
+		}
 		if path == "/cloud/status" {
 			return true
 		}

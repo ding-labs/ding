@@ -78,6 +78,9 @@ var Routes = map[string]Action{
 }
 
 var routeMux = func() *http.ServeMux {
+	for _, path := range []string{"/v1/integrations/transfers", "/v1/integrations/transfers/{id}", "/v1/integrations/transfers/preflight/{watch}"} {
+		Routes["GET "+path] = Inspect
+	}
 	for _, kind := range []string{"watches", "events", "deliveries", "destinations"} {
 		Routes["GET /v1/console/"+kind] = Inspect
 		Routes["GET /v1/integrations/"+kind] = Inspect

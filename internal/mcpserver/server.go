@@ -16,9 +16,10 @@ import (
 
 type Resolver func(context.Context, string, *auth.TokenInfo) (*mcpclient.Client, error)
 type Options struct {
-	Version, HTML  string
-	Resolve        Resolver
-	ListWorkspaces func(context.Context, *auth.TokenInfo) ([]mcpcontract.Workspace, error)
+	Version, HTML      string
+	Resolve            Resolver
+	ListWorkspaces     func(context.Context, *auth.TokenInfo) ([]mcpcontract.Workspace, error)
+	TransferInspection bool
 }
 
 type workspaceKey struct{}
@@ -39,6 +40,9 @@ func New(options Options) (*mcp.Server, error) {
 	catalog, err := mcpcontract.Load()
 	if err != nil {
 		return nil, err
+	}
+	if options.TransferInspection {
+		catalog = mcpcontract.TransferInspection(catalog)
 	}
 	if options.ListWorkspaces != nil {
 		catalog = mcpcontract.Cloud(catalog)
@@ -138,6 +142,18 @@ func route(name string, a map[string]any) (request, error) {
 		return m
 	}
 	switch name {
+	case "ding_get_transfer_preflight", "ding_get_transfer":
+		key, prefix, view := "transfer_id", "/transfers/", "transfer"
+		if name == "ding_get_transfer_preflight" {
+			key, prefix, view = "watch_id", "/transfers/preflight/", "transfer_preflight"
+		}
+		value, err := id(key)
+		if err != nil {
+			return r, err
+		}
+		r.path, r.view = prefix+value, view
+	case "ding_list_transfers":
+		r.path, r.view = "/transfers", "transfers"
 	case "ding_list_workspaces":
 		r.view = "workspaces"
 	case "ding_get_cloud_status":

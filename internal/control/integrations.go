@@ -45,6 +45,7 @@ func integrationHandler(app *watchrun.App, c Credentials, base http.Handler) htt
 	reader := http.NewServeMux()
 	reader.Handle("/", base)
 	consoleRoutes(reader, app, ConsoleConfig{})
+	handoffRoutes(reader, app)
 	access := func(w http.ResponseWriter, r *http.Request, scope string) (store.IntegrationGrant, bool) {
 		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if !ok {
@@ -153,6 +154,30 @@ func integrationHandler(app *watchrun.App, c Credentials, base http.Handler) htt
 			forwarded.URL.Path = "/v1/" + kind + "/" + id
 			forwarded.URL.RawPath = ""
 			reader.ServeHTTP(w, forwarded)
+		})
+	}
+	for _, pattern := range []string{"/v1/integrations/transfers", "/v1/integrations/transfers/{id}", "/v1/integrations/transfers/preflight/{watch}"} {
+		mux.HandleFunc("GET "+pattern, func(w http.ResponseWriter, r *http.Request) {
+			if _, ok := access(w, r, "inspect"); !ok {
+				return
+			}
+			if r.URL.Path == "/v1/integrations/transfers" {
+				var records []store.Handoff
+				err := app.Store.View(r.Context(), func(tx *store.Tx) error { var e error; records, e = tx.Handoffs(); return e })
+				if err != nil {
+					integrationError(w, err)
+					return
+				}
+				if records == nil {
+					records = []store.Handoff{}
+				}
+				write(w, 200, map[string]any{"transfers": records}, nil)
+				return
+			}
+			forward := r.Clone(r.Context())
+			forward.URL.Path = strings.Replace(r.URL.Path, "/v1/integrations/transfers/", "/v1/handoffs/", 1)
+			forward.URL.RawPath = ""
+			reader.ServeHTTP(w, forward)
 		})
 	}
 	slots := make(chan struct{}, 2)

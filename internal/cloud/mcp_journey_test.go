@@ -90,7 +90,16 @@ func TestHostedHTTPWatchJourneyAndConsentRemoval(t *testing.T) {
 		}
 		call("ding_"+action+"_watch", args)
 	}
-	if len(seen) != 17 {
+	if transfers := call("ding_list_transfers", nil)["transfers"].([]any); len(transfers) != 0 {
+		t.Fatal("unexpected cloud transfers", transfers)
+	}
+	if preflight := call("ding_get_transfer_preflight", map[string]any{"watch_id": "http-test"}); preflight["ready"] != false {
+		t.Fatal("deleted watch is movable")
+	}
+	if result := f.call(t, token, "ding_get_transfer", map[string]any{"transfer_id": strings.Repeat("a", 64)}); !result.IsError {
+		t.Fatal("invented transfer receipt")
+	}
+	if len(seen) != 19 {
 		t.Fatal("not all tools exercised", seen)
 	}
 	if mcpui.WorkspaceHTML != "" {
