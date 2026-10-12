@@ -30,13 +30,19 @@ type HandoffPause struct {
 }
 
 type handoffMutation struct {
-	h      store.Handoff
-	action string
-	check  func(*store.Tx) error
+	app      *App
+	ctx      context.Context
+	manifest string
+	h        store.Handoff
+	action   string
+	check    func(*store.Tx) error
 }
 
 func (m *handoffMutation) handoffID() string { return m.h.ID }
 func (m *handoffMutation) begin(tx *store.Tx, result any, now time.Time) (bool, error) {
+	if err := m.app.authorizeHandoff(m.ctx, tx, m.manifest, m.h.WatchID); err != nil {
+		return false, err
+	}
 	old, err := tx.Handoff(m.h.ID)
 	if err == nil {
 		if old.Digest != m.h.Digest || old.Role != m.h.Role || old.Peer != m.h.Peer || old.WatchID != m.h.WatchID {
@@ -99,7 +105,7 @@ func (a *App) PrepareHandoff(ctx context.Context, r HandoffPrepare) (store.Hando
 	if err != nil {
 		return store.Handoff{}, err
 	}
-	m := &handoffMutation{h: store.Handoff{ReturnOf: r.ReturnOf, ID: r.ID, Peer: r.Peer, WatchID: b.Watches[0].Definition.Metadata.ID, Digest: digest, Role: "target", Phase: "prepared", Held: true}, action: "prepare"}
+	m := &handoffMutation{app: a, ctx: ctx, manifest: r.Manifest, h: store.Handoff{ReturnOf: r.ReturnOf, ID: r.ID, Peer: r.Peer, WatchID: b.Watches[0].Definition.Metadata.ID, Digest: digest, Role: "target", Phase: "prepared", Held: true}, action: "prepare"}
 	m.check = func(tx *store.Tx) error {
 		if r.ReturnOf != "" {
 			old, err := tx.Handoff(r.ReturnOf)
@@ -178,7 +184,7 @@ func (a *App) PauseForHandoff(ctx context.Context, r HandoffPause) (store.Handof
 	if err != nil {
 		return store.Handoff{}, err
 	}
-	m := &handoffMutation{h: store.Handoff{ID: r.ID, Peer: r.Peer, WatchID: r.WatchID, Digest: digest, Role: "source", Phase: "paused", Held: true}, action: "pause"}
+	m := &handoffMutation{app: a, ctx: ctx, h: store.Handoff{ID: r.ID, Peer: r.Peer, WatchID: r.WatchID, Digest: digest, Role: "source", Phase: "paused", Held: true}, action: "pause"}
 	m.check = func(tx *store.Tx) error {
 		record, err := tx.Watch(r.WatchID)
 		if err != nil {

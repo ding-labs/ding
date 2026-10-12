@@ -28,12 +28,13 @@ const (
 	Credentials     Action = "credentials"
 	Members         Action = "members"
 	Owners          Action = "owners"
+	Move            Action = "move"
 	DeleteWorkspace Action = "delete_workspace"
 	Host            Action = "host"
 	Ingest          Action = "ingest"
 )
 
-var actions = []Action{Inspect, Preview, Manage, Retry, Destinations, Credentials, Members, Owners, DeleteWorkspace, Host, Ingest}
+var actions = []Action{Inspect, Preview, Manage, Retry, Destinations, Credentials, Members, Owners, Move, DeleteWorkspace, Host, Ingest}
 
 type Principal struct {
 	User      string `json:"user"`
@@ -63,6 +64,11 @@ func (p Principal) Allows(action Action) bool {
 	}
 	if p.Kind == "device" || p.Kind == "integration" || p.Kind == "service" || p.Kind == "ingest" {
 		scope := string(action)
+		// Existing CLI/service owner delegation retains its handoff authority.
+		// Integration grants must opt in to the separate move scope.
+		if action == Move && p.Kind != "integration" && slices.Contains(p.Scopes, "owners") {
+			scope = "owners"
+		}
 		if p.Kind == "integration" && action == Destinations {
 			scope = "manage"
 		}
@@ -77,7 +83,7 @@ func (p Principal) Allows(action Action) bool {
 		return p.Role != Viewer
 	case Destinations, Credentials, Members:
 		return p.Role == Administrator || p.Role == Owner
-	case Owners, DeleteWorkspace:
+	case Owners, Move, DeleteWorkspace:
 		return p.Role == Owner
 	case Ingest:
 		return p.Kind == "ingest" || p.Kind == "service"
