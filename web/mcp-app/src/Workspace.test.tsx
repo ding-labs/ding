@@ -152,3 +152,24 @@ test("expired previews cannot apply", async () => {
     ).disabled,
   ).toBe(true);
 });
+
+test("cloud location and effective permissions override the original grant", async () => {
+  const bridge = mockBridge(preview);
+  bridge.call = vi.fn(async () =>
+    result("capabilities", {
+      execution: "cloud",
+      workspaceName: "Team",
+      grant: { scopes: ["inspect", "manage"] },
+      effectiveScopes: ["inspect"],
+    }),
+  );
+  render(<Workspace bridge={bridge} />);
+  await screen.findByText("Connected to Ding Cloud · Team");
+  expect(
+    (
+      screen.getByRole("button", {
+        name: "Apply reviewed changes",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+});

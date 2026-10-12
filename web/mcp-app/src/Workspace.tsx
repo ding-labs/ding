@@ -70,6 +70,7 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [scopes, setScopes] = useState<string[]>([]);
+  const [location, setLocation] = useState("your Ding");
   const [pending, setPending] = useState<Pending>();
   const pendingRef = useRef<Pending | undefined>(undefined);
   const connected = useRef(false);
@@ -100,7 +101,23 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
           await bridge.call("ding_get_capabilities", {}),
         );
         const grant = result.data.grant as { scopes?: string[] };
-        setScopes(grant.scopes ?? []);
+        setScopes(
+          Array.isArray(result.data.effectiveScopes)
+            ? (result.data.effectiveScopes as string[])
+            : (grant.scopes ?? []),
+        );
+        const execution = result.data.execution;
+        const workspace =
+          typeof result.data.workspaceName === "string"
+            ? result.data.workspaceName
+            : "";
+        setLocation(
+          execution === "cloud"
+            ? `Ding Cloud${workspace ? ` · ${workspace}` : ""}`
+            : execution === "shared"
+              ? `your server${workspace ? ` · ${workspace}` : ""}`
+              : "this computer",
+        );
       })
       .catch(() =>
         setError(
@@ -155,9 +172,11 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
     } catch (e) {
       const message = String((e as Error).message);
       setError(message);
+      if (/(?:^|: )(integration_denied|permission_denied):/.test(message))
+        setScopes([]);
       if (
         mutation &&
-        /(?:^|: )(integration_denied|revision_conflict|preview_expired|operation_conflict|invalid_request|integration_limit|quota_exceeded|shutting_down|integration_failed):/.test(
+        /(?:^|: )(integration_denied|permission_denied|workspace_rate|revision_conflict|preview_expired|operation_conflict|invalid_request|integration_limit|quota_exceeded|shutting_down|integration_failed):/.test(
           message,
         )
       ) {
@@ -207,12 +226,16 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
       <header>
         <div className="brand">
           {/* Trusted artwork bundled at build time; no remote image requests. */}
-          <span className="brand-icon" aria-hidden="true" dangerouslySetInnerHTML={{ __html: bell }} />
+          <span
+            className="brand-icon"
+            aria-hidden="true"
+            dangerouslySetInnerHTML={{ __html: bell }}
+          />
           <strong>Ding</strong>
         </div>
         <span className="connection">
           <i />
-          {ready ? "Connected to your Ding" : "Connecting…"}
+          {ready ? `Connected to ${location}` : "Connecting…"}
         </span>
       </header>
       <nav aria-label="Ding views">
@@ -420,8 +443,8 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
                 </div>
                 {!canManage && (
                   <p className="muted">
-                    This connection has view access. Management is enabled
-                    during local pairing.
+                    This connection has view access. Review management
+                    permission in this instance’s model connection settings.
                   </p>
                 )}
                 <Details
@@ -525,7 +548,7 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
                   </button>
                   {!canManage && (
                     <p className="muted">
-                      Enable manage permission locally to apply changes.
+                      Enable management for this connection to apply changes.
                     </p>
                   )}
                 </div>
