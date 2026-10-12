@@ -25,6 +25,11 @@ func (s *Server) mcpIdentity(ctx context.Context, issuer, scope string, token *a
 	if subject == "" || client == "" {
 		return state.User{}, "", nil, denied
 	}
+	// AuthKit is an explicit client allowlist, including previously bound clients.
+	// Removing a private test client must also stop its existing credentials.
+	if len(s.AuthKitClients) > 0 && !slices.Contains(s.AuthKitClients, client) {
+		return state.User{}, "", nil, denied
+	}
 	user, err := s.DB.IdentityUser(ctx, issuer, subject)
 	if slices.Contains(s.AuthKitClients, client) {
 		user, err = s.authKitIdentity(ctx, issuer, subject, client, token)

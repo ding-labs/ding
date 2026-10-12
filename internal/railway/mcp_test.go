@@ -1,6 +1,8 @@
 package railway
 
 import (
+	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -43,6 +45,40 @@ func TestOptionalMCPKeepsCloudPolicyAndClosedSignup(t *testing.T) {
 		if strings.Contains(err.Error(), "private-value") {
 			t.Fatal("secret appeared in diagnostic")
 		}
+	}
+}
+
+func TestAuthKitAdditionalClients(t *testing.T) {
+	for name, clients := range map[string][]string{
+		"private-test":      {"private-test"},
+		"duplicate-primary": {"chatgpt"},
+		"duplicate-extra":   {"test", "test"},
+		"browser-client":    {"console"},
+		"empty":             {""},
+		"whitespace":        {" private-test"},
+		"too-many":          {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			raw, err := json.Marshal(map[string]any{"issuer": "https://sample.authkit.app", "browserClientId": "console", "chatgptClientId": "chatgpt", "additionalChatgptClientIds": clients, "enrollmentLimit": 10})
+			if err != nil {
+				t.Fatal(err)
+			}
+			env := environment()
+			env["DING_AUTHKIT_JSON"] = string(raw)
+			s, _, _, err := FromEnv(func(k string) string { return env[k] })
+			if name != "private-test" {
+				if err == nil {
+					t.Fatal("invalid client allowlist accepted")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(s.Config.AuthKitClients, []string{"chatgpt", "private-test"}) {
+				t.Fatal("private client replaced public client")
+			}
+		})
 	}
 }
 

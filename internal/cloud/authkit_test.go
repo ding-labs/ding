@@ -160,3 +160,44 @@ func TestAuthKitRejectsUntrustedEnrollment(t *testing.T) {
 		t.Fatal("manual grant promoted")
 	}
 }
+
+func TestAuthKitPrivateClientIsolation(t *testing.T) {
+	f := newHostedMCPFixture(t)
+	f.s.AuthKitClients = []string{"public", "private"}
+	ctx := context.Background()
+	// Even the same provider consent identifier must stay scoped to its client.
+	public := f.token("owner", "public", "ding:inspect", "", map[string]any{"sid": "consent"})
+	private := f.token("owner", "private", "ding:inspect", "", map[string]any{"sid": "consent"})
+	for _, token := range []string{public, private} {
+		hostedView(t, f.call(t, token, "ding_get_capabilities", nil))
+	}
+	a, err := f.s.Vault.MCP(ctx, f.session.User, f.session.Workspace, "public")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := f.s.Vault.MCP(ctx, f.session.User, f.session.Workspace, "private")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.GrantID == b.GrantID {
+		t.Fatal("clients share a grant")
+	}
+	if w := cloudRequest(f.h, "POST", "/v1/cloud/models", `{"clientID":"private","revoke":true}`, f.session, true); w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	if !f.call(t, private, "ding_get_capabilities", nil).IsError {
+		t.Fatal("revoked private consent accepted")
+	}
+	hostedView(t, f.call(t, public, "ding_get_capabilities", nil))
+	newPrivate := f.token("owner", "private", "ding:inspect", "", map[string]any{"sid": "new-consent"})
+	hostedView(t, f.call(t, newPrivate, "ding_get_capabilities", nil))
+	// Operator removal fences already-bound clients as well as enrollment.
+	f.s.AuthKitClients = []string{"public"}
+	if !f.call(t, newPrivate, "ding_get_capabilities", nil).IsError {
+		t.Fatal("removed client retained access")
+	}
+	hostedView(t, f.call(t, public, "ding_get_capabilities", nil))
+	if !f.call(t, f.token("owner", "client", "ding:inspect", ""), "ding_get_capabilities", nil).IsError {
+		t.Fatal("manual binding bypassed AuthKit allowlist")
+	}
+}

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/ding-labs/ding/internal/cloud/egress"
@@ -85,8 +86,8 @@ func (c *Config) Validate() error {
 		if c.Hosting != "cloud" || c.MCP == nil || len(c.AuthKitClients) > 10 {
 			return fmt.Errorf("AuthKit requires cloud MCP and at most ten registered client IDs")
 		}
-		for _, client := range c.AuthKitClients {
-			if client == "" || len(client) > 512 || slices.Contains(c.MCPBridgeClients, client) {
+		for i, client := range c.AuthKitClients {
+			if client == "" || len(client) > 512 || strings.ContainsAny(client, " \t\r\n") || client == c.Identity.ClientID || slices.Contains(c.AuthKitClients[:i], client) || slices.Contains(c.MCPBridgeClients, client) {
 				return fmt.Errorf("invalid AuthKit client")
 			}
 		}
