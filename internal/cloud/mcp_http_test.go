@@ -51,7 +51,11 @@ func newHostedMCPFixture(t *testing.T) hostedMCPFixture {
 	s, _, _ := testCloudServer(t)
 	// Real tenant workers and delivery receipts, with all outbound I/O isolated.
 	s.Pool.http = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: 503, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("test")), Request: r}, nil
+		status := 503
+		if r.Method == "POST" {
+			status = 400
+		}
+		return &http.Response{StatusCode: status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("test")), Request: r}, nil
 	})}
 	s.TenantHandler = s.serveTenant
 	cfg := mcpconfig.HTTP{PublicURL: s.PublicURL, Issuer: issuer.URL, JWKSURI: issuer.URL + "/keys", Audience: s.PublicURL + "/mcp", Algorithm: "RS256"}
@@ -142,7 +146,7 @@ func (f hostedMCPFixture) call(t *testing.T, token, name string, args map[string
 func hostedView(t *testing.T, result mcp.CallToolResult) mcpcontract.View {
 	t.Helper()
 	if result.IsError {
-		t.Fatal(result.Content)
+		t.Fatal(string(mustJSON(t, result.Content)))
 	}
 	raw, err := json.Marshal(result.StructuredContent)
 	if err != nil {
