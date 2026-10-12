@@ -122,6 +122,8 @@ func (f hostedMCPFixture) request(t *testing.T, token, version, method string, p
 	r.Header.Set("MCP-Method", method)
 	if name, ok := params["name"].(string); ok {
 		r.Header.Set("MCP-Name", name)
+	} else if uri, ok := params["uri"].(string); ok {
+		r.Header.Set("MCP-Name", uri)
 	}
 	w := httptest.NewRecorder()
 	f.h.ServeHTTP(w, r)
