@@ -6,7 +6,18 @@ October 12, 2026. Implementation branch: `codex/cloud-push`, based on `main` at 
 
 Railway service `ding-cloud` now follows `ding-labs/ding:main` (not a pinned commit). Deployment `41073232-d0f1-400c-8b9a-af2ba3d1ad9f` succeeded at `34ad00a`; `https://cloud.ding.ing/readyz` returned 200 with ready status. That deployment precedes this push implementation. The existing allocation is one replica, 1 CPU / 1 GiB memory, a 1 GiB persistent volume at `/data`, and the public domain `cloud.ding.ing`.
 
-The push implementation targets `main` through a PR. Native adapters default to disabled. Schema changes require a coordinated maintenance/backup rollout; [operations](cloud-push-operations.md) describes it. No live provider signing secret, producer token, or user payload is included in this record.
+PR #42 merged into `main` at `5f2d51293e6acf5a3ed876ea0dacc271ccfb6a85`. See the live qualification update below. Native adapters default to disabled. Schema changes require a coordinated maintenance/backup rollout; [operations](cloud-push-operations.md) describes it. No live provider signing secret, producer token, or user payload is included in this record.
+
+## Live qualification update — October 12, 22:25 UTC
+
+- Exported a 675,688-byte encrypted pre-upgrade backup with the previous binary while maintenance had all stores/workers stopped. Downloaded it off-volume and restored into a fresh local quarantine. SQLite integrity checks passed for control and both workspace databases; the preserved pre-migration snapshots have control schema 100/workspace schema 6 and the restored copies have 102/7.
+- Railway deployment `1a3ca770-5a80-45e6-b54b-3a675e282b2c` succeeded on merged commit `5f2d512`; public health returned 200. Existing polling resumed and Console Doctor showed schema 7 with healthy storage.
+- Push admission is restricted to the two existing workspace IDs. Native adapters remain disabled. Public unauthenticated ingestion returns 401 `producer_required`.
+- Created `push-qualification-20261012` through Console review/apply with `repo` grouping, `failed == true`, and no destinations. Authenticated submission is pending the limited producer credential; no successful live acceptance is claimed yet.
+- Correction to the earlier deployment statement: a successful deployment from `main` did not prove automatic deployment. After merge, Railway still served `34ad00a`; its UI showed no connected branch and could not load branches. Reconnecting through the current CLI returned `main`, but the UI remains unresolved. A subsequent push-triggered deployment must verify this separately.
+- One PR CI macOS Intel job rejected a concurrent local push with 400. The same test passed 20 local race runs; five further runs passed after adding response diagnostics. The cause is not confirmed and runtime behavior was not changed. Other duplicate CI jobs passed; this isolated failure is retained as evidence rather than called fixed.
+
+Private backup files are under the operator's `~/.codex/ding-backups/push-20261012-2223/`; credentials and archives are excluded from Git. These checks do not complete the external destination, independent-user, restart, or 72-hour gates.
 
 ## Automated evidence
 
