@@ -30,6 +30,7 @@ export default defineRailway(() => {
       DING_DATA_KEY_BASE64: preserve(),
       DING_OIDC_JSON: preserve(), DING_MCP_JSON: preserve(),
       DING_MCP_BRIDGE_CLIENTS: preserve(), DING_AUTHKIT_JSON: preserve(),
+      DING_AUTHKIT_API_KEY: preserve(),
       DING_OPENAI_APPS_CHALLENGE: preserve(),
     },
   });
