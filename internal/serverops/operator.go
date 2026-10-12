@@ -14,6 +14,7 @@ import (
 	"github.com/ding-labs/ding/internal/cloud"
 	"github.com/ding-labs/ding/internal/cloudbackup"
 	"github.com/ding-labs/ding/internal/mcpconfig"
+	state "github.com/ding-labs/ding/internal/serverstate"
 )
 
 func Run(args []string, out io.Writer) (bool, error) {
@@ -21,7 +22,7 @@ func Run(args []string, out io.Writer) (bool, error) {
 		return false, nil
 	}
 	switch args[0] {
-	case "init", "recover", "backup", "restore", "release-restore", "backup-keygen", "delete-workspace":
+	case "enable-oidc", "init", "recover", "backup", "restore", "release-restore", "backup-keygen", "delete-workspace":
 	default:
 		return false, nil
 	}
@@ -35,6 +36,7 @@ func Run(args []string, out io.Writer) (bool, error) {
 	output := flags.String("output", "", "new output file; never overwrites")
 	input := flags.String("input", "", "encrypted backup to restore")
 	recipient := flags.String("recipient", "", "age X25519 public recipient")
+	linkFile := flags.String("identity-link-file", "", "private JSON with an existing user ID and verified issuer/subject")
 	identity := flags.String("identity-file", "", "owner-only age X25519 private identity file")
 	confirm := flags.Bool("confirm-other-runners-stopped", false, "declare that execution ownership was checked across cloud and all transferred local copies")
 	account := flags.String("confirm-delete-workspace", "", "exact workspace ID to irreversibly remove from stopped state")
@@ -49,6 +51,16 @@ func Run(args []string, out io.Writer) (bool, error) {
 	started := time.Now()
 	var err error
 	switch args[0] {
+	case "enable-oidc":
+		var c cloud.Config
+		var link state.IdentityLink
+		if err := mcpconfig.ReadPrivateJSON(*config, &c, true); err != nil {
+			return true, err
+		}
+		if err := mcpconfig.ReadPrivateJSON(*linkFile, &link, true); err != nil {
+			return true, err
+		}
+		err = cloud.EnableOIDC(ctx, c, link)
 	case "init", "recover":
 		var c cloud.Config
 		if err := mcpconfig.ReadPrivateJSON(*config, &c, true); err != nil {

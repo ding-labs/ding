@@ -113,6 +113,15 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("publicURL must be an HTTPS origin")
 	}
 	c.PublicURL = origin
+	if c.MCP != nil {
+		c.MCP.PublicURL = origin
+		if err := c.MCP.ValidateAuthority(); err != nil {
+			return fmt.Errorf("invalid MCP OAuth authority")
+		}
+		if c.MCP.Issuer != c.Identity.Issuer || c.MCP.Audience != origin+"/mcp" || len(c.MCP.Subjects) > 0 {
+			return fmt.Errorf("MCP must share the browser issuer, use the exact public /mcp audience, and use workspace consent")
+		}
+	}
 	if c.Listen == "" {
 		c.Listen = "127.0.0.1:8787"
 	}
@@ -185,6 +194,11 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 	}
 	if err := db.ConfigureLoginMethods(ctx, c.LoginMethods); err != nil {
 		return err
+	}
+	if slices.Contains(c.LoginMethods, "oidc") {
+		if err := db.ConfigureOIDCIssuer(ctx, c.Identity.Issuer); err != nil {
+			return err
+		}
 	}
 	if slices.Contains(c.LoginMethods, "password") {
 		workspaces, err := db.Workspaces(ctx)
