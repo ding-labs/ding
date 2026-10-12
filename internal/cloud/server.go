@@ -215,22 +215,7 @@ func (s *Server) Handler() (http.Handler, error) {
 			return
 		}
 		r = r.WithContext(access.WithOperation(access.WithPrincipal(r.Context(), principal), r.Method, r.URL.Path))
-		s.mu.Lock()
-		limiter := s.limits[session.Workspace]
-		if limiter == nil {
-			// Session-only clients may never enter a tenant API. Bound this
-			// expendable cache across enrollment/deletion churn as well.
-			if len(s.limits) >= MaxAccounts*2 {
-				for id := range s.limits {
-					delete(s.limits, id)
-					break
-				}
-			}
-			limiter = rate.NewLimiter(2, 30)
-			s.limits[session.Workspace] = limiter
-		}
-		s.mu.Unlock()
-		if !limiter.Allow() {
+		if !s.allowWorkspaceRequest(session.Workspace) {
 			cloudFail(w, 429, "workspace_rate", "Workspace request rate exceeded; retry later.")
 			return
 		}
@@ -351,4 +336,26 @@ func (s *Server) api(t *Tenant) tenantAPI {
 	api := tenantAPI{handler: control.ConsoleHandler(t.App, c, control.ConsoleConfig{Version: s.Version, Origin: s.PublicURL}), token: c.Admin, ingest: c.Ingest, done: t.ctx.Done()}
 	s.private[t.Workspace.ID] = api
 	return api
+}
+
+// All authenticated API and MCP calls share the workspace's admission budget.
+func (s *Server) allowWorkspaceRequest(workspace string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	limiter := s.limits[workspace]
+	if limiter == nil {
+		if len(s.limits) >= MaxAccounts*2 {
+			for id, candidate := range s.limits {
+				if candidate.Tokens() >= float64(candidate.Burst()) {
+					delete(s.limits, id)
+				}
+			}
+		}
+		if len(s.limits) >= MaxAccounts*2 {
+			return false
+		}
+		limiter = rate.NewLimiter(2, 30)
+		s.limits[workspace] = limiter
+	}
+	return limiter.Allow()
 }

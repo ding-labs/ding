@@ -98,13 +98,14 @@ func (s *Server) resolveMCP(issuer string) mcpserver.Resolver {
 		}
 		api := s.api(tenant)
 		principal.Grant = connection.GrantID
-		return &mcpclient.Client{Connection: connection, HTTP: &http.Client{Transport: privateTransport{handler: api.handler, origin: s.PublicURL, db: s.DB, vault: s.Vault, client: clientID, principal: principal}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
+		return &mcpclient.Client{Connection: connection, HTTP: &http.Client{Transport: privateTransport{handler: api.handler, origin: s.PublicURL, db: s.DB, vault: s.Vault, client: clientID, principal: principal, admit: s.allowWorkspaceRequest}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
 	}
 }
 
 // Calls stay in-process and keep the existing scoped integration authorization.
 // No cloud bearer or tenant credential is sent to a laptop or public network.
 type privateTransport struct {
+	admit     func(string) bool
 	handler   http.Handler
 	origin    string
 	db        *state.DB
@@ -130,7 +131,11 @@ func (t privateTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	p.Grant = t.principal.Grant
 	r = r.Clone(access.WithOperation(access.WithPrincipal(r.Context(), p), r.Method, r.URL.Path))
 	w := &privateResponse{header: make(http.Header), status: 200}
-	t.handler.ServeHTTP(w, r)
+	if t.admit != nil && !t.admit(p.Workspace) {
+		cloudFail(w, 429, "workspace_rate", "Workspace request rate exceeded; retry later.")
+	} else {
+		t.handler.ServeHTTP(w, r)
+	}
 	if w.large {
 		return nil, fmt.Errorf("integration response too large")
 	}
