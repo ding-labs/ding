@@ -54,6 +54,9 @@ func (b *Bridge) invoke(ctx context.Context, name string, args map[string]any) (
 			if name == "ding_get_capabilities" {
 				if data, ok := view.Data.(map[string]any); ok {
 					data["connectionSelection"] = true
+					if features, ok := data["features"].(map[string]any); ok {
+						features["watchTransfer"] = true
+					}
 				}
 			}
 		}
@@ -101,6 +104,15 @@ func (b *Bridge) server(version, html string) (*mcp.Server, error) {
 			if err != nil && args["operation_key"] != nil && tool.Name != "ding_get_operation" {
 				err = mcpclient.Unknown()
 			}
+			return nil, view, err
+		})
+	}
+	for _, tool := range mcpcontract.CoordinatorTools() {
+		if html != "" {
+			tool.Meta = maps.Clone(catalog.Tools[0].Meta)
+		}
+		mcp.AddTool(s, tool, func(ctx context.Context, _ *mcp.CallToolRequest, args map[string]any) (*mcp.CallToolResult, mcpcontract.View, error) {
+			view, err := b.transfer(ctx, tool.Name, args)
 			return nil, view, err
 		})
 	}
