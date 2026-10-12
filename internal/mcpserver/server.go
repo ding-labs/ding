@@ -105,6 +105,11 @@ func New(options Options) (*mcp.Server, error) {
 			}
 			if r.view == "capabilities" {
 				data = tokenCapabilities(data, identity)
+				if options.TransferTransport {
+					if caps, ok := data.(map[string]any); ok {
+						caps["transferTransport"] = true
+					}
+				}
 			}
 			if r.query == nil {
 				r.query = map[string]any{}

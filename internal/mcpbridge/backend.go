@@ -17,7 +17,7 @@ type backend func(context.Context, func(mcpcontract.Target, call) (mcpcontract.V
 
 func local(client *mcpclient.Client) backend {
 	return func(ctx context.Context, fn func(mcpcontract.Target, call) (mcpcontract.View, error)) (mcpcontract.View, error) {
-		server, err := mcpserver.New(mcpserver.Options{TransferInspection: true, Version: "bridge", Resolve: func(context.Context, string, *auth.TokenInfo) (*mcpclient.Client, error) { return client, nil }})
+		server, err := mcpserver.New(mcpserver.Options{TransferInspection: true, TransferTransport: true, Version: "bridge", Resolve: func(context.Context, string, *auth.TokenInfo) (*mcpclient.Client, error) { return client, nil }})
 		if err != nil {
 			return mcpcontract.View{}, err
 		}
