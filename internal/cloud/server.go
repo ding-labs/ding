@@ -18,27 +18,29 @@ import (
 )
 
 type Server struct {
-	Railway            bool
-	LoginMethods       []string
-	Shared             bool // Self-hosted execution with named accounts; cloud is the default.
-	Name               string
-	passwordLimits     map[string]*rate.Limiter
-	DB                 *state.DB
-	Vault              *state.Vault
-	Pool               *Pool
-	Login              LoginFlow
-	PublicURL, Version string
-	Assets             http.Handler
-	MCP                http.Handler
-	MCPBridgeClients   []string
-	TenantHandler      func(http.ResponseWriter, *http.Request, state.Session, *Tenant)
-	mu                 sync.Mutex
-	modelMu            sync.Mutex
-	moveMu             sync.Mutex
-	private            map[string]tenantAPI
-	limits             map[string]*rate.Limiter
-	requests           chan struct{}
-	global             *rate.Limiter
+	Railway             bool
+	LoginMethods        []string
+	Shared              bool // Self-hosted execution with named accounts; cloud is the default.
+	Name                string
+	passwordLimits      map[string]*rate.Limiter
+	DB                  *state.DB
+	Vault               *state.Vault
+	Pool                *Pool
+	Login               LoginFlow
+	PublicURL, Version  string
+	Assets              http.Handler
+	MCP                 http.Handler
+	MCPBridgeClients    []string
+	AuthKitClients      []string
+	OpenAIAppsChallenge string
+	TenantHandler       func(http.ResponseWriter, *http.Request, state.Session, *Tenant)
+	mu                  sync.Mutex
+	modelMu             sync.Mutex
+	moveMu              sync.Mutex
+	private             map[string]tenantAPI
+	limits              map[string]*rate.Limiter
+	requests            chan struct{}
+	global              *rate.Limiter
 }
 type tenantAPI struct {
 	ingest  string
@@ -48,6 +50,9 @@ type tenantAPI struct {
 }
 
 func (s *Server) Handler() (http.Handler, error) {
+	if err := validateOpenAIChallenge(s.OpenAIAppsChallenge); err != nil {
+		return nil, err
+	}
 	origin, err := mcpconfig.Endpoint(s.PublicURL, true)
 	if err != nil {
 		return nil, err
@@ -111,6 +116,10 @@ func (s *Server) Handler() (http.Handler, error) {
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
 		r = r.WithContext(ctx)
+		if r.URL.Path == "/.well-known/openai-apps-challenge" {
+			s.openAIChallenge(w, r)
+			return
+		}
 		if s.publicIdentity(w, r) {
 			return
 		}

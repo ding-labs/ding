@@ -10,7 +10,8 @@ LLM client. Shared skills and assets are copied into each release bundle by
   `bin/`). Remote bundles use a fixed, explicitly supplied HTTPS endpoint.
 - `chatgpt/ding`: OpenAI's portable manifest with onboarding and UI metadata.
   Its `mcp.json` is generated only when a real self-hosted endpoint is supplied.
-- `shared`: canonical workflow skills and vector assets.
+- `chatgpt/cloud`: Ding Cloud listing, browser onboarding, cloud watch guidance and review cases. Build with `cloud-chatgpt`; the endpoint is fixed and publisher configuration contains no secrets.
+- `shared`: local/self-hosted workflow skills and shared vector assets.
 
 Source directories are packaging inputs, not installable release directories.
 The builder refuses missing runtimes, non-HTTPS remote endpoints, existing output
@@ -21,3 +22,5 @@ Marketplace publication remains gated by publisher verification, host review,
 native signing/notarization where required, and approval of the local/self-hosted
 connection route. A generated ZIP is not evidence of directory acceptance. See
 [release qualification](../docs/integrations/release.md).
+
+For the Ding Cloud marketplace route, follow the [ChatGPT publication runbook](../docs/integrations/chatgpt-cloud-publication.md).

@@ -34,7 +34,8 @@ type Settings struct {
 }
 
 // FromEnv fixes hosting and admission policy; environment variables cannot turn
-// this image into a self-hosted runner or enable commands/public enrollment.
+// this image into a self-hosted runner or enable commands. AuthKit enrollment
+// requires its explicit, bounded signup limit.
 func FromEnv(get func(string) string) (Settings, []byte, string, error) {
 	s := Settings{Mode: get("DING_MODE"), Username: get("DING_BOOTSTRAP_USERNAME"), OwnerName: get("DING_BOOTSTRAP_NAME")}
 	if s.Mode == "" {
@@ -77,6 +78,7 @@ func FromEnv(get func(string) string) (Settings, []byte, string, error) {
 	if err := configureMCP(&s.Config, get); err != nil {
 		return s, nil, "", err
 	}
+	s.Config.OpenAIAppsChallenge = get("DING_OPENAI_APPS_CHALLENGE")
 	return s, key, password, s.Config.Validate()
 }
 

@@ -4,7 +4,7 @@ import { useExecution, useCapability } from "../app/execution";
 import { api, download } from "../api/client";
 import { ErrorBox, useRead } from "../components/common";
 
-type Model = { clientID: string; grant: { name: string; scopes: string[]; secretRefs: string[]; expiresAt: string; revoked: boolean } };
+type Model = { clientID: string; grant: { name: string; scopes: string[]; secretRefs: string[]; expiresAt: string; providerConsent?: string; revoked: boolean } };
 export function CloudModels() {
   const mayMove = useCapability("move");
   const transferEnabled = useExecution().accountFeatures?.modelTransfers;
@@ -40,7 +40,7 @@ export function CloudModels() {
     {pairing != null && <div role="status"><p>This file contains the agent credential and is available only now.</p><button className="button" onClick={() => {download("ding-agent.json",JSON.stringify(pairing,null,2));setPairing(undefined);}}>Download private pairing file</button><button className="button" onClick={() => setPairing(undefined)}>Dismiss</button></div>}
     <p>{shared ? "Current membership" : "OAuth consent"} and this workspace grant must both permit an action. These seven-day grants can inspect watch data and preview changes. Enable management only when you want reviewed changes, lifecycle actions, and delivery retries.</p>
     <ErrorBox error={error || models.error} />
-    <ul>{models.data?.map(m => <li key={m.clientID}><strong>{m.grant.name}</strong> — {m.grant.scopes.join(", ")}; expires {new Date(m.grant.expiresAt).toLocaleString()} <button disabled={busy} className="button" onClick={() => disconnect(m.clientID)}>Disconnect {m.grant.name}</button></li>)}</ul>
+    <ul>{models.data?.map(m => <li key={m.clientID}><strong>{m.grant.name}</strong> — {m.grant.scopes.join(", ")}; {m.grant.providerConsent ? "connected through hosted sign-in" : `expires ${new Date(m.grant.expiresAt).toLocaleString()}`} <button disabled={busy} className="button" onClick={() => disconnect(m.clientID)}>Disconnect {m.grant.name}</button></li>)}</ul>
     <form onSubmit={connect} className="onboarding-form"><fieldset disabled={busy}>
       <label>Connection name<input required maxLength={100} value={name} onChange={e => setName(e.target.value)} /></label>
       {!shared && <label>Registered OAuth client ID<input required maxLength={512} value={clientID} onChange={e => setClientID(e.target.value)} /></label>}

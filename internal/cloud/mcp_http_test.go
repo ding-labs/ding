@@ -26,7 +26,7 @@ type hostedMCPFixture struct {
 	s       *Server
 	h       http.Handler
 	session state.Session
-	token   func(subject, client, scope, audience string) string
+	token   func(subject, client, scope, audience string, claims ...map[string]any) string
 }
 
 func newHostedMCPFixture(t *testing.T) hostedMCPFixture {
@@ -85,13 +85,18 @@ func newHostedMCPFixture(t *testing.T) hostedMCPFixture {
 	if w.Code != 201 {
 		t.Fatal(w.Code, w.Body.String())
 	}
-	sign := func(subject, client, scope, audience string) string {
+	sign := func(subject, client, scope, audience string, claims ...map[string]any) string {
 		value := jwt.New()
 		if audience == "" {
 			audience = cfg.Audience
 		}
 		for k, v := range map[string]any{"iss": issuer.URL, "sub": subject, "client_id": client, "scope": scope, "aud": audience, "exp": time.Now().Add(time.Hour)} {
 			value.Set(k, v)
+		}
+		for _, extra := range claims {
+			for k, v := range extra {
+				value.Set(k, v)
+			}
 		}
 		raw, err := jwt.Sign(value, jwt.WithKey(jwa.RS256(), private))
 		if err != nil {
@@ -219,4 +224,61 @@ func mustJSON(t *testing.T, value any) []byte {
 		t.Fatal(err)
 	}
 	return raw
+}
+
+func TestHostedChatGPTToolOAuth(t *testing.T) {
+	f := newHostedMCPFixture(t)
+	token := f.token("owner", "client", "ding:inspect", "")
+	for _, version := range []string{"2025-11-25", "2026-07-28"} {
+		w := f.request(t, token, version, "tools/list", nil)
+		var envelope struct {
+			Result struct {
+				Tools []struct {
+					Name            string `json:"name"`
+					InputSchema     any    `json:"inputSchema"`
+					Annotations     any    `json:"annotations"`
+					SecuritySchemes []struct {
+						Type   string   `json:"type"`
+						Scopes []string `json:"scopes"`
+					} `json:"securitySchemes"`
+				} `json:"tools"`
+			} `json:"result"`
+		}
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &envelope) != nil || len(envelope.Result.Tools) != 20 {
+			t.Fatal(w.Code, w.Body.String())
+		}
+		for _, tool := range envelope.Result.Tools {
+			want := "ding:inspect"
+			switch tool.Name {
+			case "ding_preview_changes":
+				want += " ding:preview"
+			case "ding_apply_changes", "ding_pause_watch", "ding_resume_watch", "ding_delete_watch":
+				want += " ding:manage"
+			case "ding_retry_delivery":
+				want += " ding:retry"
+			}
+			if len(tool.SecuritySchemes) != 1 || tool.SecuritySchemes[0].Type != "oauth2" || strings.Join(tool.SecuritySchemes[0].Scopes, " ") != want || tool.InputSchema == nil || tool.Annotations == nil {
+				t.Fatalf("%s: lost tool fields or OAuth scopes: %+v", version, tool)
+			}
+		}
+	}
+	result := f.call(t, token, "ding_preview_changes", map[string]any{"manifest": "invalid"})
+	challenges, ok := result.Meta["mcp/www_authenticate"].([]any)
+	if !result.IsError || result.StructuredContent != nil || !ok || len(challenges) != 1 {
+		t.Fatalf("missing OAuth tool error: %+v", result)
+	}
+	challenge, _ := challenges[0].(string)
+	for _, part := range []string{`Bearer resource_metadata="` + f.s.PublicURL + `/.well-known/oauth-protected-resource/mcp"`, `error="insufficient_scope"`, `error_description="`, `scope="ding:inspect ding:preview"`} {
+		if !strings.Contains(challenge, part) {
+			t.Fatal(challenge)
+		}
+	}
+	// Valid OAuth cannot restore consent revoked by the workspace owner.
+	if err := f.s.DB.UnbindMCP(context.Background(), f.session.User, f.session.Workspace, "client"); err != nil {
+		t.Fatal(err)
+	}
+	result = f.call(t, token, "ding_get_capabilities", nil)
+	if !result.IsError || result.Meta["mcp/www_authenticate"] != nil {
+		t.Fatalf("consent denial became a login loop: %+v", result)
+	}
 }

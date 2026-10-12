@@ -16,6 +16,7 @@ var ErrOperationConflict = errors.New("operation key already used for a differen
 // Grants apply to the entire instance. Command execution additionally requires an
 // exact compiled watch revision authorized by the local administrator.
 type IntegrationGrant struct {
+	ProviderConsent  string    `json:"providerConsent,omitempty"`
 	ID               string    `json:"id"`
 	Name             string    `json:"name"`
 	Scopes           []string  `json:"scopes"`
@@ -95,6 +96,29 @@ func (t *Tx) IntegrationGrants() ([]IntegrationGrant, error) {
 		result = append(result, g)
 	}
 	return result, rows.Err()
+}
+
+// RenewProviderIntegrationGrant extends a private grant only after the caller
+// verifies a fresh provider token and current membership. Revocation is final
+// for this provider consent, even if its JWT or refresh token remains usable.
+func (t *Tx) RenewProviderIntegrationGrant(id, consent string, scopes, refs []string, until time.Time) error {
+	g, err := t.IntegrationGrant(id)
+	if err != nil {
+		return err
+	}
+	if consent == "" || g.ProviderConsent != consent || g.Revoked {
+		return ErrIntegrationDenied
+	}
+	if g.ExpiresAt.After(until.Add(-24*time.Hour)) && slices.Equal(g.Scopes, scopes) && slices.Equal(g.SecretRefs, refs) {
+		return nil
+	}
+	g.Scopes, g.SecretRefs, g.ExpiresAt = scopes, refs, until
+	raw, err := json.Marshal(g)
+	if err != nil {
+		return err
+	}
+	_, err = t.sql.ExecContext(t.ctx, "UPDATE integration_grants SET body=? WHERE id=? AND revoked=0", raw, id)
+	return err
 }
 
 func (t *Tx) RevokeIntegrationGrant(id string) error {

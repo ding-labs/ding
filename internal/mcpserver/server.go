@@ -16,11 +16,12 @@ import (
 
 type Resolver func(context.Context, string, *auth.TokenInfo) (*mcpclient.Client, error)
 type Options struct {
-	Version, HTML      string
-	Resolve            Resolver
-	ListWorkspaces     func(context.Context, *auth.TokenInfo) ([]mcpcontract.Workspace, error)
-	TransferInspection bool
-	TransferTransport  bool
+	Version, HTML            string
+	OAuthResourceMetadataURL string
+	Resolve                  Resolver
+	ListWorkspaces           func(context.Context, *auth.TokenInfo) ([]mcpcontract.Workspace, error)
+	TransferInspection       bool
+	TransferTransport        bool
 }
 
 type workspaceKey struct{}
@@ -65,6 +66,13 @@ func New(options Options) (*mcp.Server, error) {
 			return next(ctx, method, req)
 		}
 	})
+	if options.OAuthResourceMetadataURL != "" {
+		names := make([]string, 0, len(catalog.Tools))
+		for _, tool := range catalog.Tools {
+			names = append(names, tool.Name)
+		}
+		s.AddReceivingMiddleware(oauthToolMetadata(options.OAuthResourceMetadataURL, names))
+	}
 	for _, tool := range catalog.Tools {
 		if options.HTML == "" {
 			delete(tool.Meta, "ui")
@@ -141,7 +149,7 @@ type request struct {
 }
 
 func route(name string, a map[string]any) (request, error) {
-	r := request{scope: "inspect", method: http.MethodGet}
+	r := request{scope: toolScope(name), method: http.MethodGet}
 	id := func(key string) (string, error) { value, _ := a[key].(string); return mcpclient.Segment(value) }
 	fields := func(names ...string) map[string]any {
 		m := map[string]any{}
@@ -152,7 +160,7 @@ func route(name string, a map[string]any) (request, error) {
 	}
 	switch name {
 	case "ding_bridge_transfer_step":
-		r.scope, r.method, r.path, r.view = "move", http.MethodPost, "/transfers/step", "transfer_step"
+		r.method, r.path, r.view = http.MethodPost, "/transfers/step", "transfer_step"
 		r.body = fields("action", "transfer_id", "input")
 	case "ding_get_transfer_preflight", "ding_get_transfer":
 		key, prefix, view := "transfer_id", "/transfers/", "transfer"
@@ -215,13 +223,11 @@ func route(name string, a map[string]any) (request, error) {
 		r.view = "delivery"
 		r.query = fields("before")
 	case "ding_preview_changes":
-		r.scope = "preview"
 		r.method = http.MethodPost
 		r.path = "/preview"
 		r.view = "preview"
 		r.body = fields("manifest", "fixture", "watch")
 	case "ding_apply_changes":
-		r.scope = "manage"
 		r.method = http.MethodPost
 		r.path = "/apply"
 		r.view = "applied"
@@ -233,13 +239,11 @@ func route(name string, a map[string]any) (request, error) {
 		}
 		action := map[string]string{"ding_pause_watch": "pause", "ding_resume_watch": "resume", "ding_delete_watch": "delete"}[name]
 		cancel, _ := a["cancel_pending"].(bool)
-		r.scope = "manage"
 		r.method = http.MethodPost
 		r.path = "/watches/" + value + "/lifecycle"
 		r.view = "lifecycle"
 		r.body = map[string]any{"action": action, "expected": a["expected_revision"], "expectedGeneration": a["expected_generation"], "operationKey": a["operation_key"], "cancelPending": cancel}
 	case "ding_retry_delivery":
-		r.scope = "retry"
 		r.method = http.MethodPost
 		r.path = fmt.Sprintf("/deliveries/%.0f/retry", a["delivery_id"])
 		r.view = "retry"

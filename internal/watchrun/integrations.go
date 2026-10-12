@@ -43,6 +43,10 @@ type GrantPairing struct {
 }
 
 func (a *App) CreateIntegrationGrant(ctx context.Context, r GrantRequest) (GrantPairing, error) {
+	return a.createIntegrationGrant(ctx, r, "")
+}
+
+func (a *App) createIntegrationGrant(ctx context.Context, r GrantRequest, consent string) (GrantPairing, error) {
 	var out GrantPairing
 	if len(r.Name) < 1 || len(r.Name) > 100 || len(r.Scopes) == 0 || len(r.Scopes) > 5 || r.Days < 1 || r.Days > 365 || len(r.CommandRevisions) > 100 || len(r.SecretRefs) > 100 {
 		return out, fmt.Errorf("invalid integration grant")
@@ -76,7 +80,7 @@ func (a *App) CreateIntegrationGrant(ctx context.Context, r GrantRequest) (Grant
 	}
 	now := a.Now()
 	out.Token = "ding_mcp_" + integrationID()
-	out.Grant = store.IntegrationGrant{ID: integrationID(), Name: r.Name, Scopes: r.Scopes, CommandRevisions: r.CommandRevisions, SecretRefs: r.SecretRefs, CreatedAt: now, ExpiresAt: now.Add(time.Duration(r.Days) * 24 * time.Hour)}
+	out.Grant = store.IntegrationGrant{ProviderConsent: consent, ID: integrationID(), Name: r.Name, Scopes: r.Scopes, CommandRevisions: r.CommandRevisions, SecretRefs: r.SecretRefs, CreatedAt: now, ExpiresAt: now.Add(time.Duration(r.Days) * 24 * time.Hour)}
 	err := a.Store.Update(ctx, func(tx *store.Tx) error { return tx.CreateIntegrationGrant(out.Grant, IntegrationTokenHash(out.Token)) })
 	return out, err
 }

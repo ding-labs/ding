@@ -27,8 +27,9 @@ export default defineRailway(() => {
       // mode and restore directory selection across configuration updates.
       DING_MODE: preserve(), DING_STATE_NAME: preserve(),
       DING_DATA_KEY_BASE64: preserve(),
-	  DING_OIDC_JSON: preserve(), DING_MCP_JSON: preserve(),
-	  DING_MCP_BRIDGE_CLIENTS: preserve(),
+      DING_OIDC_JSON: preserve(), DING_MCP_JSON: preserve(),
+      DING_MCP_BRIDGE_CLIENTS: preserve(), DING_AUTHKIT_JSON: preserve(),
+      DING_OPENAI_APPS_CHALLENGE: preserve(),
     },
   });
   return project("Ding Cloud", { resources: [app, data] });

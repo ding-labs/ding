@@ -21,7 +21,7 @@ import (
 	"time"
 )
 
-type Options struct{ Root, Mode, Runtime, Target, Endpoint, Output, Version string }
+type Options struct{ Root, Mode, Runtime, Target, Endpoint, Output, Version, CloudConfig string }
 
 var versionPattern = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(?:-[a-zA-Z0-9.-]+)?$`)
 
@@ -34,11 +34,26 @@ func Build(o Options) (string, error) {
 	}
 	platform := "claude"
 	native := o.Mode == "native-claude"
+	cloud := o.Mode == "cloud-chatgpt"
+	var publisher CloudConfig
 	executable := "ding-mcp"
-	if o.Mode == "remote-chatgpt" {
+	if o.Mode == "remote-chatgpt" || cloud {
 		platform = "chatgpt"
 	} else if o.Mode != "remote-claude" && !native {
 		return "", errors.New("unsupported package mode")
+	}
+	if cloud {
+		if o.Endpoint != "" && o.Endpoint != cloudEndpoint {
+			return "", errors.New("cloud-chatgpt uses the fixed Ding Cloud endpoint")
+		}
+		o.Endpoint = cloudEndpoint
+		var err error
+		publisher, err = loadCloudConfig(o.CloudConfig)
+		if err != nil {
+			return "", err
+		}
+	} else if o.CloudConfig != "" {
+		return "", errors.New("cloud publisher configuration requires cloud-chatgpt mode")
 	}
 	if native {
 		switch o.Target {
@@ -66,14 +81,20 @@ func Build(o Options) (string, error) {
 		return "", err
 	}
 	dest := filepath.Join(o.Output, "ding")
-	for from, to := range map[string]string{filepath.Join("plugins", platform, "ding"): "", "plugins/shared/skills": "skills", "plugins/shared/assets": "assets"} {
+	sources := map[string]string{filepath.Join("plugins", platform, "ding"): "", "plugins/shared/skills": "skills", "plugins/shared/assets": "assets"}
+	if cloud {
+		sources = map[string]string{"plugins/chatgpt/cloud": "", "plugins/shared/assets": "assets"}
+	}
+	for from, to := range sources {
 		if err := copyTree(filepath.Join(o.Root, from), filepath.Join(dest, to)); err != nil {
 			return "", err
 		}
 	}
-	for _, name := range []string{"privacy.md", "release.md", "verification.md"} {
-		if err := copyFile(filepath.Join(o.Root, "docs/integrations", name), filepath.Join(dest, name), 0644); err != nil {
-			return "", err
+	if !cloud {
+		for _, name := range []string{"privacy.md", "release.md", "verification.md"} {
+			if err := copyFile(filepath.Join(o.Root, "docs/integrations", name), filepath.Join(dest, name), 0644); err != nil {
+				return "", err
+			}
 		}
 	}
 	if err := copyFile(filepath.Join(o.Root, "LICENSE"), filepath.Join(dest, "LICENSE"), 0644); err != nil {
@@ -92,6 +113,15 @@ func Build(o Options) (string, error) {
 		return "", err
 	}
 	manifest["version"] = o.Version
+	if cloud {
+		extensions, _ := manifest["extensions"].(map[string]any)
+		openai, _ := extensions["com.openai"].(map[string]any)
+		listing, _ := openai["interface"].(map[string]any)
+		if listing == nil {
+			return "", errors.New("cloud package is missing its listing")
+		}
+		listing["supportURL"], listing["privacyPolicyURL"], listing["termsOfServiceURL"] = publisher.SupportURL, publisher.PrivacyPolicyURL, publisher.TermsOfServiceURL
+	}
 	if err := writeJSON(manifestPath, manifest); err != nil {
 		return "", err
 	}
@@ -114,10 +144,17 @@ func Build(o Options) (string, error) {
 		}
 		server = map[string]any{"type": typeName, "url": o.Endpoint}
 		if platform == "chatgpt" {
-			server["extensions"] = map[string]any{"com.openai": map[string]any{"auth": map[string]any{"type": "oauth", "baseScopes": []string{"ding:inspect", "ding:preview", "ding:manage", "ding:retry"}}}}
+			oauth := map[string]any{"type": "oauth", "baseScopes": []string{"openid", "offline_access", "ding:inspect", "ding:preview", "ding:manage", "ding:retry"}}
+			if cloud {
+				oauth["client"] = publisher.Client
+			}
+			server["extensions"] = map[string]any{"com.openai": map[string]any{"auth": oauth}}
 			config["$schema"] = "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"
 		}
 		readme = "Connect through your host's OAuth flow. This package targets one operator-supplied, self-hosted endpoint. An operator must pair your identity to a Ding grant. It does not route arbitrary customer endpoints or expose localhost."
+	}
+	if cloud {
+		readme = "Use ChatGPT's Connect flow to sign in to Ding Cloud and approve access in your browser. Return to the conversation to inspect watches and create reviewed changes. Ding Cloud keeps monitoring independently of the conversation."
 	}
 	config["mcpServers"] = map[string]any{"ding": server}
 	configName := ".mcp.json"
@@ -127,7 +164,11 @@ func Build(o Options) (string, error) {
 	if err := writeJSON(filepath.Join(dest, configName), config); err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(filepath.Join(dest, "README.md"), []byte("# Ding\n\n"+readme+"\n\nThis is a qualification build, not evidence of official marketplace approval.\n\nAuthoritative data remains on your Ding instance; data you request is sent to your selected LLM provider. See the included privacy and review documents.\n"), 0644); err != nil {
+	dataLocation := "Authoritative data remains on your Ding instance; data you request is sent to your selected LLM provider. See the included privacy and review documents."
+	if cloud {
+		dataLocation = "Ding Cloud stores your watches and evidence. Requested results are shared with ChatGPT. See privacy.md and the listing's privacy policy and terms."
+	}
+	if err := os.WriteFile(filepath.Join(dest, "README.md"), []byte("# Ding\n\n"+readme+"\n\nThis is a qualification build, not evidence of official marketplace approval.\n\n"+dataLocation+"\n"), 0644); err != nil {
 		return "", err
 	}
 	archive := filepath.Join(o.Output, "ding.zip")
