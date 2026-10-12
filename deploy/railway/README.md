@@ -1,8 +1,8 @@
 # Ding Cloud on Railway
 
 One always-running service, one region, one SQLite volume. Built-in named
-accounts use **cloud** execution policy: public HTTP only, guarded remote
-delivery, three watches, five-minute minimum cadence, and bounded retention.
+accounts use **cloud** execution policy: public HTTP polling and authenticated
+JSON push, guarded remote delivery, configurable capacity, and bounded retention.
 Public signup and public MCP are disabled by default. Optional OAuth/MCP setup
 and the deliberate existing-account transition are documented in
 [Cloud MCP connections](../../docs/integrations/cloud-mcp.md). Supabase is deferred.
@@ -24,6 +24,8 @@ fingerprint of the external encryption key; replacing that key fails startup.
 | `DING_NAME` | `Ding Cloud` |
 | `DING_DATA_KEY_BASE64` | Private base64 encoding of 32 cryptographically random bytes; stable across restarts/restores |
 | `DING_MODE` | `serve` (default), `init`, or `maintenance` |
+| `DING_PUSH_JSON` | Optional push admission configuration; see [push operations](../../docs/development/cloud-push-operations.md) |
+| `DING_CAPACITY_JSON` | Optional operational capacity and outbound quotas; see the same runbook |
 | `DING_STATE_NAME` | `ding` (default); selects `/data/ding`; a fresh simple name can select restored state |
 | `DING_AUTHKIT_JSON` | Optional WorkOS production profile; see [AuthKit setup](../../docs/integrations/workos-authkit.md) |
 | `DING_OPENAI_APPS_CHALLENGE` | Exact public domain-verification token supplied by OpenAI's plugin portal; unset keeps the route absent |
@@ -46,7 +48,8 @@ arguments, an image, deployment logs, or the SQLite volume.
 
 [`.railway/railway.ts`](../../.railway/railway.ts) uses Railway's current IaC SDK.
 `railway.json`/`railway.toml` are deprecated and new services cannot opt into
-them. The config pins an exact Git commit, one replica in `us-west2`, a 1 GiB
+them. The config follows `main`, with an optional exact commit pin for maintenance,
+one replica in `us-west2`, a 1 GiB
 volume, 1 vCPU/1 GiB RAM limits, sleeping disabled, no pre-deploy command,
 zero overlap and 60-second termination grace. These resource limits are not a
 monthly billing cap. Leave project PR environments disabled.
@@ -57,9 +60,9 @@ project/environment, then preview every IaC change before applying:
 ```sh
 npm ci --prefix .railway --ignore-scripts
 npm run check --prefix .railway
-export DING_DEPLOY_COMMIT="$(git rev-parse HEAD)"
+# Optional during maintenance: export DING_DEPLOY_COMMIT="$(git rev-parse HEAD)"
 railway config plan
-# Inspect the proposed resources, preserved secrets and pinned revision.
+# Inspect the proposed resources, preserved secrets and source revision.
 railway config apply
 ```
 
