@@ -24,12 +24,14 @@ workspace enrollment and renewable provider-backed grants are implemented and
 locally tested. The [WorkOS runbook](../integrations/workos-authkit.md) records
 public configuration and exact deployment steps.
 
-Railway remains pinned to `c5d9213` without OAuth configuration at last inspection.
-Production deployment, ChatGPT's exact callback,
+Railway runs `a54c06a` with production WorkOS as of 2026-10-12 04:54 UTC.
+Health, discovery, the MCP authentication challenge and the Console's PKCE
+redirect pass live checks after backup and offline sign-in activation.
+Authenticated browser/ChatGPT qualification, ChatGPT's exact callback,
 live reconnect semantics, and marketplace qualification remain outstanding.
 The review cases are authored procedures, not completed live evidence.
-OpenAI's portal currently requires publisher identity verification before plugin
-creation/upload. The owner must complete that step. Domain-challenge serving is
+The owner submitted OpenAI publisher identity verification; it remains in review
+and the portal still blocks plugin creation/upload. Domain-challenge serving is
 implemented and awaits the token from the portal. Public operator privacy,
 terms and support pages, review credentials, fixtures and walkthrough remain
 submission prerequisites.
@@ -57,10 +59,10 @@ There is no local daemon or copied watch database in this flow.
 
 | Area | Present in PR 36 | Launch work |
 | --- | --- | --- |
-| Remote endpoint | Hosted `/mcp`, OAuth verification and discovery | Configure and deploy the real authority |
+| Remote endpoint | Live `/mcp`, production OAuth verification and discovery | Qualify authenticated client requests |
 | Watch tools | Cloud inspection, preview/apply, lifecycle, evidence, workspace selection | Qualify actual ChatGPT behavior |
 | Consent | WorkOS-hosted approval; automatic provider-backed grants | Prove live consent and reconnect behavior |
-| Accounts | Automatic bounded personal-workspace enrollment from AuthKit | Qualify Console sign-in and enable production |
+| Accounts | Production configured for bounded personal-workspace enrollment | Qualify Console sign-in and fresh enrollment |
 | Connection lifetime | Provider-backed grants renew and preserve revocation | Qualify actual refresh and consent reset |
 | ChatGPT linking | Per-tool OAuth scopes and scope-upgrade challenges | Verify the real ChatGPT linking UI |
 | Package | Fixed cloud endpoint, explicit OAuth client mode, cloud onboarding and review cases | Supply production client settings, public policy URLs and live review evidence |

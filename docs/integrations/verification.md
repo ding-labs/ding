@@ -1,5 +1,33 @@
 # Integration qualification evidence
 
+## Production WorkOS rollout — October 12, 2026
+
+PR 37 is merged. Railway is pinned to implementation `a54c06a`, now included in
+main by merge `50d57bb`. The production profile uses the public clients in the
+[WorkOS runbook](workos-authkit.md), with total capacity of ten workspaces.
+
+| Check | Live result |
+| --- | --- |
+| Maintenance | Deployment `9903d3d7-7368-4df8-9cce-062fae9a6b53` stopped execution at approximately 04:53:14 UTC; `/healthz` returned 503 and logs confirmed no stores/workers opened |
+| Backup | `pre-authkit-20261012-0452.age`, 585,032 encrypted bytes, exported from the active state directory and downloaded privately; local quarantined restore passed before activation |
+| Provider activation | Offline `enable-oidc-login` succeeded, preserving password accounts and enabling the pinned WorkOS issuer without identity linking |
+| Resume | Deployment `4bb32d89-f142-46ce-8558-60786431fd9b` succeeded at approximately 04:54:38 UTC; one replica, no pending changes or reported failures |
+| Health | `GET https://cloud.ding.ing/healthz` returned 200 and `ready` |
+| Resource discovery | `/.well-known/oauth-protected-resource/mcp` returned the exact MCP resource, production WorkOS issuer and four Ding scopes |
+| MCP authentication | Unauthenticated initialize returned 401 with `WWW-Authenticate` pointing to protected-resource metadata and `ding:inspect` |
+| Console redirect | `/auth/login` returned the production WorkOS authorization URL with the Console client, exact callback, `openid`, and S256 PKCE |
+| Hosted page | Enabled Email + Password with WorkOS's Strong policy and Magic Auth with owner approval; the live page now offers Continue with email and Sign up |
+| Publisher verification | Owner submitted individual identity verification; OpenAI displayed `Identity in review` and continued to block plugin creation/upload |
+
+The observed maintenance interval was approximately 84 seconds. The backup
+verification restored into a separate local quarantine; production state was not
+replaced. Neither backup credentials nor customer tokens are in this record.
+
+These probes establish the live OAuth boundary and browser redirect, not a
+completed sign-in or ChatGPT connection. Full user authorization, fresh account
+creation, refresh, provider-consent reset/reconnect, the actual ChatGPT callback,
+domain verification and reviewer journeys remain unqualified.
+
 ## Cloud MCP implementation — October 11, 2026
 
 Qualified locally on macOS ARM64 with the current main changes through `9341ccc`.

@@ -53,6 +53,10 @@ endpoints, S256 and refresh support. It does not advertise RFC 9207 authorizatio
 response issuer support; use the exact callback-ID-specific URI, not a guessed
 fixed callback. DCR and CIMD remain disabled for this provided-client release.
 The free WorkOS-hosted domain is sufficient; no custom-domain add-on was enabled.
+Production Email + Password and Magic Auth (one-time email codes) are enabled.
+Password login uses WorkOS's Strong policy: at least ten characters, complexity
+score at least three, and breached-password rejection. The hosted page exposes
+email sign-in and signup; passkeys and social providers are not configured.
 
 The deployment profile is:
 
@@ -66,11 +70,16 @@ The deployment profile is:
 ```
 
 Production WorkOS configuration is complete except for the ChatGPT callback.
-Railway still runs the earlier password-only revision until the maintenance
-rollout is approved and completed. No live authorization or refresh has yet been
-qualified. OpenAI's plugin portal blocks creation/upload until the publisher
-completes individual or business identity verification. No verification was
-submitted by the agent. After verification, create the plugin/connection, copy
+Railway now runs `a54c06a` with this production AuthKit profile. The approved
+maintenance rollout exported and restore-verified an encrypted backup, enabled
+OIDC without linking accounts, and resumed service at 2026-10-12 04:54 UTC.
+Health, OAuth discovery, unauthenticated MCP challenges and the PKCE browser
+redirect pass against the live origin. See [qualification evidence](verification.md).
+An authenticated authorization/refresh round trip is not yet qualified.
+
+The publisher completed OpenAI's individual verification submission, but its
+dashboard still reports **Identity in review**. The plugin portal still blocks
+creation/upload pending approval. After approval, create the plugin/connection, copy
 its exact callback and domain challenge, then configure and test them. Ding now
 supports `DING_OPENAI_APPS_CHALLENGE` for that exact plaintext challenge.
 
@@ -96,8 +105,8 @@ The staging issuer's discovery advertises S256, authorization code and refresh
 flows, plus its public JWKS. It does **not** currently advertise
 `authorization_response_iss_parameter_supported`. Therefore use the exact
 callback-ID-specific redirect shown in ChatGPT's management page; do not assume
-the older fixed redirect URI or add a wildcard. No production configuration has
-been deployed, and a live ChatGPT authorization flow has not yet been qualified.
+the older fixed redirect URI or add a wildcard. Production uses the separate
+configuration above; a live ChatGPT authorization flow is not yet qualified.
 
 ## Configure a deployment
 
