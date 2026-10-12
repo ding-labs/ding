@@ -357,6 +357,10 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
     lifecycle: "Watch updated",
     delivery: "Delivery details",
     cloud_status: "Cloud usage and health",
+    transfer_preflight: "Review a watch transfer",
+    transfer_summary: "Watch transfer",
+    transfers: "Transfers on this instance",
+    transfer: "Transfer receipt",
   };
 
   return (
@@ -495,6 +499,35 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
             </span>
             <h1>{title[view.view] ?? "Ding activity"}</h1>
           </div>
+          {view.view === "transfer_preflight" && (
+            <section>
+              <p>
+                {data?.ready
+                  ? "This watch is eligible. Review the exact definition and destination references before approving an upload."
+                  : String(data?.reason ?? "This watch cannot move yet.")}
+              </p>
+              <p>Inspection has not uploaded or paused this watch.</p>
+              <Details
+                title="Definition that would be transferred"
+                value={data?.manifest}
+              />
+            </section>
+          )}
+          {view.view === "transfer_summary" && (
+            <section>
+              <p>
+                <Badge value={String(data?.phase ?? "unknown")} />
+              </p>
+              <p>{String(data?.note ?? "")}</p>
+              {data?.outcome != null && (
+                <p>Test outcome: {String(data.outcome)}</p>
+              )}
+              <Details title="Execution locations and receipts" value={data} />
+            </section>
+          )}
+          {["transfers", "transfer"].includes(view.view) && (
+            <Details title="Saved transfer receipts" value={data} />
+          )}
           {view.view === "cloud_status" && <CloudStatus data={view.data} />}
           {view.view === "watches" && (
             <>
