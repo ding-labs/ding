@@ -86,6 +86,7 @@ func TestAuthKitProfile(t *testing.T) {
 	env := environment()
 	const valid = `{"issuer":"https://sample.authkit.app","browserClientId":"console","chatgptClientId":"chatgpt","enrollmentLimit":10}`
 	env["DING_AUTHKIT_JSON"] = valid
+	env["DING_AUTHKIT_API_KEY"] = "private-revocation-key"
 	settings, _, _, err := FromEnv(func(k string) string { return env[k] })
 	if err != nil {
 		t.Fatal(err)
@@ -97,7 +98,7 @@ func TestAuthKitProfile(t *testing.T) {
 	if c.MCP.JWKSURI != "https://sample.authkit.app/oauth2/jwks" || c.MCP.Audience != "https://cloud.ding.ing/mcp" || c.AuthKitClients[0] != "chatgpt" || c.Identity.ClientID != "console" || c.Identity.ClientSecret != "" || *c.EnrollmentLimit != 10 {
 		t.Fatal("incorrect AuthKit profile")
 	}
-	if !SecretEnvironment("DING_AUTHKIT_JSON") {
+	if !SecretEnvironment("DING_AUTHKIT_JSON") || !SecretEnvironment("DING_AUTHKIT_API_KEY") || c.AuthKitAPIKey != "private-revocation-key" {
 		t.Fatal("AuthKit config leaked to child processes")
 	}
 	for _, raw := range []string{

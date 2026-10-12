@@ -74,6 +74,31 @@ func (d *DB) IdentityUser(ctx context.Context, issuer, subject string) (User, er
 	return u, err
 }
 
+// IdentitySubject resolves only a previously verified identity at the pinned
+// issuer. An email address or a caller-supplied provider user ID is never used.
+func (d *DB) IdentitySubject(ctx context.Context, user, issuer string) (string, error) {
+	rows, err := d.sql.QueryContext(ctx, `SELECT i.subject FROM identities i JOIN users u ON u.id=i.user WHERE i.user=? AND i.issuer=? AND u.disabled=0 LIMIT 2`, user, issuer)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	var subject string
+	n := 0
+	for rows.Next() {
+		if err := rows.Scan(&subject); err != nil {
+			return "", err
+		}
+		n++
+	}
+	if err := rows.Err(); err != nil {
+		return "", err
+	}
+	if n != 1 {
+		return "", fmt.Errorf("one verified provider identity is required")
+	}
+	return subject, nil
+}
+
 func (d *DB) IdentityWorkspace(ctx context.Context, issuer, subject string) (Enrollment, error) {
 	var out Enrollment
 	u, err := d.IdentityUser(ctx, issuer, subject)

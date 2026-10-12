@@ -18,20 +18,24 @@ import (
 )
 
 type Server struct {
-	Railway             bool
-	LoginMethods        []string
-	Shared              bool // Self-hosted execution with named accounts; cloud is the default.
-	Name                string
-	passwordLimits      map[string]*rate.Limiter
-	DB                  *state.DB
-	Vault               *state.Vault
-	Pool                *Pool
-	Login               LoginFlow
-	PublicURL, Version  string
-	Assets              http.Handler
-	MCP                 http.Handler
-	MCPBridgeClients    []string
-	AuthKitClients      []string
+	Railway            bool
+	LoginMethods       []string
+	Shared             bool // Self-hosted execution with named accounts; cloud is the default.
+	Name               string
+	passwordLimits     map[string]*rate.Limiter
+	DB                 *state.DB
+	Vault              *state.Vault
+	Pool               *Pool
+	Login              LoginFlow
+	PublicURL, Version string
+	Assets             http.Handler
+	MCP                http.Handler
+	MCPBridgeClients   []string
+	AuthKitClients     []string
+	AuthKitIssuer      string
+	ConsentRevoker     interface {
+		Revoke(context.Context, string, string) error
+	}
 	OpenAIAppsChallenge string
 	TenantHandler       func(http.ResponseWriter, *http.Request, state.Session, *Tenant)
 	mu                  sync.Mutex
