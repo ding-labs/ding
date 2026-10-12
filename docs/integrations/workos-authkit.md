@@ -69,15 +69,15 @@ The deployment profile is:
 }
 ```
 
-Production WorkOS configuration is complete except for the ChatGPT callback.
-Railway now runs `a54c06a` with this production AuthKit profile. The approved
-maintenance rollout exported and restore-verified an encrypted backup, enabled
-OIDC without linking accounts, and resumed service at 2026-10-12 04:54 UTC.
-Health, OAuth discovery, unauthenticated MCP challenges and the PKCE browser
-redirect pass against the live origin. See [qualification evidence](verification.md).
-The owner subsequently confirmed that signup worked. ChatGPT authorization and
-refresh remain unqualified. The next rollout removes instance password login
-and resets the disposable Ding development data at the owner's request.
+Railway now runs `43226d8` with WorkOS-only sign-in. On 2026-10-12 the owner
+requested a reset of the disposable development data. The active Ding state was
+cleared in maintenance, then service resumed at 05:13:30 UTC with zero workspaces
+or watches. WorkOS identities remain intact; the next login enrolls a fresh
+workspace. The owner confirmed that the earlier WorkOS signup worked.
+Health, hosted-only auth configuration, rejection of native password endpoints,
+and unauthenticated MCP challenges pass live checks. See
+[qualification evidence](verification.md). ChatGPT authorization and refresh
+remain unqualified; social providers are still being configured.
 
 The publisher completed OpenAI's individual verification submission, but its
 dashboard still reports **Identity in review**. The plugin portal still blocks

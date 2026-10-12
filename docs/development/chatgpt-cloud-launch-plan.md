@@ -24,9 +24,10 @@ workspace enrollment and renewable provider-backed grants are implemented and
 locally tested. The [WorkOS runbook](../integrations/workos-authkit.md) records
 public configuration and exact deployment steps.
 
-Railway runs `a54c06a` with production WorkOS as of 2026-10-12 04:54 UTC.
+Railway runs `43226d8` with WorkOS-only sign-in and fresh development state as of
+2026-10-12 05:13 UTC. The owner confirmed the earlier hosted signup worked.
 Health, discovery, the MCP authentication challenge and the Console's PKCE
-redirect pass live checks after backup and offline sign-in activation.
+redirect pass live checks; the native password endpoints are disabled.
 Authenticated browser/ChatGPT qualification, ChatGPT's exact callback,
 live reconnect semantics, and marketplace qualification remain outstanding.
 The review cases are authored procedures, not completed live evidence.

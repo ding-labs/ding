@@ -1,6 +1,33 @@
 # Integration qualification evidence
 
-## Production WorkOS rollout — October 12, 2026
+## WorkOS-only development reset — October 12, 2026
+
+At the owner's explicit request, removed the disposable Ding application state
+while retaining the WorkOS identity. Runtime revision `43226d8` disables instance
+password login in the AuthKit profile and uses a provider-neutral sign-in label.
+
+- Focused tests: `go test ./internal/railway ./internal/cloud` passed.
+- Maintenance deployment `2c4eb306-ca36-41e4-930f-9a4d0496fc50` succeeded at
+  05:12:26 UTC. `/healthz` reported stopped execution; process inspection showed
+  only the maintenance launcher, with no Ding stores or workers running.
+- Removed the exact active `/data/restored-20261011` directory and recreated it
+  empty, private and owned by UID/GID 10001. No WorkOS users were deleted.
+- Serve deployment `ef0ab54a-ba5c-4320-9f20-f5ff2eee389d` succeeded at 05:13:30 UTC.
+  Health returned 200; auth configuration lists only hosted sign-in; both native
+  password and activation endpoints return 404; unauthenticated MCP returns 401
+  with protected-resource metadata. Railway reports one healthy replica.
+- Private metrics reported zero workspaces, running watches and pending deliveries.
+  The owner's next WorkOS sign-in creates a fresh workspace for new tests/soaks.
+- Owner confirmed the original WorkOS signup completed before this reset.
+
+Social setup is in progress: GitHub OAuth app `3924844` belongs to `ding-labs`,
+with public client `Ov23liWEu3uLd1gZMPtE` and WorkOS's exact callback. GitHub
+requires owner reauthentication before generating the provider secret. Google
+project `fluent-fortress-511405-c7` (Ding Cloud) exists; OAuth configuration awaits
+a Google identity for the owner's chosen support address, `ping@ding.ing`.
+Neither social provider is enabled or qualified yet.
+
+## Initial production WorkOS rollout — October 12, 2026
 
 PR 37 is merged. Railway is pinned to implementation `a54c06a`, now included in
 main by merge `50d57bb`. The production profile uses the public clients in the
@@ -23,10 +50,9 @@ The observed maintenance interval was approximately 84 seconds. The backup
 verification restored into a separate local quarantine; production state was not
 replaced. Neither backup credentials nor customer tokens are in this record.
 
-These probes establish the live OAuth boundary and browser redirect, not a
-completed sign-in or ChatGPT connection. Full user authorization, fresh account
-creation, refresh, provider-consent reset/reconnect, the actual ChatGPT callback,
-domain verification and reviewer journeys remain unqualified.
+The owner subsequently confirmed signup completed. ChatGPT user authorization,
+refresh, provider-consent reset/reconnect, the actual ChatGPT callback, domain
+verification and reviewer journeys remain unqualified.
 
 ## Cloud MCP implementation — October 11, 2026
 
