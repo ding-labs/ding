@@ -11,7 +11,10 @@ test('Workers runtime enforces authorization, one-time start, warmup gate and in
   const epoch=Math.ceil(Date.now()/MINUTE)*MINUTE,c={runId:'push-0123456789abcdef',watchId:'push-soak-20261012',mode:'warmup',epoch,applicationRevision:'a'.repeat(40),observerRevision:'b'.repeat(40)};
   const start=cfg=>mf.dispatchFetch('https://test/admin/start',{method:'PUT',headers,body:JSON.stringify(cfg)});
   assert.equal((await start({...c,mode:'measure'})).status,409);
-  assert.equal((await start(c)).status,200);
+  const race=await Promise.all([start(c),start({...c,runId:'push-1111111111111111'})]);
+  assert.deepEqual(race.map(r=>r.status).sort(),[200,409]);
+  const winner=await (await mf.dispatchFetch('https://test/admin/status',{headers})).json();
+  c.runId=winner.config.runId;
   assert.equal((await start(c)).status,409);
   assert.equal((await start({...c,mode:'measure'})).status,409);
   const b=await mf.getR2Bucket('EVIDENCE');assert.ok(await b.get(ROOT+'active.json'));assert.equal(await b.get('active.json'),null);

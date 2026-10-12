@@ -23,7 +23,8 @@ export default {
  async fetch(request,env) {
   const url=new URL(request.url);
   if(!await authorized(request,env))return json({error:'not_found'},404);
-  const c=await read(env,'active.json');
+  const active=await env.EVIDENCE.get(ROOT+'active.json');
+  const c=active?await active.json():null;
   if(url.pathname==='/admin/status'&&request.method==='GET')return json({config:c,lastCron:await read(env,'last-cron.json'),latest:c?await read(env,`${c.runId}/${c.mode}/latest.json`):null,stop:c?await read(env,c.runId+'/stop.json'):null,now:Date.now()});
   if(url.pathname==='/admin/start'&&request.method==='PUT') {
    try {
@@ -34,9 +35,8 @@ export default {
      if(gate.missing||gate.failed||gate.accepted<3||!warmup.some(s=>s.telemetryPass===true))return json({error:'warmup_not_ready',gate},409);
     }else if(next.mode!=='warmup')return json({error:'warmup_required'},409);
     // Archive the immutable configuration before publishing the active pointer.
-    const old=await env.EVIDENCE.get(ROOT+'active.json');
     if(!await write(env,`${next.runId}/${next.mode}/manifest.json`,next))return json({error:'already_started'},409);
-    const ok=await put(env.EVIDENCE,ROOT+'active.json',next,old?{etagMatches:old.etag}:{etagDoesNotMatch:'*'});
+    const ok=await put(env.EVIDENCE,ROOT+'active.json',next,active?{etagMatches:active.etag}:{etagDoesNotMatch:'*'});
     return json({ok:!!ok,config:next},ok?200:409);
    }catch{return json({error:'invalid_start'},400);}
   }
