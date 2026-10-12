@@ -26,7 +26,7 @@ type hostedMCPFixture struct {
 	s       *Server
 	h       http.Handler
 	session state.Session
-	token   func(subject, client, scope, audience string) string
+	token   func(subject, client, scope, audience string, claims ...map[string]any) string
 }
 
 func newHostedMCPFixture(t *testing.T) hostedMCPFixture {
@@ -85,13 +85,18 @@ func newHostedMCPFixture(t *testing.T) hostedMCPFixture {
 	if w.Code != 201 {
 		t.Fatal(w.Code, w.Body.String())
 	}
-	sign := func(subject, client, scope, audience string) string {
+	sign := func(subject, client, scope, audience string, claims ...map[string]any) string {
 		value := jwt.New()
 		if audience == "" {
 			audience = cfg.Audience
 		}
 		for k, v := range map[string]any{"iss": issuer.URL, "sub": subject, "client_id": client, "scope": scope, "aud": audience, "exp": time.Now().Add(time.Hour)} {
 			value.Set(k, v)
+		}
+		for _, extra := range claims {
+			for k, v := range extra {
+				value.Set(k, v)
+			}
 		}
 		raw, err := jwt.Sign(value, jwt.WithKey(jwa.RS256(), private))
 		if err != nil {

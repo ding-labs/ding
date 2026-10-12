@@ -26,6 +26,12 @@ func (s *Server) mcpIdentity(ctx context.Context, issuer, scope string, token *a
 		return state.User{}, "", nil, denied
 	}
 	user, err := s.DB.IdentityUser(ctx, issuer, subject)
+	if slices.Contains(s.AuthKitClients, client) {
+		user, err = s.authKitIdentity(ctx, issuer, subject, client, token)
+		if err != nil {
+			return state.User{}, "", nil, err
+		}
+	}
 	if err != nil {
 		return state.User{}, "", nil, denied
 	}

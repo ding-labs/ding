@@ -111,7 +111,17 @@ func (v *Verifier) Verify(ctx context.Context, raw string, _ *http.Request) (*au
 	if len(clientID) > 512 {
 		return nil, invalid
 	}
-	return &auth.TokenInfo{Scopes: strings.Fields(scope), Expiration: expiry, UserID: v.config.Issuer + "\x00" + subject, Extra: map[string]any{"subject": subject, "issuer": v.config.Issuer, "client_id": clientID}}, nil
+	var consentID, organizationID string
+	if token.Has("sid") && token.Get("sid", &consentID) != nil {
+		return nil, invalid
+	}
+	if token.Has("org_id") && token.Get("org_id", &organizationID) != nil {
+		return nil, invalid
+	}
+	if len(consentID) > 512 || len(organizationID) > 512 {
+		return nil, invalid
+	}
+	return &auth.TokenInfo{Scopes: strings.Fields(scope), Expiration: expiry, UserID: v.config.Issuer + "\x00" + subject, Extra: map[string]any{"subject": subject, "issuer": v.config.Issuer, "client_id": clientID, "consent_id": consentID, "organization_id": organizationID}}, nil
 }
 
 // Fetches are bounded, serialized, and rate-limited even for unknown key IDs.

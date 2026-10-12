@@ -31,6 +31,7 @@ type Server struct {
 	Assets             http.Handler
 	MCP                http.Handler
 	MCPBridgeClients   []string
+	AuthKitClients     []string
 	TenantHandler      func(http.ResponseWriter, *http.Request, state.Session, *Tenant)
 	mu                 sync.Mutex
 	modelMu            sync.Mutex

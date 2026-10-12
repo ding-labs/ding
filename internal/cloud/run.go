@@ -37,6 +37,7 @@ type Config struct {
 	Identity         identity.Config `json:"identity"`
 	MCP              *mcpconfig.HTTP `json:"mcp,omitempty"`
 	MCPBridgeClients []string        `json:"mcpBridgeClients,omitempty"`
+	AuthKitClients   []string        `json:"authKitClients,omitempty"`
 }
 
 func (c *Config) Validate() error {
@@ -74,6 +75,16 @@ func (c *Config) Validate() error {
 	for _, client := range c.MCPBridgeClients {
 		if client == "" || len(client) > 512 {
 			return fmt.Errorf("invalid native MCP bridge client ID")
+		}
+	}
+	if len(c.AuthKitClients) > 0 {
+		if c.Hosting != "cloud" || c.MCP == nil || len(c.AuthKitClients) > 10 {
+			return fmt.Errorf("AuthKit requires cloud MCP and at most ten registered client IDs")
+		}
+		for _, client := range c.AuthKitClients {
+			if client == "" || len(client) > 512 || slices.Contains(c.MCPBridgeClients, client) {
+				return fmt.Errorf("invalid AuthKit client")
+			}
 		}
 	}
 	if c.MCP != nil && !seen["oidc"] {
@@ -227,7 +238,7 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 	if err := pool.Start(ctx); err != nil {
 		return err
 	}
-	app := &Server{MCPBridgeClients: c.MCPBridgeClients, Railway: c.Deployment == "railway", LoginMethods: c.LoginMethods, Shared: pool.Shared, Name: c.Name, DB: db, Vault: vault, Pool: pool, PublicURL: c.PublicURL, Version: version, Assets: assets, Login: LoginFlow{DB: db, Vault: vault, Provider: provider, EnrollmentLimit: c.EnrollmentLimit, Shared: pool.Shared}}
+	app := &Server{AuthKitClients: slices.Clone(c.AuthKitClients), MCPBridgeClients: c.MCPBridgeClients, Railway: c.Deployment == "railway", LoginMethods: c.LoginMethods, Shared: pool.Shared, Name: c.Name, DB: db, Vault: vault, Pool: pool, PublicURL: c.PublicURL, Version: version, Assets: assets, Login: LoginFlow{DB: db, Vault: vault, Provider: provider, EnrollmentLimit: c.EnrollmentLimit, Shared: pool.Shared}}
 	if c.MCP != nil {
 		if c.MCP.Issuer != c.Identity.Issuer {
 			return fmt.Errorf("MCP and browser identity must use the same issuer and stable subject")
