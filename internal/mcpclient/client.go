@@ -16,6 +16,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/ding-labs/ding/internal/mcpconfig"
+	"github.com/ding-labs/ding/internal/mcpcontract"
 )
 
 const MaxResponse = 16 << 20
@@ -43,6 +44,7 @@ func HTTPClient() *http.Client {
 }
 
 type Client struct {
+	Target     *mcpcontract.Target
 	Connection mcpconfig.Connection
 	HTTP       *http.Client
 }
@@ -161,6 +163,9 @@ func allowed(method, path string) bool {
 		}
 	}
 	if method == http.MethodGet {
+		if path == "/cloud/status" {
+			return true
+		}
 		if len(parts) == 1 {
 			switch parts[0] {
 			case "capabilities", "watches", "events", "deliveries", "destinations":

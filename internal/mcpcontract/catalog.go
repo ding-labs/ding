@@ -33,6 +33,7 @@ func Load() (Catalog, error) {
 }
 
 type View struct {
+	Target         *Target        `json:"target,omitempty"`
 	View           string         `json:"view"`
 	Data           any            `json:"data"`
 	Query          map[string]any `json:"query"`
