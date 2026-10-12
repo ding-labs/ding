@@ -6,11 +6,25 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/access"
+	"github.com/ding-labs/ding/internal/control"
 	state "github.com/ding-labs/ding/internal/serverstate"
 )
 
 func (s *Server) scopedMCP(t *Tenant, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" && r.URL.Path == "/v1/integrations/transfers/step" {
+			p, ok := access.FromContext(r.Context())
+			if !ok || !p.Allows(access.Move) {
+				cloudFail(w, 403, "integration_denied", "Owner-approved move permission is required.")
+				return
+			}
+			if _, err := t.App.IntegrationAccess(r.Context(), strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), "move"); err != nil {
+				cloudFail(w, 403, "integration_denied", "Move consent expired or was revoked.")
+				return
+			}
+			control.TransferStep(w, r, t.App, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { s.cloudHandoff(w, r, t) }))
+			return
+		}
 		if r.Method != "GET" || r.URL.Path != "/v1/integrations/cloud/status" {
 			next.ServeHTTP(w, r)
 			return

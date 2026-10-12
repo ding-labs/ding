@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/ding-labs/ding/internal/access"
@@ -36,10 +37,26 @@ func (s *Server) MCPHandler(cfg mcpconfig.HTTP, jwks *http.Client) (http.Handler
 		verifier.Close()
 		return nil, nil, err
 	}
-	transport := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true, MaxRequestBodyBytes: int64(integrationpolicy.Hosted("", "", s.Shared).MaxRequestBytes), PropagateRequestCancellation: true, DisableLocalhostProtection: true})
+	var bridge *mcp.Server
+	if len(s.MCPBridgeClients) > 0 {
+		bridge, err = mcpserver.New(mcpserver.Options{TransferInspection: true, TransferTransport: true, Version: s.Version, Resolve: s.resolveMCP(cfg.Issuer), ListWorkspaces: s.listMCPWorkspaces(cfg.Issuer)})
+		if err != nil {
+			verifier.Close()
+			return nil, nil, err
+		}
+	}
+	transport := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
+		if token := auth.TokenInfoFromContext(r.Context()); token != nil && bridge != nil {
+			client, _ := token.Extra["client_id"].(string)
+			if slices.Contains(s.MCPBridgeClients, client) {
+				return bridge
+			}
+		}
+		return server
+	}, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true, MaxRequestBodyBytes: int64(integrationpolicy.Hosted("", "", s.Shared).MaxRequestBytes), PropagateRequestCancellation: true, DisableLocalhostProtection: true})
 	metadataPath := "/.well-known/oauth-protected-resource/mcp"
 	protected := auth.RequireBearerToken(verifier.Verify, &auth.RequireBearerTokenOptions{ResourceMetadataURL: s.PublicURL + metadataPath, Scopes: []string{"ding:inspect"}})(transport)
-	metadata := auth.ProtectedResourceMetadataHandler(&oauthex.ProtectedResourceMetadata{Resource: s.PublicURL + "/mcp", AuthorizationServers: []string{cfg.Issuer}, ScopesSupported: []string{"ding:inspect", "ding:preview", "ding:manage", "ding:retry"}, BearerMethodsSupported: []string{"header"}})
+	metadata := auth.ProtectedResourceMetadataHandler(&oauthex.ProtectedResourceMetadata{Resource: s.PublicURL + "/mcp", AuthorizationServers: []string{cfg.Issuer}, ScopesSupported: []string{"ding:inspect", "ding:preview", "ding:manage", "ding:retry", "ding:move"}, BearerMethodsSupported: []string{"header"}})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == metadataPath {
 			metadata.ServeHTTP(w, r)

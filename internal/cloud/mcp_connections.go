@@ -97,6 +97,10 @@ func (s *Server) modelConnections(w http.ResponseWriter, r *http.Request, t *Ten
 			return
 		}
 	}
+	if slices.Contains(input.Grant.Scopes, "move") && (input.Local || !slices.Contains(s.MCPBridgeClients, input.ClientID)) {
+		cloudFail(w, 403, "bridge_required", "Move consent is limited to the operator-approved native Ding bridge client.")
+		return
+	}
 	for _, scope := range input.Grant.Scopes {
 		if !principal.Allows(access.Action(scope)) {
 			cloudFail(w, 403, "scope_denied", "This scope exceeds your role.")

@@ -58,6 +58,7 @@ func newHostedMCPFixture(t *testing.T) hostedMCPFixture {
 		return &http.Response{StatusCode: status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("test")), Request: r}, nil
 	})}
 	s.TenantHandler = s.serveTenant
+	s.MCPBridgeClients = []string{"native-bridge"}
 	cfg := mcpconfig.HTTP{PublicURL: s.PublicURL, Issuer: issuer.URL, JWKSURI: issuer.URL + "/keys", Audience: s.PublicURL + "/mcp", Algorithm: "RS256"}
 	var closeMCP func()
 	s.MCP, closeMCP, err = s.MCPHandler(cfg, issuer.Client())
