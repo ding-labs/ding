@@ -1,6 +1,8 @@
 package railway
 
 import (
+	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -46,10 +48,45 @@ func TestOptionalMCPKeepsCloudPolicyAndClosedSignup(t *testing.T) {
 	}
 }
 
+func TestAuthKitAdditionalClients(t *testing.T) {
+	for name, clients := range map[string][]string{
+		"private-test":      {"private-test"},
+		"duplicate-primary": {"chatgpt"},
+		"duplicate-extra":   {"test", "test"},
+		"browser-client":    {"console"},
+		"empty":             {""},
+		"whitespace":        {" private-test"},
+		"too-many":          {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			raw, err := json.Marshal(map[string]any{"issuer": "https://sample.authkit.app", "browserClientId": "console", "chatgptClientId": "chatgpt", "additionalChatgptClientIds": clients, "enrollmentLimit": 10})
+			if err != nil {
+				t.Fatal(err)
+			}
+			env := environment()
+			env["DING_AUTHKIT_JSON"] = string(raw)
+			s, _, _, err := FromEnv(func(k string) string { return env[k] })
+			if name != "private-test" {
+				if err == nil {
+					t.Fatal("invalid client allowlist accepted")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(s.Config.AuthKitClients, []string{"chatgpt", "private-test"}) {
+				t.Fatal("private client replaced public client")
+			}
+		})
+	}
+}
+
 func TestAuthKitProfile(t *testing.T) {
 	env := environment()
 	const valid = `{"issuer":"https://sample.authkit.app","browserClientId":"console","chatgptClientId":"chatgpt","enrollmentLimit":10}`
 	env["DING_AUTHKIT_JSON"] = valid
+	env["DING_AUTHKIT_API_KEY"] = "private-revocation-key"
 	settings, _, _, err := FromEnv(func(k string) string { return env[k] })
 	if err != nil {
 		t.Fatal(err)
@@ -61,7 +98,7 @@ func TestAuthKitProfile(t *testing.T) {
 	if c.MCP.JWKSURI != "https://sample.authkit.app/oauth2/jwks" || c.MCP.Audience != "https://cloud.ding.ing/mcp" || c.AuthKitClients[0] != "chatgpt" || c.Identity.ClientID != "console" || c.Identity.ClientSecret != "" || *c.EnrollmentLimit != 10 {
 		t.Fatal("incorrect AuthKit profile")
 	}
-	if !SecretEnvironment("DING_AUTHKIT_JSON") {
+	if !SecretEnvironment("DING_AUTHKIT_JSON") || !SecretEnvironment("DING_AUTHKIT_API_KEY") || c.AuthKitAPIKey != "private-revocation-key" {
 		t.Fatal("AuthKit config leaked to child processes")
 	}
 	for _, raw := range []string{

@@ -15,6 +15,7 @@ import (
 // configureMCP is opt-in. The generic profile keeps admission closed; AuthKit
 // requires an explicit capacity and uses hosted sign-in exclusively.
 func configureMCP(c *cloud.Config, get func(string) string) error {
+	c.AuthKitAPIKey = get("DING_AUTHKIT_API_KEY")
 	decode := func(raw string, dest any) error {
 		if len(raw) > 16<<10 {
 			return fmt.Errorf("OAuth configuration exceeds 16 KiB")
@@ -37,10 +38,11 @@ func configureMCP(c *cloud.Config, get func(string) string) error {
 			}
 		}
 		var settings struct {
-			Issuer          string `json:"issuer"`
-			BrowserClientID string `json:"browserClientId"`
-			ChatGPTClientID string `json:"chatgptClientId"`
-			EnrollmentLimit *int   `json:"enrollmentLimit"`
+			Issuer                     string   `json:"issuer"`
+			BrowserClientID            string   `json:"browserClientId"`
+			ChatGPTClientID            string   `json:"chatgptClientId"`
+			AdditionalChatGPTClientIDs []string `json:"additionalChatgptClientIds"`
+			EnrollmentLimit            *int     `json:"enrollmentLimit"`
 		}
 		if err := decode(raw, &settings); err != nil {
 			return err
@@ -57,7 +59,7 @@ func configureMCP(c *cloud.Config, get func(string) string) error {
 		c.Identity = identity.Config{Issuer: settings.Issuer, ClientID: settings.BrowserClientID}
 		c.LoginMethods = []string{"oidc"}
 		c.MCP = &mcpconfig.HTTP{Issuer: settings.Issuer, JWKSURI: settings.Issuer + "/oauth2/jwks", Audience: strings.TrimRight(c.PublicURL, "/") + "/mcp", Algorithm: "RS256"}
-		c.AuthKitClients = []string{settings.ChatGPTClientID}
+		c.AuthKitClients = append([]string{settings.ChatGPTClientID}, settings.AdditionalChatGPTClientIDs...)
 		c.EnrollmentLimit = settings.EnrollmentLimit
 		return nil
 	}

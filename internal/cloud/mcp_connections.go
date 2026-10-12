@@ -1,6 +1,8 @@
 package cloud
 
 import (
+	"database/sql"
+	"errors"
 	"github.com/ding-labs/ding/internal/access"
 	state "github.com/ding-labs/ding/internal/serverstate"
 	"net/http"
@@ -72,13 +74,43 @@ func (s *Server) modelConnections(w http.ResponseWriter, r *http.Request, t *Ten
 		return
 	}
 	if input.Revoke {
-		c, _ := s.Vault.MCP(r.Context(), principal.User, t.Workspace.ID, input.ClientID)
-		if err := s.DB.UnbindMCP(r.Context(), principal.User, t.Workspace.ID, input.ClientID); err != nil {
+		c, err := s.Vault.MCP(r.Context(), principal.User, t.Workspace.ID, input.ClientID)
+		if errors.Is(err, sql.ErrNoRows) {
+			cloudWrite(w, 200, map[string]bool{"revoked": true})
+			return
+		}
+		var grant store.IntegrationGrant
+		if err == nil {
+			err = t.App.Store.Update(r.Context(), func(tx *store.Tx) error {
+				var e error
+				grant, e = tx.IntegrationGrant(c.GrantID)
+				if e != nil {
+					return e
+				}
+				return tx.RevokeIntegrationGrant(c.GrantID)
+			})
+		}
+		if err != nil {
 			cloudFail(w, 503, "revoke_failed", "Revocation could not be confirmed; retry.")
 			return
 		}
-		if c.GrantID != "" {
-			_ = t.App.Store.Update(r.Context(), func(tx *store.Tx) error { return tx.RevokeIntegrationGrant(c.GrantID) })
+		// Revoke locally first. Retain the disabled binding until provider cleanup
+		// succeeds, so failures (including a process crash) remain visible/retryable.
+		// authKitIdentity refuses every token while this grant remains revoked.
+		if grant.ProviderConsent != "" {
+			subject, err := s.DB.IdentitySubject(r.Context(), principal.User, s.AuthKitIssuer)
+			if err != nil || s.ConsentRevoker == nil {
+				cloudFail(w, 503, "provider_revoke_pending", "Ding access is disabled. Hosted sign-in cleanup is unavailable; retry disconnect when it is configured.")
+				return
+			}
+			if err := s.ConsentRevoker.Revoke(r.Context(), subject, input.ClientID); err != nil {
+				cloudFail(w, 503, "provider_revoke_pending", "Ding access is disabled. Hosted sign-in cleanup failed; retry disconnect before reconnecting.")
+				return
+			}
+		}
+		if err := s.DB.UnbindMCP(r.Context(), principal.User, t.Workspace.ID, input.ClientID); err != nil {
+			cloudFail(w, 503, "revoke_failed", "Ding access is disabled. Retry disconnect to finish cleanup.")
+			return
 		}
 		cloudWrite(w, 200, map[string]bool{"revoked": true})
 		return

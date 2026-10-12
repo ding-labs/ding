@@ -11,8 +11,10 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
+	"github.com/ding-labs/ding/internal/authkit"
 	"github.com/ding-labs/ding/internal/cloud/egress"
 	"github.com/ding-labs/ding/internal/cloudbackup"
 	"github.com/ding-labs/ding/internal/mcpconfig"
@@ -21,6 +23,7 @@ import (
 )
 
 type Config struct {
+	AuthKitAPIKey       string          `json:"authKitApiKey,omitempty"`
 	Deployment          string          `json:"deployment,omitempty"`
 	LoginMethods        []string        `json:"loginMethods,omitempty"`
 	Hosting             string          `json:"hosting,omitempty"`
@@ -42,6 +45,9 @@ type Config struct {
 }
 
 func (c *Config) Validate() error {
+	if c.AuthKitAPIKey != "" && len(c.AuthKitClients) == 0 {
+		return fmt.Errorf("AuthKit API key requires configured AuthKit clients")
+	}
 	if err := validateOpenAIChallenge(c.OpenAIAppsChallenge); err != nil {
 		return err
 	}
@@ -85,8 +91,8 @@ func (c *Config) Validate() error {
 		if c.Hosting != "cloud" || c.MCP == nil || len(c.AuthKitClients) > 10 {
 			return fmt.Errorf("AuthKit requires cloud MCP and at most ten registered client IDs")
 		}
-		for _, client := range c.AuthKitClients {
-			if client == "" || len(client) > 512 || slices.Contains(c.MCPBridgeClients, client) {
+		for i, client := range c.AuthKitClients {
+			if client == "" || len(client) > 512 || strings.ContainsAny(client, " \t\r\n") || client == c.Identity.ClientID || slices.Contains(c.AuthKitClients[:i], client) || slices.Contains(c.MCPBridgeClients, client) {
 				return fmt.Errorf("invalid AuthKit client")
 			}
 		}
@@ -243,6 +249,10 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 		return err
 	}
 	app := &Server{OpenAIAppsChallenge: c.OpenAIAppsChallenge, AuthKitClients: slices.Clone(c.AuthKitClients), MCPBridgeClients: c.MCPBridgeClients, Railway: c.Deployment == "railway", LoginMethods: c.LoginMethods, Shared: pool.Shared, Name: c.Name, DB: db, Vault: vault, Pool: pool, PublicURL: c.PublicURL, Version: version, Assets: assets, Login: LoginFlow{DB: db, Vault: vault, Provider: provider, EnrollmentLimit: c.EnrollmentLimit, Shared: pool.Shared}}
+	app.AuthKitIssuer = c.Identity.Issuer
+	if c.AuthKitAPIKey != "" {
+		app.ConsentRevoker = authkit.NewRevoker(c.AuthKitAPIKey)
+	}
 	if c.MCP != nil {
 		if c.MCP.Issuer != c.Identity.Issuer {
 			return fmt.Errorf("MCP and browser identity must use the same issuer and stable subject")
