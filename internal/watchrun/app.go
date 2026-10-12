@@ -355,6 +355,10 @@ func (a *App) Accept(ctx context.Context, record store.WatchRecord, batch source
 // Live time is sampled after obtaining the transaction lock. Concurrent push
 // requests cannot commit timestamps in the reverse order of their evaluation.
 func (a *App) accept(ctx context.Context, record store.WatchRecord, batch source.Batch, inputID string, clock func() time.Time) (Receipt, error) {
+	return a.acceptPush(ctx, record, batch, inputID, clock, nil)
+}
+
+func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch source.Batch, inputID string, clock func() time.Time, push *PushInput) (Receipt, error) {
 	var receipt Receipt
 	if a.isClosing() {
 		return receipt, ErrClosing
@@ -377,6 +381,30 @@ func (a *App) accept(ctx context.Context, record store.WatchRecord, batch source
 		current, err := tx.Watch(record.Plan.Definition.Metadata.ID)
 		if err != nil {
 			return err
+		}
+		if push != nil {
+			if !push.ValidUntil.IsZero() && !now.Before(push.ValidUntil) {
+				return ErrProducerExpired
+			}
+			if current.Lifetime != record.Lifetime || current.Status == "deleted" {
+				return store.ErrStale
+			}
+			saved, err := tx.PushReceipt(record.Lifetime, push.Producer, push.Key, push.Digest, now)
+			if err == nil {
+				push.Receipt = saved
+				receipt = Receipt{First: saved.First, Last: saved.Last, Duplicate: true}
+				return nil
+			}
+			if !errors.Is(err, store.ErrNotFound) {
+				return err
+			}
+			n, err := tx.PushReceiptCount(now)
+			if err != nil {
+				return err
+			}
+			if n >= push.MaxReceipts {
+				return ErrQuota
+			}
 		}
 		if current.Generation != record.Generation || current.Plan.Revision != record.Plan.Revision || current.Status != "running" {
 			return store.ErrStale
@@ -519,6 +547,23 @@ func (a *App) accept(ctx context.Context, record store.WatchRecord, batch source
 		if usage.Bytes > a.Limits.MaxBytes {
 			return ErrQuota
 		}
+		if push != nil {
+			if !push.ValidUntil.IsZero() && !clock().Before(push.ValidUntil) {
+				return ErrProducerExpired
+			}
+			push.Receipt = store.PushReceipt{AcceptanceID: inputID, WatchID: id, Generation: current.Generation, Revision: current.Plan.Revision, First: receipt.First, Last: receipt.Last, AcceptedAt: now, ExpiresAt: now.Add(push.Horizon)}
+			if err := tx.SavePushReceipt(current.Lifetime, push.Producer, push.Key, push.Digest, push.Receipt, push.Bytes, len(batch.Observations)); err != nil {
+				return err
+			}
+			usage, err := tx.Budget()
+			if err != nil {
+				return err
+			}
+			if usage.Bytes > a.Limits.MaxBytes {
+				return ErrQuota
+			}
+			return nil
+		}
 		receiptTTL := 24 * time.Hour
 		if c := current.Plan.Definition.Spec.Source.Logs; c != nil {
 			receiptTTL, _ = time.ParseDuration(c.Retention)
@@ -528,7 +573,7 @@ func (a *App) accept(ctx context.Context, record store.WatchRecord, batch source
 		}
 		return tx.SaveReceipt(id, current.Generation, inputID, receipt.First, receipt.Last, now.Add(receiptTTL))
 	})
-	if err != nil && !errors.Is(err, store.ErrStale) && !errors.Is(err, ErrClosing) && ctx.Err() == nil {
+	if push == nil && err != nil && !errors.Is(err, store.ErrStale) && !errors.Is(err, ErrClosing) && ctx.Err() == nil {
 		detail := "acceptance_failed"
 		if errors.Is(err, ErrQuota) {
 			detail = "quota_exceeded"

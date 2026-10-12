@@ -25,7 +25,7 @@ func handoffRoutes(mux *http.ServeMux, app *watchrun.App) {
 		if err == nil && out.Ready {
 			b, e := plan.Parse([]byte(out.Manifest))
 			if e == nil {
-				e = hostingpolicy.Policy(b)
+				e = hostingpolicy.TransferPolicy(b)
 				for _, compiled := range b.Watches {
 					if len(compiled.Definition.Spec.Destinations) == 0 {
 						e = fmt.Errorf("choose a remote notification destination before moving this watch")

@@ -98,6 +98,9 @@ func (a *App) PrepareHandoff(ctx context.Context, r HandoffPrepare) (store.Hando
 	if err != nil {
 		return store.Handoff{}, err
 	}
+	if a.Integration.Execution == "cloud" && len(b.Watches) == 1 && b.Watches[0].Definition.Spec.Source.Type != "http" {
+		return store.Handoff{}, fmt.Errorf("automatic push transfer is unavailable; create the watch and reconfigure its producer")
+	}
 	if len(b.Watches) != 1 {
 		return store.Handoff{}, fmt.Errorf("transfer exactly one watch")
 	}

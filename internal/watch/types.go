@@ -44,6 +44,7 @@ type Source struct {
 	Timeout         string               `json:"timeout,omitempty" yaml:"timeout,omitempty"`
 	Headers         map[string]SecretRef `json:"headers,omitempty" yaml:"headers,omitempty"`
 	Fields          map[string]string    `json:"fields,omitempty" yaml:"fields,omitempty"`
+	ItemsPath       string               `json:"itemsPath,omitempty" yaml:"itemsPath,omitempty"`
 	JQ              string               `json:"jq,omitempty" yaml:"jq,omitempty"`
 	Argv            []string             `json:"argv,omitempty" yaml:"argv,omitempty"`
 	Directory       string               `json:"directory,omitempty" yaml:"directory,omitempty"`

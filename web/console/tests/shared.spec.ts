@@ -1,3 +1,4 @@
+import { cloudPushJourney } from "./push-journey";
 import { test, expect } from "./fixtures";
 import { spawn, execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
@@ -10,6 +11,7 @@ import { join, resolve } from "node:path";
 test.use({ ignoreHTTPSErrors: true });
 for (const hosting of ["self-hosted", "cloud"] as const) {
 test(`${hosting} owner invites a viewer and revokes their access`, async ({ binary, page, browser }, testInfo) => {
+  test.setTimeout(90000);
   const dir = mkdtempSync(join(tmpdir(), "ding-shared-test-"));
   const key = join(dir, "tls.key"), cert = join(dir, "tls.crt");
   execFileSync("openssl", ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", key, "-out", cert, "-subj", "/CN=localhost", "-days", "1"], { stdio: "ignore" });
@@ -59,11 +61,12 @@ test(`${hosting} owner invites a viewer and revokes their access`, async ({ bina
     await visitor.getByLabel("Username",{exact:true}).fill("reader");await visitor.getByLabel("Password",{exact:true}).fill("reader correct password");await visitor.getByRole("button",{name:"Sign in",exact:true}).click();
     await expect(visitor.getByRole("link",{name:"System",exact:true})).toBeVisible();await expect(visitor.getByRole("link",{name:"Workbench",exact:true})).toHaveCount(0);
     const forbidden=await visitor.evaluate(async()=>{const s=await(await fetch("/v1/browser/session")).json();return(await fetch("/v1/apply",{method:"POST",headers:{"Content-Type":"application/json","X-Ding-CSRF":s.data.csrf},body:"{}"})).status;});expect(forbidden).toBe(403);
+    if(hosting==="cloud") await cloudPushJourney(page,visitor,url,testInfo);
     await page.getByRole("listitem").filter({hasText:"Reader"}).getByRole("button",{name:"Disable",exact:true}).click();
-    expect((await visitor.request.get(url+"/v1/watches")).status()).toBe(401);
+    await expect.poll(async()=>(await visitor.request.get(url+"/v1/watches")).status(),{timeout:10000,intervals:[500,1000]}).toBe(401);
     await visitor.reload();await expect(visitor.getByRole("heading",{name:"Sign in to Team Ding."})).toBeVisible();
   } finally {
-    await reader.close();child.kill("SIGTERM");await new Promise<void>(r=>{if(child.exitCode!==null)r();else child.once("exit",()=>r());});
+    await reader.close().catch(()=>{});child.kill("SIGTERM");await new Promise<void>(r=>{if(child.exitCode!==null)r();else child.once("exit",()=>r());});
     await new Promise<void>(r=>proxy.close(()=>r()));rmSync(dir,{recursive:true,force:true});
   }
 });

@@ -88,20 +88,39 @@ func Open(ctx context.Context, dir string) (*DB, error) {
 	if err := db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return nil, err
 	}
-	if version != 0 && version != schemaVersion {
-		return nil, fmt.Errorf("incompatible server schema; initialize a fresh state directory")
+	if version != 0 && (version < 100 || version > schemaVersion) {
+		return nil, fmt.Errorf("incompatible server schema; use a compatible binary or backup")
 	}
 	if _, err := db.ExecContext(ctx, "PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=100; PRAGMA journal_size_limit=4194304;"); err != nil {
 		return nil, err
 	}
-	if version == 0 {
+	if version < schemaVersion {
+		if version > 0 {
+			backup := filepath.Join(dir, fmt.Sprintf("before-schema-%d-%d.db", schemaVersion, time.Now().UnixNano()))
+			if err := (&DB{sql: db}).Backup(ctx, backup); err != nil {
+				return nil, fmt.Errorf("pre-migration control backup: %w", err)
+			}
+		}
 		tx, err := db.BeginTx(ctx, nil)
 		if err != nil {
 			return nil, err
 		}
 		defer tx.Rollback()
-		if _, err := tx.ExecContext(ctx, schema); err != nil {
-			return nil, err
+		if version == 0 {
+			if _, err := tx.ExecContext(ctx, schema); err != nil {
+				return nil, err
+			}
+			version = 100
+		}
+		if version == 100 {
+			if _, err := tx.ExecContext(ctx, serviceKeyMigration); err != nil {
+				return nil, fmt.Errorf("server migration 101: %w", err)
+			}
+		}
+		if version <= 101 {
+			if _, err := tx.ExecContext(ctx, webhookMigration); err != nil {
+				return nil, fmt.Errorf("server migration 102: %w", err)
+			}
 		}
 		if _, err := tx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version=%d", schemaVersion)); err != nil {
 			return nil, err
@@ -157,7 +176,7 @@ func (d *DB) Workspaces(ctx context.Context) ([]Workspace, error) {
 	return workspaces, rows.Err()
 }
 
-const schemaVersion = 100
+const schemaVersion = 102
 
 const schema = `
 CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
@@ -180,3 +199,12 @@ CREATE TABLE devices(id TEXT PRIMARY KEY,user TEXT REFERENCES users(id) ON DELET
 CREATE TABLE mcp_bindings(user TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,workspace TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,client TEXT NOT NULL,credential_hash TEXT NOT NULL UNIQUE,ciphertext BLOB NOT NULL,PRIMARY KEY(user,workspace,client));
 CREATE TABLE handoff_proofs(workspace TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,id TEXT NOT NULL,body BLOB NOT NULL,PRIMARY KEY(workspace,id));
 `
+
+const serviceKeyMigration = `
+ALTER TABLE service_grants ADD COLUMN lifetimes TEXT NOT NULL DEFAULT '{}';
+CREATE TABLE service_keys(id TEXT PRIMARY KEY,service TEXT NOT NULL REFERENCES service_grants(id) ON DELETE CASCADE,hash TEXT UNIQUE NOT NULL,expires_at INTEGER NOT NULL,created_at INTEGER NOT NULL,last_used_at INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX service_keys_service ON service_keys(service);
+INSERT INTO service_keys(id,service,hash,expires_at,created_at) SELECT id,id,hash,expires_at,0 FROM service_grants;
+`
+
+const webhookMigration = `CREATE TABLE webhook_connections(id TEXT PRIMARY KEY,workspace TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,lifetime TEXT NOT NULL,body BLOB NOT NULL,secret BLOB NOT NULL,previous BLOB,previous_until INTEGER NOT NULL);`

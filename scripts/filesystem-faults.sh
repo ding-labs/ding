@@ -12,3 +12,5 @@ docker run --rm --platform "linux/$arch" -e DING_FS_PREPARE_DIR=/fixture --mount
 docker run --rm --platform "linux/$arch" --read-only -e DING_FS_READONLY_DIR=/fixture --mount "$mount_binary" --mount "type=bind,src=$fixture/state,dst=/fixture,readonly" alpine:3.23 /store.test -test.v -test.run '^TestPhysicalReadOnlyStartupPreservesCommittedData$'
 CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go test -c -o "$fixture/runtime.test" ./internal/watchrun
 docker run --rm --platform "linux/$arch" --read-only --tmpfs /fault:rw,size=8m -e DING_FS_FULL_DIR=/fault --mount "type=bind,src=$fixture/runtime.test,dst=/runtime.test,readonly" alpine:3.23 /runtime.test -test.v -test.run '^TestPhysicalFullPushIsNotAcknowledged$'
+CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go test -c -o "$fixture/cloud.test" ./internal/cloud
+docker run --rm --platform "linux/$arch" --read-only --tmpfs /fault:rw,size=8m -e DING_FS_FULL_DIR=/fault --mount "type=bind,src=$fixture/cloud.test,dst=/cloud.test,readonly" alpine:3.23 /cloud.test -test.v -test.run '^TestCloudPhysicalDiskReservePreservesReconciliation$'

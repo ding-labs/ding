@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/cloud/egress"
+	"github.com/ding-labs/ding/internal/hostingpolicy"
 	"github.com/ding-labs/ding/internal/integrationpolicy"
 	"github.com/ding-labs/ding/internal/plan"
 	state "github.com/ding-labs/ding/internal/serverstate"
@@ -35,6 +36,8 @@ type Tenant struct {
 	failed    atomic.Bool
 }
 type Pool struct {
+	ingest           pushMetrics
+	Capacity         hostingpolicy.Capacity
 	Shared           bool
 	ApprovedCommands []string
 	root             string
@@ -82,7 +85,7 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 	}
 	app := watchrun.New(db)
 	app.Integration = integrationpolicy.Hosted(workspace.ID, workspace.Name, p.Shared)
-	app.Limits = Limits()
+	app.Limits = p.Capacity.Limits()
 	if p.Shared {
 		app.Limits = watchrun.DefaultLimits()
 	}
@@ -95,10 +98,10 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 	app.Output = io.Discard
 	client := *p.http
 	if !p.Shared {
-		client.Transport = budgetTransport{p.http.Transport, p.db, id}
+		client.Transport = budgetTransport{next: p.http.Transport, db: p.db, workspace: id, budget: &state.OutboundBudget{Checks: p.Capacity.OutboundChecks, Deliveries: p.Capacity.OutboundDeliveries, Bytes: p.Capacity.OutboundBytes}}
 	}
 	app.HTTP.Client = &client
-	app.ValidateBundle = Policy
+	app.ValidateBundle = p.Capacity.Policy
 	if p.Shared {
 		app.ValidateBundle = sharedPolicy(p.ApprovedCommands)
 	}
@@ -160,6 +163,17 @@ func (p *Pool) Start(ctx context.Context) error {
 	}
 	if len(workspaces) > MaxAccounts {
 		return fmt.Errorf("stored cohort exceeds this worker's configured capacity")
+	}
+	// Complete each atomic, version-journaled migration before any execution
+	// worker starts. A restart resumes from persisted per-store versions.
+	for _, a := range workspaces {
+		db, err := store.Open(ctx, filepath.Join(p.root, "workspaces", a.ID))
+		if err != nil {
+			return err
+		}
+		if err = db.Close(); err != nil {
+			return err
+		}
 	}
 	for _, a := range workspaces {
 		if _, err := p.Get(ctx, a.ID); err != nil {

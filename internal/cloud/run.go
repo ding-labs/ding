@@ -17,31 +17,34 @@ import (
 	"github.com/ding-labs/ding/internal/authkit"
 	"github.com/ding-labs/ding/internal/cloud/egress"
 	"github.com/ding-labs/ding/internal/cloudbackup"
+	"github.com/ding-labs/ding/internal/hostingpolicy"
 	"github.com/ding-labs/ding/internal/mcpconfig"
 	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/webui"
 )
 
 type Config struct {
-	AuthKitAPIKey       string          `json:"authKitApiKey,omitempty"`
-	Deployment          string          `json:"deployment,omitempty"`
-	LoginMethods        []string        `json:"loginMethods,omitempty"`
-	Hosting             string          `json:"hosting,omitempty"`
-	Name                string          `json:"name,omitempty"`
-	ApprovedCommands    []string        `json:"approvedCommands,omitempty"`
-	EnrollmentLimit     *int            `json:"enrollmentLimit,omitempty"`
-	OperatorListen      string          `json:"operatorListen,omitempty"`
-	PublicURL           string          `json:"publicURL"`
-	Listen              string          `json:"listen"`
-	DataDir             string          `json:"dataDir"`
-	KeyFile             string          `json:"keyFile"`
-	TLSCert             string          `json:"tlsCert,omitempty"`
-	TLSKey              string          `json:"tlsKey,omitempty"`
-	Identity            identity.Config `json:"identity"`
-	MCP                 *mcpconfig.HTTP `json:"mcp,omitempty"`
-	MCPBridgeClients    []string        `json:"mcpBridgeClients,omitempty"`
-	AuthKitClients      []string        `json:"authKitClients,omitempty"`
-	OpenAIAppsChallenge string          `json:"openAIAppsChallenge,omitempty"`
+	Capacity            hostingpolicy.Capacity `json:"capacity,omitempty"`
+	Push                PushConfig             `json:"push,omitempty"`
+	AuthKitAPIKey       string                 `json:"authKitApiKey,omitempty"`
+	Deployment          string                 `json:"deployment,omitempty"`
+	LoginMethods        []string               `json:"loginMethods,omitempty"`
+	Hosting             string                 `json:"hosting,omitempty"`
+	Name                string                 `json:"name,omitempty"`
+	ApprovedCommands    []string               `json:"approvedCommands,omitempty"`
+	EnrollmentLimit     *int                   `json:"enrollmentLimit,omitempty"`
+	OperatorListen      string                 `json:"operatorListen,omitempty"`
+	PublicURL           string                 `json:"publicURL"`
+	Listen              string                 `json:"listen"`
+	DataDir             string                 `json:"dataDir"`
+	KeyFile             string                 `json:"keyFile"`
+	TLSCert             string                 `json:"tlsCert,omitempty"`
+	TLSKey              string                 `json:"tlsKey,omitempty"`
+	Identity            identity.Config        `json:"identity"`
+	MCP                 *mcpconfig.HTTP        `json:"mcp,omitempty"`
+	MCPBridgeClients    []string               `json:"mcpBridgeClients,omitempty"`
+	AuthKitClients      []string               `json:"authKitClients,omitempty"`
+	OpenAIAppsChallenge string                 `json:"openAIAppsChallenge,omitempty"`
 }
 
 func (c *Config) Validate() error {
@@ -49,6 +52,12 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("AuthKit API key requires configured AuthKit clients")
 	}
 	if err := validateOpenAIChallenge(c.OpenAIAppsChallenge); err != nil {
+		return err
+	}
+	if err := c.Capacity.Validate(); err != nil {
+		return err
+	}
+	if err := c.Push.Validate(c.Capacity.Effective().MaxBodyBytes); err != nil {
 		return err
 	}
 	if c.Hosting == "" {
@@ -237,6 +246,7 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 		client = &http.Client{Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	}
 	pool := NewPool(ctx, c.DataDir, db, vault, client)
+	pool.Capacity = c.Capacity
 	pool.Shared = c.Hosting == "self-hosted"
 	pool.ApprovedCommands = append([]string(nil), c.ApprovedCommands...)
 	defer pool.Close()
@@ -248,7 +258,7 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 	if err := pool.Start(ctx); err != nil {
 		return err
 	}
-	app := &Server{OpenAIAppsChallenge: c.OpenAIAppsChallenge, AuthKitClients: slices.Clone(c.AuthKitClients), MCPBridgeClients: c.MCPBridgeClients, Railway: c.Deployment == "railway", LoginMethods: c.LoginMethods, Shared: pool.Shared, Name: c.Name, DB: db, Vault: vault, Pool: pool, PublicURL: c.PublicURL, Version: version, Assets: assets, Login: LoginFlow{DB: db, Vault: vault, Provider: provider, EnrollmentLimit: c.EnrollmentLimit, Shared: pool.Shared}}
+	app := &Server{Push: c.Push, OpenAIAppsChallenge: c.OpenAIAppsChallenge, AuthKitClients: slices.Clone(c.AuthKitClients), MCPBridgeClients: c.MCPBridgeClients, Railway: c.Deployment == "railway", LoginMethods: c.LoginMethods, Shared: pool.Shared, Name: c.Name, DB: db, Vault: vault, Pool: pool, PublicURL: c.PublicURL, Version: version, Assets: assets, Login: LoginFlow{DB: db, Vault: vault, Provider: provider, EnrollmentLimit: c.EnrollmentLimit, Shared: pool.Shared}}
 	app.AuthKitIssuer = c.Identity.Issuer
 	if c.AuthKitAPIKey != "" {
 		app.ConsentRevoker = authkit.NewRevoker(c.AuthKitAPIKey)

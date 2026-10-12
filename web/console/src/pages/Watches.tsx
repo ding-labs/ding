@@ -1,3 +1,6 @@
+import { PushStatus } from "../components/PushStatus";
+import { PushPreview } from "../components/PushPreview";
+import { useExecution } from "../app/execution";
 import { Availability } from "./Availability";
 import { useState } from "react";
 import {
@@ -300,6 +303,7 @@ export function Watches() {
   );
 }
 export function WatchDetail() {
+  const execution = useExecution();
   const draft = useDraft();
   const location = useLocation();
   const { id = "" } = useParams();
@@ -385,7 +389,7 @@ export function WatchDetail() {
       />
       {tab === "Overview" && (
         <>
-          <Availability watchID={id} />
+          <Availability watchID={id} sourceType={d.spec.source.type} />
           {d.spec.source.logs && (
             <LogEvidence
               id={id}
@@ -402,7 +406,7 @@ export function WatchDetail() {
                 {d.spec.source.type === "logs" ? (
                   "Summaries evaluated once per second while collection is active"
                 ) : d.spec.source.type === "push" ? (
-                  "Waiting for POST /v1/ingest/" + id
+                  (s?.lastInputAt ? "Input endpoint: /v1/ingest/" : "Waiting for POST /v1/ingest/") + id
                 ) : (
                   <>
                     Next scheduled check <Time value={w.nextAt} />
@@ -567,15 +571,23 @@ export function WatchDetail() {
       {tab === "Overview" && d.spec.source.type === "push" && (
         <section className="panel">
           <h3>Send an observation</h3>
+          <PushPreview key={id} watch={id} />
+          {execution.mode === "cloud" && (
+            <PushStatus key={`status:${id}`} watch={id} />
+          )}
           <p>
-            Use the daemon's ingest credential in your producer. The browser
-            session cannot ingest. Replace the JSON body with the source data
-            expected by this definition.
+            {execution.mode === "local"
+              ? "Use the daemon's ingest credential."
+              : "Create a producer credential in Service credentials with access to this watch."}{" "}
+            The browser session cannot ingest. Select the JSON fields and
+            grouping in the definition, then send the expected source data. Keep
+            the same key and exact JSON bytes when retrying.
           </p>
-          <pre className="command-block">{`curl --request POST '${window.location.origin}/v1/ingest/${encodeURIComponent(id)}' \\\n  --header "Authorization: Bearer $DING_INGEST_TOKEN" \\\n  --header 'Content-Type: application/json' \\\n  --data '{}'`}</pre>
+          <pre className="command-block">{`curl --request POST '${window.location.origin}/v1/ingest/${encodeURIComponent(id)}' \\\n  --header "Authorization: Bearer $DING_INGEST_TOKEN" \\\n  --header 'Content-Type: application/json' \\\n  --header 'Idempotency-Key: REPLACE_WITH_STABLE_EVENT_ID' \\\n  --data-binary '@observation.json'`}</pre>
           <p className="muted">
-            Keep the ingest credential in your producer's secret store. Add an
-            Idempotency-Key header when retrying an input.
+            Keep the credential in your producer's secret store. Cloud ingestion
+            requires an Idempotency-Key. A 202 confirms accepted monitoring
+            input; notification delivery is tracked separately.
           </p>
         </section>
       )}

@@ -69,6 +69,7 @@ nav:
     - Examples: examples.md
     - HTTP monitoring: guides/http.md
     - Receive JSON: guides/push.md
+    - Signed cloud webhooks: guides/cloud-webhooks.md
     - Command checks: guides/command.md
     - Live application logs: guides/logs.md
     - Missing heartbeats: guides/missing-data.md

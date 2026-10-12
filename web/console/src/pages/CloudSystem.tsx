@@ -6,7 +6,7 @@ import { CloudModels } from "./CloudModels";
 import { api } from "../api/client";
 import { useRead, ErrorBox, Loading } from "../components/common";
 
-type Usage = { usage: { period: string; checks: number; deliveries: number; bytes: number }; limits: { checks: number; deliveryAttempts: number; bytes: number }; note: string };
+type Usage = { ingest?:{requests:number;bytes:number;observations:number}; usage: { period: string; checks: number; deliveries: number; bytes: number }; limits: { checks: number; deliveryAttempts: number; bytes: number }; note: string };
 
 export function CloudSystem() {
   const {mode,accountFeatures} = useExecution();
@@ -58,10 +58,11 @@ function HostedUsage() {
       {usage.isPending ? <Loading /> : usage.data ? <>
         <p>UTC calendar month {usage.data.usage.period}</p>
         <dl className="facts">
-          <div><dt>Check attempts</dt><dd>{usage.data.usage.checks} / {usage.data.limits.checks}</dd></div>
-          <div><dt>Delivery attempts</dt><dd>{usage.data.usage.deliveries} / {usage.data.limits.deliveryAttempts}</dd></div>
-          <div><dt>Metered traffic</dt><dd>{mib(usage.data.usage.bytes)} / {mib(usage.data.limits.bytes)} MiB</dd></div>
+          <div><dt>Check attempts</dt><dd>{usage.data.usage.checks}{usage.data.limits.checks ? ` / ${usage.data.limits.checks}` : " · no monthly quota"}</dd></div>
+          <div><dt>Delivery attempts</dt><dd>{usage.data.usage.deliveries}{usage.data.limits.deliveryAttempts ? ` / ${usage.data.limits.deliveryAttempts}` : " · no monthly quota"}</dd></div>
+          <div><dt>Metered traffic</dt><dd>{mib(usage.data.usage.bytes)} MiB{usage.data.limits.bytes ? ` / ${mib(usage.data.limits.bytes)} MiB` : " · no monthly quota"}</dd></div>
         </dl>
+        {usage.data.ingest&&<p>Accepted push input since workspace creation: {usage.data.ingest.requests} requests · {usage.data.ingest.observations} observations · {mib(usage.data.ingest.bytes)} MiB. Exact retries and rejected inputs are excluded.</p>}
         <p className="muted">{usage.data.note}</p>
         <p>When an outbound budget is exhausted, checks and deliveries cannot contact their destinations. Ding reports that failure instead of showing successful monitoring. Inspect Diagnostics for source, outbox and storage pressure.</p>
       </> : null}

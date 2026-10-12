@@ -54,7 +54,7 @@ func URL(value string) error {
 }
 func (h HTTP) Fetch(ctx context.Context, p plan.Compiled, cursor string, now time.Time) Batch {
 	s := p.Definition.Spec.Source
-	projectBody := len(s.Fields) > 0 || s.JQ != ""
+	projectBody := len(s.Fields) > 0 || s.JQ != "" || s.ItemsPath != ""
 	b := Batch{Cursor: cursor}
 	unknown := func(reason string) Batch {
 		b.Observations = []watch.Observation{{Health: "unknown", Detail: reason}}
@@ -126,7 +126,7 @@ func (h HTTP) Fetch(ctx context.Context, p plan.Compiled, cursor string, now tim
 		if len(body) > p.Definition.Spec.Limits.MaxBytes {
 			return unknown("source_response_too_large")
 		}
-		outputs, err = transform.Project(ctx, body, s.JQ, s.Fields, p.Definition.Spec.Limits.MaxOutputs, p.Definition.Spec.Limits.MaxBytes)
+		outputs, err = transform.Project(ctx, body, s.JQ, s.Fields, p.Definition.Spec.Limits.MaxOutputs, p.Definition.Spec.Limits.MaxBytes, s.ItemsPath)
 		if err != nil {
 			return unknown("source_invalid_projection")
 		}

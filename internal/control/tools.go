@@ -1,11 +1,13 @@
 package control
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/ding-labs/ding/internal/plan"
 	"github.com/ding-labs/ding/internal/replay"
+	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watchrun"
 	"io"
 	"net/http"
@@ -78,7 +80,7 @@ func decodeBounded(w http.ResponseWriter, r *http.Request, out any, max int64) e
 func toolRoutes(mux *http.ServeMux, app *watchrun.App) {
 	logPreviewRoute(mux)
 	slots := make(chan struct{}, 2)
-	for _, kind := range []string{"compile", "test", "replay"} {
+	for _, kind := range []string{"compile", "test", "project", "replay"} {
 		mux.HandleFunc("POST /v1/tools/"+kind, func(w http.ResponseWriter, r *http.Request) {
 			select {
 			case slots <- struct{}{}:
@@ -109,7 +111,7 @@ func toolRoutes(mux *http.ServeMux, app *watchrun.App) {
 			switch kind {
 			case "compile":
 				write(w, 200, compileTool(app, req.Manifest), nil)
-			case "test":
+			case "test", "project":
 				b, err := plan.Parse([]byte(req.Manifest))
 				if err != nil {
 					fail(w, 400, "invalid_manifest", err.Error())
@@ -123,6 +125,33 @@ func toolRoutes(mux *http.ServeMux, app *watchrun.App) {
 				}
 				if selected == nil {
 					fail(w, 400, "invalid_watch", "select one watch from this bundle")
+					return
+				}
+				if kind == "project" {
+					if app.ValidateBundle != nil {
+						if err := app.ValidateBundle(b); err != nil {
+							fail(w, 400, "source_policy", err.Error())
+							return
+						}
+					}
+					batch, err := watchrun.PreparePush(ctx, store.WatchRecord{Plan: *selected, Status: "running"}, []byte(req.Fixture), 32, 32000)
+					if err != nil {
+						fail(w, 400, "invalid_fixture", err.Error())
+						return
+					}
+					var encoded bytes.Buffer
+					now := app.Now()
+					for i := range batch.Observations {
+						batch.Observations[i].Sequence = int64(i + 1)
+						batch.Observations[i].AcceptedAt = now
+						_ = json.NewEncoder(&encoded).Encode(batch.Observations[i])
+					}
+					report, err := replay.RunContext(ctx, *selected, &encoded)
+					if err != nil {
+						fail(w, 400, "invalid_fixture", err.Error())
+						return
+					}
+					write(w, 200, map[string]any{"observations": batch.Observations, "prediction": report, "persisted": false}, nil)
 					return
 				}
 				report, err := replay.RunContext(ctx, *selected, strings.NewReader(req.Fixture))

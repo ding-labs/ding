@@ -76,7 +76,7 @@ func (c Command) Fetch(ctx context.Context, p plan.Compiled, cursor string, now 
 	if err != nil {
 		return unknown("command_failed")
 	}
-	outputs, err := transform.Project(ctx, captured.stdout.Bytes(), spec.JQ, spec.Fields, p.Definition.Spec.Limits.MaxOutputs, p.Definition.Spec.Limits.MaxBytes)
+	outputs, err := transform.Project(ctx, captured.stdout.Bytes(), spec.JQ, spec.Fields, p.Definition.Spec.Limits.MaxOutputs, p.Definition.Spec.Limits.MaxBytes, spec.ItemsPath)
 	if err != nil {
 		return unknown("command_invalid_projection")
 	}

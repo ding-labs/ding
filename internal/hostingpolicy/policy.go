@@ -13,37 +13,48 @@ import (
 
 const MaxManifestBytes = integrationpolicy.CloudManifestBytes
 
-func Limits() watchrun.Limits {
-	return watchrun.Limits{MaxDestinations: 3, MaxWatches: 3, MaxPending: 100, MaxBytes: 64 << 20, Retention: 7 * 24 * time.Hour}
-}
-
-func Policy(bundle plan.Bundle) error {
-	if len(bundle.Watches) > 3 || len(bundle.Destinations) > 3 {
-		return fmt.Errorf("cloud beta allows at most three watches and three destinations per manifest")
+func Limits() watchrun.Limits         { return (Capacity{}).Limits() }
+func Policy(bundle plan.Bundle) error { return (Capacity{}).Policy(bundle) }
+func (c Capacity) Policy(bundle plan.Bundle) error {
+	c = c.Effective()
+	if err := c.Validate(); err != nil {
+		return err
+	}
+	if len(bundle.Watches) > c.MaxWatches || len(bundle.Destinations) > c.MaxDestinations {
+		return fmt.Errorf("manifest exceeds configured workspace capacity")
 	}
 	for _, compiled := range bundle.Watches {
 		w := compiled.Definition.Spec
-		if w.Source.Type != "http" || w.Source.URLRef != nil {
-			return fmt.Errorf("cloud beta supports public HTTP sources with explicit URLs only")
-		}
-		if err := egress.URL(w.Source.URL); err != nil {
-			return err
-		}
-		every, err := time.ParseDuration(w.Source.Every)
-		if err != nil || every < 5*time.Minute {
-			return fmt.Errorf("cloud beta requires an interval of at least five minutes; review a cadence change explicitly")
-		}
-		timeout, err := time.ParseDuration(w.Source.Timeout)
-		if err != nil || timeout > 10*time.Second {
-			return fmt.Errorf("cloud source timeout must be at most ten seconds")
+		switch w.Source.Type {
+		case "push":
+		case "http":
+			if w.Limits.MaxBytes > 64<<10 {
+				return fmt.Errorf("cloud HTTP acquisition has a separate 64 KiB response limit")
+			}
+			if w.Source.URLRef != nil {
+				return fmt.Errorf("cloud HTTP sources require explicit public URLs")
+			}
+			if err := egress.URL(w.Source.URL); err != nil {
+				return err
+			}
+			every, err := time.ParseDuration(w.Source.Every)
+			if err != nil || every < time.Duration(c.MinPollSeconds)*time.Second {
+				return fmt.Errorf("poll interval is below configured capacity")
+			}
+			timeout, err := time.ParseDuration(w.Source.Timeout)
+			if err != nil || timeout > 10*time.Second {
+				return fmt.Errorf("cloud source timeout must be at most ten seconds")
+			}
+		default:
+			return fmt.Errorf("cloud supports public HTTP and authenticated push sources")
 		}
 		if w.Source.JQ != "" {
-			return fmt.Errorf("cloud beta uses bounded field projection; custom jq programs remain available locally")
+			return fmt.Errorf("cloud uses bounded field projection; custom jq programs remain available locally")
 		}
-		if w.Limits.MaxBytes > 64<<10 || w.Limits.MaxEntities > 10 || w.Limits.MaxSamples > 100 || w.Limits.MaxOutputs > 10 {
-			return fmt.Errorf("cloud watch limits: 64 KiB responses, 10 entities, 100 samples, 10 projected outputs; set these explicitly")
+		if w.Limits.MaxBytes > c.MaxBodyBytes || w.Limits.MaxEntities > c.MaxEntities || w.Limits.MaxSamples > c.MaxSamples || w.Limits.MaxOutputs > c.MaxOutputs {
+			return fmt.Errorf("watch exceeds configured cloud body, entity, sample, or output capacity")
 		}
-		if len(w.Destinations) > 3 || len(w.Source.Headers) > 10 || len(w.Source.Fields) > 10 {
+		if len(w.Destinations) > 32 || len(w.Source.Headers) > 10 || len(w.Source.Fields) > 100 {
 			return fmt.Errorf("cloud watch exceeds destination or projection limits")
 		}
 	}
@@ -55,6 +66,20 @@ func Policy(bundle plan.Bundle) error {
 		age, _ := time.ParseDuration(d.MaxAge)
 		if d.MaxAttempts > 8 || age > 24*time.Hour || len(d.Headers) > 10 {
 			return fmt.Errorf("cloud destinations allow at most eight attempts, 24 hours, and ten headers")
+		}
+	}
+	return nil
+}
+
+// TransferPolicy is intentionally narrower than creation eligibility: push
+// producers must be reconfigured and verified at their new destination.
+func TransferPolicy(bundle plan.Bundle) error {
+	if err := Policy(bundle); err != nil {
+		return err
+	}
+	for _, w := range bundle.Watches {
+		if w.Definition.Spec.Source.Type != "http" {
+			return fmt.Errorf("automatic transfer requires HTTP; export/create the push watch and reconfigure its producer")
 		}
 	}
 	return nil

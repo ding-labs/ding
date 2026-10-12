@@ -40,7 +40,7 @@ func TestBuiltInLoginUsesCloudSessionAndRoleBoundary(t *testing.T) {
 	if w := cloudRequest(h, "GET", "/v1/auth/config", "", sessions[0], false); !strings.Contains(w.Body.String(), `"execution":"cloud"`) || !strings.Contains(w.Body.String(), `"id":"password"`) {
 		t.Fatal(w.Body.String())
 	}
-	for _, manifest := range []string{strings.ReplaceAll(fixture, "https://example.com/health", "http://127.0.0.1/private"), strings.ReplaceAll(fixture, "every: 5m", "every: 1s")} {
+	for _, manifest := range []string{strings.ReplaceAll(fixture, "https://example.com/health", "http://127.0.0.1/private"), strings.ReplaceAll(fixture, "every: 5m", "every: 1ms")} {
 		body, _ := json.Marshal(map[string]any{"manifest": manifest, "dryRun": true})
 		if w := cloudRequest(h, "POST", "/v1/apply", string(body), sessions[0], true); w.Code == 200 {
 			t.Fatal("password owner bypassed cloud policy")

@@ -368,6 +368,9 @@
           },
           "type": "object"
         },
+        "itemsPath": {
+          "type": "string"
+        },
         "jq": {
           "type": "string"
         },

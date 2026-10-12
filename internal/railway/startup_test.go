@@ -12,6 +12,7 @@ func environment() map[string]string {
 
 func TestConfigurationFailsClosed(t *testing.T) {
 	for name, change := range map[string]map[string]string{
+		"invalid push": {"DING_PUSH_JSON": `{"hostConcurrent":-1}`}, "unknown push field": {"DING_PUSH_JSON": `{"disable":true}`}, "oversized store": {"DING_CAPACITY_JSON": `{"maxStoreBytes":1073741824}`},
 		"missing key": {"DING_DATA_KEY_BASE64": ""}, "wrong key length": {"DING_DATA_KEY_BASE64": "YQ=="},
 		"plaintext origin": {"DING_PUBLIC_URL": "http://cloud.ding.ing"}, "missing port": {"PORT": ""}, "privileged port": {"PORT": "80"}, "operator conflict": {"PORT": "8788"},
 		"path escape": {"DING_STATE_NAME": "../etc"}, "backup directory": {"DING_STATE_NAME": "backups"}, "unknown mode": {"DING_MODE": "recover"},
@@ -65,5 +66,15 @@ func TestMaintenanceIsReadyButNeverHealthyOrServingAccounts(t *testing.T) {
 		if w.Code != tc.want {
 			t.Errorf("%+v: %d", tc, w.Code)
 		}
+	}
+}
+
+func TestPushConfigurationPreservesCloudProfile(t *testing.T) {
+	env := environment()
+	env["DING_PUSH_JSON"] = `{"disabled":true,"producerRate":2}`
+	env["DING_CAPACITY_JSON"] = `{"maxWatches":18}`
+	s, _, _, err := FromEnv(func(k string) string { return env[k] })
+	if err != nil || !s.Config.Push.Disabled || s.Config.Push.ProducerRate != 2 || s.Config.Capacity.MaxWatches != 18 || s.Config.Hosting != "cloud" {
+		t.Fatal(s, err)
 	}
 }

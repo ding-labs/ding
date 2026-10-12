@@ -953,25 +953,24 @@ function CloudStatus({ data }: { data: Record<string, unknown> }) {
       <div className="metrics">
         <div>
           <b>
-            {usage.checks} / {limits.checks}
+            {usage.checks}{limits.checks ? ` / ${limits.checks}` : " · no monthly quota"}
           </b>
           <span>Checks</span>
         </div>
         <div>
           <b>
-            {usage.deliveries} / {limits.deliveryAttempts}
+            {usage.deliveries}{limits.deliveryAttempts ? ` / ${limits.deliveryAttempts}` : " · no monthly quota"}
           </b>
           <span>Delivery attempts</span>
         </div>
         <div>
           <b>
-            {(usage.bytes / 1048576).toFixed(1)} /{" "}
-            {(limits.bytes / 1048576).toFixed(0)} MiB
+            {(usage.bytes / 1048576).toFixed(1)} MiB{limits.bytes ? ` / ${(limits.bytes / 1048576).toFixed(0)} MiB` : " · no monthly quota"}
           </b>
           <span>Outbound traffic</span>
         </div>
       </div>
-      <p>Allowance resets {date(String(data.resetsAt))}.</p>
+      {Object.values(limits).some(n=>n>0)&&<p>Allowance resets {date(String(data.resetsAt))}.</p>}
       <p>
         {health.healthy
           ? "Workspace health is good."

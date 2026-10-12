@@ -31,6 +31,10 @@ func decodeCloud(r *http.Request, value any) error {
 }
 
 func (s *Server) serveTenant(w http.ResponseWriter, r *http.Request, session state.Session, t *Tenant) {
+	if r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/v1/ingest-status/") {
+		s.servePushStatus(w, r, t)
+		return
+	}
 	if r.Method == "GET" && r.URL.Path == "/v1/cloud/export" {
 		s.accountExport(w, r, t)
 		return
@@ -58,7 +62,7 @@ func (s *Server) serveTenant(w http.ResponseWriter, r *http.Request, session sta
 	if r.Method == "GET" {
 		switch r.URL.Path {
 		case "/v1/info":
-			cloudWrite(w, 200, map[string]any{"version": s.Version, "apiVersion": watch.APIVersion, "schema": store.SchemaVersion, "os": s.execution(), "arch": "managed", "console": true, "origin": s.PublicURL, "listen": "", "stateDir": "", "limits": t.App.Limits, "time": time.Now().UTC(), "execution": s.execution(), "workspace": session.Workspace})
+			cloudWrite(w, 200, map[string]any{"version": s.Version, "apiVersion": watch.APIVersion, "schema": store.SchemaVersion, "os": s.execution(), "arch": "managed", "console": true, "origin": s.PublicURL, "listen": "", "stateDir": "", "limits": t.App.Limits, "time": time.Now().UTC(), "execution": s.execution(), "workspace": session.Workspace, "push": s.pushCapabilities(session.Workspace)})
 			return
 		case "/v1/cloud/usage":
 			usage, err := s.DB.Usage(r.Context(), session.Workspace, time.Now())
@@ -66,7 +70,12 @@ func (s *Server) serveTenant(w http.ResponseWriter, r *http.Request, session sta
 				cloudFail(w, 503, "usage_unavailable", "Could not read workspace usage.")
 				return
 			}
-			cloudWrite(w, 200, map[string]any{"usage": usage, "limits": map[string]any{"checks": state.MonthlyChecks, "deliveryAttempts": state.MonthlyDeliveries, "bytes": state.MonthlyBytes}, "note": "Failed checks and delivery attempts count. Storage pressure and pinned evidence are reported by Doctor."})
+			var inbound store.PushUsage
+			if err := t.App.Store.View(r.Context(), func(tx *store.Tx) error { var e error; inbound, e = tx.PushUsage(); return e }); err != nil {
+				cloudFail(w, 503, "usage_unavailable", "Could not read ingestion usage.")
+				return
+			}
+			cloudWrite(w, 200, map[string]any{"ingest": inbound, "push": s.pushCapabilities(session.Workspace), "usage": usage, "limits": map[string]any{"checks": s.Pool.Capacity.OutboundChecks, "deliveryAttempts": s.Pool.Capacity.OutboundDeliveries, "bytes": s.Pool.Capacity.OutboundBytes}, "note": "Failed checks and delivery attempts count. Zero cumulative limits mean no monthly quota; per-request and concurrency bounds still apply. Storage pressure and pinned evidence are reported by Doctor."})
 			return
 		case "/v1/cloud/secrets":
 			names, err := s.Vault.Names(r.Context(), session.Workspace)
@@ -196,7 +205,7 @@ func cloudRoute(method, path string) bool {
 	}
 	if method == "POST" {
 		switch path {
-		case "/v1/apply", "/v1/tools/compile", "/v1/tools/test", "/v1/tools/replay":
+		case "/v1/apply", "/v1/tools/compile", "/v1/tools/test", "/v1/tools/project", "/v1/tools/replay":
 			return true
 		}
 	}

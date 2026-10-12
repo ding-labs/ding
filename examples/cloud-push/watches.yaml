@@ -1,0 +1,30 @@
+apiVersion: ding.ing/v1alpha1
+kind: Watch
+metadata: {id: ci-results, name: CI results by repository and workflow}
+spec:
+  source:
+    type: push
+    fields: {repo: repo, workflow: workflow, failed: failed, runId: runId}
+  groupBy: [repo, workflow]
+  condition: {field: failed, operator: eq, value: true}
+  policy: {trigger: transition, recoverAfter: 1}
+---
+apiVersion: ding.ing/v1alpha1
+kind: Watch
+metadata: {id: job-heartbeat}
+spec:
+  source: {type: push, fields: {job: job, alive: alive}}
+  groupBy: [job]
+  condition: {missingFor: 10m}
+  policy: {trigger: transition}
+---
+apiVersion: ding.ing/v1alpha1
+kind: Watch
+metadata: {id: provider-events}
+spec:
+  source:
+    type: push
+    itemsPath: events
+    fields: {id: id, status: status}
+  condition: {field: id, operator: new-event, dedupFor: 24h}
+  policy: {trigger: level, interval: 0s}

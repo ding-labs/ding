@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"runtime"
 	"time"
 )
 
@@ -40,6 +41,13 @@ func (p *Pool) Metrics(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 	w.Header().Set("Cache-Control", "no-store")
+	p.ingest.write(w)
+	var memory runtime.MemStats
+	runtime.ReadMemStats(&memory)
+	fmt.Fprintf(w, "ding_cloud_heap_bytes %d\nding_cloud_runtime_reserved_bytes %d\n", memory.HeapAlloc, memory.Sys)
+	if free, err := freeDiskBytes(p.root); err == nil {
+		fmt.Fprintf(w, "ding_cloud_disk_available_bytes %d\n", free)
+	}
 	_, _ = fmt.Fprintf(w, "ding_cloud_workspaces %d\nding_cloud_failed_workers %d\nding_cloud_running_watches %d\nding_cloud_pending_deliveries %d\nding_cloud_unhealthy_entities %d\nding_cloud_scheduler_lag_seconds_max %g\nding_cloud_pending_delivery_age_seconds_max %g\n", len(list), failed, running, pending, unhealthy, lag, age)
 }
 func operatorListener(address string) (net.Listener, error) {

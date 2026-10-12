@@ -209,3 +209,18 @@ func TestUnsolicited304IsUnknown(t *testing.T) {
 		t.Fatal(b)
 	}
 }
+
+func TestHTTPItemsPathUsesTheSameBatchProjectionAsPush(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"jobs":[{"repo":"a","result":{"failed":true}},{"repo":"b","result":{"failed":false}}]}`)
+	}))
+	defer server.Close()
+	p := compiled(t, server.URL, func(d *watch.Definition) {
+		d.Spec.Source.ItemsPath = "jobs"
+		d.Spec.Source.Fields = map[string]string{"repo": "repo", "failed": "result.failed"}
+	})
+	b := (HTTP{Client: server.Client()}).Fetch(context.Background(), p, "", time.Now())
+	if len(b.Observations) != 2 || b.Observations[0].Fields["repo"] != "a" || b.Observations[1].Fields["failed"] != false || b.Observations[0].Fields["http.status"] != 200 {
+		t.Fatal(b)
+	}
+}
