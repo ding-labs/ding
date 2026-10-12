@@ -19,6 +19,20 @@ PR #42 merged into `main` at `5f2d51293e6acf5a3ed876ea0dacc271ccfb6a85`. See the
 
 Private backup files are under the operator's `~/.codex/ding-backups/push-20261012-2223/`; credentials and archives are excluded from Git. These checks do not complete the external destination, independent-user, restart, or 72-hour gates.
 
+## Live authenticated push — October 12, 22:39–22:41 UTC
+
+Ran `deploy/railway/push-smoke.py` from the operator laptop against Railway HTTPS on deployment `1a3ca770-5a80-45e6-b54b-3a675e282b2c` (`main` commit `5f2d512`). The temporary watch had no destinations; no external notification was sent.
+
+- Accepted 19 unique submissions: 18 failing repository groups and one recovery. Console independently showed 18 entities, 17 open incidents, and recovery of `qualification-0`.
+- An exact retry returned 202 with `duplicate: true` and the original acceptance ID. Reusing its key with different JSON returned 409.
+- Missing credentials returned 401; missing idempotency key, malformed JSON, and missing grouping field returned 400; unsupported media returned 415.
+- The ingest-only credential returned 403 for a foreign workspace header, an unauthorized watch, and watch-list inspection. This checks credential boundaries; it does not replace independent-user qualification.
+- Rotated the active producer with a one-day key and one-hour overlap. Both old and new keys replayed the original receipt without creating a new acceptance. Revoking that producer made both keys return 401.
+- Private request/response evidence is retained in `~/.config/ding-cloud/push-qualification/` (`smoke-20261012.jsonl`, `boundaries.jsonl`, `rotation.jsonl`, and `revocation.jsonl`). An initial ad hoc replay assertion used the wrong envelope nesting; the corrected assertion passed against the original acceptance ID.
+- PR #43 merged as `36184c2`, but Railway still listed the earlier deployment after the merge. Automatic deployment from `main` remains unresolved.
+
+The live bearer-push smoke gate passed. Restart persistence, external delivery, multiple independent users, operational alerts, and the 72-hour workload remain pending; the long-running push soak has not started.
+
 ## Automated evidence
 
 Local host: macOS arm64, Go 1.26.1. Linux disk and Railway lifecycle tests use disposable Docker containers/volumes. The test count below describes executed checks, not a throughput guarantee.
