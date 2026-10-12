@@ -25,8 +25,7 @@ ChatGPT discovered the endpoints from Ding's protected-resource metadata and
 WorkOS discovery. OIDC is enabled. WorkOS displayed identity, email, ongoing
 access, and the four watch permissions. The owner's existing hosted session
 completed consent and ChatGPT showed the account connected in development mode.
-This proves sign-in and token exchange, not authenticated tool execution,
-access-token refresh or reconnect after revocation.
+The live checks below extend that initial sign-in and token-exchange evidence.
 
 The production marketplace client remains separate and still needs the callback
 from its own portal registration. Never copy this private callback into it.
@@ -53,6 +52,76 @@ The API origin is fixed to WorkOS and redirects are refused.
 Deploy the tested commit and variables together. No database reset or schema
 change is required. Check readiness, protected-resource discovery, and the
 unauthenticated 401 challenge before testing the connected plugin.
+
+## Live qualification evidence
+
+On 2026-10-12, Railway successfully deployed commit
+`254ad1c65d2f5162f538a46723441dbbad674aea` as deployment
+`8ec6a26f-30f7-426a-b216-aabaaecfaad6`, with the private client allowlisted and
+the WorkOS revocation key configured as a server-only variable. Readiness returned
+200 and unauthenticated MCP returned 401. All GitHub checks for that code passed.
+
+The owner's private ChatGPT conversation verified:
+
+- Authenticated capabilities, workspace discovery, cloud usage and watch listing.
+  The embedded Ding view showed the personal workspace without manual binding.
+- Invalid previews rejected without saving a watch; a valid preview displayed
+  the exact proposed watch before approval.
+- Applying the approved preview created only `chatgpt-private-test`. The first
+  cloud check ran; no incident or notification delivery was recorded.
+- Pausing through ChatGPT produced generation 2. Console independently showed
+  the same watch paused, with its definition intact.
+- Console disconnect returned 200 and removed the model binding. ChatGPT's next
+  request required reconnect. WorkOS displayed fresh consent for the same client.
+- Cancelling that consent returned to ChatGPT and did not recreate a Ding binding.
+- Completing a subsequent consent restored authenticated workspace discovery and
+  watch inspection. The original watch remained paused at generation 2 with
+  revision `7739ce6c212268d700ff721348491beae8404f62108629a211851e1991cae053`.
+  No second Console setup or new workspace was needed.
+
+The watch remains paused for future qualification. It has no credentials or
+notification destinations. Use this known-good cloud fixture for repeatability:
+
+```yaml
+apiVersion: ding.ing/v1alpha1
+kind: Watch
+metadata:
+  id: chatgpt-private-test
+  name: ChatGPT private connection test
+spec:
+  source:
+    type: http
+    url: https://cloud.ding.ing/readyz
+    every: 5m
+    timeout: 10s
+  condition:
+    field: http.status
+    operator: ne
+    value: 200
+  policy:
+    trigger: transition
+    consecutive: 1
+    recoverAfter: 1
+    onUnknown: hold-incident
+  destinations: []
+  limits:
+    maxBytes: 65536
+    maxEntities: 10
+    maxSamples: 100
+    maxOutputs: 10
+```
+
+One authoring gap surfaced: without a manifest example/schema in its tool
+context, ChatGPT repeatedly guessed cadence fields and omitted required cloud
+limits. The explicit fixture above succeeded. Before public qualification, make
+the watch schema and a valid cloud example discoverable through MCP and repeat
+an unaided natural-language creation test. The development widget also displayed
+"CSP off"; qualify the declared widget CSP with enforcement enabled before
+publication.
+
+Access-token refresh after expiry, controlled delivery retry, and a fresh GitHub
+provider round trip are not yet demonstrated by this session. Do not count
+reconnect as refresh or infer these outcomes from unit tests.
 
 ## Repeatable live checks
 

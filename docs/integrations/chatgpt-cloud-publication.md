@@ -22,10 +22,13 @@ customer journey while public publisher verification is pending.
 3. Qualify the full flow against WorkOS: fresh account, repeated access, refresh,
    cancellation, disconnect, and a genuinely new consent on reconnect. Local
    tests cover automatic personal-workspace creation and revocation tombstones.
-   WorkOS consent reset/new `sid` behavior still needs live qualification.
+   Private production testing has passed cancellation, disconnect, fresh consent
+   and restored access to the same watch. Expiry-driven refresh and the remaining
+   provider/delivery cases are tracked in the private runbook.
 4. Deploy reviewed code with `DING_AUTHKIT_JSON` and the private revocation key.
-   Production WorkOS is active. Verify `/mcp`, metadata, issuer, audience and
-   scopes; record the actual deployed commit in the qualification evidence.
+   Production WorkOS and revocation are active on `254ad1c`; the private runbook
+   records deployment and authenticated tool evidence. Repeat qualification with
+   the separate public callback/client before submission.
 5. Keep the pilot to personal accounts with one workspace until organization and
    multi-workspace authorization have an explicit provider-to-workspace mapping.
 

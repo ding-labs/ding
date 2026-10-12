@@ -67,11 +67,13 @@ The deployment profile is:
   "issuer": "https://glamorous-flame-84.authkit.app",
   "browserClientId": "client_01M4Q5EF5QTGS96RSM5F8EJ3F2",
   "chatgptClientId": "client_01M4Q5KG82X482D034Z37TM8NT",
+  "additionalChatgptClientIds": ["client_01M4QB6TNVKZ1B53KJWZXRYXQA"],
   "enrollmentLimit": 10
 }
 ```
 
-Railway now runs `43226d8` with WorkOS-only sign-in. On 2026-10-12 the owner
+Railway now runs `254ad1c` with WorkOS-only sign-in, the separate private ChatGPT
+client and a server-only consent revocation key. On 2026-10-12 the owner
 requested a reset of the disposable development data. The active Ding state was
 cleared in maintenance, then service resumed at 05:13:30 UTC with zero workspaces
 or watches. WorkOS identities remain intact. A subsequent hosted login reused
@@ -79,8 +81,11 @@ the owner's WorkOS session and opened a fresh Personal workspace in the Console.
 The owner confirmed that the earlier WorkOS signup worked.
 Health, hosted-only auth configuration, rejection of native password endpoints,
 and unauthenticated MCP challenges pass live checks. See
-[qualification evidence](verification.md). ChatGPT authorization and refresh
-remain unqualified, as do fresh Google and GitHub login round trips.
+[qualification evidence](verification.md). The
+[private ChatGPT qualification](chatgpt-private-test.md#live-qualification-evidence)
+also passed authenticated tools, watch creation/pause, cancellation and
+disconnect/reconnect. Access-token refresh after expiry remains unqualified.
+The owner confirmed Google sign-in; a fresh GitHub round trip remains unqualified.
 
 ### Social providers
 
@@ -110,8 +115,9 @@ the return to the intended Ding workspace. An existing WorkOS session can skip
 provider selection; that proves session reuse, not a social login round trip.
 
 The publisher completed OpenAI's individual verification submission, but its
-dashboard still reports **Identity in review**. The plugin portal still blocks
-creation/upload pending approval. After approval, create the plugin/connection, copy
+dashboard last reported **Identity in review**. The public plugin portal blocked
+creation/upload pending approval. The separate private test connection is live.
+After public approval, create the public plugin/connection, copy
 its exact callback and domain challenge, then configure and test them. Ding now
 supports `DING_OPENAI_APPS_CHALLENGE` for that exact plaintext challenge.
 
@@ -138,7 +144,8 @@ flows, plus its public JWKS. It does **not** currently advertise
 `authorization_response_iss_parameter_supported`. Therefore use the exact
 callback-ID-specific redirect shown in ChatGPT's management page; do not assume
 the older fixed redirect URI or add a wildcard. Production uses the separate
-configuration above; a live ChatGPT authorization flow is not yet qualified.
+configuration above; see the private qualification evidence for the verified
+production authorization and reconnect flow. The staging flow remains unqualified.
 
 ## Configure a deployment
 
