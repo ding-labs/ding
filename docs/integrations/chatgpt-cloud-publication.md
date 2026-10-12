@@ -10,32 +10,33 @@ packaging is not publication approval.
 
 ## Finish the service first
 
-1. Identify the existing Ding authorization provider or choose one. Prove S256
-   PKCE, refresh, discovery, resource audience and signed token claims, plus a
-   supported browser consent continuation. Reuse Ding's verifier.
-2. Configure a ChatGPT client once for the publisher. Prefer CIMD when the
-   provider supports it; a provided client also keeps customer setup to sign-in.
-   Copy the exact callback shown in the ChatGPT portal. Put any client secret
-   only in the provider and portal.
-3. Integrate account/workspace approval into that authenticated continuation.
-   Preserve existing accounts, create eligible new accounts once, skip workspace
-   selection when only one is available, and support cancel/retry safely.
-4. Add durable, revocable connected-app grants. Existing seven-day default grants
-   would otherwise force avoidable reconnection. OAuth refresh does not renew a
-   Ding grant. Test disconnect and membership removal against retained tokens.
-5. Deploy the reviewed code and production OAuth configuration. Verify `/mcp`,
-   resource metadata, issuer discovery, token audience and scope upgrades.
-   Railway was pinned to `c5d9213` with no OAuth variables at the last inspection.
+1. Use **WorkOS AuthKit with Connect**. The [provider runbook](workos-authkit.md)
+   records the configured staging client, public identifiers, deployment profile,
+   and remaining qualification gates. The provider choice is complete.
+2. Qualify the separate Console client and copy ChatGPT's actual callback URI
+   into its provided public OAuth client. Hosted WorkOS sign-in and consent
+   replace the proposed custom Ding consent page.
+3. Qualify the full flow against WorkOS: fresh account, repeated access, refresh,
+   cancellation, disconnect, and a genuinely new consent on reconnect. Local
+   tests cover automatic personal-workspace creation and revocation tombstones.
+   WorkOS consent reset/new `sid` behavior still needs live qualification.
+4. Activate and configure a production WorkOS environment, then deploy reviewed
+   code with `DING_AUTHKIT_JSON`. Verify `/mcp`, metadata, issuer, audience and
+   scopes. Railway was pinned to `c5d9213` at the last inspection.
+5. Keep the pilot to personal accounts with one workspace until organization and
+   multi-workspace authorization have an explicit provider-to-workspace mapping.
 
-The server now declares OAuth scopes on each tool and returns ChatGPT's linking
-challenge for insufficient scopes. Workspace/grant denials stay denials. This
-code does not itself implement the provider's browser consent continuation.
+The server declares per-tool OAuth scopes and returns ChatGPT's linking challenge
+for insufficient scopes. For the configured AuthKit client, verified provider
+consent automatically creates the account and connection. Requests renew the
+private grant without reviving a disconnected consent. Customers do not need a
+second Console setup screen.
 
 ## Assemble the cloud package
 
 Create a local publisher JSON file with these fields using real configuration:
 
-- `client.mode`: `provided`, `cimd` or `dcr`, matching the provider.
+- `client.mode`: `provided` for the initial WorkOS integration.
 - For `provided`: `client.clientId` and `client.tokenEndpointAuthMethod` (`none`,
   `client_secret_basic`, `client_secret_post` or `private_key_jwt`).
 - `supportURL`, `privacyPolicyURL`, `termsOfServiceURL`: published HTTPS pages.
@@ -64,7 +65,7 @@ Use ChatGPT's custom MCP connection workflow for a private pilot, then upload
 the resulting ZIP in the developer portal. Test with a fresh eligible account
 and an existing account. Record the final package checksum and deployed commit.
 
-Exercise install, sign-in, approval, cancellation, multiple workspaces, refresh,
+Exercise install, sign-in, approval, cancellation, rejection of unsupported workspace contexts, refresh,
 missing scope, grant revocation, membership removal, disconnect and reconnect.
 Repeat the essential flow on desktop and mobile. Test the first watch with no
 notification destination: sign-in must finish successfully, and credentials

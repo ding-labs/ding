@@ -17,22 +17,26 @@ challenges are implemented and tested over the real hosted HTTP transport. The
 configuration, and packages cloud-specific onboarding plus five positive and
 three negative review cases. See the [publication runbook](../integrations/chatgpt-cloud-publication.md).
 
-Read-only production inspection found no OAuth/OIDC variables on Railway's
-Ding Cloud service. It remains pinned to `c5d9213` on `codex/railway-cloud`; these
-PR changes are not deployed. The provider account, browser consent continuation,
-durable connected-app grants and actual ChatGPT qualification remain unresolved.
-The review cases are authored test procedures, not completed live evidence.
+WorkOS AuthKit with Connect is selected. A staging ChatGPT public client, four
+Ding scopes, and the MCP resource indicator are configured. Automatic personal
+workspace enrollment and renewable provider-backed grants are implemented and
+locally tested. The [WorkOS runbook](../integrations/workos-authkit.md) records
+public configuration and exact deployment steps.
 
+Railway remains pinned to `c5d9213` without OAuth configuration at last inspection.
+Production activation/deployment, ChatGPT's exact callback,
+live reconnect semantics, and marketplace qualification remain outstanding.
+The review cases are authored procedures, not completed live evidence.
 
 ## The customer journey
 
 1. Find **Ding** in the marketplace and install it.
 2. Start Connect when ChatGPT prompts. The browser shows Ding sign-in, reusing
    an existing session when possible.
-3. Existing customers keep their account and watches. New eligible customers
+3. Previously linked identities keep their account and watches. New eligible customers
    receive one account and a default workspace automatically.
-4. Approve clearly described watch access. Select a workspace only when the
-   account actually has more than one. Technical identifiers remain hidden.
+4. Approve clearly described watch access in WorkOS. The initial release supports
+   personal accounts with one workspace. Technical identifiers remain hidden.
 5. Return automatically to ChatGPT. The plugin identifies the connected
    workspace and offers useful starting prompts.
 6. Later conversations reuse the connection. Refresh happens in the background;
@@ -49,9 +53,9 @@ There is no local daemon or copied watch database in this flow.
 | --- | --- | --- |
 | Remote endpoint | Hosted `/mcp`, OAuth verification and discovery | Configure and deploy the real authority |
 | Watch tools | Cloud inspection, preview/apply, lifecycle, evidence, workspace selection | Qualify actual ChatGPT behavior |
-| Consent | Browser-approved user/workspace/client grants | Integrate consent into sign-in; eliminate pasted client IDs |
-| Accounts | Password accounts, generic OIDC, explicit existing-account linking | Automatic eligible-user onboarding and browser account linking |
-| Connection lifetime | OAuth refresh support; Console grants default to seven days and cloud grants cap at thirty | Add durable, revocable connected-app consent |
+| Consent | WorkOS-hosted approval; automatic provider-backed grants | Prove live consent and reconnect behavior |
+| Accounts | Automatic bounded personal-workspace enrollment from AuthKit | Qualify Console sign-in and enable production |
+| Connection lifetime | Provider-backed grants renew and preserve revocation | Qualify actual refresh and consent reset |
 | ChatGPT linking | Per-tool OAuth scopes and scope-upgrade challenges | Verify the real ChatGPT linking UI |
 | Package | Fixed cloud endpoint, explicit OAuth client mode, cloud onboarding and review cases | Supply production client settings, public policy URLs and live review evidence |
 | Publication | Build/verification tooling | Publisher/domain verification, review account, submission and approval |
@@ -61,74 +65,44 @@ pilot. Its manual account/client setup is an operator bootstrap mechanism, not
 the intended customer experience. Earlier rollout instructions must be updated
 as the integrated flow replaces those steps.
 
-## 1 Resolve the production identity configuration
+## 1 Finish the selected WorkOS deployment
 
-First inspect existing Railway variable names, deployed configuration locations,
-and any existing provider project. Checked-in code does not establish whether a
-provider already exists outside the repository. Reuse a compatible setup.
+Follow the [WorkOS runbook](../integrations/workos-authkit.md). Use separate
+public PKCE clients for ChatGPT and the Console, configure the exact MCP resource,
+and use the callback URI from ChatGPT's management page. Production configuration
+must use a production WorkOS environment. The existing Ding verifier checks JWKS,
+issuer, audience, expiration, subject, client and scopes.
 
-Use a maintained authorization server with the existing Ding verifier. Before
-choosing a new service, prove it supports the complete login-and-consent
-continuation needed below. A social-login-only product is insufficient if it
-cannot issue access tokens for Ding's MCP resource.
+Use the provided-client registration mode for this release. WorkOS's default
+CIMD/DCR scopes do not include custom Ding permissions without support setup.
+This is publisher configuration; customers still only sign in and approve.
 
-The compatibility check must establish discovery, S256 PKCE, refresh, exact
-resource audience, JWKS-backed access tokens, and consistent issuer/subject/client
-claims. Validate authorization-response issuer handling and use the exact callback
-shown by the real ChatGPT connection. These are host requirements to verify
-against the selected provider, not new protocol code to invent.
-[OpenAI authentication requirements](https://developers.openai.com/plugins/build/auth).
+**Acceptance:** record real authorization and refresh results, redacted token
+claims, and the exact environment/client/callback configuration. Public metadata
+alone does not prove the completed flow.
 
-For the first integration, use a publisher-registered ChatGPT OAuth client unless
-the existing provider already supports CIMD well. A predefined client is configured
-once by us; customers still only sign in. Record the chosen mode in the package.
-Keep client secrets in the provider/OpenAI portal, never in the ZIP.
-[OpenAI package authentication](https://developers.openai.com/plugins/build/plugins#configure-mcp-authentication).
+## 2 Qualify hosted sign-in and automatic account creation
 
-**Deliverable:** one recorded issuer, production/test client configuration,
-callback, token claim example with values redacted, and a demonstrated consent
-continuation. This resolves the provider decision before dependent implementation.
+WorkOS provides the browser sign-in and explicit third-party consent page.
+No custom Ding OAuth server or duplicated consent screen is planned. Its verified
+application-consent claim materializes one personal Ding workspace connection,
+limited by provider scopes and current Ding membership. Enrollment requires the
+explicit deployment capacity; existing disabled identities cannot enroll again.
 
-“Continue with ChatGPT” could further simplify sign-in if Ding receives access,
-but it is currently a limited partner trial and still requires Ding connector
-authorization. Do not make launch depend on that program.
-[Sign in with ChatGPT for plugins](https://developers.openai.com/siwc/chatgpt-plugin).
+Implemented signed-HTTP tests cover fresh signup, reuse, scope narrowing,
+revocation, new-consent reconnection, invalid token claims and closed enrollment.
+The same consent cannot restore a disconnected grant. Test the corresponding
+real WorkOS and ChatGPT journey before publication, especially how the provider
+revokes an existing consent and issues a new `sid` for reconnect.
 
-## 2 Complete account and workspace consent inside the browser flow
+Link the existing operator's verified subject using the offline command when
+enabling OIDC on the current password-only deployment. Other accounts start fresh
+unless explicitly linked. Email matching is never account authorization.
 
-Build a small connection page using the existing account, membership and grant
-services. The provider's supported consent hook or continuation must supply
-authenticated transaction context. Bind it to the verified user, actual OAuth
-client, requested scopes, selected workspace and approved return destination.
-Do not create workspace consent merely because a bearer token is valid.
-
-The page should show **Connect Ding to ChatGPT**, the account/workspace name,
-and plain-language permissions. Start with the existing inspect, preview, manage
-and retry capabilities, constrained by the user's role. Continue to require
-review before each watch change. Move and administrator permissions stay absent.
-
-On approval, persist the existing grant/binding and resume the provider flow so
-ChatGPT receives its authorization response. Cancellation leaves no usable
-connection. Retries and a closed browser must not duplicate accounts or grants.
-Use an expiring, single-use transaction and allowlisted return URLs.
-
-Bootstrap the current owner with the offline identity-link command. For later
-existing customers, require proof of their existing Ding account in the browser
-before linking an identity. Never merge accounts solely by matching an email.
-
-For new customers, create the account/default workspace exactly once after the
-verified identity passes admission policy. Keep the pilot invite-only. Public
-marketplace launch requires deliberate eligibility, capacity and abuse controls;
-leaving enrollment closed would make a public listing unusable for new customers.
-
-**Acceptance:** a fresh eligible account and the existing owner can connect from
-ChatGPT without opening Console or entering any technical identifier. Denial,
-duplicate callbacks, existing-account conflicts and full capacity show a useful
-browser result and return safely to ChatGPT.
-
-**Primary code:** `internal/cloud/mcp_connections.go`, `internal/serverstate`,
-the identity callback/continuation integration, and a focused Console connection
-page. Extract/reuse consent services rather than bypassing their checks.
+**Acceptance:** fresh users connect without Console setup or technical input;
+first login works without notification credentials; canceled consent creates no
+usable connection. Keep the first release to one personal workspace. Organization
+and multiple-workspace flows need explicit mapping and are not release claims.
 
 ## 3 Make connection and reconnection work naturally in ChatGPT
 
@@ -138,14 +112,14 @@ permission is needed. Keep policy denial distinct from expired authentication.
 Test the resulting linking prompt in ChatGPT, including the embedded UI.
 [OpenAI tool-level authentication](https://developers.openai.com/plugins/build/auth#triggering-authentication-ui).
 
-Replace the seven-day setup pattern with a dedicated durable, revocable cloud
-connection record. Access tokens remain short-lived; token refresh must never
+Provider-backed cloud grants now renew their private thirty-day window on verified
+requests while retaining a durable consent hash and revocation tombstone. Access tokens remain short-lived; token refresh must never
 restore a disconnected grant or expand scopes. Retain immediate membership and
 permission checks on every call. Scope increases require another explicit
 approval. Existing local and temporary grant expiry rules need not change.
 
-One workspace should connect without a picker. Multiple workspaces should use
-the existing explicit selection; avoid ambient mutable target state. Show a clear
+One personal workspace connects without a picker. Unsupported organization or
+multiple-workspace contexts currently fail closed; extend only with explicit mapping. Show a clear
 connection/workspace label, useful reconnect guidance and one Disconnect action.
 Evaluate an authenticated profile tool only if needed for host account labeling.
 
@@ -233,14 +207,13 @@ record connecting package version, server revision and qualification evidence.
 | Work item | Depends on | Completion evidence |
 | --- | --- | --- |
 | Provider and ChatGPT client setup | Existing deployment inventory | Real compatible flow and recorded settings |
-| Browser account/consent continuation | Provider continuation contract | Fresh/existing users connect without Console setup |
-| Durable cloud consent | Browser consent service | Refresh succeeds; revocation remains final |
+| Hosted account/consent qualification | WorkOS clients and real callback | Fresh users connect without Console setup |
+| Provider refresh and reconnect qualification | Implemented consent tombstones | Live refresh succeeds; new consent reconnects |
 | Hosted auth metadata and errors | Selected scopes | Real ChatGPT linking/relinking prompts |
 | Cloud package and first-watch guidance | Fixed endpoint and client mode | Valid ZIP and clean test installation |
 | Railway pilot qualification | Above changes reviewed and deployed | Actual ChatGPT journey with laptop-off delivery |
 | Marketplace submission and launch | Pilot, publisher and public admission ready | Approved listing and clean marketplace install |
 
-Keep these as small, reviewable changes. The immediate next step is the provider
-compatibility/consent check, followed by the browser connection flow. Further
+Keep these as small, reviewable changes. The immediate next step is live WorkOS/ChatGPT qualification and deployment. Further
 local/cloud transfer work, native installers and ChatGPT wakeups are not on this
 critical path.
