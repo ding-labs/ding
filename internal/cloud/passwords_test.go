@@ -12,6 +12,23 @@ import (
 	state "github.com/ding-labs/ding/internal/serverstate"
 )
 
+func TestHostedSignInDoesNotExposeInstancePasswords(t *testing.T) {
+	s, h, sessions := testCloudServer(t)
+	s.LoginMethods = []string{"oidc"}
+	w := cloudRequest(h, "GET", "/v1/auth/config", "", sessions[0], false)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"label":"Sign in or create an account"`) || strings.Contains(w.Body.String(), `"id":"password"`) {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	if s.accountFeatures().Passwords {
+		t.Fatal("hosted accounts must not offer instance password management")
+	}
+	for _, path := range []string{"/v1/auth/password", "/v1/auth/activate"} {
+		if w := cloudRequest(h, "POST", path, `{}`, sessions[0], true); w.Code != 404 {
+			t.Fatal(path, w.Code, w.Body.String())
+		}
+	}
+}
+
 func TestBuiltInLoginUsesCloudSessionAndRoleBoundary(t *testing.T) {
 	s, h, sessions := testCloudServer(t)
 	s.LoginMethods = []string{"password"}

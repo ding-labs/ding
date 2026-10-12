@@ -24,12 +24,18 @@ workspace enrollment and renewable provider-backed grants are implemented and
 locally tested. The [WorkOS runbook](../integrations/workos-authkit.md) records
 public configuration and exact deployment steps.
 
-Railway remains pinned to `c5d9213` without OAuth configuration at last inspection.
-Production deployment, ChatGPT's exact callback,
+Railway runs `43226d8` with WorkOS-only sign-in and fresh development state as of
+2026-10-12 05:13 UTC. The owner confirmed the earlier hosted signup worked.
+Health, discovery, the MCP authentication challenge and the Console's PKCE
+redirect pass live checks; the native password endpoints are disabled.
+Hosted session reuse and fresh Personal workspace enrollment are now observed
+in the live Console. Google and GitHub providers are enabled in production
+WorkOS; fresh social login round trips and Google's public branding/publication
+remain outstanding. Authenticated ChatGPT qualification, its exact callback,
 live reconnect semantics, and marketplace qualification remain outstanding.
 The review cases are authored procedures, not completed live evidence.
-OpenAI's portal currently requires publisher identity verification before plugin
-creation/upload. The owner must complete that step. Domain-challenge serving is
+The owner submitted OpenAI publisher identity verification; it remains in review
+and the portal still blocks plugin creation/upload. Domain-challenge serving is
 implemented and awaits the token from the portal. Public operator privacy,
 terms and support pages, review credentials, fixtures and walkthrough remain
 submission prerequisites.
@@ -57,10 +63,10 @@ There is no local daemon or copied watch database in this flow.
 
 | Area | Present in PR 36 | Launch work |
 | --- | --- | --- |
-| Remote endpoint | Hosted `/mcp`, OAuth verification and discovery | Configure and deploy the real authority |
+| Remote endpoint | Live `/mcp`, production OAuth verification and discovery | Qualify authenticated client requests |
 | Watch tools | Cloud inspection, preview/apply, lifecycle, evidence, workspace selection | Qualify actual ChatGPT behavior |
 | Consent | WorkOS-hosted approval; automatic provider-backed grants | Prove live consent and reconnect behavior |
-| Accounts | Automatic bounded personal-workspace enrollment from AuthKit | Qualify Console sign-in and enable production |
+| Accounts | Bounded enrollment; live Console session reuse and fresh Personal workspace observed; Google/GitHub configured | Qualify fresh social login round trips |
 | Connection lifetime | Provider-backed grants renew and preserve revocation | Qualify actual refresh and consent reset |
 | ChatGPT linking | Per-tool OAuth scopes and scope-upgrade challenges | Verify the real ChatGPT linking UI |
 | Package | Fixed cloud endpoint, explicit OAuth client mode, cloud onboarding and review cases | Supply production client settings, public policy URLs and live review evidence |
@@ -101,10 +107,10 @@ The same consent cannot restore a disconnected grant. Test the corresponding
 real WorkOS and ChatGPT journey before publication, especially how the provider
 revokes an existing consent and issues a new `sid` for reconnect.
 
-Enable OIDC on the existing deployment with the offline `enable-oidc-login`
-operation. Existing password accounts remain intact; new WorkOS identities
-start fresh. Account linking is optional and outside this launch's critical
-path. Email matching is never account authorization.
+Use WorkOS-only sign-in and fresh Ding state. The owner confirmed that the
+existing deployment is disposable development data and requested a reset; no
+legacy account migration is needed. The retained WorkOS identity has now logged
+in and created a fresh personal workspace. Email matching is never Ding authorization.
 
 **Acceptance:** fresh users connect without Console setup or technical input;
 first login works without notification credentials; canceled consent creates no

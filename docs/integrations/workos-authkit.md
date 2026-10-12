@@ -53,6 +53,11 @@ endpoints, S256 and refresh support. It does not advertise RFC 9207 authorizatio
 response issuer support; use the exact callback-ID-specific URI, not a guessed
 fixed callback. DCR and CIMD remain disabled for this provided-client release.
 The free WorkOS-hosted domain is sufficient; no custom-domain add-on was enabled.
+Production Email + Password and Magic Auth (one-time email codes) are enabled.
+Password login uses WorkOS's Strong policy: at least ten characters, complexity
+score at least three, and breached-password rejection. The hosted page exposes
+email sign-in and signup. Google and GitHub are enabled as described below;
+passkeys are not configured.
 
 The deployment profile is:
 
@@ -65,12 +70,47 @@ The deployment profile is:
 }
 ```
 
-Production WorkOS configuration is complete except for the ChatGPT callback.
-Railway still runs the earlier password-only revision until the maintenance
-rollout is approved and completed. No live authorization or refresh has yet been
-qualified. OpenAI's plugin portal blocks creation/upload until the publisher
-completes individual or business identity verification. No verification was
-submitted by the agent. After verification, create the plugin/connection, copy
+Railway now runs `43226d8` with WorkOS-only sign-in. On 2026-10-12 the owner
+requested a reset of the disposable development data. The active Ding state was
+cleared in maintenance, then service resumed at 05:13:30 UTC with zero workspaces
+or watches. WorkOS identities remain intact. A subsequent hosted login reused
+the owner's WorkOS session and opened a fresh Personal workspace in the Console.
+The owner confirmed that the earlier WorkOS signup worked.
+Health, hosted-only auth configuration, rejection of native password endpoints,
+and unauthenticated MCP challenges pass live checks. See
+[qualification evidence](verification.md). ChatGPT authorization and refresh
+remain unqualified, as do fresh Google and GitHub login round trips.
+
+### Social providers
+
+Both providers are enabled in production WorkOS. Their secrets are stored only
+in WorkOS, and returning provider OAuth tokens is disabled. These registrations
+authenticate people into the same hosted sign-in flow; they do not grant access
+to Ding watches or replace ChatGPT's separate Connect consent.
+
+| Provider | Public registration | Exact WorkOS callback | Identity scopes |
+| --- | --- | --- | --- |
+| GitHub | `ding-labs` app `3924844`, client `Ov23liWEu3uLd1gZMPtE` | `https://auth.workos.com/sso/oauth/github/klJ6WizLPYP4gE5OdzUewzj3x/callback` | `user:email` |
+| Google | Project `fluent-fortress-511405-c7`, client `435877171447-uhb1o8r9cm8obidj79trqejbaumcdigg.apps.googleusercontent.com` | `https://auth.workos.com/sso/oauth/google/kYo3uHuJR1t7OLnmvT2zqZE7H/callback` | `userinfo.email`, `userinfo.profile` |
+
+Google branding uses **Ding Cloud**, `ping@ding.ing` for support and developer
+contact, and `https://ding.ing` as the homepage. The support Google account has
+OAuth Config Editor access. The audience remains External / Testing: Google
+disables publication until Branding is completed; public operator privacy and
+terms links have not been supplied. Its documented
+[basic identity scope exception](https://support.google.com/cloud/answer/15549945?hl=en)
+allows these sign-ins without test-user registration, an unverified-app warning
+or seven-day authorization expiry. Do not add other Google API scopes under that
+assumption. Finish public branding separately before marketplace release.
+
+To qualify each provider, open `https://cloud.ding.ing/auth/login` in a fresh
+browser session, choose the provider, complete its identity consent and verify
+the return to the intended Ding workspace. An existing WorkOS session can skip
+provider selection; that proves session reuse, not a social login round trip.
+
+The publisher completed OpenAI's individual verification submission, but its
+dashboard still reports **Identity in review**. The plugin portal still blocks
+creation/upload pending approval. After approval, create the plugin/connection, copy
 its exact callback and domain challenge, then configure and test them. Ding now
 supports `DING_OPENAI_APPS_CHALLENGE` for that exact plaintext challenge.
 
@@ -96,8 +136,8 @@ The staging issuer's discovery advertises S256, authorization code and refresh
 flows, plus its public JWKS. It does **not** currently advertise
 `authorization_response_iss_parameter_supported`. Therefore use the exact
 callback-ID-specific redirect shown in ChatGPT's management page; do not assume
-the older fixed redirect URI or add a wildcard. No production configuration has
-been deployed, and a live ChatGPT authorization flow has not yet been qualified.
+the older fixed redirect URI or add a wildcard. Production uses the separate
+configuration above; a live ChatGPT authorization flow is not yet qualified.
 
 ## Configure a deployment
 
@@ -123,12 +163,12 @@ been deployed, and a live ChatGPT authorization flow has not yet been qualified.
    Zero closes new signup while preserving existing accounts. Start with a
    bounded private pilot. Do not mix this profile with `DING_OIDC_JSON`,
    `DING_MCP_JSON`, or `DING_MCP_BRIDGE_CLIENTS`.
-4. Existing password-only deployments pin their login methods. In maintenance,
-   take an encrypted backup and run `enable-oidc-login --config /run/ding/config.json`
-   following [the Railway runbook](../../deploy/railway/README.md#enable-hosted-sign-in).
-   This enables the configured provider while preserving existing password
-   accounts; new identities enroll separately. No identity migration is needed.
-   The separate `enable-oidc` operation is available for deliberate account linking.
+4. This profile uses hosted sign-in exclusively (`loginMethods: ["oidc"]`).
+   Start with an empty Ding data directory; no instance owner/password bootstrap
+   is needed. The first verified WorkOS login creates a personal workspace.
+   Existing development data must be explicitly reset in maintenance before
+   switching from a password profile; login methods are pinned in stored state.
+   Resetting Ding data does not delete users from WorkOS.
 5. Deploy reviewed code, verify discovery and `/mcp`, and test the browser login
    before allowing customers to connect. Production must use an activated
    production WorkOS environment and its own clients, not the staging IDs above.

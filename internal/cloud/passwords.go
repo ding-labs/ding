@@ -58,7 +58,7 @@ func (s *Server) publicIdentity(w http.ResponseWriter, r *http.Request) bool {
 			methods = append(methods, map[string]string{"id": "password", "label": "Instance account"})
 		}
 		if s.Login.Provider != nil {
-			label := "Continue with GitHub"
+			label := "Sign in or create an account"
 			if s.Shared {
 				label = "Company sign-in"
 			}
