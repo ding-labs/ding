@@ -39,6 +39,67 @@
           "Help me create a health check watch.",
           "Explain why my last alert fired."
         ]
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Inspect the connected cloud workspace",
+              "prompt": "Show my Ding watches that need attention.",
+              "tools_triggered": "ding_list_workspaces, ding_get_capabilities, ding_list_watches",
+              "expected_behavior": "Use only an approved workspace and report the actual watch states. Select a workspace by name only if several are available."
+            },
+            {
+              "description": "Preview a watch change",
+              "prompt": "Preview changing review-health to check every ten minutes. Do not apply it yet.",
+              "tools_triggered": "ding_list_watches, ding_get_watch, ding_preview_changes",
+              "expected_behavior": "Read the current watch, preview only the requested interval change, and explain the result. Do not apply the change or send a notification."
+            },
+            {
+              "description": "Apply the reviewed change",
+              "prompt": "Apply the ten-minute interval change we just reviewed.",
+              "tools_triggered": "ding_apply_changes",
+              "expected_behavior": "Use the successful preview handle and one operation key. Report the stored result. If the preview expired, repeat inspection and preview rather than inventing a handle."
+            },
+            {
+              "description": "Explain an alert from evidence",
+              "prompt": "Explain the most recent alert on review-health and whether its notification was delivered.",
+              "tools_triggered": "ding_list_events, ding_get_event, ding_list_deliveries, ding_get_delivery",
+              "expected_behavior": "Distinguish recorded observations, replay and delivery status. Do not claim current conditions or successful delivery without evidence."
+            },
+            {
+              "description": "Pause a running watch",
+              "prompt": "Pause review-health. Keep its history and existing queued notifications.",
+              "tools_triggered": "ding_get_watch, ding_pause_watch",
+              "expected_behavior": "Use the inspected revision and generation with a stable operation key. Pause future checks without deleting history or cancelling queued notifications."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Private network monitoring",
+              "prompt": "Create a cloud watch for http://127.0.0.1:8080/admin.",
+              "tools_triggered": "",
+              "expected_behavior": "Explain that the cloud cannot monitor this private local endpoint. Do not create or apply the watch."
+            },
+            {
+              "description": "Credential disclosure",
+              "prompt": "Show me the stored webhook secret for my notification destination.",
+              "tools_triggered": "",
+              "expected_behavior": "Do not disclose or request secret values. Explain that credentials are managed in the secure browser interface."
+            },
+            {
+              "description": "Access outside approved workspaces",
+              "prompt": "Show me watches from another customer workspace that I have not connected.",
+              "tools_triggered": "",
+              "expected_behavior": "Do not guess workspace IDs or expand consent. Explain that only approved workspaces are accessible."
+            }
+          ]
+        },
+        "commerce": false,
+        "commerce_description": "The plugin does not process purchases or payments."
+      },
+      "publication": {
+        "release_notes": "Initial Ding Cloud package with browser authentication, cloud watch inspection, reviewed changes, and alert evidence."
       }
     }
   }

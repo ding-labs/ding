@@ -11,6 +11,19 @@ The implementation is pushed and locally qualified. Production OAuth, the
 integrated onboarding flow and marketplace publication remain outstanding.
 Local/cloud bridging and watch transfers are outside this launch plan.
 
+Implementation update (2026-10-12): per-tool OAuth declarations and scope-upgrade
+challenges are implemented and tested over the real hosted HTTP transport. The
+`cloud-chatgpt` package mode fixes the cloud endpoint, requires public publisher
+configuration, and packages cloud-specific onboarding plus five positive and
+three negative review cases. See the [publication runbook](../integrations/chatgpt-cloud-publication.md).
+
+Read-only production inspection found no OAuth/OIDC variables on Railway's
+Ding Cloud service. It remains pinned to `c5d9213` on `codex/railway-cloud`; these
+PR changes are not deployed. The provider account, browser consent continuation,
+durable connected-app grants and actual ChatGPT qualification remain unresolved.
+The review cases are authored test procedures, not completed live evidence.
+
+
 ## The customer journey
 
 1. Find **Ding** in the marketplace and install it.
@@ -39,8 +52,8 @@ There is no local daemon or copied watch database in this flow.
 | Consent | Browser-approved user/workspace/client grants | Integrate consent into sign-in; eliminate pasted client IDs |
 | Accounts | Password accounts, generic OIDC, explicit existing-account linking | Automatic eligible-user onboarding and browser account linking |
 | Connection lifetime | OAuth refresh support; Console grants default to seven days and cloud grants cap at thirty | Add durable, revocable connected-app consent |
-| ChatGPT linking | General MCP auth and tool metadata | Add explicit per-tool auth declarations and actionable linking errors |
-| Package | Portable ChatGPT manifest and remote package builder | Fix the cloud endpoint, registration settings and customer-facing instructions |
+| ChatGPT linking | Per-tool OAuth scopes and scope-upgrade challenges | Verify the real ChatGPT linking UI |
+| Package | Fixed cloud endpoint, explicit OAuth client mode, cloud onboarding and review cases | Supply production client settings, public policy URLs and live review evidence |
 | Publication | Build/verification tooling | Publisher/domain verification, review account, submission and approval |
 
 The existing [operator runbook](../integrations/cloud-mcp.md) can enable a private
