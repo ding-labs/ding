@@ -22,7 +22,7 @@ func Run(args []string, out io.Writer) (bool, error) {
 		return false, nil
 	}
 	switch args[0] {
-	case "enable-oidc", "init", "recover", "backup", "restore", "release-restore", "backup-keygen", "delete-workspace":
+	case "enable-oidc", "enable-oidc-login", "init", "recover", "backup", "restore", "release-restore", "backup-keygen", "delete-workspace":
 	default:
 		return false, nil
 	}
@@ -51,6 +51,15 @@ func Run(args []string, out io.Writer) (bool, error) {
 	started := time.Now()
 	var err error
 	switch args[0] {
+	case "enable-oidc-login":
+		if *linkFile != "" {
+			return true, fmt.Errorf("enable-oidc-login does not link identities; use enable-oidc for identity linking")
+		}
+		var c cloud.Config
+		if err := mcpconfig.ReadPrivateJSON(*config, &c, true); err != nil {
+			return true, err
+		}
+		err = cloud.EnableOIDCLogin(ctx, c)
 	case "enable-oidc":
 		var c cloud.Config
 		var link state.IdentityLink

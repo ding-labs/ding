@@ -114,6 +114,29 @@ Railway SSH uses a registered SSH key; use a dedicated operator key if the CLI
 asks. Do not expose the loopback metrics listener (127.0.0.1:8788) as a public
 domain/port. Query it over Railway SSH or an authenticated local port forward.
 
+### Enable hosted sign-in
+
+Stage the reviewed `DING_AUTHKIT_JSON` profile and qualified revision together
+with `DING_MODE=maintenance`. Once maintenance has stopped execution, export a
+fresh encrypted backup as above, then run:
+
+```sh
+railway ssh -- /sbin/su-exec 10001:10001 /ding-cloud enable-oidc-login \
+  --config /run/ding/config.json
+```
+
+This explicitly pins the configured HTTPS provider and enables OIDC alongside
+password login. It preserves existing accounts and workspaces and does not link
+them to WorkOS. New verified identities receive new personal workspaces within
+the configured enrollment limit. Existing password users continue to use their
+passwords. No account migration is required to activate the provider.
+
+The operation rejects a running state owner or a different previously pinned
+issuer. Use the separate `enable-oidc --identity-link-file ...` operation only
+when deliberately linking an existing account to a verified provider subject.
+Resume `DING_MODE=serve` with the same AuthKit profile after activation; an older
+password-only configuration no longer matches the stored login profile.
+
 ## Portable restore and owner recovery
 
 1. Select maintenance and stop **all** other copies that might own watches.

@@ -82,9 +82,11 @@ production feature is enabled. Billing has not been entered by the agent.
    bounded private pilot. Do not mix this profile with `DING_OIDC_JSON`,
    `DING_MCP_JSON`, or `DING_MCP_BRIDGE_CLIENTS`.
 4. Existing password-only deployments pin their login methods. In maintenance,
-   use the existing offline `enable-oidc` operation with a verified WorkOS user
-   subject to link the operator and enable OIDC, following
-   [the operator runbook](cloud-mcp.md). Do not edit or reset the live database.
+   take an encrypted backup and run `enable-oidc-login --config /run/ding/config.json`
+   following [the Railway runbook](../../deploy/railway/README.md#enable-hosted-sign-in).
+   This enables the configured provider while preserving existing password
+   accounts; new identities enroll separately. No identity migration is needed.
+   The separate `enable-oidc` operation is available for deliberate account linking.
 5. Deploy reviewed code, verify discovery and `/mcp`, and test the browser login
    before allowing customers to connect. Production must use an activated
    production WorkOS environment and its own clients, not the staging IDs above.
