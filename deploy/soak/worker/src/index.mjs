@@ -54,7 +54,8 @@ export async function collectEvents(env,root) {
   return {count,more};
 }
 export async function collect(controller,env) {
-  const current=await read(env.EVIDENCE,'active.json');if(!current)return;
+  const current=await read(env.EVIDENCE,'active.json');
+  if(!current){await put(env.EVIDENCE,'bootstrap/last-cron.json',{scheduledAt:controller.scheduledTime,at:Date.now()});return;}
   const config=current.value,now=Date.now();
   if(config.mode==='stopped'||now<config.epoch||now>config.endsAt+10*MINUTE)return;
   const root=`${config.runId}/${config.mode}`;
@@ -110,7 +111,7 @@ export default {
       return new Response(f.body,{status:f.status,headers:{'Content-Type':match[2]==='projection'?'application/json':'text/plain','Cache-Control':'no-store'}});
     }
     if(!url.pathname.startsWith('/admin/')||!await authorized(request,env))return json({error:'not_found'},404);
-    if(url.pathname==='/admin/status'&&request.method==='GET')return json({config,safety:config?(await read(bucket,config.runId+'/safety.json'))?.value:null,maintenance:config?(await read(bucket,config.runId+'/maintenance.json'))?.value:[],latest:config?(await read(bucket,`${config.runId}/${config.mode}/latest.json`))?.value:null,now:Date.now()});
+    if(url.pathname==='/admin/status'&&request.method==='GET')return json({config,lastCron:(await read(bucket,'bootstrap/last-cron.json'))?.value,safety:config?(await read(bucket,config.runId+'/safety.json'))?.value:null,maintenance:config?(await read(bucket,config.runId+'/maintenance.json'))?.value:[],latest:config?(await read(bucket,`${config.runId}/${config.mode}/latest.json`))?.value:null,now:Date.now()});
     if(url.pathname==='/admin/config'&&request.method==='PUT') {
       try {
         const next=validateConfig(await boundedJSON(request,8192),Date.now());

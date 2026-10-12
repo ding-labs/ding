@@ -41,6 +41,8 @@ def configure(mode):
     active=load()
     if mode=='warmup':
         preflight=load('preflight.json')
+        cron=observer('/admin/status').get('lastCron')
+        if not cron or time.time()*1000-cron['at']>90000:raise SystemExit('Wait for a real recent Cloudflare Cron invocation before warmup')
         required=['backupRestore','metrics','workerDeployed','quota','runtimeCheckpoint']
         if any(preflight.get(k,{}).get('verdict')!='pass' for k in required):
             raise SystemExit('Preflight incomplete: '+', '.join(k for k in required if preflight.get(k,{}).get('verdict')!='pass'))
@@ -49,7 +51,7 @@ def configure(mode):
         if observer('/admin/status').get('safety'):raise SystemExit('Safety stop is active; preserve run and investigate')
         if not result['ready']:raise SystemExit('Dry-run gate did not pass. Inspect private report.json.')
         if (folder/'drills.json').exists():raise SystemExit('Unexpected measurement drills in warmup evidence')
-    now=int(time.time()*1000)
+    now=int(time.time()*1000)+(30000 if mode=='warmup' else 0)
     revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     config={k:active[k] for k in ['runId','applicationRevision']}
     config.update(mode=mode,epoch=now,endsAt=now+({'warmup':3,'measure':72,'stopped':0}[mode])*3600000,observerRevision=revision)
