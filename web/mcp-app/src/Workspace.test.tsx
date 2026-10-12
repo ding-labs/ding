@@ -173,3 +173,70 @@ test("cloud location and effective permissions override the original grant", asy
     ).disabled,
   ).toBe(true);
 });
+
+test("ambiguous cloud connections require selection and keep navigation targeted", async () => {
+  const a = "a".repeat(64),
+    b = "b".repeat(64);
+  const bridge: Bridge = {
+    async connect() {},
+    call: vi.fn(async (name, args) => {
+      if (name === "ding_list_workspaces")
+        return result("workspaces", {
+          workspaces: [
+            { id: a, name: "Alpha" },
+            { id: b, name: "Beta" },
+          ],
+        });
+      if (name === "ding_get_capabilities") {
+        if (!args.workspace_id)
+          return {
+            isError: true,
+            content: [{ text: "workspace_required: choose a workspace" }],
+          };
+        return {
+          structuredContent: {
+            view: "capabilities",
+            target: {
+              instance: "instance",
+              workspace: args.workspace_id,
+              execution: "cloud",
+            },
+            data: {
+              execution: "cloud",
+              workspaceName: args.workspace_id === a ? "Alpha" : "Beta",
+              grant: { scopes: ["inspect"] },
+              effectiveScopes: ["inspect"],
+            },
+          },
+        };
+      }
+      return result("watches", {
+        watches: [],
+        total: 0,
+        more: false,
+        cursor: "",
+      });
+    }),
+  };
+  render(<Workspace bridge={bridge} />);
+  const select = await screen.findByLabelText("Workspace");
+  fireEvent.change(select, { target: { value: a } });
+  await screen.findByText("Connected to Ding Cloud · Alpha");
+  await waitFor(() =>
+    expect((select as HTMLSelectElement).disabled).toBe(false),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Events" }));
+  await waitFor(() =>
+    expect(bridge.call).toHaveBeenCalledWith("ding_list_events", {
+      workspace_id: a,
+    }),
+  );
+  await waitFor(() =>
+    expect((select as HTMLSelectElement).disabled).toBe(false),
+  );
+  fireEvent.change(select, { target: { value: b } });
+  await screen.findByText("Connected to Ding Cloud · Beta");
+  expect(bridge.call).toHaveBeenCalledWith("ding_list_watches", {
+    workspace_id: b,
+  });
+});

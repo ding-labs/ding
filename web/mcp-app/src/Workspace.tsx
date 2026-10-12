@@ -71,6 +71,11 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
   const [error, setError] = useState("");
   const [scopes, setScopes] = useState<string[]>([]);
   const [location, setLocation] = useState("your Ding");
+  const workspaceRef = useRef<string | undefined>(undefined);
+  const [workspaceID, setWorkspaceID] = useState("");
+  const [workspaces, setWorkspaces] = useState<{ id: string; name: string }[]>(
+    [],
+  );
   const [pending, setPending] = useState<Pending>();
   const pendingRef = useRef<Pending | undefined>(undefined);
   const connected = useRef(false);
@@ -82,6 +87,24 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
   function receive(result: ToolResult) {
     try {
       const next = parseResult(result);
+      if (next.target) {
+        if (
+          pendingRef.current &&
+          next.target.workspace !== pendingRef.current.args.workspace_id
+        ) {
+          setError(
+            "Resolve the pending change before viewing another workspace.",
+          );
+          return;
+        }
+        if (
+          workspaceRef.current &&
+          workspaceRef.current !== next.target.workspace
+        )
+          setScopes([]);
+        workspaceRef.current = next.target.workspace;
+        setWorkspaceID(next.target.workspace);
+      }
       setView(next);
       setQuery(next.query ?? {});
       setSearch(String(next.query?.search ?? ""));
@@ -90,40 +113,79 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
       setError(String((e as Error).message));
     }
   }
+  async function loadCapabilities(id = workspaceRef.current) {
+    const result = parseResult(
+      await bridge.call(
+        "ding_get_capabilities",
+        id ? { workspace_id: id } : {},
+      ),
+    );
+    if (id && workspaceRef.current && id !== workspaceRef.current) return;
+    const grant = result.data.grant as { scopes?: string[] };
+    setScopes(
+      Array.isArray(result.data.effectiveScopes)
+        ? (result.data.effectiveScopes as string[])
+        : (grant.scopes ?? []),
+    );
+    const execution = result.data.execution;
+    const workspace =
+      typeof result.data.workspaceName === "string"
+        ? result.data.workspaceName
+        : "";
+    setLocation(
+      execution === "cloud"
+        ? `Ding Cloud${workspace ? ` · ${workspace}` : ""}`
+        : execution === "shared"
+          ? `your server${workspace ? ` · ${workspace}` : ""}`
+          : "this computer",
+    );
+    if (result.target) {
+      workspaceRef.current = result.target.workspace;
+      setWorkspaceID(result.target.workspace);
+    }
+  }
+  async function loadWorkspaces() {
+    const result = parseResult(await bridge.call("ding_list_workspaces", {}));
+    if (!Array.isArray(result.data.workspaces))
+      throw new Error("Workspace discovery is unavailable.");
+    setWorkspaces(result.data.workspaces as { id: string; name: string }[]);
+  }
+  async function selectWorkspace(id: string) {
+    if (!id || pendingRef.current || inFlight.current) return;
+    inFlight.current = true;
+    workspaceRef.current = id;
+    setWorkspaceID(id);
+    setBusy(true);
+    setScopes([]);
+    setView(undefined);
+    try {
+      await loadCapabilities(id);
+      receive(await bridge.call("ding_list_watches", { workspace_id: id }));
+    } catch (e) {
+      setError(String((e as Error).message));
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  }
   useEffect(() => {
     if (connected.current) return;
     connected.current = true;
     bridge
       .connect(receive)
       .then(async () => {
+        try {
+          await loadCapabilities();
+          if (workspaceRef.current) await loadWorkspaces();
+        } catch (e) {
+          if (String((e as Error).message).includes("workspace_required")) {
+            await loadWorkspaces();
+            setError("Choose a workspace to continue.");
+          } else throw e;
+        }
         setReady(true);
-        const result = parseResult(
-          await bridge.call("ding_get_capabilities", {}),
-        );
-        const grant = result.data.grant as { scopes?: string[] };
-        setScopes(
-          Array.isArray(result.data.effectiveScopes)
-            ? (result.data.effectiveScopes as string[])
-            : (grant.scopes ?? []),
-        );
-        const execution = result.data.execution;
-        const workspace =
-          typeof result.data.workspaceName === "string"
-            ? result.data.workspaceName
-            : "";
-        setLocation(
-          execution === "cloud"
-            ? `Ding Cloud${workspace ? ` · ${workspace}` : ""}`
-            : execution === "shared"
-              ? `your server${workspace ? ` · ${workspace}` : ""}`
-              : "this computer",
-        );
       })
-      .catch(() =>
-        setError(
-          "The host connection is unavailable. You can still ask Ding for a text result.",
-        ),
-      );
+      .catch((e) => setError(String((e as Error).message)));
   }, [bridge]);
 
   async function call(
@@ -133,6 +195,8 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
     retry?: Pending,
   ) {
     if (inFlight.current || !ready) return;
+    if (workspaceRef.current)
+      args = { workspace_id: workspaceRef.current, ...args };
     if (mutation && !retry && pendingRef.current) {
       const { operation_key: _key, ...priorArgs } = pendingRef.current.args;
       if (
@@ -238,11 +302,30 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
           {ready ? `Connected to ${location}` : "Connecting…"}
         </span>
       </header>
+      {workspaces.length > 0 && (
+        <label>
+          Workspace
+          <select
+            value={workspaceID}
+            disabled={busy || Boolean(pending)}
+            onChange={(event) => void selectWorkspace(event.target.value)}
+          >
+            <option value="" disabled>
+              Choose a workspace
+            </option>
+            {workspaces.map((workspace) => (
+              <option key={workspace.id} value={workspace.id}>
+                {workspace.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <nav aria-label="Ding views">
         {["watches", "events", "deliveries"].map((kind) => (
           <button
             key={kind}
-            disabled={!ready || busy}
+            disabled={!ready || busy || (workspaces.length > 0 && !workspaceID)}
             aria-current={view?.view === kind ? "page" : undefined}
             onClick={() => navigate(kind)}
           >
@@ -284,7 +367,7 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
           <p>Ding keeps watch while you get on with your day.</p>
           <button
             className="primary"
-            disabled={!ready || busy}
+            disabled={!ready || busy || (workspaces.length > 0 && !workspaceID)}
             onClick={() => navigate("watches")}
           >
             See my watches
