@@ -55,7 +55,7 @@ func Field(object any, path string) (any, bool) {
 
 // Project applies jq first, then explicit dotted-path field selection. Without
 // selection, each output must already be a flat object of scalar fields.
-func Project(ctx context.Context, raw []byte, expression string, fields map[string]string, maxOutputs, maxBytes int) ([]map[string]any, error) {
+func Project(ctx context.Context, raw []byte, expression string, fields map[string]string, maxOutputs, maxBytes int, itemsPath ...string) ([]map[string]any, error) {
 	if maxOutputs < 1 || maxBytes < 1 || len(raw) > maxBytes || !utf8.Valid(raw) {
 		return nil, fmt.Errorf("transform input exceeds limits or is not UTF-8")
 	}
@@ -66,7 +66,20 @@ func Project(ctx context.Context, raw []byte, expression string, fields map[stri
 	ctx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
 	defer cancel()
 	var iterator gojq.Iter
-	if expression != "" {
+	if len(itemsPath) > 0 && itemsPath[0] != "" {
+		if expression != "" {
+			return nil, fmt.Errorf("itemsPath cannot be combined with jq")
+		}
+		value, _ := Field(input, itemsPath[0])
+		items, ok := value.([]any)
+		if !ok || len(items) == 0 {
+			return nil, fmt.Errorf("itemsPath must select a nonempty array")
+		}
+		if len(items) > maxOutputs {
+			return nil, ErrLimit
+		}
+		iterator = gojq.NewIter(items...)
+	} else if expression != "" {
 		code, err := CompileJQ(expression)
 		if err != nil {
 			return nil, err
@@ -89,7 +102,7 @@ func Project(ctx context.Context, raw []byte, expression string, fields map[stri
 			return nil, fmt.Errorf("transform evaluation failed")
 		}
 		if len(outputs) >= maxOutputs {
-			return nil, fmt.Errorf("transform output count exceeds limit")
+			return nil, ErrLimit
 		}
 		object, ok := value.(map[string]any)
 		if !ok {
@@ -119,7 +132,7 @@ func Project(ctx context.Context, raw []byte, expression string, fields map[stri
 		}
 		used += len(encoded)
 		if used > maxBytes {
-			return nil, fmt.Errorf("transform output bytes exceed limit")
+			return nil, ErrLimit
 		}
 		// Normalize gojq integer values back to the portable JSON number type.
 		if err := json.Unmarshal(encoded, &selected); err != nil {

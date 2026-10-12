@@ -147,3 +147,7 @@ Before inviting the first cloud users: run a sustained 72-hour representative wo
 Before expanding beyond the capped cohort: inspect at least one meaningful retention window, measured unit costs, authentication/transfer abandonment, support burden, and operational incidents. Fix loss of useful monitoring before optimizing signup counts. Before broad marketplace release: pass the applicable official review and repeat clean-account onboarding on the advertised surfaces.
 
 The product decision remains reversible: Ding's manifest, evaluator, local UI, exports, and self-hosted execution stay useful independently of cloud availability or a future pricing decision.
+
+## JSON push service
+
+See the [push implementation plan](cloud-push-plan.md), [qualification evidence](cloud-push-qualification.md), and [operations runbook](cloud-push-operations.md). Railway follows `main`; producer ingestion ships through a PR to that branch.

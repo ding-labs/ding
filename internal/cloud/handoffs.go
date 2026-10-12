@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/delivery"
+	"github.com/ding-labs/ding/internal/hostingpolicy"
 	"github.com/ding-labs/ding/internal/plan"
 	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/source"
@@ -79,7 +80,7 @@ func (s *Server) testHandoff(w http.ResponseWriter, r *http.Request, t *Tenant, 
 		return
 	}
 	bundle, err := plan.Parse([]byte(manifest))
-	if err != nil || Policy(bundle) != nil {
+	if err != nil || hostingpolicy.TransferPolicy(bundle) != nil {
 		cloudFail(w, 409, "cloud_policy", "Prepared definition no longer satisfies cloud policy.")
 		return
 	}

@@ -43,3 +43,40 @@ func TestBudgetReservationCannotOverbookOrRefundTwice(t *testing.T) {
 		t.Fatal("new month did not reset", err)
 	}
 }
+
+func TestConfiguredOutboundBudgetsAndUnmeteredQuotaMode(t *testing.T) {
+	ctx := context.Background()
+	db, err := Open(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	workspace, err := db.Enroll(ctx, "issuer", "customer", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	bounded := OutboundBudget{Checks: 1, Deliveries: 1, Bytes: 2 * RequestReservation}
+	r, err := db.ReserveBudget(ctx, workspace.ID, false, now, bounded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Finish(ctx, r, 100); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ReserveBudget(ctx, workspace.ID, false, now, bounded); err == nil {
+		t.Fatal("configured check quota ignored")
+	}
+	for i := 0; i < 4; i++ {
+		if _, err := db.ReserveBudget(ctx, workspace.ID, false, now, OutboundBudget{}); err != nil {
+			t.Fatal("zero quota blocked metered traffic", err)
+		}
+	}
+	if _, err := db.ReserveBudget(ctx, workspace.ID, false, now, OutboundBudget{}); err == nil {
+		t.Fatal("disabling cumulative quota bypassed concurrency")
+	}
+	usage, err := db.Usage(ctx, workspace.ID, now)
+	if err != nil || usage.Checks != 5 {
+		t.Fatal("optional quota disabled accounting", usage, err)
+	}
+}

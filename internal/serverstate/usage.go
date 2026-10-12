@@ -18,8 +18,15 @@ type Usage struct {
 	Bytes      int64  `json:"bytes"`
 }
 type Reservation struct{ ID, Workspace, Period string }
+type OutboundBudget struct {
+	Checks, Deliveries int
+	Bytes              int64
+}
 
 func (d *DB) Reserve(ctx context.Context, workspace string, delivery bool, now time.Time) (Reservation, error) {
+	return d.ReserveBudget(ctx, workspace, delivery, now, OutboundBudget{MonthlyChecks, MonthlyDeliveries, MonthlyBytes})
+}
+func (d *DB) ReserveBudget(ctx context.Context, workspace string, delivery bool, now time.Time, budget OutboundBudget) (Reservation, error) {
 	r := Reservation{ID: ID(), Workspace: workspace, Period: now.UTC().Format("2006-01")}
 	tx, err := d.sql.BeginTx(ctx, nil)
 	if err != nil {
@@ -46,7 +53,7 @@ func (d *DB) Reserve(ctx context.Context, workspace string, delivery bool, now t
 		checks, deliveries = 0, 1
 	}
 	result, err := tx.ExecContext(ctx, `UPDATE usage SET checks=checks+?,deliveries=deliveries+?,bytes=bytes+?
-WHERE workspace=? AND period=? AND checks+?<=? AND deliveries+?<=? AND bytes+?<=?`, checks, deliveries, RequestReservation, workspace, r.Period, checks, MonthlyChecks, deliveries, MonthlyDeliveries, RequestReservation, MonthlyBytes)
+WHERE workspace=? AND period=? AND (?=0 OR checks+?<=?) AND (?=0 OR deliveries+?<=?) AND (?=0 OR bytes+?<=?)`, checks, deliveries, RequestReservation, workspace, r.Period, budget.Checks, checks, budget.Checks, budget.Deliveries, deliveries, budget.Deliveries, budget.Bytes, RequestReservation, budget.Bytes)
 	if err != nil {
 		return r, err
 	}

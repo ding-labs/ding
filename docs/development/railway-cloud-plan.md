@@ -175,3 +175,7 @@ GitHub/OIDC sign-in can be enabled later through the shared identity layer. Publ
 The deployment needs access to the intended Railway project, the chosen region and resource/spend limits, the canonical hostname, and privately supplied owner credentials and encryption key. Railway supplies the DNS target and verification record; the user adds them in Cloudflare. No secret belongs in this plan, a commit or a chat message.
 
 Application implementation and the owner deployment are now in place. Remaining inputs concern snapshot plan availability, an eventual external notification destination and wider pilot qualification; none blocks the requested Console-only owner watch.
+
+## JSON push service
+
+See the [push implementation plan](cloud-push-plan.md), [qualification evidence](cloud-push-qualification.md), and [operations runbook](cloud-push-operations.md). Railway follows `main`; producer ingestion ships through a PR to that branch.

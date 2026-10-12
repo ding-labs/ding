@@ -15,6 +15,7 @@ type budgetTransport struct {
 	next      http.RoundTripper
 	db        *state.DB
 	workspace string
+	budget    *state.OutboundBudget
 }
 
 func (b budgetTransport) RoundTrip(r *http.Request) (*http.Response, error) {
@@ -24,7 +25,11 @@ func (b budgetTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	if r.ContentLength < 0 || r.ContentLength > 64<<10 || headerSize(r.Header) > 8<<10 {
 		return nil, fmt.Errorf("cloud outbound request exceeds limit")
 	}
-	reservation, err := b.db.Reserve(r.Context(), b.workspace, r.Method == "POST", time.Now())
+	budget := state.OutboundBudget{Checks: state.MonthlyChecks, Deliveries: state.MonthlyDeliveries, Bytes: state.MonthlyBytes}
+	if b.budget != nil {
+		budget = *b.budget
+	}
+	reservation, err := b.db.ReserveBudget(r.Context(), b.workspace, r.Method == "POST", time.Now(), budget)
 	if err != nil {
 		return nil, err
 	}

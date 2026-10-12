@@ -18,8 +18,15 @@ import (
 )
 
 type Server struct {
+	pushOutcomes       map[string][]pushOutcome
 	Railway            bool
 	LoginMethods       []string
+	hookSlots          chan struct{}
+	Push               PushConfig
+	pushMu             sync.Mutex
+	pushBudgets        map[string]*pushBudget
+	pushSlots          chan struct{}
+	pushGlobal         *rate.Limiter
 	Shared             bool // Self-hosted execution with named accounts; cloud is the default.
 	Name               string
 	passwordLimits     map[string]*rate.Limiter
@@ -62,6 +69,13 @@ func (s *Server) Handler() (http.Handler, error) {
 		return nil, err
 	}
 	s.PublicURL = origin
+	if err := s.Push.Validate(s.Pool.Capacity.Effective().MaxBodyBytes); err != nil {
+		return nil, err
+	}
+	s.pushBudgets = map[string]*pushBudget{}
+	s.pushSlots = make(chan struct{}, s.Push.effective().HostConcurrent)
+	s.hookSlots = make(chan struct{}, 4)
+	s.pushGlobal = rate.NewLimiter(500, 1000)
 	if s.TenantHandler == nil {
 		s.TenantHandler = s.serveTenant
 	}
@@ -99,6 +113,28 @@ func (s *Server) Handler() (http.Handler, error) {
 		}
 		if s.Railway && r.Header.Get("X-Forwarded-Proto") != "https" {
 			cloudFail(w, 403, "https_required", "Use the public HTTPS origin.")
+			return
+		}
+		if !s.Shared && strings.HasPrefix(r.URL.Path, "/v1/hooks/") {
+			if !s.Push.NativeWebhooks {
+				http.NotFound(w, r)
+				return
+			}
+			if !s.pushGlobal.Allow() {
+				w.Header().Set("Retry-After", "1")
+				cloudFail(w, 429, "ingest_rate", "Host ingestion request rate exceeded.")
+				return
+			}
+			s.serveWebhook(w, r)
+			return
+		}
+		if !s.Shared && strings.HasPrefix(r.URL.Path, "/v1/ingest/") {
+			if !s.pushGlobal.Allow() {
+				w.Header().Set("Retry-After", "1")
+				cloudFail(w, 429, "ingest_rate", "Host ingestion request rate exceeded.")
+				return
+			}
+			s.measuredPush(w, r)
 			return
 		}
 		if !s.global.Allow() {
@@ -154,7 +190,7 @@ func (s *Server) Handler() (http.Handler, error) {
 		if r.Method == "GET" {
 			switch r.URL.Path {
 			case "/v1/cloud/config":
-				cloudWrite(w, 200, map[string]any{"execution": "cloud", "signInURL": "/auth/login", "limits": Limits()})
+				cloudWrite(w, 200, map[string]any{"execution": "cloud", "signInURL": "/auth/login", "limits": s.Pool.Capacity.Limits(), "push": s.pushCapabilities("")})
 				return
 			case "/auth/login":
 				if s.Login.Provider == nil {
@@ -182,7 +218,7 @@ func (s *Server) Handler() (http.Handler, error) {
 		// Membership mutations take the exclusive lock inside their transaction.
 		// All ordinary operations retain a read lock from authentication through
 		// completion, so a completed revocation fences subsequent operations.
-		administration := r.Method != "GET" && (r.URL.Path == "/v1/services" || strings.HasPrefix(r.URL.Path, "/v1/services/") || r.URL.Path == "/v1/members" || strings.HasPrefix(r.URL.Path, "/v1/members/") || r.URL.Path == "/v1/user" || strings.HasPrefix(r.URL.Path, "/v1/user/"))
+		administration := r.Method != "GET" && (r.URL.Path == "/v1/webhooks" || strings.HasPrefix(r.URL.Path, "/v1/webhooks/") || r.URL.Path == "/v1/services" || strings.HasPrefix(r.URL.Path, "/v1/services/") || r.URL.Path == "/v1/members" || strings.HasPrefix(r.URL.Path, "/v1/members/") || r.URL.Path == "/v1/user" || strings.HasPrefix(r.URL.Path, "/v1/user/"))
 		if !administration {
 			s.DB.Access.RLock()
 			defer s.DB.Access.RUnlock()
@@ -247,6 +283,9 @@ func (s *Server) Handler() (http.Handler, error) {
 		}
 		if !principal.Allows(action) {
 			cloudFail(w, 403, "permission_denied", "Your role or credential does not permit this operation.")
+			return
+		}
+		if s.webhooksAPI(w, r, principal) {
 			return
 		}
 		if s.servicesAPI(w, r, principal) {
@@ -368,7 +407,8 @@ func (s *Server) allowWorkspaceRequest(workspace string) bool {
 		if len(s.limits) >= MaxAccounts*2 {
 			return false
 		}
-		limiter = rate.NewLimiter(2, 30)
+		capacity := s.Pool.Capacity.Effective()
+		limiter = rate.NewLimiter(rate.Limit(capacity.APIRate), capacity.APIBurst)
 		s.limits[workspace] = limiter
 	}
 	return limiter.Allow()

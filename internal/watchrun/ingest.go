@@ -51,7 +51,7 @@ func (a *App) IngestReserved(ctx context.Context, r store.WatchRecord, raw []byt
 		return Receipt{}, ErrInput
 	}
 	spec := r.Plan.Definition.Spec
-	outputs, err := transform.Project(ctx, raw, spec.Source.JQ, spec.Source.Fields, spec.Limits.MaxOutputs, spec.Limits.MaxBytes)
+	outputs, err := transform.Project(ctx, raw, spec.Source.JQ, spec.Source.Fields, spec.Limits.MaxOutputs, spec.Limits.MaxBytes, spec.Source.ItemsPath)
 	if err != nil {
 		return Receipt{}, fmt.Errorf("%w: invalid JSON projection or input limit", ErrInput)
 	}

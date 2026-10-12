@@ -372,6 +372,7 @@ export interface StoreWatchPage {
 }
 
 export interface StoreWatchRecord {
+  lifetime: string;
   plan: PlanCompiled;
   generation: number;
   status: string;
@@ -532,6 +533,7 @@ export interface WatchSource {
   timeout?: string;
   headers?: Record<string, WatchSecretRef>;
   fields?: Record<string, string>;
+  itemsPath?: string;
   jq?: string;
   argv?: Array<string>;
   directory?: string;

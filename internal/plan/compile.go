@@ -276,6 +276,9 @@ func Compile(d watch.Definition) (Compiled, error) {
 			return Compiled{}, fmt.Errorf("selected fields require simple dotted paths")
 		}
 	}
+	if s.ItemsPath != "" && (!fieldName.MatchString(s.ItemsPath) || s.JQ != "") {
+		return Compiled{}, fmt.Errorf("itemsPath requires a simple dotted path and cannot be combined with jq")
+	}
 	if s.JQ != "" {
 		if len(s.JQ) > 8192 {
 			return Compiled{}, fmt.Errorf("jq exceeds 8192 bytes")

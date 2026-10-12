@@ -49,6 +49,11 @@ func TestHostedMCPUsesSeparateWorkspaceClientScopesAndRevocation(t *testing.T) {
 	if cloudStatus["resetsAt"] == nil || cloudStatus["health"] == nil || cloudStatus["policy"].(map[string]any)["execution"] != "cloud" {
 		t.Fatal("incomplete cloud status", status)
 	}
+	policy := cloudStatus["policy"].(map[string]any)
+	limits := cloudStatus["limits"].(map[string]any)
+	if cloudStatus["budgetExhausted"] != false || limits["checks"] != float64(0) || policy["minIntervalSeconds"] != float64(1) || policy["httpRequiresPublicURL"] != true || cloudStatus["ingest"] == nil || cloudStatus["push"] == nil {
+		t.Fatal("cloud status does not reflect push capacity", status)
+	}
 	client, err = resolve(ctx, "preview", identity)
 	if err != nil {
 		t.Fatal(err)

@@ -78,6 +78,22 @@ func FromEnv(get func(string) string) (Settings, []byte, string, error) {
 	if err := configureMCP(&s.Config, get); err != nil {
 		return s, nil, "", err
 	}
+	for name, target := range map[string]any{"DING_PUSH_JSON": &s.Config.Push, "DING_CAPACITY_JSON": &s.Config.Capacity} {
+		if raw := get(name); raw != "" {
+			if len(raw) > 16384 {
+				return s, nil, "", fmt.Errorf("%s exceeds 16 KiB", name)
+			}
+			d := json.NewDecoder(strings.NewReader(raw))
+			d.DisallowUnknownFields()
+			if err := d.Decode(target); err != nil {
+				return s, nil, "", fmt.Errorf("invalid %s: %w", name, err)
+			}
+			var extra any
+			if d.Decode(&extra) != io.EOF {
+				return s, nil, "", fmt.Errorf("%s contains trailing data", name)
+			}
+		}
+	}
 	s.Config.OpenAIAppsChallenge = get("DING_OPENAI_APPS_CHALLENGE")
 	return s, key, password, s.Config.Validate()
 }

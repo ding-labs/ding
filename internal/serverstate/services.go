@@ -11,34 +11,28 @@ import (
 )
 
 type Service struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Workspace string    `json:"workspace"`
-	CreatedBy string    `json:"createdBy"`
-	Scopes    []string  `json:"scopes"`
-	Watches   []string  `json:"watches"`
-	ExpiresAt time.Time `json:"expiresAt"`
-	Token     string    `json:"token,omitempty"`
+	LastUsedAt *time.Time        `json:"lastUsedAt,omitempty"`
+	Lifetimes  map[string]string `json:"-"`
+	KeyID      string            `json:"keyId,omitempty"`
+	ID         string            `json:"id"`
+	Name       string            `json:"name"`
+	Workspace  string            `json:"workspace"`
+	CreatedBy  string            `json:"createdBy"`
+	Scopes     []string          `json:"scopes"`
+	Watches    []string          `json:"watches"`
+	ExpiresAt  time.Time         `json:"expiresAt"`
+	Token      string            `json:"token,omitempty"`
 }
 
 func (d *DB) CreateService(ctx context.Context, p access.Principal, name string, scopes, watches []string, days int) (Service, error) {
+	return d.CreateBoundService(ctx, p, name, scopes, watches, days, nil)
+}
+func (d *DB) CreateBoundService(ctx context.Context, p access.Principal, name string, scopes, watches []string, days int, lifetimes map[string]string) (Service, error) {
 	var out Service
-	if strings.TrimSpace(name) == "" || len(name) > 100 || days < 1 || days > 90 || len(scopes) == 0 || len(scopes) > 3 || len(watches) > 100 {
-		return out, fmt.Errorf("provide name, bounded scopes, and expiry of 1–90 days")
+	if err := validateService(name, scopes, watches, days); err != nil {
+		return out, err
 	}
-	for _, scope := range scopes {
-		if !slices.Contains([]string{"inspect", "retry", "ingest"}, scope) {
-			return out, fmt.Errorf("service scope is not supported")
-		}
-	}
-	if slices.Contains(scopes, "ingest") && len(watches) == 0 {
-		return out, fmt.Errorf("ingest requires explicit watch IDs")
-	}
-	for _, id := range watches {
-		if id == "" || len(id) > 128 || strings.ContainsAny(id, "/\\") {
-			return out, fmt.Errorf("invalid watch ID")
-		}
-	}
+
 	d.Access.Lock()
 	defer d.Access.Unlock()
 	tx, err := d.sql.BeginTx(ctx, nil)
@@ -60,10 +54,14 @@ func (d *DB) CreateService(ctx context.Context, p access.Principal, name string,
 	if n >= 100 {
 		return out, fmt.Errorf("workspace service limit reached")
 	}
-	out = Service{ID: ID(), Name: name, Workspace: p.Workspace, CreatedBy: p.User, Scopes: scopes, Watches: watches, ExpiresAt: time.Now().Add(time.Duration(days) * 24 * time.Hour), Token: "ding_service_" + ID()}
+	out = Service{Lifetimes: lifetimes, KeyID: ID(), ID: ID(), Name: name, Workspace: p.Workspace, CreatedBy: p.User, Scopes: scopes, Watches: watches, ExpiresAt: time.Now().Add(time.Duration(days) * 24 * time.Hour), Token: "ding_service_" + ID()}
 	rawScopes, _ := json.Marshal(scopes)
 	rawWatches, _ := json.Marshal(watches)
-	if _, err = tx.ExecContext(ctx, "INSERT INTO service_grants(id,hash,name,workspace,created_by,scopes,watches,expires_at) VALUES(?,?,?,?,?,?,?,?)", out.ID, TokenHash(out.Token), name, p.Workspace, p.User, string(rawScopes), string(rawWatches), out.ExpiresAt.Unix()); err != nil {
+	rawLifetimes, _ := json.Marshal(lifetimes)
+	if _, err = tx.ExecContext(ctx, "INSERT INTO service_grants(id,hash,name,workspace,created_by,scopes,watches,expires_at,lifetimes) VALUES(?,?,?,?,?,?,?,?,?)", out.ID, TokenHash(out.Token), name, p.Workspace, p.User, string(rawScopes), string(rawWatches), out.ExpiresAt.Unix(), string(rawLifetimes)); err != nil {
+		return out, err
+	}
+	if _, err = tx.ExecContext(ctx, "INSERT INTO service_keys(id,service,hash,expires_at,created_at) VALUES(?,?,?,?,?)", out.KeyID, out.ID, TokenHash(out.Token), out.ExpiresAt.Unix(), time.Now().UnixNano()); err != nil {
 		return out, err
 	}
 	if err = audit(ctx, tx, p.User, p.Workspace, "service:create", out.ID); err != nil {
@@ -72,7 +70,7 @@ func (d *DB) CreateService(ctx context.Context, p access.Principal, name string,
 	return out, tx.Commit()
 }
 func (d *DB) Services(ctx context.Context, workspace string) ([]Service, error) {
-	rows, err := d.sql.QueryContext(ctx, "SELECT id,name,workspace,created_by,scopes,watches,expires_at FROM service_grants WHERE workspace=? ORDER BY id LIMIT 100", workspace)
+	rows, err := d.sql.QueryContext(ctx, "SELECT id,name,workspace,created_by,scopes,watches,expires_at,lifetimes FROM service_grants WHERE workspace=? ORDER BY id LIMIT 100", workspace)
 	if err != nil {
 		return nil, err
 	}
@@ -87,16 +85,19 @@ func (d *DB) Services(ctx context.Context, workspace string) ([]Service, error) 
 	}
 	return out, rows.Err()
 }
-func scanService(row interface{ Scan(...any) error }) (Service, error) {
+func scanService(row interface{ Scan(...any) error }, extra ...any) (Service, error) {
 	var s Service
-	var scopes, watches string
+	var scopes, watches, lifetimes string
 	var at int64
-	err := row.Scan(&s.ID, &s.Name, &s.Workspace, &s.CreatedBy, &scopes, &watches, &at)
+	err := row.Scan(append([]any{&s.ID, &s.Name, &s.Workspace, &s.CreatedBy, &scopes, &watches, &at, &lifetimes}, extra...)...)
 	if err == nil {
 		err = json.Unmarshal([]byte(scopes), &s.Scopes)
 	}
 	if err == nil {
 		err = json.Unmarshal([]byte(watches), &s.Watches)
+	}
+	if err == nil {
+		err = json.Unmarshal([]byte(lifetimes), &s.Lifetimes)
 	}
 	s.ExpiresAt = time.Unix(at, 0)
 	return s, err
@@ -105,7 +106,15 @@ func (d *DB) ServiceToken(ctx context.Context, token string) (Service, error) {
 	if len(token) != len("ding_service_")+64 {
 		return Service{}, fmt.Errorf("invalid service credential")
 	}
-	return scanService(d.sql.QueryRowContext(ctx, "SELECT id,name,workspace,created_by,scopes,watches,expires_at FROM service_grants WHERE hash=? AND expires_at>? AND workspace IN (SELECT id FROM workspaces WHERE deleting=0)", TokenHash(token), time.Now().Unix()))
+	var keyID string
+	var used int64
+	out, err := scanService(d.sql.QueryRowContext(ctx, "SELECT s.id,s.name,s.workspace,s.created_by,s.scopes,s.watches,k.expires_at,s.lifetimes,k.id,k.last_used_at FROM service_grants s JOIN service_keys k ON k.service=s.id WHERE k.hash=? AND k.expires_at>? AND s.workspace IN (SELECT id FROM workspaces WHERE deleting=0)", TokenHash(token), time.Now().Unix()), &keyID, &used)
+	out.KeyID = keyID
+	if used > 0 {
+		at := time.Unix(used, 0).UTC()
+		out.LastUsedAt = &at
+	}
+	return out, err
 }
 func (d *DB) RevokeService(ctx context.Context, p access.Principal, id string) error {
 	d.Access.Lock()
@@ -126,4 +135,34 @@ func (d *DB) RevokeService(ctx context.Context, p access.Principal, id string) e
 		return err
 	}
 	return tx.Commit()
+}
+
+func validateService(name string, scopes, watches []string, days int) error {
+	if strings.TrimSpace(name) == "" || len(name) > 100 || days < 1 || days > 90 || len(scopes) == 0 || len(scopes) > 3 || len(watches) > 100 {
+		return fmt.Errorf("provide name, bounded scopes, and expiry of 1–90 days")
+	}
+	for _, scope := range scopes {
+		if !slices.Contains([]string{"inspect", "retry", "ingest"}, scope) {
+			return fmt.Errorf("service scope is not supported")
+		}
+	}
+	if slices.Contains(scopes, "ingest") && len(watches) == 0 {
+		return fmt.Errorf("ingest requires explicit watch IDs")
+	}
+	for _, id := range watches {
+		if id == "" || len(id) > 128 || strings.ContainsAny(id, "/\\") {
+			return fmt.Errorf("invalid watch ID")
+		}
+	}
+	return nil
+}
+
+// NoteServiceUse is diagnostic: failure never changes an already committed
+// acceptance. Callers skip fresh keys; the predicate coalesces concurrent uses.
+func (d *DB) NoteServiceUse(ctx context.Context, s Service) {
+	now := time.Now()
+	if s.KeyID == "" || (s.LastUsedAt != nil && now.Sub(*s.LastUsedAt) < time.Minute) {
+		return
+	}
+	_, _ = d.sql.ExecContext(ctx, "UPDATE service_keys SET last_used_at=? WHERE id=? AND last_used_at<?", now.Unix(), s.KeyID, now.Add(-time.Minute).Unix())
 }

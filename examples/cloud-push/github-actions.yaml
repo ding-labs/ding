@@ -1,0 +1,38 @@
+# Add this job to a workflow that has a job named test. Store the scoped Ding
+# credential in the repository secret DING_PRODUCER_TOKEN. Supply repository
+# variable DING_INGEST_URL, e.g. https://cloud.ding.ing/v1/ingest/ci-results.
+# This is generic bearer push from Actions, not a native GitHub webhook.
+report:
+  needs: [test]
+  if: always() && (needs.test.result == 'success' || needs.test.result == 'failure')
+  runs-on: ubuntu-latest
+  permissions: {}
+  steps:
+    - name: Report immutable CI result
+      env:
+        DING_PRODUCER_TOKEN: ${{ secrets.DING_PRODUCER_TOKEN }}
+        DING_INGEST_URL: ${{ vars.DING_INGEST_URL }}
+        REPO: ${{ github.repository }}
+        REPO_ID: ${{ github.repository_id }}
+        WORKFLOW: ${{ github.workflow }}
+        RUN_ID: ${{ github.run_id }}
+        ATTEMPT: ${{ github.run_attempt }}
+        RESULT: ${{ needs.test.result }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        umask 077
+        python3 - <<'PY'
+        import json, os
+        with open('ding-result.json', 'w') as f:
+            json.dump({'repo': os.environ['REPO'], 'workflow': os.environ['WORKFLOW'],
+                       'runId': os.environ['RUN_ID'], 'attempt': int(os.environ['ATTEMPT']),
+                       'failed': os.environ['RESULT'] == 'failure'}, f)
+        PY
+        curl --fail-with-body --silent --show-error --proto '=https' \
+          --retry 4 --retry-max-time 90 --connect-timeout 5 --max-time 15 \
+          --request POST "$DING_INGEST_URL" \
+          --header "Authorization: Bearer $DING_PRODUCER_TOKEN" \
+          --header 'Content-Type: application/json' \
+          --header "Idempotency-Key: $REPO_ID:$RUN_ID:$ATTEMPT" \
+          --data-binary @ding-result.json

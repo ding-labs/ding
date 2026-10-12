@@ -32,7 +32,7 @@ func TestCloudNetworkAccountsBytesAndRejectsOversizedBodies(t *testing.T) {
 	next := roundTrip(func(*http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(strings.Repeat("a", 70<<10)))}, nil
 	})
-	transport := budgetTransport{next, db, a.ID}
+	transport := budgetTransport{next: next, db: db, workspace: a.ID}
 	r, _ := http.NewRequest("GET", "https://example.com", nil)
 	response, err := transport.RoundTrip(r)
 	if err != nil {
@@ -74,7 +74,7 @@ func TestCloudStatusOnlyCheckSettlesBudgetWithoutReadingLargeBody(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	b := (source.HTTP{Client: &http.Client{Transport: budgetTransport{next, db, a.ID}}}).Fetch(ctx, p, "", time.Now())
+	b := (source.HTTP{Client: &http.Client{Transport: budgetTransport{next: next, db: db, workspace: a.ID}}}).Fetch(ctx, p, "", time.Now())
 	if len(b.Observations) != 1 || b.Observations[0].Health != "ok" || b.Observations[0].Fields["http.status"] != 503 {
 		t.Fatal(b)
 	}

@@ -75,7 +75,7 @@ The console uses additive endpoints; existing CLI response shapes remain compati
 
 - `GET /v1/info` and `/v1/status`: safe instance settings and cheap runtime status.
 - `GET /v1/console/watches`, `/events`, `/deliveries`, `/destinations`: bounded read models (all four routes are under `/v1/console`). Defaults are 50 rows, maximum 100. Event history is newest first; existing `/v1/events` remains the forward cursor stream.
-- `POST /v1/tools/compile`, `/test`, `/replay`, `/migrate`: pure, size-limited developer tools (all four under `/v1/tools`). They do not run sources or send notifications.
+- `POST /v1/tools/compile`, `/test`, `/project`, `/replay`: pure, size-limited developer tools (all four under `/v1/tools`). They do not run sources or send notifications.
 - `GET /v1/console/doctor`: explicit diagnostic work with an independent concurrency limit.
 - `POST /v1/console/backup` and `GET /v1/console/backup/{id}`: a verified, expiring, single-use download owned by the requesting session. `POST /v1/backup` retains its host-path contract.
 - `POST /v1/browser/handoff`: admin bearer only; obtains a one-use launch link. `POST`, `GET`, and `DELETE /v1/browser/session` establish, restore, and revoke a browser session.
@@ -83,3 +83,22 @@ The console uses additive endpoints; existing CLI response shapes remain compati
 Whole-bundle dry runs return review preconditions covering the store, exact manifest, watch revisions/generations/status, and destination revisions. Supplying this review on apply checks all of them in the write transaction. Review conflicts leave definitions untouched. Existing CLI revision checks remain supported.
 
 The generated [TypeScript contracts](https://github.com/ding-labs/ding/blob/main/web/console/src/api/contracts.ts) are checked against Go types in CI. See [read consistency and browser boundaries](development/console-architecture.md) for cursor scope, retention invalidation and authentication details.
+
+## Hosted push additions
+
+The [cloud push contract](guides/push.md) uses `POST /v1/ingest/{watchId}` with a workspace/watch-scoped producer bearer token and required idempotency key. Browser, device, MCP, and local daemon tokens are not producer credentials. Hosted receipts bind to a watch lifetime and logical producer, include a body digest, and survive key rotation and watch edits. Local receipt semantics remain unchanged.
+
+| Method / route | Permission and behavior |
+| --- | --- |
+| `GET /v1/cloud/config` | Public capability discovery; availability is refined per workspace in `/v1/info` |
+| `GET /v1/services` / `POST /v1/services` | Owner/administrator metadata/issuance; ingest selects existing push watches |
+| `PATCH /v1/services/{id}` | Owner/administrator; replace name, scopes, and watch IDs without rotating logical identity |
+| `POST /v1/services/{id}/rotate` | Owner/administrator; `days` (1–90), `overlapSeconds` (0–86400); secret shown once |
+| `GET /v1/services/{id}/keys` | Owner/administrator; key IDs, expiry, coalesced last-use metadata |
+| `DELETE /v1/services/{id}/keys/{key}` | Owner/administrator; revoke one key |
+| `DELETE /v1/services/{id}` | Owner/administrator; revoke all producer keys |
+| `GET /v1/ingest-status/{watchId}` | Workspace inspection; durable last acceptance and bounded safe recent request diagnostics |
+| `GET /v1/cloud/usage` | Workspace inspection; durable inbound request/byte/observation totals alongside outbound usage |
+| `POST /v1/tools/project` | Preview permission; `manifest`, `watch`, `fixture` source JSON; pure projection and prediction, `persisted:false` |
+
+The [optional native adapters](guides/cloud-webhooks.md) have separate signature-authenticated ingress and administrator connection routes. They are disabled by default. Cookie-authenticated setup retains ordinary CSRF/workspace checks. [Operations and capacity](development/cloud-push-operations.md) describe validated settings and release gates.

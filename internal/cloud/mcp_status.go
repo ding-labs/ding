@@ -7,7 +7,7 @@ import (
 
 	"github.com/ding-labs/ding/internal/access"
 	"github.com/ding-labs/ding/internal/control"
-	state "github.com/ding-labs/ding/internal/serverstate"
+	"github.com/ding-labs/ding/internal/store"
 )
 
 func (s *Server) scopedMCP(t *Tenant, next http.Handler) http.Handler {
@@ -53,13 +53,20 @@ func (s *Server) scopedMCP(t *Tenant, next http.Handler) http.Handler {
 			cloudFail(w, 503, "health_unavailable", "Workspace health is unavailable.")
 			return
 		}
+		capacity := s.Pool.Capacity.Effective()
+		var inbound store.PushUsage
+		if err := t.App.Store.View(r.Context(), func(tx *store.Tx) error { var e error; inbound, e = tx.PushUsage(); return e }); err != nil {
+			cloudFail(w, 503, "usage_unavailable", "Workspace usage is unavailable.")
+			return
+		}
 		cloudWrite(w, 200, map[string]any{
-			"usage": usage, "limits": map[string]any{"checks": state.MonthlyChecks, "deliveryAttempts": state.MonthlyDeliveries, "bytes": state.MonthlyBytes},
+			"ingest": inbound, "push": s.pushCapabilities(t.Workspace.ID),
+			"usage": usage, "limits": map[string]any{"checks": capacity.OutboundChecks, "deliveryAttempts": capacity.OutboundDeliveries, "bytes": capacity.OutboundBytes},
 			"resetsAt":        time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.UTC),
-			"budgetExhausted": usage.Checks >= state.MonthlyChecks || usage.Deliveries >= state.MonthlyDeliveries || usage.Bytes >= state.MonthlyBytes,
+			"budgetExhausted": (capacity.OutboundChecks > 0 && usage.Checks >= capacity.OutboundChecks) || (capacity.OutboundDeliveries > 0 && usage.Deliveries >= capacity.OutboundDeliveries) || (capacity.OutboundBytes > 0 && usage.Bytes >= capacity.OutboundBytes),
 			"health":          map[string]any{"healthy": health.Healthy, "running": health.Running, "closing": health.Closing, "storage": health.Usage, "storageLimits": health.Limits, "deliveries": health.Deliveries},
-			"policy":          map[string]any{"execution": "cloud", "minIntervalSeconds": 300, "publicHTTPOnly": true, "destinations": []string{"webhook", "slack", "discord"}, "preview": t.App.Integration},
-			"note":            "Failed checks and delivery attempts count. Exhausted budgets block outbound work; evidence pinned by active incidents or pending deliveries counts against storage limits.",
+			"policy":          map[string]any{"execution": "cloud", "minIntervalSeconds": capacity.MinPollSeconds, "publicHTTPOnly": false, "httpRequiresPublicURL": true, "sourceTypes": []string{"http", "push"}, "destinations": []string{"webhook", "slack", "discord"}, "preview": t.App.Integration},
+			"note":            "Failed checks and delivery attempts count. Zero cumulative limits mean no monthly quota. Exhausted configured budgets block outbound work; evidence pinned by active incidents or pending deliveries counts against storage limits.",
 		})
 	})
 }

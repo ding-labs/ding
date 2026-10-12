@@ -8,6 +8,16 @@ import (
 // Routes is the closed inventory of authenticated operations. Authentication,
 // static assets and health checks are handled by their respective adapters.
 var Routes = map[string]Action{
+	"PATCH /v1/services/{id}":                      Members,
+	"GET /v1/ingest-status/{id}":                   Inspect,
+	"POST /v1/tools/project":                       Preview,
+	"GET /v1/webhooks":                             Members,
+	"POST /v1/webhooks":                            Members,
+	"POST /v1/webhooks/{id}/rotate":                Members,
+	"DELETE /v1/webhooks/{id}":                     Members,
+	"POST /v1/services/{id}/rotate":                Members,
+	"GET /v1/services/{id}/keys":                   Members,
+	"DELETE /v1/services/{id}/keys/{key}":          Members,
 	"GET /v1/info":                                 Inspect,
 	"GET /v1/status":                               Inspect,
 	"GET /v1/watches":                              Inspect,

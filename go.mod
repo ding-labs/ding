@@ -11,6 +11,7 @@ require (
 	github.com/lestrrat-go/jwx/v3 v3.3.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/spf13/cobra v1.10.2
+	github.com/stripe/stripe-go/v86 v86.4.2
 	golang.org/x/crypto v0.55.0
 	golang.org/x/mod v0.42.0
 	golang.org/x/oauth2 v0.36.0

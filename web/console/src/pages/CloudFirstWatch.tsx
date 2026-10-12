@@ -60,7 +60,7 @@ export function CloudFirstWatch() {
       <fieldset disabled={busy || uncertain}>
         <label>Watch ID<input required value={id} maxLength={64} onChange={e => { setID(e.target.value); changed(); }} /></label>
         <label>Public health endpoint<input required type="url" value={url} placeholder="https://your-service.example/health" onChange={e => { setURL(e.target.value); changed(); }} /></label>
-        <p className="muted">The cloud beta supports public HTTP services. Localhost, private networks and command checks stay on your machine or your own server.</p>
+        <p className="muted">Cloud supports public HTTP services and authenticated JSON push. Localhost, private networks and command checks stay on your machine or your own server.</p>
         <label>Alert destination<select value={destination} onChange={e => { setDestination(e.target.value); changed(); }}>
           <option value="webhook">Webhook</option><option value="slack">Slack incoming webhook</option><option value="discord">Discord webhook</option>
         </select></label>
@@ -78,7 +78,7 @@ export function CloudFirstWatch() {
     {preview ? <section className="panel">
       <h2>Review hosted execution</h2>
       <p>Check every five minutes. Three consecutive HTTP 5xx responses fire; two nonmatching responses recover. Timeouts alert as source errors separately.</p>
-      <p>Cloud limits include three watches, seven days of ordinary history, bounded response sizes and monthly network and delivery budgets. Pinned evidence counts against storage limits. <Link to="/system?tab=Cloud">Inspect usage and limits</Link>.</p>
+      <p>Cloud capacity is configured by the operator and includes retained history, input sizes, storage, and network budgets. Pinned evidence counts against storage limits. <Link to="/system?tab=Cloud">Inspect usage and limits</Link>.</p>
       <button className="button" disabled={busy || uncertain || tested} onClick={testDelivery}>{tested ? "Test accepted by destination" : operation.current ? "Check test outcome" : "Send labeled delivery test"}</button>
       {tested ? <label><input type="checkbox" checked={sawTest} onChange={e => setSawTest(e.target.checked)} /> I received the test at my destination</label> : null}
       <details><summary>View exact manifest</summary><pre>{preview.manifest}</pre></details>

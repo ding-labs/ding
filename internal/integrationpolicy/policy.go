@@ -2,12 +2,14 @@
 package integrationpolicy
 
 type Profile struct {
-	Execution        string `json:"execution"`
-	Workspace        string `json:"workspace,omitempty"`
-	WorkspaceName    string `json:"workspaceName,omitempty"`
-	MaxManifestBytes int    `json:"maxManifestBytes"`
-	MaxFixtureBytes  int    `json:"maxFixtureBytes"`
-	MaxRequestBytes  int    `json:"maxRequestBytes"`
+	SourceTypes      []string `json:"sourceTypes"`
+	ProjectionModes  []string `json:"projectionModes"`
+	Execution        string   `json:"execution"`
+	Workspace        string   `json:"workspace,omitempty"`
+	WorkspaceName    string   `json:"workspaceName,omitempty"`
+	MaxManifestBytes int      `json:"maxManifestBytes"`
+	MaxFixtureBytes  int      `json:"maxFixtureBytes"`
+	MaxRequestBytes  int      `json:"maxRequestBytes"`
 }
 
 const (
@@ -19,7 +21,7 @@ const (
 )
 
 func Local() Profile {
-	return Profile{Execution: "local", MaxManifestBytes: 1 << 20, MaxFixtureBytes: 8 << 20, MaxRequestBytes: 12 << 20}
+	return Profile{SourceTypes: []string{"http", "command", "push", "logs"}, ProjectionModes: []string{"fields", "itemsPath", "jq"}, Execution: "local", MaxManifestBytes: 1 << 20, MaxFixtureBytes: 8 << 20, MaxRequestBytes: 12 << 20}
 }
 
 func Hosted(workspace, name string, shared bool) Profile {
@@ -27,6 +29,8 @@ func Hosted(workspace, name string, shared bool) Profile {
 	p.Execution, p.Workspace, p.WorkspaceName = "shared", workspace, name
 	if !shared {
 		p.Execution = "cloud"
+		p.SourceTypes = []string{"http", "push"}
+		p.ProjectionModes = []string{"fields", "itemsPath"}
 		p.MaxManifestBytes, p.MaxFixtureBytes, p.MaxRequestBytes = CloudManifestBytes, CloudFixtureBytes, CloudRequestBytes
 	}
 	return p

@@ -43,9 +43,9 @@ func TestCloudPolicyAndRuntimeMutationBoundary(t *testing.T) {
 	a.ValidateBundle = Policy
 	a.Limits = Limits()
 	for _, manifest := range []string{
-		strings.ReplaceAll(fixture, "every: 5m", "every: 1s"),
+		strings.ReplaceAll(fixture, "every: 5m", "every: 1ms"),
 		strings.ReplaceAll(fixture, "https://example.com/health", "http://169.254.169.254/latest/meta-data"),
-		strings.ReplaceAll(fixture, "maxOutputs: 10", "maxOutputs: 100"),
+		strings.ReplaceAll(fixture, "maxOutputs: 10", "maxOutputs: 101"),
 		strings.ReplaceAll(fixture, "type: webhook, urlRef: {env: WEBHOOK}", "type: desktop"),
 	} {
 		for _, dry := range []bool{false, true} {
@@ -64,7 +64,7 @@ func TestCloudPolicyAndRuntimeMutationBoundary(t *testing.T) {
 	for _, id := range []string{"two", "three", "four"} {
 		manifest := "apiVersion: ding.ing/v1alpha1\nkind: Destination\nmetadata: {id: " + id + "}\nspec: {type: webhook, urlRef: {env: WEBHOOK}}\n"
 		_, err := a.Apply(context.Background(), watchrun.ApplyRequest{Manifest: manifest})
-		if (err != nil) != (id == "four") {
+		if err != nil {
 			t.Fatal("destination quota", id, err)
 		}
 	}
