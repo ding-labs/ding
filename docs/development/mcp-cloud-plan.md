@@ -1,6 +1,36 @@
 # Ding MCP cloud support and implementation plan
 
-Reviewed October 11, 2026 against `codex/shared-accounts` at `766d9ff` and the current cloud deployment plans. Status: proposed follow-up work.
+## Implementation status — October 11, 2026
+
+Implemented on `codex/cloud-mcp` in focused commits, starting from `origin/main`
+at `bf0b0b3` and incorporating the subsequent `9341ccc` main update. The findings
+below describe the original audit; this status
+supersedes their descriptions of missing code.
+
+- Phases 1–2: shared limits/admission, effective capabilities, workspace discovery
+  and explicit targeting, cloud usage/health and embedded selection are implemented.
+- Phase 3: composed hosted HTTP/JWT qualification and updated instructions are
+  implemented. Live provider/model-host qualification remains open; the deployed
+  service reported password-only login and 404 for MCP/discovery.
+- Phase 4: optional private OAuth bridge, durable refresh, explicit local/cloud
+  targets and operation-target journals are implemented. Local-only behavior stays
+  independent of cloud sign-in.
+- Phase 5: read-only eligibility/status and reviewed prepare/test/finish/cancel
+  coordination reuse the handoff runtime. Move is separate owner consent; private
+  receipt transport is restricted to approved native bridge clients. Tests cover
+  lost activation, restart, cancellation and move-back.
+- Deployment gap found on current main: Railway hard-coded password-only startup.
+  Optional OAuth variables and an offline, explicit existing-account identity link
+  now provide a configuration path while preserving closed enrollment and policy.
+
+The remaining operator inputs and live acceptance procedure are in
+[Cloud MCP connections and qualification](../integrations/cloud-mcp.md). No live
+configuration, identity mapping or deployment was changed by this implementation.
+
+
+## Original audit
+
+Reviewed October 11, 2026 against `codex/shared-accounts` at `766d9ff` and the then-current cloud deployment plans. This section records the findings before implementation.
 
 Ding already implements hosted MCP for inspecting and managing watches in an approved cloud workspace. It does not yet give the local MCP adapter a cloud connection, expose cloud usage or workspace discovery as tools, or support moving a watch through MCP. The next step is to make the hosted path accurate and qualify it, then add explicit targeting and selected-watch transfer.
 
