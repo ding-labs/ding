@@ -14,7 +14,9 @@ Administrator bearer credentials are accepted only for these pairing routes:
 | `GET grants` | Bounded grant metadata; no token hashes or plaintext tokens |
 | `DELETE grants/{id}` | Immediate revocation; retained receipts remain inaccessible |
 
-Scopes are `inspect` (required), `preview`, `manage`, `retry`. They are
+Scopes are `inspect` (required), `preview`, `manage`, `retry`, and separately
+approved `move`. Move additionally requires preview/manage and current ownership
+on shared/cloud workspaces. They are
 instance-wide. Up to 100 exact command revisions and 100 environment-reference
 names may be allowed locally. Authorization is checked again inside every write
 transaction, preventing a revocation race between admission and commit.
@@ -51,3 +53,10 @@ never use a new key to bypass uncertainty.
 Schema 4 adds grant, preview, and operation tables. Existing migration safeguards
 back up older databases before changing schema. See [retention](privacy.md) for
 bounds and receipt lifetime.
+
+Cloud discovery adds `GET cloud/status` and transfer inspection adds `GET transfers`,
+`GET transfers/{id}` and `GET transfers/preflight/{watch}` (inspect scope).
+`POST transfers/step` is the closed trusted-coordinator transport (move scope);
+it is not exposed as a general model tool. Hosted access additionally restricts
+it to operator-approved native bridge clients. See [the connection and transfer
+workflow](cloud-mcp.md) for its consent, journals and recovery rules.

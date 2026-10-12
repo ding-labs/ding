@@ -204,3 +204,18 @@ automatic OS-service installation, updater/signing infrastructure, or an
 operator-facing per-object permission editor. Ordinary Ding webhook/Slack/
 Discord delivery remains the notification path. Those are explicit remaining
 milestones in [the plan](../development/llm-integration-plan.md).
+
+## Cloud and combined connections
+
+See [Cloud MCP connections and qualification](cloud-mcp.md) for the configured
+`/mcp` endpoint, Railway OAuth setup, existing-account linking, workspace consent,
+and the optional local/cloud bridge. Capabilities report `ding.mcp/v1.2`, effective
+permissions and execution limits. Cloud previews allow 64 KiB manifests/fixtures
+inside a 1 MiB request; local/self-hosted limits remain 1 MiB/8 MiB with a 12 MiB
+request cap. Cloud calls share workspace admission with the browser API.
+
+Local and self-hosted adapters add three transfer-inspection tools to the original
+15 watch tools. Hosted adapters also add workspace discovery and cloud status.
+The optional combined adapter adds explicit connection discovery and five reviewed
+transfer actions. Provider configuration and actual host qualification are still
+required before claiming the deployed service supports these flows.
