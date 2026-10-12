@@ -1,5 +1,9 @@
 # Ding MCP cloud support and implementation plan
 
+The next product milestone is the [ChatGPT marketplace launch](chatgpt-cloud-launch-plan.md):
+install, browser sign-in/consent, and return connected. That plan narrows future
+work to direct cloud onboarding and publication; local/cloud transfers are deferred.
+
 ## Implementation status — October 11, 2026
 
 Implemented on `codex/cloud-mcp` in focused commits, starting from `origin/main`
