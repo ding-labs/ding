@@ -24,6 +24,9 @@ func WithSession(ctx context.Context, path string, fn func(*mcp.ClientSession, P
 }
 
 func withSession(ctx context.Context, path string, base *http.Client, fn func(*mcp.ClientSession, Profile) error) error {
+	secure := *base
+	secure.Transport = secureTransport{base.Transport}
+	base = &secure
 	unlock, err := mcpconfig.Lock(path + ".lock")
 	if err != nil {
 		return mcpclient.Fail("connection_busy", "another cloud request is active; retry this same request")

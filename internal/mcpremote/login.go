@@ -58,6 +58,7 @@ func Login(ctx context.Context, path string, p Profile, port int, out io.Writer)
 	defer server.Close()
 	redirect := "http://" + listener.Addr().String() + "/callback"
 	client := mcpclient.HTTPClient()
+	client.Transport = secureTransport{client.Transport}
 	defer client.CloseIdleConnections()
 	handler, err := auth.NewAuthorizationCodeHandler(&auth.AuthorizationCodeHandlerConfig{
 		PreregisteredClient: &oauthex.ClientCredentials{ClientID: p.ClientID, Issuer: p.Issuer},
