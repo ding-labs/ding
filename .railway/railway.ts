@@ -1,15 +1,15 @@
 import { defineRailway, github, preserve, project, service, volume } from "railway/iac";
 
-// Deliberately require a reviewed immutable revision; pushes must not deploy
-// automatically during backups, restores or schema qualification.
+// Follow main normally. Operators can temporarily pin a reviewed revision
+// while performing backups, restores or schema qualification.
 export default defineRailway(() => {
   const commitSha = process.env.DING_DEPLOY_COMMIT;
-  if (!commitSha || !/^[a-f0-9]{40}$/.test(commitSha)) {
-    throw new Error("Set DING_DEPLOY_COMMIT to the exact reviewed Git commit.");
+  if (commitSha && !/^[a-f0-9]{40}$/.test(commitSha)) {
+    throw new Error("DING_DEPLOY_COMMIT must be an exact 40-character Git commit.");
   }
   const data = volume("ding-data", { region: "us-west2", sizeMB: 1024 });
   const app = service("ding-cloud", {
-    source: github("ding-labs/ding", { branch: "codex/railway-cloud", commitSha }),
+    source: github("ding-labs/ding", { branch: "main", ...(commitSha ? { commitSha } : {}) }),
     build: { builder: "DOCKERFILE", dockerfilePath: "Dockerfile.railway" },
     deploy: {
       healthcheckPath: "/readyz", healthcheckTimeout: 120,
@@ -26,9 +26,11 @@ export default defineRailway(() => {
       // Set these privately before first apply. Preserve operator maintenance
       // mode and restore directory selection across configuration updates.
       DING_MODE: preserve(), DING_STATE_NAME: preserve(),
+      DING_PUSH_JSON: preserve(), DING_CAPACITY_JSON: preserve(),
       DING_DATA_KEY_BASE64: preserve(),
       DING_OIDC_JSON: preserve(), DING_MCP_JSON: preserve(),
       DING_MCP_BRIDGE_CLIENTS: preserve(), DING_AUTHKIT_JSON: preserve(),
+      DING_AUTHKIT_API_KEY: preserve(),
       DING_OPENAI_APPS_CHALLENGE: preserve(),
     },
   });

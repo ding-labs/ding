@@ -84,6 +84,9 @@ func TestPushAuthenticationAtomicityAndDedup(t *testing.T) {
 		if err := json.Unmarshal(data, &result); err != nil {
 			t.Fatal(string(data), err)
 		}
+		if response.StatusCode != http.StatusAccepted {
+			t.Logf("push request %q: HTTP %d: %s", id, response.StatusCode, data)
+		}
 		return response.StatusCode, result.Data
 	}
 	payload := `{"events":[{"id":"a"},{"id":"b"}]}`
@@ -141,6 +144,7 @@ func TestPushAuthenticationAtomicityAndDedup(t *testing.T) {
 			status, r := post(c.Ingest, "concurrent", `{"events":[{"id":"c"}]}`)
 			if status != 202 {
 				t.Error(status)
+				return // A rejected request has no receipt to compare for duplication.
 			}
 			receipts <- r
 		}()
