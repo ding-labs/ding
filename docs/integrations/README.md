@@ -107,6 +107,18 @@ event evidence, and delivery history. It uses only the MCP host bridge, contains
 all scripts/styles locally, renders source text as text, and works in light/dark
 and narrow layouts. Text tool results remain available without UI support.
 
+## Ding Cloud MCP
+
+The cloud runtime includes an optional OAuth-protected `/mcp` endpoint using the
+same watch tools and embedded views. See the [cloud source preview](../operate/cloud-preview.md#public-mcp-preview)
+for configuration and explicit client consent. This is source support, not a
+claim that a public endpoint or marketplace install is available.
+
+Local pairing and `ding cloud login` do not connect the local MCP adapter to that
+endpoint. Cloud usage, workspace discovery, and watch transfer are not yet MCP
+tools. The [cloud MCP plan](../development/mcp-cloud-plan.md) records the current
+gaps, policy corrections, and implementation sequence.
+
 ## Self-hosted HTTP
 
 HTTP is opt-in and **cannot start without explicit OAuth configuration**. The
