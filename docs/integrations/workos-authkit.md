@@ -75,7 +75,9 @@ maintenance rollout exported and restore-verified an encrypted backup, enabled
 OIDC without linking accounts, and resumed service at 2026-10-12 04:54 UTC.
 Health, OAuth discovery, unauthenticated MCP challenges and the PKCE browser
 redirect pass against the live origin. See [qualification evidence](verification.md).
-An authenticated authorization/refresh round trip is not yet qualified.
+The owner subsequently confirmed that signup worked. ChatGPT authorization and
+refresh remain unqualified. The next rollout removes instance password login
+and resets the disposable Ding development data at the owner's request.
 
 The publisher completed OpenAI's individual verification submission, but its
 dashboard still reports **Identity in review**. The plugin portal still blocks
@@ -132,12 +134,12 @@ configuration above; a live ChatGPT authorization flow is not yet qualified.
    Zero closes new signup while preserving existing accounts. Start with a
    bounded private pilot. Do not mix this profile with `DING_OIDC_JSON`,
    `DING_MCP_JSON`, or `DING_MCP_BRIDGE_CLIENTS`.
-4. Existing password-only deployments pin their login methods. In maintenance,
-   take an encrypted backup and run `enable-oidc-login --config /run/ding/config.json`
-   following [the Railway runbook](../../deploy/railway/README.md#enable-hosted-sign-in).
-   This enables the configured provider while preserving existing password
-   accounts; new identities enroll separately. No identity migration is needed.
-   The separate `enable-oidc` operation is available for deliberate account linking.
+4. This profile uses hosted sign-in exclusively (`loginMethods: ["oidc"]`).
+   Start with an empty Ding data directory; no instance owner/password bootstrap
+   is needed. The first verified WorkOS login creates a personal workspace.
+   Existing development data must be explicitly reset in maintenance before
+   switching from a password profile; login methods are pinned in stored state.
+   Resetting Ding data does not delete users from WorkOS.
 5. Deploy reviewed code, verify discovery and `/mcp`, and test the browser login
    before allowing customers to connect. Production must use an activated
    production WorkOS environment and its own clients, not the staging IDs above.

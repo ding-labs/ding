@@ -103,10 +103,10 @@ The same consent cannot restore a disconnected grant. Test the corresponding
 real WorkOS and ChatGPT journey before publication, especially how the provider
 revokes an existing consent and issues a new `sid` for reconnect.
 
-Enable OIDC on the existing deployment with the offline `enable-oidc-login`
-operation. Existing password accounts remain intact; new WorkOS identities
-start fresh. Account linking is optional and outside this launch's critical
-path. Email matching is never account authorization.
+Use WorkOS-only sign-in and fresh Ding state. The owner confirmed that the
+existing deployment is disposable development data and requested a reset; no
+legacy account migration is needed. Retain the WorkOS identity so its next login
+creates a fresh personal workspace. Email matching is never Ding authorization.
 
 **Acceptance:** fresh users connect without Console setup or technical input;
 first login works without notification credentials; canceled consent creates no

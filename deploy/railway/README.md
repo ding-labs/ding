@@ -116,26 +116,20 @@ domain/port. Query it over Railway SSH or an authenticated local port forward.
 
 ### Enable hosted sign-in
 
-Stage the reviewed `DING_AUTHKIT_JSON` profile and qualified revision together
-with `DING_MODE=maintenance`. Once maintenance has stopped execution, export a
-fresh encrypted backup as above, then run:
+The `DING_AUTHKIT_JSON` profile uses WorkOS exclusively. Deploy it with a fresh
+Ding data directory and `DING_MODE=serve`; do not run the password bootstrap.
+The first verified sign-in creates a personal workspace within the configured
+capacity. Email/password, email codes and social providers are managed in WorkOS.
 
-```sh
-railway ssh -- /sbin/su-exec 10001:10001 /ding-cloud enable-oidc-login \
-  --config /run/ding/config.json
-```
+For a disposable development deployment, an explicitly authorized reset can
+remove the old Ding data directory after `DING_MODE=maintenance` has stopped all
+stores and workers. Resume with the reviewed WorkOS-only revision and fresh
+state. This deletes Ding accounts, watches, sessions and grants, but leaves
+WorkOS identities intact. Never reset a populated customer deployment this way.
 
-This explicitly pins the configured HTTPS provider and enables OIDC alongside
-password login. It preserves existing accounts and workspaces and does not link
-them to WorkOS. New verified identities receive new personal workspaces within
-the configured enrollment limit. Existing password users continue to use their
-passwords. No account migration is required to activate the provider.
-
-The operation rejects a running state owner or a different previously pinned
-issuer. Use the separate `enable-oidc --identity-link-file ...` operation only
-when deliberately linking an existing account to a verified provider subject.
-Resume `DING_MODE=serve` with the same AuthKit profile after activation; an older
-password-only configuration no longer matches the stored login profile.
+Generic deployments using `DING_OIDC_JSON` can still use the separate offline
+`enable-oidc-login` operation to retain instance password accounts alongside
+OIDC. That is not the WorkOS-only AuthKit profile.
 
 ## Portable restore and owner recovery
 
