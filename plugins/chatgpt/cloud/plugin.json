@@ -20,7 +20,7 @@
       "onboardingSkill": "./skills/ding-setup/SKILL.md",
       "interface": {
         "displayName": "Ding",
-        "shortDescription": "Cloud watches and alert evidence",
+        "shortDescription": "Cloud watches and alerts",
         "longDescription": "Connect your Ding Cloud account to inspect watches, preview and apply reviewed changes, and investigate alert evidence. Ding keeps monitoring independently of your conversation. Notifications use your configured webhook, Slack, or Discord destination.",
         "developerName": "Ding Labs",
         "category": "Productivity",
