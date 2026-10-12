@@ -1688,18 +1688,6 @@ a:hover {
   background: var(--green-soft);
   color: var(--green);
 }
-.migration-warning {
-  border-top: 1px solid var(--line);
-  padding: 15px 0;
-  font-size: 12px;
-}
-.migration-warning strong {
-  text-transform: capitalize;
-}
-.migration-warning p {
-  color: var(--muted);
-  margin-top: 7px;
-}
 @media (max-width: 768px) {
   .diagnostic-grid {
     grid-template-columns: 1fr;

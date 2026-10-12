@@ -1,11 +1,8 @@
 package control
 
 import (
-	"archive/zip"
-	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,20 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ding-labs/ding/internal/migrate"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watchrun"
 )
 
-type ConvertedFile struct {
-	Name    string `json:"name"`
-	Content string `json:"content"`
-}
-type Conversion struct {
-	Report  migrate.Report  `json:"report"`
-	Files   []ConvertedFile `json:"files"`
-	Archive []byte          `json:"archive"`
-}
 type BackupArtifact struct {
 	ID        string    `json:"id"`
 	Bytes     int64     `json:"bytes"`
@@ -223,53 +210,5 @@ func systemRoutes(mux *http.ServeMux, app *watchrun.App, cfg ConsoleConfig) {
 			return
 		}
 		write(w, 200, map[string]string{"topic": topic, "text": text}, nil)
-	})
-	migrationSlots := make(chan struct{}, 1)
-	mux.HandleFunc("POST /v1/tools/migrate", func(w http.ResponseWriter, r *http.Request) {
-		select {
-		case migrationSlots <- struct{}{}:
-			defer func() { <-migrationSlots }()
-		default:
-			fail(w, 429, "tool_busy", "legacy conversion is already running")
-			return
-		}
-		var req struct {
-			Manifest string `json:"manifest"`
-		}
-		if decodeBounded(w, r, &req, 2<<20) != nil {
-			fail(w, 400, "invalid_request", "expected legacy YAML, at most 1 MiB")
-			return
-		}
-		result, err := migrate.Convert([]byte(req.Manifest))
-		if err != nil {
-			fail(w, 400, "invalid_legacy", err.Error())
-			return
-		}
-		out := Conversion{Report: result.Report, Files: []ConvertedFile{}}
-		var buffer bytes.Buffer
-		archive := zip.NewWriter(&buffer)
-		for _, f := range result.Files {
-			out.Files = append(out.Files, ConvertedFile{Name: f.Name, Content: string(f.Content)})
-			entry, err := archive.Create(f.Name)
-			if err != nil {
-				fail(w, 500, "archive_failed", "could not create conversion archive")
-				return
-			}
-			if _, err = entry.Write(f.Content); err != nil {
-				fail(w, 500, "archive_failed", "could not create conversion archive")
-				return
-			}
-		}
-		report, _ := json.MarshalIndent(result.Report, "", "  ")
-		entry, err := archive.Create("report.json")
-		if err == nil {
-			_, err = entry.Write(report)
-		}
-		if err != nil || archive.Close() != nil {
-			fail(w, 500, "archive_failed", "could not create conversion archive")
-			return
-		}
-		out.Archive = buffer.Bytes()
-		write(w, 200, out, nil)
 	})
 }

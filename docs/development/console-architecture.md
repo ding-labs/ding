@@ -20,7 +20,7 @@ Static assets get correct types, content hashes, CSP and framing protection. Onl
 
 Existing API shapes stay stable. Add `/v1/info`, `/v1/status`, `/v1/console/watches`, `/v1/console/events`, `/v1/console/deliveries`, `/v1/console/destinations`, and bounded retained-observation access. Lists use 50 rows by default and a hard maximum of 100; cursors include store identity, filter scope, snapshot boundary and order. Retention invalidation returns an explicit gap. Counts are complete server counts, not counts of the displayed page. Definitions/evidence are lazy detail requests.
 
-Add bounded `/v1/tools/compile`, `/v1/tools/test`, `/v1/tools/replay`, `/v1/tools/migrate`, `/v1/console/doctor`, and `/v1/console/backup` creation/download. Reuse Go compiler/replay/converter/store functions. Generate frontend contracts from Go types and check drift. Whole-bundle apply review includes destination changes and atomic watch/destination revision preconditions. No JavaScript evaluator and no arbitrary shell endpoint.
+Add bounded `/v1/tools/compile`, `/v1/tools/test`, `/v1/tools/replay`, `/v1/console/doctor`, and `/v1/console/backup` creation/download. Reuse Go compiler/replay/store functions. Generate frontend contracts from Go types and check drift. Whole-bundle apply review includes destination changes and atomic watch/destination revision preconditions. No JavaScript evaluator and no arbitrary shell endpoint.
 
 ## Screen/state contract
 

@@ -62,17 +62,6 @@ export interface ControlCompileResult {
   credentials: Array<WatchrunCredentialHealth>;
 }
 
-export interface ControlConversion {
-  report: MigrateReport;
-  files: Array<ControlConvertedFile>;
-  archive: string;
-}
-
-export interface ControlConvertedFile {
-  name: string;
-  content: string;
-}
-
 export interface ControlDiagnostic {
   code: string;
   severity: string;
@@ -140,36 +129,6 @@ export interface DemoUpdate {
   stage?: string;
   event?: WatchEvent | null;
   error?: string;
-}
-
-export interface MigrateBinding {
-  notifier: string;
-  environment: string;
-  from: string;
-}
-
-export interface MigrateIssue {
-  code: string;
-  message: string;
-}
-
-export interface MigrateReport {
-  converted: number;
-  unsupported: number;
-  reviewRequired: boolean;
-  state: string;
-  warnings: Array<MigrateIssue>;
-  bindings: Array<MigrateBinding>;
-  rules: Array<MigrateRuleReport>;
-}
-
-export interface MigrateRuleReport {
-  name: string;
-  id: string;
-  status: string;
-  file?: string;
-  issues: Array<MigrateIssue>;
-  warnings: Array<MigrateIssue>;
 }
 
 export interface NotifySettings {

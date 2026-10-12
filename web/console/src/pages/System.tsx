@@ -554,24 +554,6 @@ function Instance({
           </Link>
         </section>
       </div>
-      <section className="panel">
-        <h2>Legacy command guidance</h2>
-        <p>
-          <code>run</code>, <code>serve</code>, <code>test-rule</code>, and{" "}
-          <code>install</code> belong to the legacy runtime. Existing rules and
-          snapshots are not automatically loaded.
-        </p>
-        <Link className="button" to="/workbench?tab=Legacy+import">
-          Convert a legacy configuration
-        </Link>{" "}
-        <a
-          href="https://github.com/ding-labs/ding/releases/tag/v0.14.0"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Legacy v0.14.0 release
-        </a>
-      </section>
     </>
   );
 }

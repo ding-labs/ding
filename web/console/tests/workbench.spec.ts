@@ -1,5 +1,29 @@
 import { test, expect } from "./fixtures";
 import { call, manifest } from "./data";
+test("discarding a draft returns to the watch choices", async ({ page, daemon }) => {
+  await page.goto(await daemon.launch());
+  await page.getByRole("link", { name: "New watch", exact: true }).click();
+  await expect(page.locator(".template-grid > button")).toHaveCount(4);
+  await page.getByRole("button", { name: /Receive a signal/ }).click();
+  await expect(page.locator(".template-grid > button")).toHaveCount(0);
+  await page.getByRole("link", { name: "Watches", exact: true }).click();
+  await page.getByRole("link", { name: "New watch", exact: true }).click();
+  await expect(page.getByLabel("Manifest", { exact: true })).toHaveValue(/pushed-status/);
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Discard draft" }).click();
+  await expect(page.locator(".template-grid > button")).toHaveCount(4);
+  await expect(page.getByLabel("Manifest", { exact: true })).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Legacy import" })).toHaveCount(0);
+  await page.getByRole("button", { name: /Inspect an endpoint/ }).click();
+  await expect(page.getByLabel("Manifest", { exact: true })).toHaveValue(/api-health/);
+  await expect(page.getByText("Valid definition", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Review changes" }).click();
+  await expect(page.getByRole("heading", { name: "Understand the change. Then apply it." })).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Discard draft" }).click();
+  await expect(page.locator(".template-grid > button")).toHaveCount(4);
+  await expect(page.getByLabel("Manifest", { exact: true })).toHaveValue("");
+});
 test("validate, simulate, review and apply a push watch", async ({
   page,
   daemon,

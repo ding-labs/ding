@@ -1,7 +1,6 @@
 package control
 
 import (
-	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -100,7 +99,7 @@ func httpMuxForBackup(m *backupManager, a *watchrun.App) *http.ServeMux {
 	m.routes(mux, a)
 	return mux
 }
-func TestMigrationArchiveNeverAppliesAndReferenceIsBounded(t *testing.T) {
+func TestReferenceTopicIsBounded(t *testing.T) {
 	dir := t.TempDir()
 	s, err := store.Open(context.Background(), dir)
 	if err != nil {
@@ -109,48 +108,9 @@ func TestMigrationArchiveNeverAppliesAndReferenceIsBounded(t *testing.T) {
 	defer s.Close()
 	app := watchrun.New(s)
 	h := ConsoleHandler(app, Credentials{Admin: "admin"}, ConsoleConfig{StateDir: dir, Reference: func(topic string) (string, error) { return "help for " + topic, nil }})
-	request := map[string]string{"manifest": `notifiers:
-  console: {type: console}
-rules:
-  - name: hot
-    condition: value > 5
-    alert: [{notifier: console}]
-`}
-	body, _ := json.Marshal(request)
-	r := httptest.NewRequest("POST", "/v1/tools/migrate", bytes.NewReader(body))
+	r := httptest.NewRequest("GET", "/v1/reference?topic="+strings.Repeat("x", 121), nil)
 	r.Header.Set("Authorization", "Bearer admin")
 	w := httptest.NewRecorder()
-	h.ServeHTTP(w, r)
-	if w.Code != 200 {
-		t.Fatal(w.Code, w.Body.String())
-	}
-	var out struct{ Data Conversion }
-	if err = json.Unmarshal(w.Body.Bytes(), &out); err != nil {
-		t.Fatal(err)
-	}
-	archive, err := zip.NewReader(bytes.NewReader(out.Data.Archive), int64(len(out.Data.Archive)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	found := false
-	for _, f := range archive.File {
-		if f.Name == "report.json" {
-			found = true
-		}
-		if strings.Contains(f.Name, "..") || filepath.IsAbs(f.Name) {
-			t.Fatal(f.Name)
-		}
-	}
-	if !found {
-		t.Fatal("report omitted")
-	}
-	records, err := app.List(context.Background())
-	if err != nil || len(records) != 0 {
-		t.Fatal("migration applied watches", err)
-	}
-	r = httptest.NewRequest("GET", "/v1/reference?topic="+strings.Repeat("x", 121), nil)
-	r.Header.Set("Authorization", "Bearer admin")
-	w = httptest.NewRecorder()
 	h.ServeHTTP(w, r)
 	if w.Code != 400 {
 		t.Fatal(w.Code)

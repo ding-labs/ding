@@ -9,7 +9,6 @@ const commands = [
   { name: "Investigate deliveries", to: "/deliveries" },
   { name: "Run Doctor", to: "/system" },
   { name: "Back up this daemon", to: "/system?tab=Backup" },
-  { name: "Import legacy rules", to: "/workbench?tab=Legacy+import" },
   { name: "Read CLI help", to: "/system?tab=CLI+setup" },
 ];
 export function CommandMenu() {

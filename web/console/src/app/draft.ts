@@ -3,14 +3,12 @@ type Draft = {
   manifest: string;
   fixture: string;
   evidence: string;
-  legacy: string;
   dirty: boolean;
 };
 let value: Draft = {
   manifest: "",
   fixture: "",
   evidence: "",
-  legacy: "",
   dirty: false,
 };
 const listeners = new Set<() => void>();
@@ -19,7 +17,7 @@ export function setDraft(patch: Partial<Draft>) {
   listeners.forEach((fn) => fn());
 }
 export function resetDraft() {
-  setDraft({ manifest: "", fixture: "", evidence: "", legacy: "", dirty: false });
+  setDraft({ manifest: "", fixture: "", evidence: "", dirty: false });
 }
 export function useDraft() {
   return useSyncExternalStore(
