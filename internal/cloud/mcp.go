@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"slices"
 	"strings"
 
 	"github.com/ding-labs/ding/internal/access"
@@ -14,6 +13,7 @@ import (
 	"github.com/ding-labs/ding/internal/mcpauth"
 	"github.com/ding-labs/ding/internal/mcpclient"
 	"github.com/ding-labs/ding/internal/mcpconfig"
+	"github.com/ding-labs/ding/internal/mcpcontract"
 	"github.com/ding-labs/ding/internal/mcpserver"
 	"github.com/ding-labs/ding/internal/mcpui"
 	state "github.com/ding-labs/ding/internal/serverstate"
@@ -31,7 +31,7 @@ func (s *Server) MCPHandler(cfg mcpconfig.HTTP, jwks *http.Client) (http.Handler
 	if err != nil {
 		return nil, nil, err
 	}
-	server, err := mcpserver.New(mcpserver.Options{Version: s.Version, HTML: mcpui.WorkspaceHTML, Resolve: s.resolveMCP(cfg.Issuer)})
+	server, err := mcpserver.New(mcpserver.Options{Version: s.Version, HTML: mcpui.WorkspaceHTML, Resolve: s.resolveMCP(cfg.Issuer), ListWorkspaces: s.listMCPWorkspaces(cfg.Issuer)})
 	if err != nil {
 		verifier.Close()
 		return nil, nil, err
@@ -58,28 +58,33 @@ type mcpWorkspaceKey struct{}
 func (s *Server) resolveMCP(issuer string) mcpserver.Resolver {
 	return func(ctx context.Context, scope string, token *auth.TokenInfo) (*mcpclient.Client, error) {
 		denied := mcpclient.Fail("integration_denied", "Connect this model client in the Ding Cloud Console; inspect its scopes, secret references, and expiry.")
-		if token == nil || token.Extra["issuer"] != issuer || !slices.Contains(token.Scopes, "ding:"+scope) {
-			return nil, denied
-		}
-		subject, _ := token.Extra["subject"].(string)
-		clientID, _ := token.Extra["client_id"].(string)
-		if subject == "" || clientID == "" {
-			return nil, denied
-		}
-		user, err := s.DB.IdentityUser(ctx, issuer, subject)
+		user, clientID, scopes, err := s.mcpIdentity(ctx, issuer, scope, token)
 		if err != nil {
-			return nil, denied
+			return nil, err
 		}
 		selected, _ := ctx.Value(mcpWorkspaceKey{}).(string)
+		if requested := mcpserver.RequestedWorkspace(ctx); requested != "" {
+			if selected != "" && selected != requested {
+				return nil, mcpclient.Fail("invalid_target", "Workspace header and tool argument disagree.")
+			}
+			selected = requested
+		}
+		if selected == "" {
+			workspaces, err := s.approvedMCPWorkspaces(ctx, user.ID, clientID, scopes)
+			if err != nil {
+				return nil, err
+			}
+			if len(workspaces) > 1 {
+				return nil, mcpclient.Fail("workspace_required", "Call ding_list_workspaces and provide workspace_id for this operation.")
+			}
+			if len(workspaces) == 0 {
+				return nil, denied
+			}
+			selected = workspaces[0].ID
+		}
 		workspace, err := s.DB.ResolveMCPWorkspace(ctx, user.ID, clientID, selected)
 		if err != nil {
 			return nil, denied
-		}
-		scopes := []string{}
-		for _, s := range token.Scopes {
-			if value, ok := strings.CutPrefix(s, "ding:"); ok {
-				scopes = append(scopes, value)
-			}
 		}
 		principal, err := s.DB.Principal(ctx, user.ID, workspace, "integration", scopes)
 		if err != nil || !principal.Allows(access.Action(scope)) {
@@ -96,9 +101,13 @@ func (s *Server) resolveMCP(issuer string) mcpserver.Resolver {
 		if _, err := tenant.App.IntegrationAccess(ctx, connection.Token, scope); err != nil {
 			return nil, denied
 		}
+		status, err := tenant.App.Status(ctx)
+		if err != nil {
+			return nil, mcpclient.Fail("workspace_unavailable", "Workspace identity is unavailable.")
+		}
 		api := s.api(tenant)
 		principal.Grant = connection.GrantID
-		return &mcpclient.Client{Connection: connection, HTTP: &http.Client{Transport: privateTransport{handler: s.scopedMCP(tenant, api.handler), origin: s.PublicURL, db: s.DB, vault: s.Vault, client: clientID, principal: principal, admit: s.allowWorkspaceRequest}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
+		return &mcpclient.Client{Target: &mcpcontract.Target{Instance: status.Instance, Workspace: workspace, Execution: s.execution()}, Connection: connection, HTTP: &http.Client{Transport: privateTransport{handler: s.scopedMCP(tenant, api.handler), origin: s.PublicURL, db: s.DB, vault: s.Vault, client: clientID, principal: principal, admit: s.allowWorkspaceRequest}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
 	}
 }
 
