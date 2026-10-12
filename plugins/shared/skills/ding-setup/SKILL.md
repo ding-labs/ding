@@ -1,10 +1,13 @@
 ---
 name: ding-setup
-description: Check or establish the Ding plugin's connection to a local or self-hosted Ding instance after installation. Use for Ding onboarding and connection diagnosis, not ordinary watch operations.
+description: Check or establish the Ding plugin's connection to a local, self-hosted, or cloud Ding instance after installation. Use for Ding onboarding and connection diagnosis, not ordinary watch operations.
 ---
 
 First call `ding_get_capabilities` if available. Report the connected instance,
-granted permissions, and whether writes are enabled. Do not re-pair a working
+execution location, effective permissions, and whether writes are enabled. If
+`connection_required` is returned, call `ding_list_connections` and choose an
+explicit `connection_id`. For `workspace_required`, call `ding_list_workspaces`
+and select `workspace_id`. Retain both targets on subsequent calls. Do not re-pair a working
 connection. Installing a plugin does not itself start a Ding daemon.
 
 For the native Claude Cowork/Code package, the included **Ding Setup** launcher
@@ -33,3 +36,16 @@ are granted through local setup, not by editing tool arguments.
 After connection, list watches and destinations. Offer to create the user's
 first supported watch if they want one. Do not create a demonstration watch,
 change notification destinations, or broaden permissions merely to prove setup.
+
+Ding Cloud uses its configured HTTPS `/mcp` endpoint and a separate OAuth client
+and workspace consent. A password session or `ding cloud login` device token is
+not an MCP credential. If the deployed endpoint returns 404, its operator must
+enable and qualify OAuth; a model cannot enable it through tool calls. Local
+monitoring continues without cloud sign-in.
+
+For an authorized combined local/cloud adapter, the operator uses
+`ding mcp cloud connect` with a separate private profile and then
+`ding mcp serve --cloud-profile /private/cloud.json`. The hosted provider must
+register this native client and its loopback callback. Never reuse a CLI device
+or administrator token. Transfer consent is separately granted to the approved
+native bridge; ordinary model clients must use their own registered client IDs.

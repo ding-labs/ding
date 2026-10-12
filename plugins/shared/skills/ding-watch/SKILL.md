@@ -4,10 +4,13 @@ description: Create, inspect, and manage persistent Ding watches through the Din
 ---
 
 Use `ding_get_capabilities` to establish the connected instance, permissions, and
-limits. The Go daemon evaluates and persists watches independently of this chat.
+execution location and limits. Use effective permissions, not just the original
+grant. Keep `connection_id` and `workspace_id` on calls when selected; identical
+watch IDs on different targets are separate watches. A failed cloud connection
+never authorizes falling back to a local one. The Go daemon evaluates and persists watches independently of this chat.
 Do not assume that installing the plugin starts the daemon or enables writes.
 
-Supported sources are HTTP JSON/status polling (at least one second), local
+Supported sources are HTTP JSON/status polling (subject to the connected instance’s minimum interval), local
 commands returning JSON, and authenticated JSON push. Commands require an exact
 revision allowed by the local administrator. New secret references require local
 permission; never ask for secret values in chat. Existing destinations can be
@@ -51,3 +54,21 @@ Use the embedded Ding view when the host offers it; provide the same essential
 result in text when it does not. The current integration does not subscribe this
 conversation to future events or wake the model. Ding can notify through its
 configured console, webhook, Slack, or Discord destinations.
+
+For an authorized move, inspect `ding_get_transfer_preflight` on the source
+before cloud sign-in or upload. Review the exact manifest, cadence, destinations
+and credential references. Through the combined bridge, use
+`ding_prepare_transfer` only when the user authorized uploading that definition;
+include the inspected revision, generation and destination revisions. Preparation
+keeps source execution unchanged and creates a held, paused target. Move requires
+separate consent on both instances. Rebind secrets in protected setup.
+
+Keep the returned transfer ID. Request `ding_test_transfer` with a stable key,
+then use `ding_finish_transfer` only after the user confirms the labeled delivery
+and authorizes handoff. Check `ding_get_transfer_status` for first-observation
+confirmation. For interrupted preparation, pause or activation, inspect the same
+saved transfer; never invent a peer receipt or resume a source because a peer is
+unreachable. Cancel only with user authorization and only before target activation;
+cancellation does not automatically resume a paused source. An active target
+requires a reviewed reverse transfer. These actions require the local bridge;
+a hosted endpoint cannot operate an unavailable laptop.
