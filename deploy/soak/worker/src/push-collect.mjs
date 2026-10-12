@@ -1,6 +1,6 @@
 import {boundedJSON} from './core.mjs';
 import {put,METRICS_QUERY} from './index.mjs';
-import {MINUTE,ROOT,offer,receiptMatches} from './push-core.mjs';
+import {MINUTE,ROOT,offer,receiptMatches,entitiesMatch,storagePressure} from './push-core.mjs';
 const ORIGIN='https://cloud.ding.ing';
 export async function read(env,key) {const obj=await env.EVIDENCE.get(ROOT+key);return obj?await obj.json():null;}
 export async function write(env,key,value) {return put(env.EVIDENCE,ROOT+key,value,{etagDoesNotMatch:'*'});}
@@ -37,7 +37,7 @@ export async function collectPush(controller,env) {
  const entities=data?.entities,receipt=sample.accept.response?.data;
  sample.pass=sample.accept.status===202 && receipt?.last-receipt?.first+1===18 && sample.replay?.status===202 && receiptMatches(sample.accept.response,sample.replay?.response)
   && (!sample.conflict || sample.conflict.status===409) && sample.state.status===200 && entities?.length===18 && !data.entitiesMore
-  && entities.every(e=>!e.sourceUnhealthy) && entities.filter(e=>e.open).length===offered.open;
+  && entitiesMatch(entities,offered);
  try {const r=await fetch(ORIGIN+'/healthz',{redirect:'manual',signal:AbortSignal.timeout(10000)});sample.health=r.status;await r.body?.cancel();}catch{sample.health=0;}
  sample.pass=sample.pass && sample.health===200;
  if(minute%(5*MINUTE)===0) {
@@ -49,8 +49,12 @@ export async function collectPush(controller,env) {
   }catch{sample.railway={status:0,error:'metrics_unavailable'};}
   sample.telemetryPass=sample.usage.status===200 && sample.doctor.status===200 && sample.railway.status===200 && !sample.railway.response?.errors && !!sample.railway.response?.data?.metrics?.length;
   sample.pass=sample.pass && sample.telemetryPass;
+  sample.storagePressure=storagePressure(sample.doctor.response?.data,sample.railway.response?.data);
+  if(sample.storagePressure){sample.pass=false;await write(env,c.runId+'/stop.json',{at:Date.now(),reason:'storage_above_85_percent'});}
  }
  const previous=await read(env,base+'/latest.json');
+ const priorRevision=previous?.state?.response?.data?.watch?.revision;
+ if(priorRevision&&data?.watch?.plan?.revision!==priorRevision)sample.pass=false;
  sample.failureStreak=sample.pass?0:(previous?.failureStreak||0)+1;
  sample.finishedAt=Date.now();
  await write(env,`${base}/samples/${id}.json`,sample);

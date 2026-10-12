@@ -15,7 +15,7 @@ test('offer precedes delivery, duplicate Cron does not send twice, receipts and 
  t.mock.method(globalThis,'fetch',async(url,options)=>{
   if(url.endsWith('/healthz'))return new Response('ok');
   if(url.includes('/ingest/')){assert.ok(b.data.has(ROOT+`${config.runId}/warmup/offers/${minute}.json`));pushes++;return Response.json({data:{acceptanceId:'one',first:1,last:18,duplicate:pushes>1}} ,{status:202});}
-  return Response.json({data:{watch:{status:'running',plan:{revision:'a'}},entities:expected.map(e=>({open:e.failed,sourceUnhealthy:false})),entitiesMore:false}});
+  return Response.json({data:{watch:{status:'running',plan:{revision:'a'}},entities:expected.map(e=>({key:JSON.stringify([{field:'repo',present:true,value:e.repo}]),open:e.failed,sourceUnhealthy:false})),entitiesMore:false}});
  });
  await collectPush({scheduledTime:minute},{EVIDENCE:b});await collectPush({scheduledTime:minute},{EVIDENCE:b});
  assert.equal(pushes,2);assert.equal(b.data.get(ROOT+`${config.runId}/warmup/latest.json`).pass,true);

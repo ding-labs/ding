@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validateStart,offer,report,receiptMatches,MINUTE,HOURS72} from '../src/push-core.mjs';
+import {validateStart,offer,report,receiptMatches,entitiesMatch,storagePressure,MINUTE,HOURS72} from '../src/push-core.mjs';
 const now=Date.now(), epoch=Math.ceil(now/MINUTE)*MINUTE;
 const c=validateStart({runId:'push-0123456789abcdef',watchId:'push-soak-01234567',mode:'measure',epoch,applicationRevision:'a'.repeat(40),observerRevision:'b'.repeat(40)},now);
 test('measurement lasts 72 hours and refuses backdating',()=>{
@@ -27,4 +27,14 @@ test('elapsed time alone cannot pass: missing and rejected samples remain failur
  assert.equal(report(c,samples.slice(1),c.endsAt).missing,1);
  samples[5].pass=false; assert.equal(report(c,samples,c.endsAt).failed,1);
  assert.equal(report(c,[],epoch).verdict,'running');
+});
+
+test('wrong group identities cannot pass by matching only the incident count',()=>{
+ const offered=offer(c,epoch),entities=JSON.parse(offered.body).events.map(e=>({key:JSON.stringify([{field:'repo',present:true,value:e.repo}]),open:e.failed}));
+ assert.ok(entitiesMatch(entities,offered));entities[0].key=entities[1].key;assert.equal(entitiesMatch(entities,offered),false);
+});
+test('storage safety covers workspace allocation and the one GiB Railway volume',()=>{
+ assert.equal(storagePressure({limits:{maxBytes:100},usage:{liveBytes:85}},{}),true);
+ assert.equal(storagePressure({}, {disk:[{measurement:'DISK_USAGE_GB',values:[{value:0.9}]}]}),true);
+ assert.equal(storagePressure({limits:{maxBytes:100},usage:{liveBytes:2}},{}),false);
 });

@@ -34,3 +34,19 @@ export function report(config, samples, now) {
   }
   return {verdict:missing||failed?'fail':now<config.endsAt?'running':'pass',expected,recorded:byMinute.size,missing,failed,accepted};
 }
+export function entitiesMatch(entities, offered) {
+ const expected=new Map(JSON.parse(offered.body).events.map(e=>[e.repo,e.failed]));
+ if(!Array.isArray(entities)||entities.length!==expected.size)return false;
+ const seen=new Set();
+ for(const e of entities) {
+  let parts;try{parts=JSON.parse(e.key);}catch{return false;}
+  const repo=parts.length===1&&parts[0].field==='repo'&&parts[0].present===true?parts[0].value:null;
+  if(!expected.has(repo)||seen.has(repo)||e.open!==expected.get(repo)||e.sourceUnhealthy)return false;
+  seen.add(repo);
+ }
+ return true;
+}
+export function storagePressure(doctor,railway) {
+ if(doctor?.limits?.maxBytes>0 && doctor.usage?.liveBytes>=doctor.limits.maxBytes*0.85)return true;
+ return (railway?.disk||[]).some(s=>s.measurement==='DISK_USAGE_GB'&&s.values.some(v=>v.value>=0.85));
+}
