@@ -18,6 +18,12 @@ import (
 // WithSession serializes profile refresh across processes, reloads rotated
 // credentials, and never opens an interactive login from a model request.
 func WithSession(ctx context.Context, path string, fn func(*mcp.ClientSession, Profile) error) error {
+	base := mcpclient.HTTPClient()
+	defer base.CloseIdleConnections()
+	return withSession(ctx, path, base, fn)
+}
+
+func withSession(ctx context.Context, path string, base *http.Client, fn func(*mcp.ClientSession, Profile) error) error {
 	unlock, err := mcpconfig.Lock(path + ".lock")
 	if err != nil {
 		return mcpclient.Fail("connection_busy", "another cloud request is active; retry this same request")
@@ -27,8 +33,6 @@ func WithSession(ctx context.Context, path string, fn func(*mcp.ClientSession, P
 	if err != nil {
 		return mcpclient.Fail("cloud_signin_required", "connect this cloud profile using ding mcp cloud connect")
 	}
-	base := mcpclient.HTTPClient()
-	defer base.CloseIdleConnections()
 	config := oauth2.Config{ClientID: p.ClientID, Endpoint: oauth2.Endpoint{TokenURL: p.TokenURL, AuthStyle: p.AuthStyle}, Scopes: p.Scopes}
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, base)
 	source := &savingSource{source: config.TokenSource(ctx, p.Token), profile: p, path: path}
