@@ -55,6 +55,9 @@ func TestAuthKitProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := settings.Config
+	if len(c.LoginMethods) != 1 || c.LoginMethods[0] != "oidc" {
+		t.Fatal("AuthKit must not enable instance password login")
+	}
 	if c.MCP.JWKSURI != "https://sample.authkit.app/oauth2/jwks" || c.MCP.Audience != "https://cloud.ding.ing/mcp" || c.AuthKitClients[0] != "chatgpt" || c.Identity.ClientID != "console" || c.Identity.ClientSecret != "" || *c.EnrollmentLimit != 10 {
 		t.Fatal("incorrect AuthKit profile")
 	}

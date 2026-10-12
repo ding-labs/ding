@@ -13,7 +13,7 @@ import (
 )
 
 // configureMCP is opt-in. The generic profile keeps admission closed; AuthKit
-// requires an explicit capacity. Existing password state requires enable-oidc.
+// requires an explicit capacity and uses hosted sign-in exclusively.
 func configureMCP(c *cloud.Config, get func(string) string) error {
 	decode := func(raw string, dest any) error {
 		if len(raw) > 16<<10 {
@@ -55,7 +55,7 @@ func configureMCP(c *cloud.Config, get func(string) string) error {
 		// Public Connect clients use PKCE. No WorkOS API key or OAuth secret is
 		// required to verify JWTs or complete the browser authorization flow.
 		c.Identity = identity.Config{Issuer: settings.Issuer, ClientID: settings.BrowserClientID}
-		c.LoginMethods = []string{"password", "oidc"}
+		c.LoginMethods = []string{"oidc"}
 		c.MCP = &mcpconfig.HTTP{Issuer: settings.Issuer, JWKSURI: settings.Issuer + "/oauth2/jwks", Audience: strings.TrimRight(c.PublicURL, "/") + "/mcp", Algorithm: "RS256"}
 		c.AuthKitClients = []string{settings.ChatGPTClientID}
 		c.EnrollmentLimit = settings.EnrollmentLimit
