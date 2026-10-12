@@ -130,8 +130,8 @@ func (s *Server) serveTenant(w http.ResponseWriter, r *http.Request, session sta
 			cloudFail(w, 400, "invalid_request", "Expected a JSON request.")
 			return
 		}
-		if len(req.Manifest) > MaxManifestBytes {
-			cloudFail(w, 413, "manifest_limit", "Cloud manifests must fit within 64 KiB.")
+		if len(req.Manifest) > t.App.Integration.MaxManifestBytes {
+			cloudFail(w, 413, "manifest_limit", fmt.Sprintf("Manifests must fit within %d bytes.", t.App.Integration.MaxManifestBytes))
 			return
 		}
 		if req.Manifest != "" {

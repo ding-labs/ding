@@ -103,8 +103,8 @@ func (s *Server) Handler() (http.Handler, error) {
 			return
 		}
 		requestLimit := int64(96 << 10)
-		if r.URL.Path == "/mcp" || r.URL.Path == "/v1/apply" || strings.HasPrefix(r.URL.Path, "/v1/tools/") {
-			requestLimit = integrationpolicy.CloudRequestBytes
+		if r.URL.Path == "/mcp" || r.URL.Path == "/v1/apply" || r.URL.Path == "/v1/integrations/preview" || strings.HasPrefix(r.URL.Path, "/v1/tools/") {
+			requestLimit = int64(integrationpolicy.Hosted("", "", s.Shared).MaxRequestBytes)
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, requestLimit)
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)

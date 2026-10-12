@@ -36,7 +36,7 @@ func (s *Server) MCPHandler(cfg mcpconfig.HTTP, jwks *http.Client) (http.Handler
 		verifier.Close()
 		return nil, nil, err
 	}
-	transport := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true, MaxRequestBodyBytes: integrationpolicy.CloudRequestBytes, PropagateRequestCancellation: true, DisableLocalhostProtection: true})
+	transport := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true, MaxRequestBodyBytes: int64(integrationpolicy.Hosted("", "", s.Shared).MaxRequestBytes), PropagateRequestCancellation: true, DisableLocalhostProtection: true})
 	metadataPath := "/.well-known/oauth-protected-resource/mcp"
 	protected := auth.RequireBearerToken(verifier.Verify, &auth.RequireBearerTokenOptions{ResourceMetadataURL: s.PublicURL + metadataPath, Scopes: []string{"ding:inspect"}})(transport)
 	metadata := auth.ProtectedResourceMetadataHandler(&oauthex.ProtectedResourceMetadata{Resource: s.PublicURL + "/mcp", AuthorizationServers: []string{cfg.Issuer}, ScopesSupported: []string{"ding:inspect", "ding:preview", "ding:manage", "ding:retry"}, BearerMethodsSupported: []string{"header"}})
