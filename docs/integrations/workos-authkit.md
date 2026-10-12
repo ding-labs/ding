@@ -56,7 +56,8 @@ The free WorkOS-hosted domain is sufficient; no custom-domain add-on was enabled
 Production Email + Password and Magic Auth (one-time email codes) are enabled.
 Password login uses WorkOS's Strong policy: at least ten characters, complexity
 score at least three, and breached-password rejection. The hosted page exposes
-email sign-in and signup; passkeys and social providers are not configured.
+email sign-in and signup. Google and GitHub are enabled as described below;
+passkeys are not configured.
 
 The deployment profile is:
 
@@ -72,12 +73,40 @@ The deployment profile is:
 Railway now runs `43226d8` with WorkOS-only sign-in. On 2026-10-12 the owner
 requested a reset of the disposable development data. The active Ding state was
 cleared in maintenance, then service resumed at 05:13:30 UTC with zero workspaces
-or watches. WorkOS identities remain intact; the next login enrolls a fresh
-workspace. The owner confirmed that the earlier WorkOS signup worked.
+or watches. WorkOS identities remain intact. A subsequent hosted login reused
+the owner's WorkOS session and opened a fresh Personal workspace in the Console.
+The owner confirmed that the earlier WorkOS signup worked.
 Health, hosted-only auth configuration, rejection of native password endpoints,
 and unauthenticated MCP challenges pass live checks. See
 [qualification evidence](verification.md). ChatGPT authorization and refresh
-remain unqualified; social providers are still being configured.
+remain unqualified, as do fresh Google and GitHub login round trips.
+
+### Social providers
+
+Both providers are enabled in production WorkOS. Their secrets are stored only
+in WorkOS, and returning provider OAuth tokens is disabled. These registrations
+authenticate people into the same hosted sign-in flow; they do not grant access
+to Ding watches or replace ChatGPT's separate Connect consent.
+
+| Provider | Public registration | Exact WorkOS callback | Identity scopes |
+| --- | --- | --- | --- |
+| GitHub | `ding-labs` app `3924844`, client `Ov23liWEu3uLd1gZMPtE` | `https://auth.workos.com/sso/oauth/github/klJ6WizLPYP4gE5OdzUewzj3x/callback` | `user:email` |
+| Google | Project `fluent-fortress-511405-c7`, client `435877171447-uhb1o8r9cm8obidj79trqejbaumcdigg.apps.googleusercontent.com` | `https://auth.workos.com/sso/oauth/google/kYo3uHuJR1t7OLnmvT2zqZE7H/callback` | `userinfo.email`, `userinfo.profile` |
+
+Google branding uses **Ding Cloud**, `ping@ding.ing` for support and developer
+contact, and `https://ding.ing` as the homepage. The support Google account has
+OAuth Config Editor access. The audience remains External / Testing: Google
+disables publication until Branding is completed; public operator privacy and
+terms links have not been supplied. Its documented
+[basic identity scope exception](https://support.google.com/cloud/answer/15549945?hl=en)
+allows these sign-ins without test-user registration, an unverified-app warning
+or seven-day authorization expiry. Do not add other Google API scopes under that
+assumption. Finish public branding separately before marketplace release.
+
+To qualify each provider, open `https://cloud.ding.ing/auth/login` in a fresh
+browser session, choose the provider, complete its identity consent and verify
+the return to the intended Ding workspace. An existing WorkOS session can skip
+provider selection; that proves session reuse, not a social login round trip.
 
 The publisher completed OpenAI's individual verification submission, but its
 dashboard still reports **Identity in review**. The plugin portal still blocks

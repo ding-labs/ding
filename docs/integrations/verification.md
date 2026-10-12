@@ -1,5 +1,30 @@
 # Integration qualification evidence
 
+## Production social sign-in configuration — October 12, 2026
+
+Both Google and GitHub are **Enabled** in the production WorkOS provider UI.
+Provider secrets were transferred directly into WorkOS; they were not written
+to the repository or this evidence record. Returning provider OAuth tokens is
+disabled for both providers.
+
+- GitHub OAuth app `3924844` belongs to `ding-labs`, with public client
+  `Ov23liWEu3uLd1gZMPtE`, WorkOS's exact callback and only `user:email` access.
+- Google project `fluent-fortress-511405-c7` has web client **Ding Cloud WorkOS
+  sign-in**, public ID
+  `435877171447-uhb1o8r9cm8obidj79trqejbaumcdigg.apps.googleusercontent.com`,
+  WorkOS's exact callback, and only `userinfo.email` / `userinfo.profile` scopes.
+  The owner-created Google identity `ping@ding.ing` has OAuth Config Editor access
+  and is the saved support/developer contact. The homepage is `https://ding.ing`.
+- Google audience is External / Testing. **Publish app remains disabled** with
+  a request to complete Branding; public privacy and terms links are still empty.
+  Google's [basic identity scope exception](https://support.google.com/cloud/answer/15549945?hl=en)
+  permits these sign-ins without a test-user list, warning or seven-day expiry.
+  This exception is not evidence of completed publication or brand verification.
+- The live Ding `/auth/login` flow reused the owner's WorkOS session and returned
+  to `/ui/watches` as owner of a fresh Personal workspace after the reset.
+  Opening the standalone AuthKit preview also reused that session. Neither test
+  exercised Google or GitHub; fresh social login round trips remain unqualified.
+
 ## WorkOS-only development reset — October 12, 2026
 
 At the owner's explicit request, removed the disposable Ding application state
@@ -20,12 +45,8 @@ password login in the AuthKit profile and uses a provider-neutral sign-in label.
   The owner's next WorkOS sign-in creates a fresh workspace for new tests/soaks.
 - Owner confirmed the original WorkOS signup completed before this reset.
 
-Social setup is in progress: GitHub OAuth app `3924844` belongs to `ding-labs`,
-with public client `Ov23liWEu3uLd1gZMPtE` and WorkOS's exact callback. GitHub
-requires owner reauthentication before generating the provider secret. Google
-project `fluent-fortress-511405-c7` (Ding Cloud) exists; OAuth configuration awaits
-a Google identity for the owner's chosen support address, `ping@ding.ing`.
-Neither social provider is enabled or qualified yet.
+Social provider setup and the subsequent fresh workspace login are recorded
+above; neither requires a Ding runtime redeployment.
 
 ## Initial production WorkOS rollout — October 12, 2026
 

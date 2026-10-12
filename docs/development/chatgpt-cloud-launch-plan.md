@@ -28,7 +28,10 @@ Railway runs `43226d8` with WorkOS-only sign-in and fresh development state as o
 2026-10-12 05:13 UTC. The owner confirmed the earlier hosted signup worked.
 Health, discovery, the MCP authentication challenge and the Console's PKCE
 redirect pass live checks; the native password endpoints are disabled.
-Authenticated browser/ChatGPT qualification, ChatGPT's exact callback,
+Hosted session reuse and fresh Personal workspace enrollment are now observed
+in the live Console. Google and GitHub providers are enabled in production
+WorkOS; fresh social login round trips and Google's public branding/publication
+remain outstanding. Authenticated ChatGPT qualification, its exact callback,
 live reconnect semantics, and marketplace qualification remain outstanding.
 The review cases are authored procedures, not completed live evidence.
 The owner submitted OpenAI publisher identity verification; it remains in review
@@ -63,7 +66,7 @@ There is no local daemon or copied watch database in this flow.
 | Remote endpoint | Live `/mcp`, production OAuth verification and discovery | Qualify authenticated client requests |
 | Watch tools | Cloud inspection, preview/apply, lifecycle, evidence, workspace selection | Qualify actual ChatGPT behavior |
 | Consent | WorkOS-hosted approval; automatic provider-backed grants | Prove live consent and reconnect behavior |
-| Accounts | Production configured for bounded personal-workspace enrollment | Qualify Console sign-in and fresh enrollment |
+| Accounts | Bounded enrollment; live Console session reuse and fresh Personal workspace observed; Google/GitHub configured | Qualify fresh social login round trips |
 | Connection lifetime | Provider-backed grants renew and preserve revocation | Qualify actual refresh and consent reset |
 | ChatGPT linking | Per-tool OAuth scopes and scope-upgrade challenges | Verify the real ChatGPT linking UI |
 | Package | Fixed cloud endpoint, explicit OAuth client mode, cloud onboarding and review cases | Supply production client settings, public policy URLs and live review evidence |
@@ -106,8 +109,8 @@ revokes an existing consent and issues a new `sid` for reconnect.
 
 Use WorkOS-only sign-in and fresh Ding state. The owner confirmed that the
 existing deployment is disposable development data and requested a reset; no
-legacy account migration is needed. Retain the WorkOS identity so its next login
-creates a fresh personal workspace. Email matching is never Ding authorization.
+legacy account migration is needed. The retained WorkOS identity has now logged
+in and created a fresh personal workspace. Email matching is never Ding authorization.
 
 **Acceptance:** fresh users connect without Console setup or technical input;
 first login works without notification credentials; canceled consent creates no
