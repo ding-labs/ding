@@ -89,34 +89,3 @@ test("doctor, destinations, help, completion and verified backup", async ({
     rmSync(restored, { recursive: true, force: true });
   }
 });
-test("legacy import returns a report and archive without applying", async ({
-  page,
-  daemon,
-}) => {
-  await page.goto(await daemon.launch());
-  await page.getByRole("link", { name: "Workbench", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Legacy import", exact: true })
-    .click();
-  await page
-    .getByLabel("Legacy YAML", { exact: true })
-    .fill(
-      `notifiers:\n  console: {type: console}\nrules:\n  - name: hot\n    condition: value > 5\n    alert: [{notifier: console}]\n`,
-    );
-  await page
-    .getByRole("button", { name: "Convert legacy configuration" })
-    .click();
-  await expect(
-    page.getByRole("heading", { name: "1 converted · 0 unsupported" }),
-  ).toBeVisible();
-  expect((await call(daemon, "/console/watches")).total).toBe(0);
-  const archive = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: "Download conversion archive" })
-    .click();
-  expect((await archive).suggestedFilename()).toBe("ding-migration.zip");
-  await page.getByRole("button", { name: "Open in Workbench" }).click();
-  await expect(page.getByLabel("Manifest", { exact: true })).toContainText(
-    "kind: Watch",
-  );
-});

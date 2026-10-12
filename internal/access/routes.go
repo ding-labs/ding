@@ -25,7 +25,6 @@ var Routes = map[string]Action{
 	"POST /v1/tools/compile":                       Preview,
 	"POST /v1/tools/test":                          Preview,
 	"POST /v1/tools/replay":                        Preview,
-	"POST /v1/tools/migrate":                       Host,
 	"POST /v1/backup":                              Host,
 	"GET /v1/doctor":                               Inspect,
 	"POST /v1/console/backup":                      Host,

@@ -58,11 +58,11 @@ For design and implementation status, see the [console plan](../development/cons
 
 Watches separates lifecycle, incident state, source health, and delivery problems. Its attention counts cover the entire store. Events starts newest first; **Follow live** announces new events without moving your place. A retention gap must be acknowledged by loading available history. Event evidence always uses that event's definition revision.
 
-Workbench supports all YAML/JSON schema features. Compilation and JSONL simulation do not execute sources or send notifications. Review includes watches, destinations, permissions, missing environment references, and preserved/reset state. Apply checks the reviewed definitions atomically; conflicts preserve the draft for comparison. Drafts remain in memory across navigation and session reconnection, with explicit download and a page-close warning. They are not written to browser storage.
+Workbench supports all YAML/JSON schema features. Compilation and JSONL simulation do not execute sources or send notifications. Review includes watches, destinations, permissions, missing environment references, and preserved/reset state. Apply checks the reviewed definitions atomically; conflicts preserve the draft for comparison. Drafts remain in memory across navigation and session reconnection, with explicit download, discard, and a page-close warning. Discard returns to the watch choices. Drafts are not written to browser storage.
 
 System includes full Doctor checks, current destinations, effective startup settings, help/completion downloads, and verified SQLite backups. Managed browser backup artifacts are limited to two outstanding files and 512 MiB each. They are private to the requesting session, single-use, and expire in five minutes; startup removes leftover artifacts. Collection/failure removes the file. Use **Save on daemon host** for larger snapshots; the existing absolute-path and no-overwrite guarantees apply. A backup contains operational data, not the separately stored daemon token files.
 
-Legacy import reports unsupported features and required environment bindings and downloads a ZIP. It never applies a converted watch; opening a converted file in Workbench is a separate action. Starting/stopping the daemon process and changing startup flags remain host operations.
+Starting/stopping the daemon process and changing startup flags remain host operations.
 
 ## Console checks
 

@@ -48,7 +48,7 @@ Continue refining this layout with real evidence and failure cases during U01. T
 | **Watches** — default landing page | Know what needs attention; open or create a watch | Search, filter views, watch list, condition/source/delivery state, latest input, primary action “New watch” |
 | **Events** | Understand what happened | Retained history, watch/type/time filters, live follow, event inspector and evidence |
 | **Deliveries** | Find notifications that need intervention | Pending, sending, delivered, failed and canceled deliveries; attempt history and retry |
-| **Workbench** | Create, understand, and prove a definition | YAML editor, structured explanation, fixture tests, dry-run review, apply, evidence replay, legacy import |
+| **Workbench** | Create, understand, and prove a definition | YAML editor, structured explanation, fixture tests, dry-run review, apply, evidence replay, draft discard |
 | **System** | Diagnose and operate this daemon | Doctor, limits, retention, credential presence, destinations, backup, runtime and console versions, connection details |
 
 Avoid a separate dashboard whose main purpose is a row of counters. The Watches page can carry one concise attention summary, and every count links to the corresponding filtered list. Counts must come from complete server queries, never the currently loaded page.
@@ -150,11 +150,11 @@ Destinations are browsable here, including where used and current revision. Edit
 
 Backup offers **Download verified backup** and an advanced **Save on daemon host** option matching the CLI. The latter must say which host and path will receive the file and retain no-overwrite behavior. Browser downloads use a bounded managed temporary artifact and authenticated download route, with cleanup on completion, expiry, failure, and daemon restart. Do not let a download endpoint read arbitrary server paths.
 
-Legacy import takes uploaded YAML, shows converted/unsupported items and required secret bindings, and downloads the generated files plus report as an archive. It never starts the converted watches. The user can explicitly bring a converted manifest into Workbench afterward.
+Workbench drafts can be discarded to return to the watch type chooser.
 
-## Complete CLI parity inventory
+## CLI parity inventory
 
-The inventory includes automatically generated Cobra help/completion commands. “Existing” below means backend behavior exists, not that a screen exists.
+The inventory includes automatically generated Cobra help/completion commands. “Existing” below means backend behavior exists, not that a screen exists. The CLI migration command has no Console counterpart.
 
 | CLI command / meaningful option | UI equivalent | Required backend work |
 | --- | --- | --- |
@@ -177,7 +177,6 @@ The inventory includes automatically generated Cobra help/completion commands. �
 | `backup --out FILE` | Download verified backup or save to new path on daemon host | Existing path backup; add managed artifact download |
 | `test FILE --events FIXTURE.jsonl --watch ID` | Fixture test runner | New bounded upload endpoint calling `replay.Run` |
 | `replay EVIDENCE.json` | Evidence verification tool | New bounded endpoint calling `replay.Verify` |
-| `migrate --config OLD.yaml --out NEW_DIRECTORY` | Legacy import, conversion report, generated-file download | Expose pure converter and archive output; browser chooses download location |
 | `version`, `--version` | System About: binary, API, schema and UI build versions; raw data | New version/capability response |
 | `daemon`, `--state-dir`, `--listen`, `--allow-remote`, quotas, `--history` | Instance configuration view and launch/setup instructions | Expose effective non-secret settings; host startup remains CLI/service-manager work |
 | `help [COMMAND]`, `--help` | Contextual help and searchable command reference | Bundle generated reference from the Cobra command tree |
@@ -248,7 +247,6 @@ Route names below are proposed. Freeze them with request/response schemas before
 | `POST /v1/tools/compile` | Validate/explain uploaded manifest, structured diagnostics and deterministic explanation; no source I/O |
 | `POST /v1/tools/test` | Bounded manifest + JSONL input; watch selection; cancellation-aware fixture test |
 | `POST /v1/tools/replay` | Bounded evidence input; same verifier as CLI; no deliveries |
-| `POST /v1/tools/migrate` | Strict legacy conversion, explicit unsupported items, safe generated-file names and downloadable archive |
 | Managed backup artifact create/download/delete | Verified backup via existing store code, authenticated bounded output, expiry and no arbitrary-file reads |
 | Browser handoff/session create/delete | Short-lived session establishment and logout; separate from existing admin/ingest bearer credentials |
 

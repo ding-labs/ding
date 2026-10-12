@@ -10,6 +10,7 @@ import {
   Play,
   Radio,
   SquareTerminal,
+  Trash2,
   X,
 } from "lucide-react";
 import { useConnection } from "../api/connection";
@@ -31,12 +32,11 @@ import {
   Tabs,
   useRead,
 } from "../components/common";
-import { LegacyImport } from "./LegacyImport";
 import { LogSetup } from "./LogSetup";
 import { LogPreview } from "../components/LogPreview";
 import { useExecution } from "../app/execution";
 import { DefinitionDiff } from "../components/DefinitionDiff";
-import { useDraft, setDraft } from "../app/draft";
+import { useDraft, setDraft, resetDraft } from "../app/draft";
 const CodeEditor = lazy(() => import("../components/CodeEditor"));
 const base = `apiVersion: ding.ing/v1alpha1\nkind: Destination\nmetadata: {id: console}\nspec: {type: console}\n---\napiVersion: ding.ing/v1alpha1\nkind: Watch\n`;
 const examples: Record<string, string> = {
@@ -73,7 +73,9 @@ export function Workbench() {
   const draft = useDraft();
   const connected = useConnection();
   const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") || "Definition";
+  const tab = ["Definition", "Log setup", "Simulation", "Verify evidence"].includes(params.get("tab") || "")
+    ? params.get("tab")!
+    : "Definition";
   const setTab = (tab: string) => setParams({ tab });
   const [compiled, setCompiled] = useState<ControlCompileResult>();
   const [compiledText, setCompiledText] = useState("");
@@ -240,6 +242,28 @@ export function Workbench() {
     },
     onError: setError,
   });
+  const discard = () => {
+    if (
+      !window.confirm(
+        "Discard this draft? The manifest, simulation fixture, and evidence will be cleared.",
+      )
+    )
+      return;
+    controller.current?.abort();
+    preview.reset();
+    commit.reset();
+    setReview(undefined);
+    setReviewText("");
+    setResult(undefined);
+    setVerification(undefined);
+    setError(undefined);
+    setCompileError(undefined);
+    setCompiled(undefined);
+    setCompiledText("");
+    select("");
+    resetDraft();
+    setTab("Definition");
+  };
   const upload = (key: "manifest" | "fixture" | "evidence", max: number) => (
     <label className="button">
       <FileUp size={14} />
@@ -278,6 +302,13 @@ export function Workbench() {
             </>
           }
         >
+          <button
+            className="button"
+            disabled={commit.isPending || preview.isPending}
+            onClick={discard}
+          >
+            <Trash2 size={15} /> Discard draft
+          </button>
           <button
             className="button"
             disabled={commit.isPending}
@@ -428,6 +459,15 @@ export function Workbench() {
         eyebrow="Workbench"
         description="Compile the definition, test the rule, then review exactly what will change."
       >
+        {(draft.manifest || draft.fixture || draft.evidence) && (
+          <button
+            className="button"
+            disabled={preview.isPending || commit.isPending}
+            onClick={discard}
+          >
+            <Trash2 size={15} /> Discard draft
+          </button>
+        )}
         <button
           className="button"
           disabled={!draft.manifest}
@@ -494,7 +534,6 @@ export function Workbench() {
           ...(execution.mode === "local" ? ["Log setup"] : []),
           "Simulation",
           "Verify evidence",
-          "Legacy import",
         ]}
         active={tab}
         onChange={setTab}
@@ -513,9 +552,6 @@ export function Workbench() {
             setTab("Definition");
           }}
         />
-      )}
-      {tab === "Legacy import" && (
-        <LegacyImport onEdit={() => setTab("Definition")} />
       )}
       {tab === "Definition" && (
         <>
