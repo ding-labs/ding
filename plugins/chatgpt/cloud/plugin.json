@@ -1,0 +1,45 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "ding",
+  "version": "0.1.0",
+  "description": "Create and manage cloud watches, review changes, and investigate alert evidence in Ding Cloud.",
+  "author": {
+    "name": "Ding Labs",
+    "url": "https://github.com/ding-labs"
+  },
+  "homepage": "https://cloud.ding.ing",
+  "repository": "https://github.com/ding-labs/ding",
+  "license": "Apache-2.0",
+  "keywords": [
+    "monitoring",
+    "alerts",
+    "cloud"
+  ],
+  "extensions": {
+    "com.openai": {
+      "onboardingSkill": "./skills/ding-setup/SKILL.md",
+      "interface": {
+        "displayName": "Ding",
+        "shortDescription": "Cloud watches and alert evidence",
+        "longDescription": "Connect your Ding Cloud account to inspect watches, preview and apply reviewed changes, and investigate alert evidence. Ding keeps monitoring independently of your conversation. Notifications use your configured webhook, Slack, or Discord destination.",
+        "developerName": "Ding Labs",
+        "category": "Productivity",
+        "capabilities": [
+          "Inspect watches",
+          "Preview changes",
+          "Manage watches",
+          "Investigate alerts"
+        ],
+        "websiteURL": "https://cloud.ding.ing",
+        "brandColor": "#246B45",
+        "composerIcon": "./assets/icon.svg",
+        "logo": "./assets/icon.svg",
+        "defaultPrompt": [
+          "Show my watches that need attention.",
+          "Help me create a health check watch.",
+          "Explain why my last alert fired."
+        ]
+      }
+    }
+  }
+}
