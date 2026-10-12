@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Soak operator. No destructive production recovery; freedesign is preserved."""
 import argparse
+import datetime
 import json
 import subprocess
 import secrets
@@ -55,6 +56,7 @@ def configure(mode):
     now=int(time.time()*1000)+(30000 if mode=='warmup' else 0)
     revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     config={k:active[k] for k in ['runId','applicationRevision']}
+    config['watchIds']=active.get('watchIds',{'status':'soak-status','projection':'soak-projection'})
     config.update(mode=mode,epoch=now,endsAt=now+({'warmup':3,'measure':72,'stopped':0}[mode])*3600000,observerRevision=revision)
     observer('/admin/config',config,'PUT')
     active.update(status=mode,config=config)
@@ -74,6 +76,7 @@ def watches():
         raise SystemExit('Real watch changed; reconcile before continuing')
     for kind in ['status','projection']:
         text=(ROOT/'manifests'/('soak-'+kind+'.yaml')).read_text().replace('FIXTURE_BASE',active['workerURL']+'/fixture/'+active['runId'])
+        text=text.replace('id: soak-'+kind,'id: '+active.get('watchIds',{}).get(kind,'soak-'+kind))
         preview=owner.call('/v1/apply',{'manifest':text,'dryRun':True})['data']
         save(PRIVATE/('review-'+kind+'.json'),preview)
         applied=owner.call('/v1/apply',{'manifest':text,'review':preview['review']})
@@ -86,11 +89,13 @@ def restart_warmup():
     folder,result=export()
     save(PRIVATE/'attempts'/current['runId']/'active.json',load())
     owner=Owner()
-    for ident in ['soak-status','soak-projection']:
+    for ident in current.get('watchIds',{'status':'soak-status','projection':'soak-projection'}).values():
         w=owner.call('/v1/watches/'+ident)['data']['watch']
         if w['status']!='deleted':owner.call('/v1/watches/'+ident+'/lifecycle',{'action':'delete','expected':w['plan']['revision'],'expectedGeneration':w['generation'],'cancelPending':True})
     configure('stopped')
-    active=load();active['runId']=current['runId']+'-'+secrets.token_hex(4);active['status']='setup';active.pop('config',None)
+    suffix=secrets.token_hex(4)
+    active=load();active['runId']=current['runId']+'-'+suffix;active['status']='setup';active.pop('config',None)
+    active['watchIds']={kind:'soak-'+kind+'-'+suffix for kind in ['status','projection']}
     save(PRIVATE/'active.json',active)
     configure('warmup')
     watches()
@@ -100,9 +105,10 @@ def cleanup():
     if cfg['mode']!='measure' or time.time()*1000<cfg['endsAt']+6*60000:
         raise SystemExit('Wait until end plus one interval and verify healthy recovery first')
     owner=Owner()
-    for ident in ['soak-status','soak-projection']:
+    for ident in cfg.get('watchIds',{'status':'soak-status','projection':'soak-projection'}).values():
         d=owner.call('/v1/watches/'+ident)['data']
         if d['watch']['status']=='deleted':continue
+        if datetime.datetime.fromisoformat(d['watch']['lastInputAt'].replace('Z','+00:00')).timestamp()*1000<cfg['endsAt']:raise SystemExit(ident+' has no post-deadline healthy observation')
         if any(e['open'] or e['sourceUnhealthy'] for e in d['entities']):raise SystemExit(ident+' has not recovered; preserve evidence')
         if d.get('entitiesMore'):raise SystemExit('Unexpected extra entities')
         w=d['watch']

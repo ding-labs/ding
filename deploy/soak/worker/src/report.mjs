@@ -1,4 +1,4 @@
-import {expectedEvents,MINUTE,HOUR,WATCHES} from './core.mjs';
+import {expectedEvents,MINUTE,HOUR,watchIds} from './core.mjs';
 const stamp=x=>typeof x==='number'?x:Date.parse(x);
 const gate=(verdict,details)=>({verdict,details});
 export function report(input,now=Date.now()) {
@@ -23,7 +23,7 @@ export function report(input,now=Date.now()) {
   for(const kind of ['status','projection']) {
     const rr=requests.filter(r=>r.kind===kind).sort((a,b)=>a.at-b.at);
     phaseCoverage[kind]=Array.from({length:6},(_,p)=>rr.filter(r=>r.phase===p).length);
-    const actual=events.filter(e=>e.event.watchId==='soak-'+kind&&['firing','recovered','source_error','source_recovered'].includes(e.event.type));
+    const actual=events.filter(e=>e.event.watchId===(config.watchIds?.[kind]||'soak-'+kind)&&['firing','recovered','source_error','source_recovered'].includes(e.event.type));
     const used=new Set();
     for(const expectedEvent of expectedEvents(rr)) {
       const matches=actual.filter(e=>!used.has(e.event.id)&&e.event.type===expectedEvent.type&&stamp(e.event.at)>=expectedEvent.at-2000&&stamp(e.event.at)<=expectedEvent.at+15000);
@@ -37,7 +37,7 @@ export function report(input,now=Date.now()) {
   let observable=0,onTime=0;
   for(const s of samples) {
     if(s.quiet){due.clear();continue;}
-    for(const id of WATCHES) {
+    for(const id of watchIds(config)) {
     const w=s.ding?.[id]?.data?.watch;if(!w)continue;
     const at=stamp(w.lastInputAt),key=id+'/'+w.lastInputAt;
     if(!seenInputs.has(key)) {
@@ -66,7 +66,7 @@ export function report(input,now=Date.now()) {
     for(const [ts,value] of rows){if(value>threshold){if(first===null||ts-previous>120)first=ts;if(ts-first>=15*60)excursions.push({name,ts,value});previous=ts;}else{first=null;previous=null;}}
   }
   const deliveries=samples.some(s=>s.doctor?.data?.usage?.pending>0||Object.values(s.ding||{}).some(v=>v.data?.deliveries?.some(d=>['pending','leased'].includes(d.status))));
-  const watchHealthy=WATCHES.every(id=>{const d=samples.at(-1)?.ding?.[id]?.data;return d?.watch.status==='running'&&(id==='freedesign-http'||!d.entities?.some(e=>e.open||e.sourceUnhealthy));});
+  const watchHealthy=watchIds(config).every(id=>{const d=samples.at(-1)?.ding?.[id]?.data;return d?.watch.status==='running'&&(id==='freedesign-http'||!d.entities?.some(e=>e.open||e.sourceUnhealthy));});
   const covered=Object.values(phaseCoverage).every(counts=>counts.every(n=>n>=2));
   const metricsComplete=['CPU_USAGE','MEMORY_USAGE_GB','DISK_USAGE_GB','NETWORK_RX_GB','NETWORK_TX_GB'].every(n=>resources[n]?.samples>0);
   const fraction=expected.length?(expected.length-missing.length)/expected.length:0;

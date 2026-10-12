@@ -102,7 +102,7 @@ works, unauthenticated status is 404, and actual scheduled samples arrive.
 An initial Cron propagation gap can invalidate warmup coverage. Preserve that
 warmup and use `operate.py restart-warmup` after qualifying and deploying the
 fix. It exports the attempt, deletes only the test watches and creates a fresh
-run ID/epoch. The scoped operator credentials remain within their original
+run ID/epoch and unique watch IDs (deleted Ding IDs cannot be reused). The scoped operator credentials remain within their original
 expiry until final cleanup; never backdate T0 or hide missing samples. Application/observer fixes
 must be qualified before a new measurement. Immutable keys and conditional
 writes prevent retries from fabricating extra samples. A failed write leaves a

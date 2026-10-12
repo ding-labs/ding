@@ -1,4 +1,4 @@
-import {MINUTE,HOUR,WATCHES,REVISION,phase,fixture,quiet,validateConfig,boundedJSON} from './core.mjs';
+import {MINUTE,HOUR,watchIds,REVISION,phase,fixture,quiet,validateConfig,boundedJSON} from './core.mjs';
 const ORIGIN='https://cloud.ding.ing';
 const PROJECT='8803ede4-af5e-4fe7-8176-9788c9c49319';
 const ENVIRONMENT='68ccf6c6-4c03-43cb-8d28-7d37a5ed42d8';
@@ -70,8 +70,8 @@ export async function collect(controller,env) {
   const sample={version:REVISION,scheduledAt:minute,startedAt:now,quiet:quiet(config,now),planned};
   sample.health=await captured(async()=>{const at=Date.now();const r=await fetch(ORIGIN+'/healthz',{signal:AbortSignal.timeout(10000),redirect:'manual'});await r.body?.cancel();return{status:r.status,latencyMs:Date.now()-at};});
   if(!sample.quiet) {
-    const names=[...WATCHES,'events'];
-    const results=await Promise.all([...WATCHES.map(id=>captured(async()=>{const d=await ding('/v1/watches/'+id,env);return {watch:{id,generation:d.watch.generation,revision:d.watch.plan.revision,status:d.watch.status,lastInputAt:d.watch.lastInputAt,nextAt:d.watch.nextAt},entities:d.entities,entitiesMore:d.entitiesMore,deliveries:d.deliveries};})),captured(()=>collectEvents(env,root))]);
+    const watches=watchIds(config),names=[...watches,'events'];
+    const results=await Promise.all([...watches.map(id=>captured(async()=>{const d=await ding('/v1/watches/'+id,env);return {watch:{id,generation:d.watch.generation,revision:d.watch.plan.revision,status:d.watch.status,lastInputAt:d.watch.lastInputAt,nextAt:d.watch.nextAt},entities:d.entities,entitiesMore:d.entitiesMore,deliveries:d.deliveries};})),captured(()=>collectEvents(env,root))]);
     sample.ding=Object.fromEntries(names.map((n,i)=>[n,results[i]]));
   }
   if(minute%(5*MINUTE)===0) {

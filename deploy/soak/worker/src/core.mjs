@@ -1,6 +1,7 @@
 export const MINUTE = 60000;
 export const HOUR = 60 * MINUTE;
 export const WATCHES = ['freedesign-http', 'soak-status', 'soak-projection'];
+export function watchIds(config) {return ['freedesign-http',config.watchIds?.status||'soak-status',config.watchIds?.projection||'soak-projection'];}
 export const REVISION = 'soak-v1';
 export function phase(config, now) {
   if (!config || !['warmup', 'measure'].includes(config.mode) || now < config.epoch || now >= config.endsAt) return 0;
@@ -21,7 +22,9 @@ export function validateConfig(c, now) {
   const duration = c.endsAt - c.epoch;
   if (duration !== (c.mode === 'measure' ? 72 * HOUR : c.mode === 'warmup' ? 3 * HOUR : 0)) throw Error('invalid_duration');
   if (!/^[a-f0-9]{40}$/.test(c.applicationRevision) || !/^[a-f0-9]{40}$/.test(c.observerRevision)) throw Error('missing_revisions');
-  return {runId:c.runId,mode:c.mode,epoch:c.epoch,endsAt:c.endsAt,applicationRevision:c.applicationRevision,observerRevision:c.observerRevision};
+  const ids=c.watchIds||{status:'soak-status',projection:'soak-projection'};
+  for(const kind of ['status','projection'])if(!new RegExp('^soak-'+kind+'(?:-[a-f0-9]{8})?$').test(ids[kind]))throw Error('invalid_watch_id');
+  return {watchIds:ids,runId:c.runId,mode:c.mode,epoch:c.epoch,endsAt:c.endsAt,applicationRevision:c.applicationRevision,observerRevision:c.observerRevision};
 }
 export async function boundedJSON(response, max = 512 * 1024) {
   if (!response.body) throw Error('empty_body');
