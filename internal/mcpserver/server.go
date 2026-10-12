@@ -68,6 +68,9 @@ func New(options Options) (*mcp.Server, error) {
 			if err != nil {
 				return nil, mcpcontract.View{}, err
 			}
+			if r.view == "capabilities" {
+				data = tokenCapabilities(data, identity)
+			}
 			if r.query == nil {
 				r.query = map[string]any{}
 			}
