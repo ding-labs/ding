@@ -105,7 +105,7 @@ func (b *Bridge) server(version, html string) (*mcp.Server, error) {
 		})
 	}
 	mcp.AddTool(s, &mcp.Tool{Name: "ding_list_connections", Description: "List configured local and cloud choices without signing in or starting remote workers.", Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true}, InputSchema: map[string]any{"type": "object", "properties": map[string]any{}, "additionalProperties": false}}, func(context.Context, *mcp.CallToolRequest, map[string]any) (*mcp.CallToolResult, mcpcontract.View, error) {
-		return nil, mcpcontract.View{View: "connections", Data: map[string]any{"connections": []any{map[string]any{"id": "local", "name": "This computer"}, map[string]any{"id": "cloud", "name": "Ding Cloud"}}}, EvidenceNotice: mcpcontract.EvidenceNotice}, nil
+		return nil, mcpcontract.View{View: "connections", Query: map[string]any{}, Data: map[string]any{"connections": []any{map[string]any{"id": "local", "name": "This computer"}, map[string]any{"id": "cloud", "name": "Ding Cloud"}}}, EvidenceNotice: mcpcontract.EvidenceNotice}, nil
 	})
 	if html != "" {
 		s.AddResource(catalog.Resources[0], func(context.Context, *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {

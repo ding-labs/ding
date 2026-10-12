@@ -29,7 +29,7 @@ func TestHTTPSRefreshWorkspacePinAndRestart(t *testing.T) {
 		if replaced.Load() {
 			instance = "other-instance"
 		}
-		return nil, mcpcontract.View{View: "capabilities", Target: &mcpcontract.Target{Instance: instance, Workspace: p.Workspace, Execution: "cloud"}, Data: map[string]any{"effectiveScopes": []string{"inspect"}}}, nil
+		return nil, mcpcontract.View{View: "capabilities", Query: map[string]any{}, Target: &mcpcontract.Target{Instance: instance, Workspace: p.Workspace, Execution: "cloud"}, Data: map[string]any{"effectiveScopes": []string{"inspect"}}}, nil
 	})
 	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true})
 	mux := http.NewServeMux()

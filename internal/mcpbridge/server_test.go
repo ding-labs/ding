@@ -8,6 +8,7 @@ import (
 
 	"github.com/ding-labs/ding/internal/mcpclient"
 	"github.com/ding-labs/ding/internal/mcpcontract"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func TestExplicitTargetsStayIsolatedAndNeverFallBack(t *testing.T) {
@@ -65,5 +66,29 @@ func TestExplicitTargetsStayIsolatedAndNeverFallBack(t *testing.T) {
 	}
 	if _, err := b.invoke(ctx, "ding_get_watch", map[string]any{"connection_id": "local"}); err != nil {
 		t.Fatal("local reads depend on remote availability")
+	}
+}
+
+func TestBridgeDiscoveryOverSDKRequiresNoRemoteConnection(t *testing.T) {
+	b := &Bridge{journal: t.TempDir(), backends: map[string]backend{}}
+	server, err := b.server("test", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, z := mcp.NewInMemoryTransports()
+	ctx := context.Background()
+	ss, err := server.Connect(ctx, a, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ss.Close()
+	cs, err := mcp.NewClient(&mcp.Implementation{Name: "test"}, nil).Connect(ctx, z, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cs.Close()
+	result, err := cs.CallTool(ctx, &mcp.CallToolParams{Name: "ding_list_connections", Arguments: map[string]any{}})
+	if err != nil || result.IsError {
+		t.Fatal(result, err)
 	}
 }
