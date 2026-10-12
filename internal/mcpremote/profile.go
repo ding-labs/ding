@@ -36,7 +36,7 @@ func secureURL(value string) bool {
 
 func (p Profile) ValidateSetup() error {
 	u, err := url.Parse(p.URL)
-	if err != nil || !secureURL(p.URL) || u.Path != "/mcp" || !secureURL(p.Issuer) || p.ClientID == "" || len(p.ClientID) > 2048 || !id.MatchString(p.Workspace) {
+	if err != nil || !secureURL(p.URL) || u.Path != "/mcp" || !secureURL(p.Issuer) || p.ClientID == "" || len(p.ClientID) > 512 || !id.MatchString(p.Workspace) {
 		return mcpconfig.ErrConfig
 	}
 	if !slices.Contains(p.Scopes, "ding:inspect") || len(p.Scopes) > 5 {

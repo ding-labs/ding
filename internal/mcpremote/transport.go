@@ -10,6 +10,16 @@ import (
 
 type secureTransport struct{ base http.RoundTripper }
 
+func (t secureTransport) CloseIdleConnections() {
+	base := t.base
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	if closer, ok := base.(interface{ CloseIdleConnections() }); ok {
+		closer.CloseIdleConnections()
+	}
+}
+
 func (t secureTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	if r.URL.Scheme != "https" || r.URL.User != nil || r.URL.Fragment != "" {
 		return nil, mcpconfig.ErrConfig

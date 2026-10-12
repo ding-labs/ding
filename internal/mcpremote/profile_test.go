@@ -35,6 +35,7 @@ func TestProfilePinsIdentityAndKeepsCredentialsPrivate(t *testing.T) {
 		func(p *Profile) { p.URL += "?token=secret" },
 		func(p *Profile) { p.Scopes = []string{"admin"} },
 		func(p *Profile) { p.Workspace = "" },
+		func(p *Profile) { p.ClientID = strings.Repeat("a", 513) },
 		func(p *Profile) { p.TokenURL = "http://auth.example/token" },
 	} {
 		copy := p
