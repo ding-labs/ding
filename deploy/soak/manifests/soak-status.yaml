@@ -1,0 +1,14 @@
+apiVersion: ding.ing/v1alpha1
+kind: Watch
+metadata:
+  id: soak-status
+spec:
+  source:
+    type: http
+    url: FIXTURE_BASE/status
+    every: 5m
+    timeout: 5s
+  condition: {field: http.status, operator: gte, value: 400}
+  policy: {trigger: transition, consecutive: 1, recoverAfter: 1, onUnknown: hold-incident, maxGap: 10m}
+  destinations: []
+  limits: {maxBytes: 65536, maxEntities: 10, maxSamples: 100, maxOutputs: 10}

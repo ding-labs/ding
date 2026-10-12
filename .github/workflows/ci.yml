@@ -16,6 +16,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  soak-harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: deploy/soak/worker/package-lock.json
+      - run: npm ci --prefix deploy/soak/worker
+      - run: npm test --prefix deploy/soak/worker
+      - run: python3 -m py_compile deploy/soak/scripts/*.py
+
   test:
     runs-on: ubuntu-latest
     steps:

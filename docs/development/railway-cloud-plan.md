@@ -142,6 +142,11 @@ Exercise the existing `ding cloud login` and transfer commands against the deplo
 
 Run a representative 72-hour workload including slow endpoints, failures, delivery retries, restarts, storage pressure and member revocation. Record recurring check freshness, oldest pending delivery, CPU/RSS, disk use, maintenance downtime and Railway costs. Add a small trusted cohort only after isolation and recovery pass. Preserve the existing hard limits; wider customer enrollment and public MCP each require their own release decision.
 
+The [72-hour owner soak plan](railway-cloud-soak-plan.md) specifies the first
+Console-only run: independent observation, two synthetic watches, timed drills,
+evidence and pass criteria. It is planned but has not started; external delivery
+and transfer remain separate qualifications.
+
 **Acceptance:** no hidden dual execution in transfer tests; revoked members lose browser/CLI access; service quality and costs are understood; an operator can carry out the recovery runbook. Marketplace approval, local adoption studies and a Supabase migration do not block the owner deployment in R5.
 
 ## Verification and release order

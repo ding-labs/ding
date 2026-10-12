@@ -1,0 +1,14 @@
+{
+  "name": "ding-cloud-soak",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "npm run build && node --test test/*.test.mjs",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "types": "wrangler types"
+  },
+  "devDependencies": {
+    "wrangler": "4.149.0",
+    "miniflare": "5.20261006.1-alpha"
+  }
+}
