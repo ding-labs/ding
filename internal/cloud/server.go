@@ -11,6 +11,7 @@ import (
 
 	"github.com/ding-labs/ding/internal/access"
 	"github.com/ding-labs/ding/internal/control"
+	"github.com/ding-labs/ding/internal/integrationpolicy"
 	"github.com/ding-labs/ding/internal/mcpconfig"
 	state "github.com/ding-labs/ding/internal/serverstate"
 	"golang.org/x/time/rate"
@@ -101,7 +102,11 @@ func (s *Server) Handler() (http.Handler, error) {
 			cloudFail(w, 503, "busy", "Cloud request capacity reached; retry later.")
 			return
 		}
-		r.Body = http.MaxBytesReader(w, r.Body, 96<<10)
+		requestLimit := int64(96 << 10)
+		if r.URL.Path == "/mcp" || r.URL.Path == "/v1/apply" || strings.HasPrefix(r.URL.Path, "/v1/tools/") {
+			requestLimit = integrationpolicy.CloudRequestBytes
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, requestLimit)
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
 		r = r.WithContext(ctx)

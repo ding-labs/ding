@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/cloud/egress"
+	"github.com/ding-labs/ding/internal/integrationpolicy"
 	"github.com/ding-labs/ding/internal/plan"
 	"github.com/ding-labs/ding/internal/watchrun"
 )
 
-const MaxManifestBytes = 64 << 10
+const MaxManifestBytes = integrationpolicy.CloudManifestBytes
 
 func Limits() watchrun.Limits {
 	return watchrun.Limits{MaxDestinations: 3, MaxWatches: 3, MaxPending: 100, MaxBytes: 64 << 20, Retention: 7 * 24 * time.Hour}

@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -169,8 +170,9 @@ func integrationHandler(app *watchrun.App, c Credentials, base http.Handler) htt
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
 		var req ToolRequest
-		if decodeBounded(w, r, &req, 12<<20) != nil || len(req.Manifest) > 1<<20 || len(req.Fixture) > 8<<20 || len(req.Evidence) > 0 {
-			fail(w, 400, "invalid_request", "preview requires a manifest up to 1 MiB and optional fixture up to 8 MiB")
+		limits := app.Integration
+		if decodeBounded(w, r, &req, int64(limits.MaxRequestBytes)) != nil || len(req.Manifest) > limits.MaxManifestBytes || len(req.Fixture) > limits.MaxFixtureBytes || len(req.Evidence) > 0 {
+			fail(w, 400, "invalid_request", fmt.Sprintf("preview permits %d manifest bytes and %d fixture bytes within %d encoded request bytes", limits.MaxManifestBytes, limits.MaxFixtureBytes, limits.MaxRequestBytes))
 			return
 		}
 		compiled := compileTool(app, req.Manifest)

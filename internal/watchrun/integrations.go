@@ -159,8 +159,8 @@ type IntegrationPreview struct {
 
 func (a *App) PreviewIntegration(ctx context.Context, grant, manifest string) (IntegrationPreview, error) {
 	var out IntegrationPreview
-	if len(manifest) > 1<<20 {
-		return out, fmt.Errorf("manifest exceeds 1 MiB")
+	if len(manifest) > a.Integration.MaxManifestBytes {
+		return out, fmt.Errorf("manifest exceeds %d bytes", a.Integration.MaxManifestBytes)
 	}
 	b, err := plan.Parse([]byte(manifest))
 	if err != nil {

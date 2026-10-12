@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/ding-labs/ding/internal/plan"
 	"github.com/ding-labs/ding/internal/replay"
 	"github.com/ding-labs/ding/internal/watchrun"
@@ -101,8 +102,8 @@ func toolRoutes(mux *http.ServeMux, app *watchrun.App) {
 				fail(w, 400, "invalid_request", "invalid or oversized tool request")
 				return
 			}
-			if len(req.Manifest) > 1<<20 || len(req.Fixture) > 8<<20 {
-				fail(w, 413, "input_too_large", "manifest limit is 1 MiB; fixture limit is 8 MiB")
+			if len(req.Manifest) > app.Integration.MaxManifestBytes || len(req.Fixture) > app.Integration.MaxFixtureBytes {
+				fail(w, 413, "input_too_large", fmt.Sprintf("manifest limit is %d bytes; fixture limit is %d bytes", app.Integration.MaxManifestBytes, app.Integration.MaxFixtureBytes))
 				return
 			}
 			switch kind {
