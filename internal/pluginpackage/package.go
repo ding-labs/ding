@@ -144,7 +144,7 @@ func Build(o Options) (string, error) {
 		}
 		server = map[string]any{"type": typeName, "url": o.Endpoint}
 		if platform == "chatgpt" {
-			oauth := map[string]any{"type": "oauth", "baseScopes": []string{"ding:inspect", "ding:preview", "ding:manage", "ding:retry"}}
+			oauth := map[string]any{"type": "oauth", "baseScopes": []string{"openid", "offline_access", "ding:inspect", "ding:preview", "ding:manage", "ding:retry"}}
 			if cloud {
 				oauth["client"] = publisher.Client
 			}

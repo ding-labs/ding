@@ -67,7 +67,7 @@ func TestCloudPackages(t *testing.T) {
 			}
 			server := config.Servers["ding"]
 			auth := server.Extensions["com.openai"].Auth
-			if server.Type != "streamable-http" || server.URL != cloudEndpoint || auth.Type != "oauth" || auth.Client != client || strings.Join(auth.Scopes, " ") != "ding:inspect ding:preview ding:manage ding:retry" {
+			if server.Type != "streamable-http" || server.URL != cloudEndpoint || auth.Type != "oauth" || auth.Client != client || strings.Join(auth.Scopes, " ") != "openid offline_access ding:inspect ding:preview ding:manage ding:retry" {
 				t.Fatalf("incorrect cloud connection: %+v", server)
 			}
 			var manifest map[string]any
