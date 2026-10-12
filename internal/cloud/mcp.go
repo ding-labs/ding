@@ -98,7 +98,7 @@ func (s *Server) resolveMCP(issuer string) mcpserver.Resolver {
 		}
 		api := s.api(tenant)
 		principal.Grant = connection.GrantID
-		return &mcpclient.Client{Connection: connection, HTTP: &http.Client{Transport: privateTransport{handler: api.handler, origin: s.PublicURL, db: s.DB, vault: s.Vault, client: clientID, principal: principal, admit: s.allowWorkspaceRequest}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
+		return &mcpclient.Client{Connection: connection, HTTP: &http.Client{Transport: privateTransport{handler: s.scopedMCP(tenant, api.handler), origin: s.PublicURL, db: s.DB, vault: s.Vault, client: clientID, principal: principal, admit: s.allowWorkspaceRequest}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
 	}
 }
 

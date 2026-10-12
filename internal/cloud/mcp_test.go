@@ -41,6 +41,14 @@ func TestHostedMCPUsesSeparateWorkspaceClientScopesAndRevocation(t *testing.T) {
 	if _, err := client.Call(ctx, "GET", "/capabilities", nil, nil); err != nil {
 		t.Fatal(err)
 	}
+	status, err := client.Call(ctx, "GET", "/cloud/status", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cloudStatus := status.(map[string]any)
+	if cloudStatus["resetsAt"] == nil || cloudStatus["health"] == nil || cloudStatus["policy"].(map[string]any)["execution"] != "cloud" {
+		t.Fatal("incomplete cloud status", status)
+	}
 	client, err = resolve(ctx, "preview", identity)
 	if err != nil {
 		t.Fatal(err)
@@ -68,6 +76,9 @@ func TestHostedMCPUsesSeparateWorkspaceClientScopesAndRevocation(t *testing.T) {
 	}
 	if _, err := client.Call(ctx, "GET", "/capabilities", nil, nil); err == nil {
 		t.Fatal("retained internal connection survived revocation")
+	}
+	if _, err := client.Call(ctx, "GET", "/cloud/status", nil, nil); err == nil {
+		t.Fatal("revoked connection retained cloud usage")
 	}
 	w = cloudRequest(h, "GET", "/v1/cloud/models", "", sessions[1], false)
 	if w.Code != 200 || strings.Contains(w.Body.String(), "ChatGPT") {
