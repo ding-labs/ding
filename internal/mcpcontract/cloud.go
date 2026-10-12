@@ -7,9 +7,10 @@ import (
 )
 
 type Target struct {
-	Instance  string `json:"instance"`
-	Workspace string `json:"workspace"`
-	Execution string `json:"execution"`
+	Connection string `json:"connection,omitempty"`
+	Instance   string `json:"instance"`
+	Workspace  string `json:"workspace"`
+	Execution  string `json:"execution"`
 }
 
 type Workspace struct {
