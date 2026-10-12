@@ -42,7 +42,7 @@ func HTTPHandler(o HTTPOptions) (http.Handler, func(), error) {
 		client = mcpclient.HTTPClient()
 	}
 	close := func() { verifier.Close(); client.CloseIdleConnections() }
-	s, err := New(Options{TransferInspection: true, Version: o.Version, HTML: o.HTML, Resolve: func(ctx context.Context, scope string, token *auth.TokenInfo) (*mcpclient.Client, error) {
+	s, err := New(Options{OAuthResourceMetadataURL: cfg.PublicURL + "/.well-known/oauth-protected-resource/mcp", TransferInspection: true, Version: o.Version, HTML: o.HTML, Resolve: func(ctx context.Context, scope string, token *auth.TokenInfo) (*mcpclient.Client, error) {
 		if token == nil || !slices.Contains(token.Scopes, "ding:"+scope) || token.Extra["issuer"] != cfg.Issuer {
 			return nil, mcpclient.Fail("integration_denied", "this identity has no paired Ding grant for this action")
 		}

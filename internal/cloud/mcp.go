@@ -32,14 +32,14 @@ func (s *Server) MCPHandler(cfg mcpconfig.HTTP, jwks *http.Client) (http.Handler
 	if err != nil {
 		return nil, nil, err
 	}
-	server, err := mcpserver.New(mcpserver.Options{TransferInspection: true, Version: s.Version, HTML: mcpui.WorkspaceHTML, Resolve: s.resolveMCP(cfg.Issuer), ListWorkspaces: s.listMCPWorkspaces(cfg.Issuer)})
+	server, err := mcpserver.New(mcpserver.Options{OAuthResourceMetadataURL: s.PublicURL + "/.well-known/oauth-protected-resource/mcp", TransferInspection: true, Version: s.Version, HTML: mcpui.WorkspaceHTML, Resolve: s.resolveMCP(cfg.Issuer), ListWorkspaces: s.listMCPWorkspaces(cfg.Issuer)})
 	if err != nil {
 		verifier.Close()
 		return nil, nil, err
 	}
 	var bridge *mcp.Server
 	if len(s.MCPBridgeClients) > 0 {
-		bridge, err = mcpserver.New(mcpserver.Options{TransferInspection: true, TransferTransport: true, Version: s.Version, Resolve: s.resolveMCP(cfg.Issuer), ListWorkspaces: s.listMCPWorkspaces(cfg.Issuer)})
+		bridge, err = mcpserver.New(mcpserver.Options{OAuthResourceMetadataURL: s.PublicURL + "/.well-known/oauth-protected-resource/mcp", TransferInspection: true, TransferTransport: true, Version: s.Version, Resolve: s.resolveMCP(cfg.Issuer), ListWorkspaces: s.listMCPWorkspaces(cfg.Issuer)})
 		if err != nil {
 			verifier.Close()
 			return nil, nil, err
