@@ -25,6 +25,8 @@ fingerprint of the external encryption key; replacing that key fails startup.
 | `DING_DATA_KEY_BASE64` | Private base64 encoding of 32 cryptographically random bytes; stable across restarts/restores |
 | `DING_MODE` | `serve` (default), `init`, or `maintenance` |
 | `DING_STATE_NAME` | `ding` (default); selects `/data/ding`; a fresh simple name can select restored state |
+| `DING_AUTHKIT_JSON` | Optional WorkOS production profile; see [AuthKit setup](../../docs/integrations/workos-authkit.md) |
+| `DING_OPENAI_APPS_CHALLENGE` | Exact public domain-verification token supplied by OpenAI's plugin portal; unset keeps the route absent |
 | `DING_BOOTSTRAP_USERNAME` | Only with `init` |
 | `DING_BOOTSTRAP_NAME` | Optional owner display name, only with `init` |
 | `DING_BOOTSTRAP_PASSWORD` | Private 12–1024 byte input, only with `init` |

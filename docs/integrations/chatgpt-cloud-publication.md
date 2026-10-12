@@ -83,7 +83,10 @@ Supply reviewer credentials privately in the portal, never in the ZIP.
 
 1. Verify the publisher identity. Serve the exact portal-provided domain token
    at `/.well-known/openai-apps-challenge` on the eligible HTTPS origin. This
-   route still needs deployment configuration; do not invent the token.
+   route is configured with `DING_OPENAI_APPS_CHALLENGE` on Railway (or
+   `openAIAppsChallenge` in private server JSON). Leave it unset until the portal
+   supplies the token; the endpoint then returns 404. It serves one exact token
+   as plain text on the canonical host, with no JSON wrapper or newline.
 2. Upload the ZIP with its MCP definition in the initial submission. Check the
    imported listing, auth registration mode, onboarding and review cases.
 3. Confirm all four listing URLs, icon, accurate tool annotations and approved

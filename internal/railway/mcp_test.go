@@ -81,3 +81,16 @@ func TestAuthKitProfile(t *testing.T) {
 		t.Fatal("ambiguous provider configuration accepted")
 	}
 }
+
+func TestOpenAIChallengeProfile(t *testing.T) {
+	env := environment()
+	env["DING_OPENAI_APPS_CHALLENGE"] = "exact-portal-token"
+	s, _, _, err := FromEnv(func(k string) string { return env[k] })
+	if err != nil || s.Config.OpenAIAppsChallenge != "exact-portal-token" {
+		t.Fatal("domain challenge lost", err)
+	}
+	env["DING_OPENAI_APPS_CHALLENGE"] += "\n"
+	if _, _, _, err := FromEnv(func(k string) string { return env[k] }); err == nil {
+		t.Fatal("malformed challenge accepted")
+	}
+}

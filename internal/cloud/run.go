@@ -21,26 +21,30 @@ import (
 )
 
 type Config struct {
-	Deployment       string          `json:"deployment,omitempty"`
-	LoginMethods     []string        `json:"loginMethods,omitempty"`
-	Hosting          string          `json:"hosting,omitempty"`
-	Name             string          `json:"name,omitempty"`
-	ApprovedCommands []string        `json:"approvedCommands,omitempty"`
-	EnrollmentLimit  *int            `json:"enrollmentLimit,omitempty"`
-	OperatorListen   string          `json:"operatorListen,omitempty"`
-	PublicURL        string          `json:"publicURL"`
-	Listen           string          `json:"listen"`
-	DataDir          string          `json:"dataDir"`
-	KeyFile          string          `json:"keyFile"`
-	TLSCert          string          `json:"tlsCert,omitempty"`
-	TLSKey           string          `json:"tlsKey,omitempty"`
-	Identity         identity.Config `json:"identity"`
-	MCP              *mcpconfig.HTTP `json:"mcp,omitempty"`
-	MCPBridgeClients []string        `json:"mcpBridgeClients,omitempty"`
-	AuthKitClients   []string        `json:"authKitClients,omitempty"`
+	Deployment          string          `json:"deployment,omitempty"`
+	LoginMethods        []string        `json:"loginMethods,omitempty"`
+	Hosting             string          `json:"hosting,omitempty"`
+	Name                string          `json:"name,omitempty"`
+	ApprovedCommands    []string        `json:"approvedCommands,omitempty"`
+	EnrollmentLimit     *int            `json:"enrollmentLimit,omitempty"`
+	OperatorListen      string          `json:"operatorListen,omitempty"`
+	PublicURL           string          `json:"publicURL"`
+	Listen              string          `json:"listen"`
+	DataDir             string          `json:"dataDir"`
+	KeyFile             string          `json:"keyFile"`
+	TLSCert             string          `json:"tlsCert,omitempty"`
+	TLSKey              string          `json:"tlsKey,omitempty"`
+	Identity            identity.Config `json:"identity"`
+	MCP                 *mcpconfig.HTTP `json:"mcp,omitempty"`
+	MCPBridgeClients    []string        `json:"mcpBridgeClients,omitempty"`
+	AuthKitClients      []string        `json:"authKitClients,omitempty"`
+	OpenAIAppsChallenge string          `json:"openAIAppsChallenge,omitempty"`
 }
 
 func (c *Config) Validate() error {
+	if err := validateOpenAIChallenge(c.OpenAIAppsChallenge); err != nil {
+		return err
+	}
 	if c.Hosting == "" {
 		c.Hosting = "cloud"
 	}
@@ -238,7 +242,7 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 	if err := pool.Start(ctx); err != nil {
 		return err
 	}
-	app := &Server{AuthKitClients: slices.Clone(c.AuthKitClients), MCPBridgeClients: c.MCPBridgeClients, Railway: c.Deployment == "railway", LoginMethods: c.LoginMethods, Shared: pool.Shared, Name: c.Name, DB: db, Vault: vault, Pool: pool, PublicURL: c.PublicURL, Version: version, Assets: assets, Login: LoginFlow{DB: db, Vault: vault, Provider: provider, EnrollmentLimit: c.EnrollmentLimit, Shared: pool.Shared}}
+	app := &Server{OpenAIAppsChallenge: c.OpenAIAppsChallenge, AuthKitClients: slices.Clone(c.AuthKitClients), MCPBridgeClients: c.MCPBridgeClients, Railway: c.Deployment == "railway", LoginMethods: c.LoginMethods, Shared: pool.Shared, Name: c.Name, DB: db, Vault: vault, Pool: pool, PublicURL: c.PublicURL, Version: version, Assets: assets, Login: LoginFlow{DB: db, Vault: vault, Provider: provider, EnrollmentLimit: c.EnrollmentLimit, Shared: pool.Shared}}
 	if c.MCP != nil {
 		if c.MCP.Issuer != c.Identity.Issuer {
 			return fmt.Errorf("MCP and browser identity must use the same issuer and stable subject")
