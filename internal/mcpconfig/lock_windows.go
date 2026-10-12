@@ -1,4 +1,4 @@
-package install
+package mcpconfig
 
 import (
 	"golang.org/x/sys/windows"

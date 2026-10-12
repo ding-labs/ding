@@ -1,6 +1,6 @@
 //go:build !windows
 
-package install
+package mcpconfig
 
 import (
 	"golang.org/x/sys/unix"
