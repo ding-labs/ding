@@ -18,7 +18,7 @@ import (
 type PairOptions struct {
 	State, Config, Name          string
 	Days                         int
-	Manage, Retry                bool
+	Manage, Retry, Move          bool
 	SecretRefs, CommandRevisions []string
 }
 
@@ -100,6 +100,12 @@ func Pair(ctx context.Context, o PairOptions, out io.Writer) error {
 	scopes := []string{"inspect", "preview"}
 	if o.Manage {
 		scopes = append(scopes, "manage")
+	}
+	if o.Move {
+		if !o.Manage {
+			return mcpclient.Fail("invalid_consent", "move requires --manage as well as --move")
+		}
+		scopes = append(scopes, "move")
 	}
 	if o.Retry {
 		scopes = append(scopes, "retry")

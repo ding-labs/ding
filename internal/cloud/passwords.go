@@ -14,7 +14,7 @@ import (
 )
 
 func (s *Server) accountFeatures() control.AccountFeatures {
-	return control.AccountFeatures{Passwords: s.passwordsEnabled(), ModelConnections: s.Shared || s.MCP != nil}
+	return control.AccountFeatures{Passwords: s.passwordsEnabled(), ModelConnections: s.Shared || s.MCP != nil, ModelTransfers: s.MCP != nil && len(s.MCPBridgeClients) > 0}
 }
 
 func (s *Server) passwordsEnabled() bool {

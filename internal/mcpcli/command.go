@@ -30,10 +30,10 @@ func Command(version string) *cobra.Command {
 	root.AddCommand(cloudCommand())
 	var config, state, name string
 	var days int
-	var manage, retry bool
+	var manage, retry, move bool
 	var refs, revisions []string
 	pair := &cobra.Command{Use: "pair", Short: "Create a scoped grant using local administrator access", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
-		return safe(mcpsetup.Pair(cmd.Context(), mcpsetup.PairOptions{State: state, Config: config, Name: name, Days: days, Manage: manage, Retry: retry, SecretRefs: refs, CommandRevisions: revisions}, cmd.OutOrStdout()))
+		return safe(mcpsetup.Pair(cmd.Context(), mcpsetup.PairOptions{State: state, Config: config, Name: name, Days: days, Manage: manage, Retry: retry, Move: move, SecretRefs: refs, CommandRevisions: revisions}, cmd.OutOrStdout()))
 	}}
 	pair.Flags().StringVar(&state, "state", "", "Ding daemon state directory")
 	_ = pair.MarkFlagRequired("state")
@@ -41,6 +41,7 @@ func Command(version string) *cobra.Command {
 	pair.Flags().StringVar(&name, "name", "Ding MCP", "Grant name")
 	pair.Flags().IntVar(&days, "days", 90, "Grant lifetime, 1–365 days")
 	pair.Flags().BoolVar(&manage, "manage", false, "Allow applying and changing watches")
+	pair.Flags().BoolVar(&move, "move", false, "Allow the trusted bridge to transfer reviewed watches; also requires --manage")
 	pair.Flags().BoolVar(&retry, "retry", false, "Allow retrying failed notifications")
 	pair.Flags().StringArrayVar(&refs, "allow-secret-ref", nil, "Explicitly allow an environment variable reference, never its value")
 	pair.Flags().StringArrayVar(&revisions, "allow-command-revision", nil, "Explicitly allow this exact compiled command or local log-reader revision")

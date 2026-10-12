@@ -32,6 +32,7 @@ export interface ConditionState {
 export interface ControlAccountFeatures {
   passwords: boolean;
   modelConnections: boolean;
+  modelTransfers?: boolean;
 }
 
 export interface ControlBackupArtifact {
