@@ -3,7 +3,9 @@
 One always-running service, one region, one SQLite volume. Built-in named
 accounts use **cloud** execution policy: public HTTP only, guarded remote
 delivery, three watches, five-minute minimum cadence, and bounded retention.
-Public signup and public MCP are disabled. Supabase is deferred.
+Public signup and public MCP are disabled by default. Optional OAuth/MCP setup
+and the deliberate existing-account transition are documented in
+[Cloud MCP connections](../../docs/integrations/cloud-mcp.md). Supabase is deferred.
 
 ## Files and variables
 
