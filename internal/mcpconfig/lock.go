@@ -6,6 +6,8 @@ import (
 	"os"
 )
 
+var ErrLocked = errors.New("another operation on this private file is active")
+
 // Lock serializes private file mutations. OS locks release on process death;
 // the persistent lock file must never be removed while another process uses it.
 func Lock(path string) (func() error, error) {
@@ -22,7 +24,7 @@ func Lock(path string) (func() error, error) {
 	}
 	if err = lockFile(f); err != nil {
 		f.Close()
-		return nil, fmt.Errorf("another operation on this private file is active: %w", err)
+		return nil, fmt.Errorf("%w: %w", ErrLocked, err)
 	}
 	return f.Close, nil
 }

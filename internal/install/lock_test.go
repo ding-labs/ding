@@ -1,6 +1,9 @@
 package install
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestInstallationLockSurvivesFileAndReleases(t *testing.T) {
 	dir := t.TempDir()
@@ -11,6 +14,8 @@ func TestInstallationLockSurvivesFileAndReleases(t *testing.T) {
 	if other, err := Lock(dir); err == nil {
 		other()
 		t.Fatal("concurrent mutation admitted")
+	} else if !strings.Contains(err.Error(), "another installation operation") {
+		t.Fatal("installation lock diagnostic changed", err)
 	}
 	if err := unlock(); err != nil {
 		t.Fatal(err)
