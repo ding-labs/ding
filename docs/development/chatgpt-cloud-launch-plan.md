@@ -7,8 +7,8 @@ Console configuration step. ChatGPT controls when it displays Connect or opens
 authentication; Ding must complete its setup within that browser journey.
 
 This is the follow-up to [PR 36](https://github.com/ding-labs/ding/pull/36).
-The implementation is pushed and locally qualified. Production OAuth, the
-integrated onboarding flow and marketplace publication remain outstanding.
+The implementation is pushed and locally qualified. Live OAuth/onboarding
+qualification and marketplace publication remain outstanding.
 Local/cloud bridging and watch transfers are outside this launch plan.
 
 Implementation update (2026-10-12): per-tool OAuth declarations and scope-upgrade
@@ -17,16 +17,22 @@ challenges are implemented and tested over the real hosted HTTP transport. The
 configuration, and packages cloud-specific onboarding plus five positive and
 three negative review cases. See the [publication runbook](../integrations/chatgpt-cloud-publication.md).
 
-WorkOS AuthKit with Connect is selected. A staging ChatGPT public client, four
-Ding scopes, and the MCP resource indicator are configured. Automatic personal
+WorkOS AuthKit with Connect is selected. Production and staging ChatGPT/Console
+public PKCE clients, four Ding scopes, and the MCP resource indicator are
+configured. Production billing is active. Automatic personal
 workspace enrollment and renewable provider-backed grants are implemented and
 locally tested. The [WorkOS runbook](../integrations/workos-authkit.md) records
 public configuration and exact deployment steps.
 
 Railway remains pinned to `c5d9213` without OAuth configuration at last inspection.
-Production activation/deployment, ChatGPT's exact callback,
+Production deployment, ChatGPT's exact callback,
 live reconnect semantics, and marketplace qualification remain outstanding.
 The review cases are authored procedures, not completed live evidence.
+OpenAI's portal currently requires publisher identity verification before plugin
+creation/upload. The owner must complete that step. Domain-challenge serving is
+implemented and awaits the token from the portal. Public operator privacy,
+terms and support pages, review credentials, fixtures and walkthrough remain
+submission prerequisites.
 
 ## The customer journey
 
@@ -95,9 +101,10 @@ The same consent cannot restore a disconnected grant. Test the corresponding
 real WorkOS and ChatGPT journey before publication, especially how the provider
 revokes an existing consent and issues a new `sid` for reconnect.
 
-Link the existing operator's verified subject using the offline command when
-enabling OIDC on the current password-only deployment. Other accounts start fresh
-unless explicitly linked. Email matching is never account authorization.
+Enable OIDC on the existing deployment with the offline `enable-oidc-login`
+operation. Existing password accounts remain intact; new WorkOS identities
+start fresh. Account linking is optional and outside this launch's critical
+path. Email matching is never account authorization.
 
 **Acceptance:** fresh users connect without Console setup or technical input;
 first login works without notification credentials; canceled consent creates no
@@ -160,7 +167,7 @@ required. A clean account gets actionable first-watch destination guidance.
 ## 5 Deploy and qualify the real private pilot
 
 After PR review and green CI, back up the Railway state, configure the chosen
-OIDC/MCP authority, link the existing owner and deploy a pinned revision using
+OIDC/MCP authority, enable hosted sign-in and deploy a pinned revision using
 the maintenance runbook. Keep native bridge configuration disabled. Verify the
 metadata document and that unauthenticated MCP requests challenge for OAuth.
 
@@ -188,7 +195,8 @@ reviewed recovery procedure rather than an assumed image-only rollback.
 
 ## 6 Submit and publish
 
-Verify the Ding publisher and endpoint domain, upload the cloud ZIP, complete
+Complete the publisher identity verification already requested by OpenAI's
+portal, then verify the endpoint domain, upload the cloud ZIP, complete
 the MCP scan, and supply a dedicated sample-data review account. Prepare five
 positive cases, three negative cases, a walkthrough and release notes. Resolve
 review findings, then publish after approval. Public launch also requires the

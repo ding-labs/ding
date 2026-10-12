@@ -28,6 +28,52 @@ Sources: [MCP setup](https://workos.com/docs/authkit/mcp),
 [token claims and scopes](https://workos.com/docs/authkit/connect/token-claims),
 [OpenAI authentication](https://developers.openai.com/plugins/build/auth).
 
+## Production configuration recorded 2026-10-12
+
+Billing is active and both production applications have been created. These are
+public identifiers, not credentials:
+
+| Setting | Value |
+| --- | --- |
+| Environment | `environment_01M4Q2KQ38QHN4BDH8MYTBGEHK` (Production) |
+| Issuer | `https://glamorous-flame-84.authkit.app` |
+| ChatGPT application | `app_01M4Q5KG83ZQA2WTBKGDBTCAAV` |
+| ChatGPT client | `client_01M4Q5KG82X482D034Z37TM8NT` |
+| Publisher organization | `org_01M4Q5HDEMB8HDC0KZYMVCX18J` (Ding ChatGPT Integration) |
+| Resource indicator | `https://cloud.ding.ing/mcp` (saved default) |
+| Allowed custom scopes | `ding:inspect ding:preview ding:manage ding:retry` |
+| Client authentication | Public, PKCE (`none`) |
+| Browser application | `app_01M4Q5EF5RMBPDZW2KTNZ4SK1M` |
+| Browser client | `client_01M4Q5EF5QTGS96RSM5F8EJ3F2` |
+| Browser callback | `https://cloud.ding.ing/auth/callback` (saved default) |
+| ChatGPT redirect URI | Awaiting the exact URI from ChatGPT's connection portal |
+
+The production issuer's discovery responds with authorization, token and JWKS
+endpoints, S256 and refresh support. It does not advertise RFC 9207 authorization
+response issuer support; use the exact callback-ID-specific URI, not a guessed
+fixed callback. DCR and CIMD remain disabled for this provided-client release.
+The free WorkOS-hosted domain is sufficient; no custom-domain add-on was enabled.
+
+The deployment profile is:
+
+```json
+{
+  "issuer": "https://glamorous-flame-84.authkit.app",
+  "browserClientId": "client_01M4Q5EF5QTGS96RSM5F8EJ3F2",
+  "chatgptClientId": "client_01M4Q5KG82X482D034Z37TM8NT",
+  "enrollmentLimit": 10
+}
+```
+
+Production WorkOS configuration is complete except for the ChatGPT callback.
+Railway still runs the earlier password-only revision until the maintenance
+rollout is approved and completed. No live authorization or refresh has yet been
+qualified. OpenAI's plugin portal blocks creation/upload until the publisher
+completes individual or business identity verification. No verification was
+submitted by the agent. After verification, create the plugin/connection, copy
+its exact callback and domain challenge, then configure and test them. Ding now
+supports `DING_OPENAI_APPS_CHALLENGE` for that exact plaintext challenge.
+
 ## Staging configuration recorded 2026-10-12
 
 These are public identifiers, not credentials:
@@ -52,10 +98,6 @@ flows, plus its public JWKS. It does **not** currently advertise
 callback-ID-specific redirect shown in ChatGPT's management page; do not assume
 the older fixed redirect URI or add a wildcard. No production configuration has
 been deployed, and a live ChatGPT authorization flow has not yet been qualified.
-
-The WorkOS dashboard blocks Production until the account owner adds billing
-information. Its activation dialog states that charging starts only when a paid
-production feature is enabled. Billing has not been entered by the agent.
 
 ## Configure a deployment
 
@@ -109,9 +151,14 @@ new consent creates a new connection; no raw provider token is stored in Ding.
 
 A required live qualification is WorkOS's reconnect behavior after disconnect.
 WorkOS normally reuses existing consent. Merely obtaining another access token
-is therefore insufficient after Ding disconnects it. Confirm a supported way to
-revoke/reset the provider consent and receive a new `sid`, then connect that action
-to the customer flow. Until demonstrated, reconnect remains a launch blocker;
+is therefore insufficient after Ding disconnects it. WorkOS documents
+[`DELETE /user_management/users/:user_id/authorized_applications/:application_id`](https://workos.com/docs/reference/authkit/user#delete-an-authorized-application)
+to revoke a user's Connect authorization. Integrate this into disconnect using
+the verified immutable user identity and a server-held WorkOS API key; no key has
+been created or configured yet. Confirm the actual application identifier and
+prove that subsequent authorization produces a new `sid`. Keep local revocation
+effective even when the provider is unavailable, with a retry path for cleanup.
+Until implemented and demonstrated, reconnect remains a launch blocker;
 do not weaken tombstone checks to make an old token work again.
 
 Also verify consent cancellation, account capacity, browser session reuse,
