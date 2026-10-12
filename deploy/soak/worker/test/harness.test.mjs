@@ -79,3 +79,25 @@ test('real Workers runtime: private config, R2 conditional writes, bounded fixtu
     assert.equal((await mf.dispatchFetch('https://test/admin/config',{method:'PUT',headers,body:JSON.stringify(stop)})).status,200);
   }finally{await mf.dispose();}
 });
+test('scheduled collection uses edge-compatible requests and never follows redirects',async()=>{
+  let redirect=false;
+  const mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:await readFile(new URL('../dist/entry.js',import.meta.url),'utf8'),compatibilityDate:'2026-10-12',r2Buckets:['EVIDENCE'],bindings:{ADMIN_TOKEN:'test-admin',DING_TOKEN:'inspect'},outboundService:async(request)=>{
+    const p=new URL(request.url).pathname;
+    if(p==='/healthz')return new Response('health',{status:redirect?302:200,headers:redirect?{Location:'https://elsewhere.test/'}:{}});
+    if(p==='/v1/events')return Response.json({data:{events:[],cursor:'first',more:false}});
+    return Response.json({data:{watch:{generation:1,plan:{revision:'abc'},status:'running',lastInputAt:new Date().toISOString(),nextAt:new Date(Date.now()+MINUTE).toISOString()},entities:[],deliveries:[]}});
+  }}));
+  try {
+    const b=await mf.getR2Bucket('EVIDENCE');
+    const c={...config,epoch:Date.now()-MINUTE};c.endsAt=c.epoch+3*HOUR;
+    await b.put('active.json',JSON.stringify(c));
+    const worker=await mf.getWorker();
+    const time=Math.floor(Date.now()/MINUTE/5)*5*MINUTE+MINUTE;
+    await worker.scheduled({scheduledTime:time,cron:'* * * * *'});
+    let sample=await (await b.get(`${runId}/warmup/latest.json`)).json();
+    assert.equal(sample.health.ok,true);assert.equal(sample.health.data.status,200);
+    assert.equal(sample.ding['soak-status'].ok,true);assert.equal(sample.ding.events.ok,true);
+    redirect=true;await worker.scheduled({scheduledTime:time+MINUTE,cron:'* * * * *'});
+    sample=await (await b.get(`${runId}/warmup/latest.json`)).json();assert.equal(sample.health.data.status,302);
+  }finally{await mf.dispose();}
+});

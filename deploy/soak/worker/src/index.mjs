@@ -17,7 +17,7 @@ async function authorized(request,env) {
   return crypto.subtle.verify('HMAC',key,expected,new TextEncoder().encode(request.headers.get('Authorization')||''));
 }
 async function ding(path,env) {
-  const response=await fetch(ORIGIN+path,{headers:{Authorization:`Bearer ${env.DING_TOKEN}`},signal:AbortSignal.timeout(10000),redirect:'error'});
+  const response=await fetch(ORIGIN+path,{headers:{Authorization:`Bearer ${env.DING_TOKEN}`},signal:AbortSignal.timeout(10000),redirect:'manual'});
   if (!response.ok) {await response.body?.cancel();throw Error(`ding_http_${response.status}`);}
   const result=await boundedJSON(response);
   if (result.error || result.data === undefined) throw Error('ding_envelope');
@@ -57,7 +57,9 @@ export async function collect(controller,env) {
   const current=await read(env.EVIDENCE,'active.json');
   if(!current){await put(env.EVIDENCE,'bootstrap/last-cron.json',{scheduledAt:controller.scheduledTime,at:Date.now()});return;}
   const config=current.value,now=Date.now();
-  if(config.mode==='stopped'||now<config.epoch||now>config.endsAt+10*MINUTE)return;
+  if(config.mode==='stopped'||now>config.endsAt+10*MINUTE)return;
+  await put(env.EVIDENCE,'bootstrap/last-cron.json',{scheduledAt:controller.scheduledTime,at:now});
+  if(now<config.epoch)return;
   const root=`${config.runId}/${config.mode}`;
   const minute=Math.floor(controller.scheduledTime/MINUTE)*MINUTE;
   // At-most-one attempt per minute. A crash leaves a visible missing sample; it cannot fabricate success.
@@ -66,7 +68,7 @@ export async function collect(controller,env) {
   const maintenance=(await read(env.EVIDENCE,config.runId+'/maintenance.json'))?.value||[];
   const planned=maintenance.some(w=>now>=w.start&&now<w.end);
   const sample={version:REVISION,scheduledAt:minute,startedAt:now,quiet:quiet(config,now),planned};
-  sample.health=await captured(async()=>{const at=Date.now();const r=await fetch(ORIGIN+'/healthz',{signal:AbortSignal.timeout(10000),redirect:'error'});await r.body?.cancel();return{status:r.status,latencyMs:Date.now()-at};});
+  sample.health=await captured(async()=>{const at=Date.now();const r=await fetch(ORIGIN+'/healthz',{signal:AbortSignal.timeout(10000),redirect:'manual'});await r.body?.cancel();return{status:r.status,latencyMs:Date.now()-at};});
   if(!sample.quiet) {
     const names=[...WATCHES,'events'];
     const results=await Promise.all([...WATCHES.map(id=>captured(async()=>{const d=await ding('/v1/watches/'+id,env);return {watch:{id,generation:d.watch.generation,revision:d.watch.plan.revision,status:d.watch.status,lastInputAt:d.watch.lastInputAt,nextAt:d.watch.nextAt},entities:d.entities,entitiesMore:d.entitiesMore,deliveries:d.deliveries};})),captured(()=>collectEvents(env,root))]);
@@ -75,7 +77,7 @@ export async function collect(controller,env) {
   if(minute%(5*MINUTE)===0) {
     sample.railway=await captured(async()=>{
       if(!env.RAILWAY_TOKEN)throw Error('railway_token_missing');
-      const r=await fetch('https://backboard.railway.com/graphql/v2',{method:'POST',headers:{'User-Agent':'ding-soak-observer/1.0','Content-Type':'application/json','Project-Access-Token':env.RAILWAY_TOKEN},body:JSON.stringify({query:METRICS_QUERY,variables:{start:new Date(now-15*MINUTE).toISOString(),end:new Date(now).toISOString()}}),signal:AbortSignal.timeout(10000),redirect:'error'});
+      const r=await fetch('https://backboard.railway.com/graphql/v2',{method:'POST',headers:{'User-Agent':'ding-soak-observer/1.0','Content-Type':'application/json','Project-Access-Token':env.RAILWAY_TOKEN},body:JSON.stringify({query:METRICS_QUERY,variables:{start:new Date(now-15*MINUTE).toISOString(),end:new Date(now).toISOString()}}),signal:AbortSignal.timeout(10000),redirect:'manual'});
       if(!r.ok){await r.body?.cancel();throw Error('railway_http_error');}
       const d=await boundedJSON(r);if(d.errors||!d.data)throw Error('railway_query_error');
       if(!d.data.metrics?.length||!d.data.disk?.length||[...d.data.metrics,...d.data.disk].some(s=>!s.values?.length))throw Error('railway_missing_series');
@@ -115,7 +117,12 @@ export default {
     if(url.pathname==='/admin/config'&&request.method==='PUT') {
       try {
         const next=validateConfig(await boundedJSON(request,8192),Date.now());
-        if(config&&(next.runId!==config.runId||config.mode==='stopped'||config.mode==='measure'&&next.mode!=='stopped'||config.mode==='warmup'&&next.mode==='warmup'))return json({error:'invalid_transition'},409);
+        if(config) {
+          const fresh=config.mode==='stopped'&&next.mode==='warmup'&&next.runId!==config.runId;
+          const advance=next.runId===config.runId&&(config.mode==='warmup'&&['measure','stopped'].includes(next.mode)||config.mode==='measure'&&next.mode==='stopped');
+          if(!fresh&&!advance)return json({error:'invalid_transition'},409);
+          if(fresh&&(await bucket.list({prefix:next.runId+'/',limit:1})).objects.length)return json({error:'run_already_exists'},409);
+        }
         await put(bucket,`${next.runId}/manifests/${next.mode}-${next.epoch}.json`,next,{etagDoesNotMatch:'*'});
         const ok=await put(bucket,'active.json',next,current?{etagMatches:current.etag}:{etagDoesNotMatch:'*'});
         return json({ok:!!ok},ok?200:409);

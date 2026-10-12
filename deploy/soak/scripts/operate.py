@@ -3,6 +3,7 @@
 import argparse
 import json
 import subprocess
+import secrets
 import time
 import urllib.parse
 from pathlib import Path
@@ -79,6 +80,21 @@ def watches():
         save(PRIVATE/('applied-'+kind+'.json'),applied)
     print('Synthetic manifests reviewed and applied; freedesign revision preserved.')
 
+def restart_warmup():
+    current=observer('/admin/status')['config']
+    if current['mode']!='warmup':raise SystemExit('Only a failed warmup may be restarted with this command')
+    folder,result=export()
+    save(PRIVATE/'attempts'/current['runId']/'active.json',load())
+    owner=Owner()
+    for ident in ['soak-status','soak-projection']:
+        w=owner.call('/v1/watches/'+ident)['data']['watch']
+        if w['status']!='deleted':owner.call('/v1/watches/'+ident+'/lifecycle',{'action':'delete','expected':w['plan']['revision'],'expectedGeneration':w['generation'],'cancelPending':True})
+    configure('stopped')
+    active=load();active['runId']=current['runId']+'-'+secrets.token_hex(4);active['status']='setup';active.pop('config',None)
+    save(PRIVATE/'active.json',active)
+    configure('warmup')
+    watches()
+
 def cleanup():
     cfg=observer('/admin/status')['config']
     if cfg['mode']!='measure' or time.time()*1000<cfg['endsAt']+6*60000:
@@ -97,7 +113,7 @@ def cleanup():
     print('Synthetic watches deleted and Ding inspection token revoked. Disable the Worker cron, revoke the Railway token and preserve/export evidence using the runbook.')
 
 parser=argparse.ArgumentParser()
-parser.add_argument('command',choices=['status','export','warmup','start','apply-watches','cleanup'])
+parser.add_argument('command',choices=['status','export','warmup','start','apply-watches','cleanup','restart-warmup'])
 args=parser.parse_args()
 if args.command=='status':
     status=observer('/admin/status')
@@ -107,3 +123,4 @@ elif args.command=='warmup':configure('warmup')
 elif args.command=='start':configure('measure')
 elif args.command=='apply-watches':watches()
 elif args.command=='cleanup':cleanup()
+elif args.command=='restart-warmup':restart_warmup()

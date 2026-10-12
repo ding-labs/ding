@@ -33,7 +33,8 @@ python3 -m py_compile deploy/soak/scripts/*.py
 go test ./deploy/soak/verify
 ```
 
-The tests use the actual Workers runtime and R2 for authentication, fixture and
+The tests use the actual Workers runtime and R2 for scheduled outbound requests,
+authentication, fixture and
 conditional-write behavior, plus fault tests for interrupted evidence storage,
 duplicate Cron invocations, bounded decoding, missing samples and false reports.
 The lockfile pins Wrangler and its current Miniflare runtime. `npm run types`
@@ -99,8 +100,10 @@ works, unauthenticated status is 404, and actual scheduled samples arrive.
    start if interrupted before the local pointer was saved; do not start twice.
 
 An initial Cron propagation gap can invalidate warmup coverage. Preserve that
-warmup, disable its schedule, revoke its credentials and prepare a new run if
-needed; never backdate T0 or hide missing samples. Application/observer fixes
+warmup and use `operate.py restart-warmup` after qualifying and deploying the
+fix. It exports the attempt, deletes only the test watches and creates a fresh
+run ID/epoch. The scoped operator credentials remain within their original
+expiry until final cleanup; never backdate T0 or hide missing samples. Application/observer fixes
 must be qualified before a new measurement. Immutable keys and conditional
 writes prevent retries from fabricating extra samples. A failed write leaves a
 visible gap, and event cursors advance only after corresponding evidence is saved.
