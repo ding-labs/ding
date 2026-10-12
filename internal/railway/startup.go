@@ -74,6 +74,9 @@ func FromEnv(get func(string) string) (Settings, []byte, string, error) {
 	if port == 8788 {
 		return s, nil, "", fmt.Errorf("PORT 8788 is reserved for private operator metrics")
 	}
+	if err := configureMCP(&s.Config, get); err != nil {
+		return s, nil, "", err
+	}
 	return s, key, password, s.Config.Validate()
 }
 
