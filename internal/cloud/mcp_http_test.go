@@ -193,6 +193,25 @@ func TestHostedHTTPMetadataIdentityAndProtocols(t *testing.T) {
 	}
 }
 
+func TestHostedMetadataAdvertisesMoveOnlyForConfiguredBridge(t *testing.T) {
+	for _, configured := range []bool{false, true} {
+		s := &Server{PublicURL: "https://cloud.example"}
+		if configured {
+			s.MCPBridgeClients = []string{"native-bridge"}
+		}
+		h, closeMCP, err := s.MCPHandler(mcpconfig.HTTP{PublicURL: s.PublicURL, Issuer: "https://identity.example", JWKSURI: "https://identity.example/keys", Audience: s.PublicURL + "/mcp", Algorithm: "RS256"}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(closeMCP)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest("GET", s.PublicURL+"/.well-known/oauth-protected-resource/mcp", nil))
+		if w.Code != 200 || strings.Contains(w.Body.String(), "ding:move") != configured {
+			t.Fatal("metadata does not match native bridge availability", w.Code, w.Body.String())
+		}
+	}
+}
+
 func mustJSON(t *testing.T, value any) []byte {
 	t.Helper()
 	raw, err := json.Marshal(value)

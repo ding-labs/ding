@@ -56,7 +56,11 @@ func (s *Server) MCPHandler(cfg mcpconfig.HTTP, jwks *http.Client) (http.Handler
 	}, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true, MaxRequestBodyBytes: int64(integrationpolicy.Hosted("", "", s.Shared).MaxRequestBytes), PropagateRequestCancellation: true, DisableLocalhostProtection: true})
 	metadataPath := "/.well-known/oauth-protected-resource/mcp"
 	protected := auth.RequireBearerToken(verifier.Verify, &auth.RequireBearerTokenOptions{ResourceMetadataURL: s.PublicURL + metadataPath, Scopes: []string{"ding:inspect"}})(transport)
-	metadata := auth.ProtectedResourceMetadataHandler(&oauthex.ProtectedResourceMetadata{Resource: s.PublicURL + "/mcp", AuthorizationServers: []string{cfg.Issuer}, ScopesSupported: []string{"ding:inspect", "ding:preview", "ding:manage", "ding:retry", "ding:move"}, BearerMethodsSupported: []string{"header"}})
+	scopes := []string{"ding:inspect", "ding:preview", "ding:manage", "ding:retry"}
+	if bridge != nil {
+		scopes = append(scopes, "ding:move")
+	}
+	metadata := auth.ProtectedResourceMetadataHandler(&oauthex.ProtectedResourceMetadata{Resource: s.PublicURL + "/mcp", AuthorizationServers: []string{cfg.Issuer}, ScopesSupported: scopes, BearerMethodsSupported: []string{"header"}})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == metadataPath {
 			metadata.ServeHTTP(w, r)
