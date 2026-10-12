@@ -999,3 +999,113 @@ footer a {
 .code-panel {
   border-top: 3px solid var(--ding-green);
 }
+
+/* Keep hosted entry points visible at every screen size. */
+.site-header {
+  gap: 22px;
+}
+.site-header nav {
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.account-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  white-space: nowrap;
+}
+.account-actions .text-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.hosting-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.hosting-card {
+  padding: 32px;
+  border: 1px solid var(--ding-border);
+  border-radius: var(--ding-radius-panel);
+  background: var(--ding-surface);
+}
+.hosting-cloud {
+  border-top: 3px solid var(--ding-green);
+}
+.hosting-card p {
+  color: var(--ding-muted);
+  font-size: 16px;
+}
+.hosting-card .eyebrow {
+  color: var(--ding-brand);
+  font-size: 11px;
+}
+.hosting-card .hosting-detail {
+  font-size: 14px;
+}
+.hosting-card > a {
+  margin: 8px 16px 0 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+footer > div {
+  flex-wrap: wrap;
+}
+@media (max-width: 1100px) {
+  .site-header {
+    flex-wrap: wrap;
+    padding: 18px 0;
+    gap: 16px;
+  }
+  .site-header nav {
+    order: 4;
+    flex-basis: 100%;
+    justify-content: space-between;
+    gap: 8px 18px;
+  }
+  .site-header nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  .account-actions {
+    margin-left: auto;
+  }
+  .theme-toggle {
+    margin-left: 0;
+  }
+  footer {
+    flex-wrap: wrap;
+  }
+  footer > div {
+    margin-left: 0;
+  }
+}
+@media (max-width: 650px) {
+  .hosting-options {
+    grid-template-columns: 1fr;
+  }
+  .hosting-card {
+    padding: 24px;
+  }
+}
+@media (max-width: 520px) {
+  .account-actions {
+    order: 3;
+    width: 100%;
+    justify-content: space-between;
+  }
+  .theme-toggle {
+    margin-left: auto;
+  }
+  .site-header nav {
+    justify-content: flex-start;
+    gap: 4px 18px;
+  }
+  footer > div {
+    justify-content: flex-start;
+    gap: 12px 22px;
+  }
+}

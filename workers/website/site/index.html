@@ -9,14 +9,15 @@
       Ding keeps the state, records the evidence, and retries the notification.
     </p>
     <div class="actions">
-      <a class="button primary" href="{{installUrl}}"
-        >{{cta}} <span aria-hidden="true">↗</span></a
-      ><a class="text-link" href="{{quickstartUrl}}"
-        >Create your first watch <span aria-hidden="true">→</span></a
+      <a class="button primary" href="{{cloudAuthUrl}}"
+        >Get started with Ding Cloud <span aria-hidden="true">↗</span></a
+      ><a class="text-link" href="{{installUrl}}"
+        >Install locally <span aria-hidden="true">→</span></a
       >
     </div>
     <p class="availability">
-      {{availability}}
+      Use Cloud for hosted public HTTP watches, or install Ding to run watches
+      on your own machine. Personal local use needs no account.
       <a href="{{docsUrl}}legacy/">Using the legacy runtime?</a>
     </p>
   </div>
@@ -29,9 +30,47 @@
   </div>
 </section>
 <div class="principles">
-  <span>Runs on your infrastructure</span><span>State survives restarts</span
+  <span>Hosted or on your infrastructure</span><span>State survives restarts</span
   ><span>Apache-2.0</span><span>No model call on each check</span>
 </div>
+<section class="section" id="cloud" aria-labelledby="cloud-heading">
+  <div class="section-heading">
+    <p class="eyebrow">Choose where your watches run</p>
+    <h2 id="cloud-heading">Your machine.<br />Or Ding Cloud.</h2>
+    <p>Start with the home that fits your watch.</p>
+  </div>
+  <div class="hosting-options">
+    <article class="hosting-card hosting-cloud">
+      <p class="eyebrow">Hosted / Ding Cloud</p>
+      <h3>Keep watching when your laptop is off.</h3>
+      <p>
+        Monitor public HTTP endpoints with hosted watches. Sign in to manage
+        your watches and inspect their evidence in the browser, without running
+        a daemon on your own machine.
+      </p>
+      <p class="hosting-detail">
+        For publicly reachable APIs and websites. Private network endpoints and
+        local command checks need an installation with access to them.
+      </p>
+      <a class="button primary" href="{{cloudAuthUrl}}">Create account <span aria-hidden="true">→</span></a>
+      <a class="text-link" href="{{cloudUrl}}">Open Ding Cloud <span aria-hidden="true">↗</span></a>
+    </article>
+    <article class="hosting-card">
+      <p class="eyebrow">Local / Self-hosted</p>
+      <h3>Run watches where your software lives.</h3>
+      <p>
+        Install Ding on your machine or server for HTTP watches, local command
+        checks, and incoming events. Keep watch state and evidence on your own
+        infrastructure.
+      </p>
+      <p class="hosting-detail">
+        Personal local use is free and needs no account. Your machine or server
+        must stay running to keep checking.
+      </p>
+      <a class="text-link" href="{{installUrl}}">Install locally <span aria-hidden="true">→</span></a>
+    </article>
+  </div>
+</section>
 <section class="section" id="how-it-works">
   <div class="section-heading">
     <p class="eyebrow">01 / The whole story</p>
@@ -125,7 +164,7 @@
     <h2>A definition you can<br />read, test, and keep.</h2>
     <p>
       Use the CLI, have an agent help write the manifest, and inspect the same
-      watch through the planned Console. The Go daemon owns evaluation and
+      watch through the local Console. The Go daemon owns evaluation and
       durable state.
     </p>
     <p>
@@ -168,11 +207,12 @@
     <h2>Make the next alert<br />make sense.</h2>
   </div>
   <div>
-    <a class="button primary" href="{{quickstartUrl}}"
-      >Create your first watch <span aria-hidden="true">↗</span></a
+    <a class="button primary" href="{{cloudAuthUrl}}"
+      >Get started with Ding Cloud <span aria-hidden="true">↗</span></a
     >
     <p>
-      No external service required for the quickstart.<br />{{availability}}
+      Prefer your own machine? <a href="{{installUrl}}">Install locally</a>.<br />
+      No account needed for personal local use. {{availability}}
     </p>
   </div>
 </section>

@@ -253,7 +253,8 @@ try {
   assert.ok(await staticPage.getByRole("heading", { level: 1 }).isVisible());
   assert.ok(
     await staticPage
-      .getByRole("link", { name: /Get started|Try the watch preview/ })
+      .locator(".hero")
+      .getByRole("link", { name: "Get started with Ding Cloud" })
       .isVisible(),
   );
   await noJS.close();
