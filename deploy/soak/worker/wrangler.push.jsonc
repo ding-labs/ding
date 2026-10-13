@@ -6,7 +6,7 @@
  "compatibility_date":"2026-10-12",
  "workers_dev":true,
  "preview_urls":false,
- "triggers":{"crons":[]},
+ "triggers":{"crons":["* * * * *"]},
  "r2_buckets":[{"binding":"EVIDENCE","bucket_name":"ding-cloud-soak-evidence"}],
  "observability":{"enabled":true,"traces":{"enabled":true,"head_sampling_rate":0.01}}
 }

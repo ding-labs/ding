@@ -31,7 +31,7 @@ delivery, native provider adapters, backup-gap recovery, or all production gates
 
 Use the existing locked dependencies in `deploy/soak/worker`:
 
-The push schedule is disabled after the stopped October 12 run. For a reviewed
+The push schedule is enabled for the authorized October 13 rerun. For a reviewed
 new run, set `triggers.crons` to `["* * * * *"]` before deploying. At cleanup,
 restore `[]` and apply with `wrangler triggers deploy --config wrangler.push.jsonc`
 from the worker directory; keep the older HTTP runner's config unchanged.
@@ -65,6 +65,12 @@ Private operator state is `~/.config/ding-cloud/push-soak/` (0700). Keep
 secret values in arguments, Git, or reports. The existing Railway project token
 is shared with the older observer and must not be revoked as this run's cleanup.
 
+Alternatively, install Ding credentials directly as encrypted Worker secrets in
+Cloudflare's dashboard. They need not be copied locally; the operator only needs
+`ADMIN_TOKEN`. After all secret deployments finish, deploy the observer and check
+`GET /admin/check-credentials` with admin authentication. Require producer 403
+and inspect 200 before warmup, then verify individual key expiry after warmup.
+
 Before starting, verify the encrypted backup/restore evidence, actual Railway
 application commit, health, loopback metrics, storage headroom, and scoped metric
 query. Save these under the private operator directory. Wait for an actual Cron
@@ -76,6 +82,11 @@ python3 deploy/soak/scripts/push.py warmup --application-revision ACTUAL_LIVE_CO
 python3 deploy/soak/scripts/push.py export
 python3 deploy/soak/scripts/push.py start
 ```
+
+For an explicitly stopped attempt, use `restart --application-revision COMMIT`
+instead of `warmup`. It exports the old attempt and starts a different run ID,
+linked by `previousRunId`; old manifests, samples, and stop evidence stay intact.
+It refuses to replace an active run, and the new run must pass warmup again.
 
 Warmup has a ten-minute hard deadline. Measurement requires at least three
 complete accepted samples, no missing/failed elapsed sample, and a successful
