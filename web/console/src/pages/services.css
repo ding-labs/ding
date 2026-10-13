@@ -1,0 +1,77 @@
+.service-form fieldset {
+  border: 0;
+  padding: 0;
+  margin: 22px 0 0;
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+.service-form label,
+.service-field,
+.service-secret label {
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+}
+.service-form input,
+.service-form select,
+.service-secret input {
+  width: 100%;
+  min-width: 0;
+}
+.service-form small,
+.service-field small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.service-form .dialog-actions {
+  margin-top: 4px;
+}
+.service-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 13px;
+  border-radius: 7px;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 13px;
+}
+.service-hint svg {
+  margin-top: 3px;
+}
+.service-secret {
+  padding: 16px;
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 20px 0;
+}
+.service-secret input {
+  font-family: var(--ding-mono);
+}
+.service-secret .actions {
+  margin-top: 12px;
+}
+.service-secret-name {
+  overflow-wrap: anywhere;
+}
+.service-saved {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13px;
+  margin-top: 20px;
+}
+.service-saved input {
+  margin: 5px 0 0;
+}
+@media (max-width: 600px) {
+  .service-dialog {
+    padding: 22px;
+  }
+  .service-form input,
+  .service-form select {
+    font-size: 16px;
+  }
+}

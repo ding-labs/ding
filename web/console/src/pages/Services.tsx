@@ -2,6 +2,11 @@ import { useState, type FormEvent } from "react";
 import { api } from "../api/client";
 import { useExecution } from "../app/execution";
 import { ErrorBox, useRead } from "../components/common";
+import {
+  CreateCredential,
+  CredentialSecret,
+  type IssuedCredential,
+} from "./ServiceCredentialDialogs";
 type Service = {
   id: string;
   name: string;
@@ -21,8 +26,8 @@ function ServiceKeys({
   busy: boolean;
   changed: () => void;
 }) {
-  const [open,setOpen]=useState(false);
-  const keys = useRead<Key[]>(`/services/${service.id}/keys`,false,open);
+  const [open, setOpen] = useState(false);
+  const keys = useRead<Key[]>(`/services/${service.id}/keys`, false, open);
   const [error, setError] = useState<unknown>();
   async function revoke(id: string) {
     try {
@@ -34,7 +39,7 @@ function ServiceKeys({
     }
   }
   return (
-    <details onToggle={e=>setOpen(e.currentTarget.open)}>
+    <details onToggle={(e) => setOpen(e.currentTarget.open)}>
       <summary>Key metadata and individual revocation</summary>
       <ErrorBox error={error || keys.error} />
       <ul>
@@ -120,46 +125,15 @@ export function Services() {
   const ingest =
     execution.mode === "shared" || Boolean(info.data?.push?.supported);
   const list = useRead<Service[]>("/services");
-  const [name, setName] = useState("");
-  const [watch, setWatch] = useState("");
-  const [scope, setScope] = useState("inspect");
-  const [token, setToken] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [issued, setIssued] = useState<IssuedCredential>();
   const [days, setDays] = useState(30);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>();
   const [revision, setRevision] = useState(0);
-  async function create(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(undefined);
-    setToken("");
-    try {
-      const result = await api<Service>("/services", {
-        method: "POST",
-        body: {
-          name,
-          scopes: [scope],
-          watches:
-            scope === "ingest"
-              ? watch
-                  .split(",")
-                  .map((v) => v.trim())
-                  .filter(Boolean)
-              : [],
-          days,
-        },
-      });
-      setToken(result.token || "");
-      await list.refetch();
-    } catch (e) {
-      setError(e);
-    } finally {
-      setBusy(false);
-    }
-  }
   async function revoke(id: string) {
     setBusy(true);
-    setToken("");
+    setIssued(undefined);
     try {
       await api(`/services/${id}`, { method: "DELETE" });
       await list.refetch();
@@ -171,14 +145,16 @@ export function Services() {
   }
   async function rotate(id: string) {
     setBusy(true);
-    setToken("");
+    setIssued(undefined);
     setError(undefined);
     try {
       const result = await api<Service>(`/services/${id}/rotate`, {
         method: "POST",
         body: { days, overlapSeconds: 3600 },
       });
-      setToken(result.token || "");
+      if (!result.token)
+        throw new Error("The server did not return the new key.");
+      setIssued({ token: result.token, name: result.name, rotated: true });
       setRevision((r) => r + 1);
       await list.refetch();
     } catch (e) {
@@ -201,26 +177,6 @@ export function Services() {
           New cloud input is temporarily closed. Existing receipts can still be
           reconciled.
         </p>
-      )}
-      {token && (
-        <div role="status">
-          <p>Save this credential privately now. It is shown only once.</p>
-          <input
-            type="password"
-            aria-label="New service credential"
-            readOnly
-            value={token}
-          />
-          <button
-            className="button"
-            onClick={() => void navigator.clipboard.writeText(token)}
-          >
-            Copy credential
-          </button>
-          <button className="button" onClick={() => setToken("")}>
-            Dismiss
-          </button>
-        </div>
       )}
       <p className="muted">
         If an issuance response is lost, inspect the credential list and key
@@ -267,40 +223,30 @@ export function Services() {
           </li>
         ))}
       </ul>
-      <form className="onboarding-form" onSubmit={create}>
-        <fieldset disabled={busy}>
-          <label>
-            Name
-            <input
-              required
-              maxLength={100}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </label>
-          <label>
-            Permission
-            <select aria-label="Service permission" value={scope} onChange={(e) => setScope(e.target.value)}>
-              <option value="inspect">Inspect this workspace</option>
-              <option value="retry">Retry deliveries in this workspace</option>
-              {ingest && (
-                <option value="ingest">Send input to selected watches</option>
-              )}
-            </select>
-          </label>
-          {scope === "ingest" && (
-            <label>
-              Existing push watch IDs, separated by commas
-              <input
-                required
-                value={watch}
-                onChange={(e) => setWatch(e.target.value)}
-              />
-            </label>
-          )}
-          <button className="button">Create credential</button>
-        </fieldset>
-      </form>
+      <button
+        type="button"
+        className="button primary"
+        onClick={() => setCreating(true)}
+      >
+        Add credential
+      </button>
+      {creating && (
+        <CreateCredential
+          ingest={ingest}
+          onClose={() => setCreating(false)}
+          onIssued={(value) => {
+            setCreating(false);
+            setIssued(value);
+          }}
+          refresh={() => void list.refetch()}
+        />
+      )}
+      {issued && (
+        <CredentialSecret
+          credential={issued}
+          onClose={() => setIssued(undefined)}
+        />
+      )}
     </section>
   );
 }
