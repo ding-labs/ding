@@ -64,3 +64,6 @@ integrations/mcp/build/
 /web/console/*.tsbuildinfo
 
 !web/console/Dockerfile.test
+
+# Push soak bundles
+dist-push/

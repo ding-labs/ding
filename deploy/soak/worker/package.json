@@ -3,9 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "npm run build && node --test test/*.test.mjs",
+    "test": "npm run build && npm run build:push && node --test test/*.test.mjs",
     "build": "wrangler deploy --dry-run --outdir dist",
-    "types": "wrangler types"
+    "types": "wrangler types",
+    "build:push": "wrangler deploy --config wrangler.push.jsonc --dry-run --outdir dist-push",
+    "test:push": "npm run build:push && node --test test/push-*.test.mjs"
   },
   "devDependencies": {
     "wrangler": "4.149.0",
