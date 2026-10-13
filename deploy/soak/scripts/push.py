@@ -78,26 +78,33 @@ def export(state):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('action', choices=['status', 'export', 'warmup', 'start', 'stop'])
+    p.add_argument('action', choices=['status', 'export', 'warmup', 'restart', 'start', 'stop'])
     p.add_argument('--application-revision')
     args = p.parse_args()
     state = request('/admin/status')
     save(PRIVATE / 'status.json', state)
-    if args.action in ('warmup', 'start'):
+    if args.action in ('warmup', 'restart', 'start'):
         now = state['now']
         if not state.get('lastCron') or now - state['lastCron']['at'] > 120000:
             raise SystemExit('A recent actual scheduled invocation is required.')
-        mode = 'warmup' if args.action == 'warmup' else 'measure'
+        mode = 'measure' if args.action == 'start' else 'warmup'
         c = state.get('config')
+        restarting = args.action == 'restart'
+        if restarting:
+            if not c or not state.get('stop'):
+                raise SystemExit('Restart requires an explicitly stopped run.')
+            export(state)  # Preserve the stopped attempt before changing the active pointer.
         if mode == 'measure' and (not c or c['mode'] != 'warmup'):
             raise SystemExit('Inspect existing state; measurement requires warmup.')
-        if mode == 'warmup' and c:
+        if mode == 'warmup' and c and not restarting:
             raise SystemExit('A run already exists; do not replace it.')
         revision = args.application_revision or (c or {}).get('applicationRevision')
-        config = {'mode': mode, 'runId': c['runId'] if c else 'push-' + secrets.token_hex(8),
+        config = {'mode': mode, 'runId': c['runId'] if c and not restarting else 'push-' + secrets.token_hex(8),
             'watchId': 'push-soak-20261012', 'epoch': (now // 60000 + 1) * 60000,
             'applicationRevision': revision,
             'observerRevision': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=REPO, text=True).strip()}
+        if restarting:
+            config['previousRunId'] = c['runId']
         result = request('/admin/start', config, 'PUT')
         save(PRIVATE / ('manifest-' + mode + '.json'), result)
         print(json.dumps(result))

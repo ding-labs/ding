@@ -21,6 +21,17 @@ test('Workers runtime enforces authorization, one-time start, warmup gate and in
   assert.equal((await mf.dispatchFetch('https://test/admin/object?key=other/private',{headers})).status,404);
   assert.equal((await mf.dispatchFetch('https://test/admin/stop',{method:'POST',headers})).status,200);
   const status=await (await mf.dispatchFetch('https://test/admin/status',{headers})).json();assert.equal(status.stop.reason,'operator_stop');
+  const next={...c,runId:'push-2222222222222222',previousRunId:c.runId};
+  assert.equal((await start({...next,previousRunId:'push-3333333333333333'})).status,409);
+  assert.equal((await start({...next,runId:c.runId})).status,409);
+  assert.equal((await start({...next,mode:'measure'})).status,409);
+  const oldManifest=await (await b.get(ROOT+c.runId+'/warmup/manifest.json')).text();
+  const restarted=await start(next);assert.equal(restarted.status,200);
+  assert.equal((await restarted.json()).config.previousRunId,c.runId);
+  assert.equal(await (await b.get(ROOT+c.runId+'/warmup/manifest.json')).text(),oldManifest);
+  assert.equal((await (await b.get(ROOT+c.runId+'/stop.json')).json()).reason,'operator_stop');
+  assert.equal((await start({...next,runId:'push-4444444444444444',previousRunId:next.runId})).status,409);
+  assert.equal((await start({...next,mode:'measure',previousRunId:undefined})).status,409);
  }finally{await mf.dispose();}
 });
 test('real scheduled push uses stable bytes and keys, reconciles lost acknowledgement, and persists R2 evidence',async()=>{

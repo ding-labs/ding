@@ -28,8 +28,11 @@ export default {
   if(url.pathname==='/admin/status'&&request.method==='GET')return json({config:c,lastCron:await read(env,'last-cron.json'),latest:c?await read(env,`${c.runId}/${c.mode}/latest.json`):null,stop:c?await read(env,c.runId+'/stop.json'):null,now:Date.now()});
   if(url.pathname==='/admin/start'&&request.method==='PUT') {
    try {
-    const next=validateStart(await boundedJSON(request,4096),Date.now());
-    if(c) {
+    const input=await boundedJSON(request,4096),next=validateStart(input,Date.now());
+    if(input.previousRunId) {
+     if(!c||input.previousRunId!==c.runId||next.runId===c.runId||next.mode!=='warmup'||!await read(env,c.runId+'/stop.json'))return json({error:'stopped_run_required'},409);
+     next.previousRunId=c.runId;
+    }else if(c) {
      if(c.mode!=='warmup'||next.mode!=='measure'||c.runId!==next.runId||c.watchId!==next.watchId||await read(env,c.runId+'/stop.json'))return json({error:'invalid_transition'},409);
      const warmup=await samples(env,c),gate=report(c,warmup,Date.now());
      if(gate.missing||gate.failed||gate.accepted<3||!warmup.some(s=>s.telemetryPass===true))return json({error:'warmup_not_ready',gate},409);
