@@ -40,6 +40,7 @@ import { Events, Evidence } from "./Events";
 import { Deliveries } from "./Deliveries";
 import { Demo } from "../components/Demo";
 import { LogEvidence } from "../components/LogEvidence";
+import { WatchStatus } from "../components/WatchStatus";
 export function Watches() {
   const location = useLocation();
   const [p, set] = useSearchParams();
@@ -389,7 +390,13 @@ export function WatchDetail() {
       />
       {tab === "Overview" && (
         <>
-          <Availability watchID={id} sourceType={d.spec.source.type} />
+          <WatchStatus
+            detail={query.data}
+            summary={s}
+            loading={summary.isPending}
+            error={summary.error}
+            retry={() => void summary.refetch()}
+          />
           {d.spec.source.logs && (
             <LogEvidence
               id={id}
@@ -398,74 +405,10 @@ export function WatchDetail() {
               status={w.status}
             />
           )}
-          <div className="overview-grid">
-            <section className="panel rule-panel">
-              <p className="eyebrow">The rule</p>
-              <Rule definition={d} />
-              <div className="rule-footer">
-                {d.spec.source.type === "logs" ? (
-                  "Summaries evaluated once per second while collection is active"
-                ) : d.spec.source.type === "push" ? (
-                  (s?.lastInputAt ? "Input endpoint: /v1/ingest/" : "Waiting for POST /v1/ingest/") + id
-                ) : (
-                  <>
-                    Next scheduled check <Time value={w.nextAt} />
-                  </>
-                )}
-              </div>
-            </section>
-            <section className="panel state-panel">
-              <p className="eyebrow">Current state</p>
-              <dl className="facts">
-                <div>
-                  <dt>Condition</dt>
-                  <dd>
-                    {!s?.entities
-                      ? "Waiting for first input"
-                      : d.spec.policy.trigger === "transition"
-                        ? `${s.open} open incident${s.open === 1 ? "" : "s"} across ${s.entities} ${s.entities === 1 ? "entity" : "entities"}`
-                        : `${s.entities} evaluated ${s.entities === 1 ? "entity" : "entities"}`}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Source</dt>
-                  <dd>
-                    {d.spec.source.type === "logs"
-                      ? query.data.entities
-                          .find((e) => e.waitingReason)
-                          ?.waitingReason?.replaceAll("_", " ") ||
-                        String(
-                          query.data.logObservation?.detail ||
-                            "Waiting for collector",
-                        )
-                      : s?.unhealthy || w.lastError
-                        ? "Acquisition error"
-                        : w.lastInputAt && !w.lastInputAt.startsWith("0001")
-                          ? "Input received; freshness depends on rule"
-                          : "No input yet"}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Latest input</dt>
-                  <dd>
-                    <Time value={w.lastInputAt} />
-                  </dd>
-                </div>
-                <div>
-                  <dt>Deliveries</dt>
-                  <dd>
-                    {s?.failed || 0} failed · {s?.pending || 0} queued / sending
-                  </dd>
-                </div>
-              </dl>
-              {w.lastError && <p className="danger-text">{w.lastError}</p>}
-              {s?.missing.length ? (
-                <p className="notice">
-                  Required credentials absent: {s.missing.join(", ")}
-                </p>
-              ) : null}
-            </section>
-          </div>
+          <section className="panel rule-panel">
+            <p className="eyebrow">The rule</p>
+            <Rule definition={d} />
+          </section>
           <div className="section-heading">
             <div>
               <p className="eyebrow">Follow the evidence</p>
@@ -519,6 +462,7 @@ export function WatchDetail() {
           </section>
         </>
       )}
+      {tab === "Overview" && <Availability watchID={id} sourceType={d.spec.source.type} />}
       {tab === "Events" && <Events watch={id} />}
       {tab === "Deliveries" && <Deliveries watch={id} />}
       {tab === "Entities" && (
