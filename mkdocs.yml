@@ -1,8 +1,6 @@
 site_name: Ding
 site_description: Persistent watches and durable alerts for developers and agents
 site_url: https://docs.ding.ing/
-repo_url: https://github.com/ding-labs/ding
-repo_name: ding-labs/ding
 copyright: Ding · Apache-2.0
 strict: true
 docs_dir: docs

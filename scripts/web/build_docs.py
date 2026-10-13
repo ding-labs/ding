@@ -35,6 +35,9 @@ def build_channel(source, destination, channel, ref, workspace, url_path=''):
         shutil.copy2(source / 'ding.yaml.example', assets / 'examples/ding.yaml.example')
         shutil.copy2(source / 'schemas/watch-v1alpha1.json', assets / 'watch-v1alpha1.json')
     config = yaml.safe_load((source / 'mkdocs.yml').read_text())
+    # Archived configs can still enable Material's live GitHub release widget.
+    config.pop('repo_url', None)
+    config.pop('repo_name', None)
     config.update(docs_dir=str(stage / 'docs'), site_dir=str(destination), site_url=PRODUCT['docsUrl'] + '/' + url_path,
                   strict=True, hooks=[str(ROOT / 'scripts/web/docs_hooks.py')])
     current = yaml.safe_load((ROOT / 'mkdocs.yml').read_text())
