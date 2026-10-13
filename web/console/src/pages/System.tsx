@@ -31,7 +31,8 @@ import {
 } from "../components/common";
 import packageInfo from "../../package.json";
 import parity from "../../../../testdata/console/parity.json";
-import { Services, Audit } from "./WorkspaceAccess";
+import { Audit } from "./WorkspaceAccess";
+import { Services } from "./Services";
 import { Members, UserSecurity } from "./Members";
 import { useExecution, useCapability } from "../app/execution";
 import { CloudSystem } from "./CloudSystem";
