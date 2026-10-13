@@ -9,15 +9,13 @@ The old workload wrapper is available as
 keeps the hardened implementation. These commands are not reinterpreted by the
 new binary; they exit with installation/migration guidance.
 
-Pin the installer explicitly when keeping the legacy runtime:
-
-```sh
-DING_VERSION=v0.14.0 INSTALL_DIR="$HOME/.local/bin" sh scripts/install.sh
-```
-
-Create the chosen directory first. The script downloads release checksums and
-verifies the archive. On Windows, use the release archive for your architecture.
-Keep a separate binary name/path when running old and new installations together.
+To keep the legacy runtime, download the archive for your OS and architecture
+from the [v0.14.0 release](https://github.com/ding-labs/ding/releases/tag/v0.14.0),
+verify its SHA-256 digest against that release's `checksums.txt`, and extract it
+into a separate directory. The current `scripts/install.sh` installs the Homebrew
+package and does not honor `DING_VERSION`; `start.ding.ing` no longer serves an
+installer. On Windows, use the release archive for your architecture. Keep a
+separate binary name/path when running old and new installations together.
 
 ## Convert a configuration
 

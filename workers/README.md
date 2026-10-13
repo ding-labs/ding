@@ -97,6 +97,11 @@ The complete docs build regenerates retained archives from pinned source tags;
 
 ## Release coordination
 
+The separately deployed `workers/install` Worker retains `start.ding.ing` only
+for old links. Browser visits redirect to the current installation guide at
+`https://docs.ding.ing/install/`; command-line requests receive HTTP 410 with
+that guide URL. It must not serve executable installation code again.
+
 `content/product.json` pins the documented runtime and declares that the console
 is still a design preview. Updating it to a released console deliberately fails
 the website build until preview artwork and copy are replaced with tested release
