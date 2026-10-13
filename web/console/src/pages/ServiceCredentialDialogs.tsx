@@ -1,4 +1,11 @@
-import { useId, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Check, Copy, Eye, EyeOff, KeyRound, X } from "lucide-react";
 import { api, unknownOutcome } from "../api/client";
@@ -25,6 +32,18 @@ export function CredentialDialog({
   busy?: boolean;
   locked?: boolean;
 }) {
+  const opener = useRef(document.activeElement as HTMLElement | null);
+  const content = useRef<HTMLDivElement>(null);
+  const previousTitle = useRef(title);
+  useLayoutEffect(() => {
+    if (previousTitle.current !== title) {
+      previousTitle.current = title;
+      (
+        content.current?.querySelector<HTMLElement>("input, select") ||
+        content.current
+      )?.focus();
+    }
+  }, [title]);
   return (
     <Dialog.Root
       open
@@ -35,7 +54,13 @@ export function CredentialDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay" />
         <Dialog.Content
+          ref={content}
           className="dialog-content service-dialog"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            if (opener.current?.isConnected) opener.current.focus();
+            else document.querySelector<HTMLElement>(".services-add")?.focus();
+          }}
           onEscapeKeyDown={(e) => {
             if (busy || locked) e.preventDefault();
           }}

@@ -29,7 +29,8 @@ spec:
  const body='{"repo":"owner/api","failed":true}';
  const send=(token:string,key="run-1",data=body)=>page.request.post(url+"/v1/ingest/ci",{headers:{Authorization:`Bearer ${token}`,"Idempotency-Key":key,"Content-Type":"application/json"},data});
  const accepted=await send(first);expect(accepted.status()).toBe(202);const receipt=(await accepted.json()).data;
- await page.getByRole("button",{name:"Rotate key",exact:true}).click();await expect(secret).toBeVisible();const rotated=await secret.inputValue();expect(rotated).not.toBe(first);
+ await page.getByRole("button",{name:"Manage",exact:true}).click();
+ await page.getByRole("button",{name:"Rotate key",exact:true}).click();await page.getByRole("button",{name:"Rotate key",exact:true}).click();await expect(secret).toBeVisible();const rotated=await secret.inputValue();expect(rotated).not.toBe(first);
  const replay=await send(rotated);expect(replay.status()).toBe(202);expect((await replay.json()).data).toMatchObject({acceptanceId:receipt.acceptanceId,duplicate:true});
  await page.getByLabel("I’ve saved this key").check();await page.getByRole("button",{name:"Done",exact:true}).click();
  await page.reload();await expect(secret).toHaveCount(0);
@@ -48,14 +49,19 @@ spec:
  await page.getByRole("link",{name:"System",exact:true}).click();await page.getByRole("button",{name:"Services",exact:true}).click();
  // A rotation can commit while its one-time secret response is lost.
  await page.route("**/v1/services/*/rotate",async route=>{await route.fetch();await route.abort("failed");},{times:1});
+ await page.getByRole("button",{name:"Manage",exact:true}).click();
+ await page.getByRole("button",{name:"Rotate key",exact:true}).click();
  await page.getByRole("button",{name:"Rotate key",exact:true}).click();
  await expect(page.getByRole("alert")).toBeVisible();
  await expect(secret).toHaveCount(0);
  await page.reload();
- await expect(page.getByRole("button",{name:"Revoke producer",exact:true})).toBeVisible();
+ await page.getByRole("button",{name:"Manage",exact:true}).click();
+ await page.getByText("More actions",{exact:true}).click();
+ await expect(page.getByRole("button",{name:"Revoke credential",exact:true})).toBeVisible();
  await expect(secret).toHaveCount(0);
- await page.getByRole("button",{name:"Revoke producer",exact:true}).click();
- await expect(page.getByRole("button",{name:"Revoke producer",exact:true})).toHaveCount(0);
+ await page.getByRole("button",{name:"Revoke credential",exact:true}).click();
+ await page.getByRole("button",{name:"Revoke credential",exact:true}).click();
+ await expect(page.getByRole("button",{name:"Revoke credential",exact:true})).toHaveCount(0);
  expect((await send(rotated)).status()).toBe(401);
  await page.getByRole("button",{name:"Members",exact:true}).click();
 }

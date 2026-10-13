@@ -20,10 +20,22 @@ afterEach(() => {
 });
 const response = (data: unknown) =>
   new Response(JSON.stringify({ apiVersion: "ding.ing/v1alpha1", data }));
-function setup({ supported = true, createError = false } = {}) {
+function setup({
+  supported = true,
+  createError = false,
+  rotateError = false,
+} = {}) {
   const user = userEvent.setup();
   const requests: { path: string; method: string; body: any }[] = [];
   let rows = [producer];
+  let keys = [
+    {
+      id: "current-key",
+      expiresAt: producer.expiresAt,
+      lastUsedAt: "2026-10-13T21:00:00Z",
+    },
+    { id: "previous-key", expiresAt: producer.expiresAt, lastUsedAt: "" },
+  ];
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, options) => {
     const path = String(input),
       method = options?.method || "GET",
@@ -37,6 +49,27 @@ function setup({ supported = true, createError = false } = {}) {
       const created = { ...producer, ...body, id: "new-service" };
       rows = [...rows, created];
       return response({ ...created, token: "ding_service_test_secret" });
+    }
+    if (path === "/v1/services/producer/keys" && method === "GET")
+      return response(keys);
+    if (path === "/v1/services/producer/rotate" && method === "POST") {
+      if (rotateError) throw new TypeError("Rotation response lost");
+      return response({ ...producer, token: "ding_service_rotated_secret" });
+    }
+    if (path === "/v1/services/producer" && method === "PATCH") {
+      rows = [{ ...producer, ...body }];
+      return response(rows[0]);
+    }
+    if (
+      path === "/v1/services/producer/keys/previous-key" &&
+      method === "DELETE"
+    ) {
+      keys = keys.filter((key) => key.id !== "previous-key");
+      return response({ revoked: true });
+    }
+    if (path === "/v1/services/producer" && method === "DELETE") {
+      rows = [];
+      return response({ revoked: true });
     }
     throw new Error(`Unexpected request: ${method} ${path}`);
   });
@@ -159,5 +192,98 @@ test("unsupported push access is omitted and clipboard failures allow manual cop
   expect(screen.getByLabelText("New service credential")).toHaveAttribute(
     "type",
     "text",
+  );
+});
+
+test("management fetches keys on demand, preserves watch permissions, and rotates with overlap", async () => {
+  const { user, requests } = setup();
+  await screen.findByText(producer.name, { exact: false });
+  expect(requests.some((r) => r.path.endsWith("/keys"))).toBe(false);
+  await user.click(screen.getByRole("button", { name: "Manage" }));
+  await screen.findByText("current-key", { selector: "code" });
+  expect(screen.getAllByText("Last accepted use")).toHaveLength(2);
+  await user.click(screen.getByRole("button", { name: "Edit watches" }));
+  await user.clear(screen.getByLabelText("Allowed push watch IDs"));
+  await user.type(
+    screen.getByLabelText("Allowed push watch IDs"),
+    "ci, deploy, ci",
+  );
+  await user.click(
+    screen.getByRole("button", { name: "Save allowed watches" }),
+  );
+  await screen.findByRole("dialog", { name: "Credential details" });
+  expect(requests.find((r) => r.method === "PATCH")?.body).toEqual({
+    name: producer.name,
+    scopes: ["ingest"],
+    watches: ["ci", "deploy"],
+  });
+  await user.click(screen.getByRole("button", { name: "Rotate key" }));
+  await user.selectOptions(screen.getByLabelText("Key expires in"), "7");
+  await user.click(screen.getByRole("button", { name: "Rotate key" }));
+  await screen.findByRole("dialog", { name: "New key created" });
+  expect(requests.find((r) => r.path.endsWith("/rotate"))?.body).toEqual({
+    days: 7,
+    overlapSeconds: 3600,
+  });
+  expect(screen.getByLabelText("New service credential")).toHaveValue(
+    "ding_service_rotated_secret",
+  );
+});
+
+test("key revocation and credential revocation have distinct confirmations", async () => {
+  const { user, requests } = setup();
+  await screen.findByText(producer.name, { exact: false });
+  await user.click(screen.getByRole("button", { name: "Manage" }));
+  await user.click(
+    await screen.findByRole("button", { name: "Revoke key previous-key" }),
+  );
+  expect(requests.some((r) => r.method === "DELETE")).toBe(false);
+  await user.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(requests.some((r) => r.method === "DELETE")).toBe(false);
+  await user.click(
+    screen.getByRole("button", { name: "Revoke key previous-key" }),
+  );
+  await user.click(screen.getByRole("button", { name: "Revoke key" }));
+  await screen.findByRole("dialog", { name: "Credential details" });
+  expect(screen.queryByText("previous-key")).not.toBeInTheDocument();
+  expect(
+    screen.getByText("current-key", { selector: "code" }),
+  ).toBeInTheDocument();
+  await user.click(screen.getByText("More actions", { exact: true }));
+  await user.click(screen.getByRole("button", { name: "Revoke credential" }));
+  expect(
+    screen.getByRole("dialog", { name: "Revoke credential?" }),
+  ).toHaveTextContent("All keys");
+  await user.click(screen.getByRole("button", { name: "Revoke credential" }));
+  await waitFor(() =>
+    expect(
+      screen.queryByText(producer.name, { exact: false }),
+    ).not.toBeInTheDocument(),
+  );
+  expect(
+    requests.filter((r) => r.method === "DELETE").map((r) => r.path),
+  ).toEqual([
+    "/v1/services/producer/keys/previous-key",
+    "/v1/services/producer",
+  ]);
+});
+
+test("a lost rotation response refreshes metadata and never invents a secret", async () => {
+  const { user, requests } = setup({ rotateError: true });
+  await screen.findByText(producer.name, { exact: false });
+  await user.click(screen.getByRole("button", { name: "Manage" }));
+  await screen.findByText("current-key", { selector: "code" });
+  await user.click(screen.getByRole("button", { name: "Rotate key" }));
+  await user.click(screen.getByRole("button", { name: "Rotate key" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "key may have been created",
+  );
+  expect(
+    screen.queryByLabelText("New service credential"),
+  ).not.toBeInTheDocument();
+  await waitFor(() =>
+    expect(
+      requests.filter((r) => r.path.endsWith("/keys")).length,
+    ).toBeGreaterThan(1),
   );
 });
