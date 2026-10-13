@@ -31,6 +31,11 @@ delivery, native provider adapters, backup-gap recovery, or all production gates
 
 Use the existing locked dependencies in `deploy/soak/worker`:
 
+The push schedule is disabled after the stopped October 12 run. For a reviewed
+new run, set `triggers.crons` to `["* * * * *"]` before deploying. At cleanup,
+restore `[]` and apply with `wrangler triggers deploy --config wrangler.push.jsonc`
+from the worker directory; keep the older HTTP runner's config unchanged.
+
 ```sh
 npm ci --prefix deploy/soak/worker
 npm run test:push --prefix deploy/soak/worker
