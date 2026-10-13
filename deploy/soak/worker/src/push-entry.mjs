@@ -23,6 +23,17 @@ export default {
  async fetch(request,env) {
   const url=new URL(request.url);
   if(!await authorized(request,env))return json({error:'not_found'},404);
+  if(url.pathname==='/admin/check-credentials'&&request.method==='GET') {
+   const statuses={};
+   for(const [role,token] of [['producer',env.PRODUCER_TOKEN],['inspect',env.INSPECT_TOKEN]]) {
+    if(!token){statuses[role]=0;continue;}
+    try {
+     const r=await fetch('https://cloud.ding.ing/v1/status',{headers:{Authorization:`Bearer ${token}`},redirect:'manual',signal:AbortSignal.timeout(10000)});
+     statuses[role]=r.status;await r.body?.cancel();
+    }catch{statuses[role]=0;}
+   }
+   return json({statuses,pass:statuses.producer===403&&statuses.inspect===200});
+  }
   const active=await env.EVIDENCE.get(ROOT+'active.json');
   const c=active?await active.json():null;
   if(url.pathname==='/admin/status'&&request.method==='GET')return json({config:c,lastCron:await read(env,'last-cron.json'),latest:c?await read(env,`${c.runId}/${c.mode}/latest.json`):null,stop:c?await read(env,c.runId+'/stop.json'):null,now:Date.now()});

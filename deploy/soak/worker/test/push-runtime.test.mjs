@@ -3,6 +3,18 @@ import assert from 'node:assert/strict';
 import {Miniflare,convertV4MiniflareOptions} from 'miniflare';
 import {readFile} from 'node:fs/promises';
 import {MINUTE,ROOT} from '../src/push-core.mjs';
+test('deployed credential check is read-only, authenticated, and distinguishes roles',async()=>{
+ const mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:await readFile(new URL('../dist-push/push-entry.js',import.meta.url),'utf8'),compatibilityDate:'2026-10-12',r2Buckets:['EVIDENCE'],bindings:{ADMIN_TOKEN:'admin',PRODUCER_TOKEN:'producer',INSPECT_TOKEN:'inspect'},outboundService:async request=>{
+  assert.equal(request.method,'GET');assert.equal(request.url,'https://cloud.ding.ing/v1/status');
+  return new Response('{}',{status:request.headers.get('Authorization')==='Bearer producer'?403:200});
+ }}));
+ try {
+  assert.equal((await mf.dispatchFetch('https://test/admin/check-credentials')).status,404);
+  const r=await mf.dispatchFetch('https://test/admin/check-credentials',{headers:{Authorization:'Bearer admin'}});
+  assert.deepEqual(await r.json(),{statuses:{producer:403,inspect:200},pass:true});
+  assert.equal(await (await mf.getR2Bucket('EVIDENCE')).get(ROOT+'active.json'),null);
+ }finally{await mf.dispose();}
+});
 test('Workers runtime enforces authorization, one-time start, warmup gate and independent R2 prefix',async()=>{
  const mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:await readFile(new URL('../dist-push/push-entry.js',import.meta.url),'utf8'),compatibilityDate:'2026-10-12',r2Buckets:['EVIDENCE'],bindings:{ADMIN_TOKEN:'admin'}}));
  try {
