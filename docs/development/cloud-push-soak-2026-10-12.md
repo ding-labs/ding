@@ -1,12 +1,45 @@
 # Cloud push soak — 2026-10-12
 
-Run: `push-8886f49596c30ebc`. This is an in-progress measurement, not a
-completed qualification result.
+Run: `push-8886f49596c30ebc`. **Failed / stopped early.** The 72-hour
+qualification was not completed.
+
+## Failure and reconciliation
+
+The runner stopped at October 13, 00:07:16.807 UTC (October 12, 5:07 PM Pacific)
+after three consecutive `401 service_revoked` responses at 00:05–00:07 UTC.
+The operator had installed the previous producer key from the clipboard. It was
+valid during warmup but expired at 00:04:58 UTC after its one-hour rotation overlap.
+Console key metadata showed its last accepted use at 00:04:15 UTC; the replacement
+five-day key had no recorded accepted use. Permission-only preflight missed this.
+
+- 49 consecutive measured samples: 46 passed, then three authorization failures;
+  no missing sample before the automatic stop.
+- 46 unique accepted batches, 828 observations, 46 matching exact replays,
+  and one changed-byte conflict correctly rejected with 409.
+- All accepted samples matched the expected 18 group states. Ten telemetry
+  samples passed; every recorded health request returned 200.
+- Accepted-request latency: 169 ms minimum, 202 ms median, 307 ms maximum.
+- Durable usage rose from 19 to 919 observations: exactly 828 measured plus
+  72 from four warmup batches. Unique request usage rose from 19 to 69.
+- During sampled telemetry, live data grew from 475,136 to 1,101,824 bytes;
+  Railway memory from 0.0243 to 0.0311 GB and disk from 0.0643 to 0.0682 GB.
+- Railway stayed on the recorded application revision. The later SSH checkpoint
+  found zero failed workers, zero pending deliveries, and 3% volume use.
+
+The remaining 4,271 scheduled batches were not executed. Final recovery was not
+reached: 15 synthetic entities remained open when the watch was paused. Preserved
+state and immutable evidence must not be represented as a successful 72-hour run.
+Both Ding grants were revoked, the push Cron disabled, and its producer/inspect
+Worker secrets removed. The older HTTP runner and shared Railway token were kept.
+
+The runbook now requires verification of the **actually used key's** expiry before
+measurement. A new run needs new credentials, a reviewed fresh-run transition
+that preserves this attempt, warmup, and a new 72-hour clock.
 
 ## Recorded configuration
 
 - Measurement starts October 12, 2026 at 23:19 UTC (4:19 PM Pacific).
-- Hard deadline: October 15, 2026 at 23:19 UTC (4:19 PM Pacific).
+- Originally planned deadline: October 15, 2026 at 23:19 UTC (4:19 PM Pacific).
 - Railway application: `f8cd4f8b8d55f792f2e3674c68100acec1eea137` on `main`.
 - Railway deployment: `79255a90-0855-494c-a6ba-55cb87dc1a02`.
 - Observer source: `2cb7a6bb429c057f7dc9c6f33d8e27af5478c346`.
@@ -37,10 +70,9 @@ deliveries, 36,624 KiB RSS, and 3% volume use.
 See [the operator runbook](../../deploy/soak/PUSH.md) for workload, evidence,
 stop conditions, reconciliation, and cleanup. The independent Worker runs one
 18-group batch per minute, exact retries, and hourly changed-byte conflicts.
-Hourly follow-up is configured, with runtime checkpoints at 24h, 48h, and finish.
+Hourly follow-up was configured, with checkpoints planned at 24h, 48h, and finish.
 
 This tests one workspace without notification destinations. Independent-user
 isolation and external notification delivery remain separate qualification
-gates. Preserve the application revision during measurement; a changed revision
-must be recorded as an interrupted run. Publish the final verdict only after
-exporting and reconciling the complete evidence.
+gates. The exported stopped-run evidence supports the failure report above; it
+does not establish long-duration stability or those remaining release gates.
