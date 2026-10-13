@@ -319,6 +319,22 @@ export function Back({ to, children }: { to: string; children: ReactNode }) {
     </Link>
   );
 }
+export function ConditionExpression({
+  condition: c,
+}: {
+  condition: WatchDefinition["spec"]["condition"];
+}) {
+  return (
+    <>
+      {c.numeric ||
+        (c.missingFor
+          ? `No observation for ${c.missingFor}`
+          : c.operator === "new-event"
+            ? `New ${c.field} · deduplicate for ${c.dedupFor}`
+            : `${c.field} ${{ eq: "equals", neq: "does not equal", gt: ">", gte: "≥", lt: "<", lte: "≤", contains: "contains", changed: "changes" }[c.operator || ""] || c.operator} ${c.operator === "changed" ? "" : JSON.stringify(c.value)}`)}
+    </>
+  );
+}
 export function Rule({ definition: d }: { definition: WatchDefinition }) {
   const s = d.spec;
   const c = s.condition;
@@ -336,12 +352,7 @@ export function Rule({ definition: d }: { definition: WatchDefinition }) {
       </p>
       <div className="rule-expression">
         <code>
-          {c.numeric ||
-            (c.missingFor
-              ? `No observation for ${c.missingFor}`
-              : c.operator === "new-event"
-                ? `New ${c.field} · deduplicate for ${c.dedupFor}`
-                : `${c.field} ${{ eq: "equals", neq: "does not equal", gt: ">", gte: "≥", lt: "<", lte: "≤", contains: "contains", changed: "changes" }[c.operator || ""] || c.operator} ${c.operator === "changed" ? "" : JSON.stringify(c.value)}`)}
+          <ConditionExpression condition={c} />
         </code>
       </div>
       <p className="muted">

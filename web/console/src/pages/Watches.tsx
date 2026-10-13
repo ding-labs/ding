@@ -36,10 +36,13 @@ import {
 import { useDraft } from "../app/draft";
 import { savedViews, savePreference } from "../app/preferences";
 import { WatchActions } from "../components/Actions";
-import { Events, Evidence } from "./Events";
+import { Events } from "./Events";
 import { Deliveries } from "./Deliveries";
 import { Demo } from "../components/Demo";
 import { LogEvidence } from "../components/LogEvidence";
+import { WatchContext, WatchStatus } from "../components/WatchStatus";
+import { WatchRule } from "../components/WatchRule";
+import { WatchActivity } from "../components/WatchActivity";
 export function Watches() {
   const location = useLocation();
   const [p, set] = useSearchParams();
@@ -358,13 +361,11 @@ export function WatchDetail() {
       <Back to="/watches">Watches</Back>
       <Heading
         title={d.metadata.name || id}
-        eyebrow={id}
+        eyebrow="Watch"
         description={
           <>
-            <Badge value={w.status} />{" "}
-            <span className="mono">
-              Revision {w.plan.revision.slice(0, 12)}
-            </span>
+            <Badge value={w.status} />
+            <WatchContext definition={d} />
           </>
         }
       >
@@ -389,7 +390,13 @@ export function WatchDetail() {
       />
       {tab === "Overview" && (
         <>
-          <Availability watchID={id} sourceType={d.spec.source.type} />
+          <WatchStatus
+            detail={query.data}
+            summary={s}
+            loading={summary.isPending}
+            error={summary.error}
+            retry={() => void summary.refetch()}
+          />
           {d.spec.source.logs && (
             <LogEvidence
               id={id}
@@ -398,127 +405,22 @@ export function WatchDetail() {
               status={w.status}
             />
           )}
-          <div className="overview-grid">
-            <section className="panel rule-panel">
-              <p className="eyebrow">The rule</p>
-              <Rule definition={d} />
-              <div className="rule-footer">
-                {d.spec.source.type === "logs" ? (
-                  "Summaries evaluated once per second while collection is active"
-                ) : d.spec.source.type === "push" ? (
-                  (s?.lastInputAt ? "Input endpoint: /v1/ingest/" : "Waiting for POST /v1/ingest/") + id
-                ) : (
-                  <>
-                    Next scheduled check <Time value={w.nextAt} />
-                  </>
-                )}
-              </div>
-            </section>
-            <section className="panel state-panel">
-              <p className="eyebrow">Current state</p>
-              <dl className="facts">
-                <div>
-                  <dt>Condition</dt>
-                  <dd>
-                    {!s?.entities
-                      ? "Waiting for first input"
-                      : d.spec.policy.trigger === "transition"
-                        ? `${s.open} open incident${s.open === 1 ? "" : "s"} across ${s.entities} ${s.entities === 1 ? "entity" : "entities"}`
-                        : `${s.entities} evaluated ${s.entities === 1 ? "entity" : "entities"}`}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Source</dt>
-                  <dd>
-                    {d.spec.source.type === "logs"
-                      ? query.data.entities
-                          .find((e) => e.waitingReason)
-                          ?.waitingReason?.replaceAll("_", " ") ||
-                        String(
-                          query.data.logObservation?.detail ||
-                            "Waiting for collector",
-                        )
-                      : s?.unhealthy || w.lastError
-                        ? "Acquisition error"
-                        : w.lastInputAt && !w.lastInputAt.startsWith("0001")
-                          ? "Input received; freshness depends on rule"
-                          : "No input yet"}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Latest input</dt>
-                  <dd>
-                    <Time value={w.lastInputAt} />
-                  </dd>
-                </div>
-                <div>
-                  <dt>Deliveries</dt>
-                  <dd>
-                    {s?.failed || 0} failed · {s?.pending || 0} queued / sending
-                  </dd>
-                </div>
-              </dl>
-              {w.lastError && <p className="danger-text">{w.lastError}</p>}
-              {s?.missing.length ? (
-                <p className="notice">
-                  Required credentials absent: {s.missing.join(", ")}
-                </p>
-              ) : null}
-            </section>
-          </div>
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Follow the evidence</p>
-              <h2>Why the latest event happened</h2>
-            </div>
-            <Link to={`/events?watch=${encodeURIComponent(id)}`}>
-              All events <ArrowUpRight size={14} />
-            </Link>
-          </div>
-          {latest.data?.events[0] ? (
-            <Evidence id={latest.data.events[0].id} compact />
-          ) : (
-            <Empty title="No recorded events yet">
-              <p>
-                The first event will appear here with its evidence. A watch can
-                receive inputs without producing events.
-              </p>
-            </Empty>
-          )}
-          <section className="panel">
-            <h3>Entity state</h3>
-            {query.data.entities.slice(0, 5).map((e) => (
-              <div className="entity-row" key={e.key}>
-                <code>{e.key || "Default entity"}</code>
-                <span>
-                  {e.matches} matching · {e.recoveries} recovering · {e.samples}{" "}
-                  window samples
-                  {e.waitingReason &&
-                    ` · ${e.waitingReason.replaceAll("_", " ")}`}
-                </span>
-                <Badge
-                  value={
-                    e.sourceUnhealthy
-                      ? "unknown"
-                      : e.open
-                        ? "firing"
-                        : "neutral"
-                  }
-                >
-                  {e.sourceUnhealthy
-                    ? "Source unknown"
-                    : e.open
-                      ? "Incident open"
-                      : "No open incident"}
-                </Badge>
-              </div>
-            ))}
-            {!query.data.entities.length && (
-              <p className="muted">No evaluated entities yet.</p>
-            )}
-          </section>
+          <WatchRule
+            definition={d}
+            entityCount={summary.error ? undefined : s?.entities}
+            entity={!summary.error && s?.entities === 1 && !query.data.entitiesMore ? query.data.entities[0] : undefined}
+          />
+          <WatchActivity
+            watchID={id}
+            event={latest.data?.events[0]}
+            transition={d.spec.policy.trigger === "transition"}
+            loading={latest.isPending}
+            error={latest.error}
+            retry={() => void latest.refetch()}
+          />
         </>
       )}
+      {tab === "Overview" && <Availability watchID={id} sourceType={d.spec.source.type} />}
       {tab === "Events" && <Events watch={id} />}
       {tab === "Deliveries" && <Deliveries watch={id} />}
       {tab === "Entities" && (
@@ -598,6 +500,7 @@ export function WatchDetail() {
       />
       {tab === "Definition" && (
         <section className="panel">
+          <p className="muted mono">{id} · Revision {w.plan.revision.slice(0, 12)}</p>
           <Rule definition={d} />
           <h3>Permissions</h3>
           {w.plan.permissions.map((x) => (

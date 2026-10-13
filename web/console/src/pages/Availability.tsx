@@ -20,11 +20,14 @@ export function Availability({ watchID,sourceType }: { watchID: string;sourceTyp
     try { setPreflight(await api(`/handoffs/preflight/${encodeURIComponent(watchID)}`)); }
     catch (e) { setError(e); } finally { setBusy(false); }
   }
-  return <section className="panel">
-    <h2>Where this watch runs</h2>
-    <p>{mode === "cloud" ? "Runs in Ding Cloud, independently of your computer." : "Runs on this computer while it is awake and Ding is running."}</p>
+  return <>
     {held ? <div className="notice" role="status"><strong>Execution is held by a transfer.</strong><p>Transfer <code>{held.id}</code> is {held.phase} on this {held.role}. Inspect both sides before resuming. An unreachable target does not prove it stopped.</p><code>ding cloud move status {held.id}</code></div> : null}
     <ErrorBox error={error || handoffs.error} />
+    <details className="watch-disclosure watch-hosting">
+    <summary>Execution and hosting</summary>
+    <section className="panel">
+    <h2>Where this watch runs</h2>
+    <p>{mode === "cloud" ? "Runs in Ding Cloud, independently of your computer." : mode === "shared" ? "Runs on this shared server, independently of your computer." : "Runs on this computer while it is awake and Ding is running."}</p>
     {sourceType === "push" ? <p>To move this push watch, export and create its definition at the destination, issue a new scoped producer credential, and reconfigure the producer URL. Verify an accepted input there before deliberately stopping the old producer path. Automatic transfer is available for HTTP watches.</p> : mode === "local" ? <>
       <label>Execution preference<select value={choice} onChange={e => choose(e.target.value)}>
         <option value="local">Keep local — free, no account</option>
@@ -40,5 +43,5 @@ export function Availability({ watchID,sourceType }: { watchID: string;sourceTyp
         </div> : null}
       </> : null}
     </> : <><p>To return to the original local installation, rebind its credentials and prepare a return there:</p><pre>ding cloud move prepare {arg} --back --yes</pre><p>Cloud execution continues until you confirm the local delivery test and finish the handoff. You can also export the definition above for independent self-hosting.</p></>}
-  </section>;
+  </section></details></>;
 }

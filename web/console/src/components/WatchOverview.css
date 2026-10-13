@@ -1,0 +1,217 @@
+.watch-status-stack {
+  display: grid;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+.watch-context {
+  margin-left: 9px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.watch-hosting {
+  margin: 24px 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.watch-hosting > .panel {
+  margin-top: 16px;
+}
+.panel.watch-status-hero {
+  border-left-width: 3px;
+}
+.watch-status-hero.is-clear {
+  border-left-color: var(--green);
+}
+.watch-status-hero.needs-attention {
+  border-left-color: var(--amber);
+}
+.watch-status-hero h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  font-size: 27px;
+}
+.watch-status-hero h2 svg {
+  flex-shrink: 0;
+}
+.watch-status-hero.is-clear h2 svg {
+  color: var(--green);
+}
+.watch-status-hero.needs-attention h2 svg {
+  color: var(--amber);
+}
+.watch-condition-context {
+  font-size: 13px;
+}
+.watch-check-times {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin: 22px 0 0;
+}
+.watch-check-times dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+.watch-check-times dd {
+  margin: 7px 0 0;
+  font-size: 15px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.watch-status-cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+}
+.watch-status-cards > .panel {
+  margin: 0;
+}
+.watch-status-cards > .panel + .panel {
+  margin-top: 0;
+}
+.watch-status-cards p:not(.eyebrow) {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.watch-status-cards .watch-status-value {
+  margin: 12px 0 5px;
+  font-size: 23px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.watch-status-unit {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+.watch-disclosure {
+  margin-top: 16px;
+  font-size: 13px;
+}
+.watch-disclosure summary {
+  color: var(--green);
+  cursor: pointer;
+  width: fit-content;
+}
+.watch-disclosure p {
+  margin-top: 12px;
+}
+.watch-disclosure a {
+  display: inline-flex;
+  margin-top: 7px;
+}
+.watch-rule {
+  margin-bottom: 28px;
+}
+.watch-rule h2 {
+  margin: 0 0 12px;
+  font-size: 17px;
+}
+.watch-rule .watch-rule-lead {
+  font-size: 17px;
+  line-height: 1.75;
+}
+.watch-rule code {
+  overflow-wrap: anywhere;
+}
+.watch-rule-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 18px 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.watch-rule-progress progress {
+  width: 100px;
+  height: 7px;
+  appearance: none;
+  border: 0;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--soft);
+  color: var(--green);
+}
+.watch-rule-progress progress::-webkit-progress-bar {
+  background: var(--soft);
+}
+.watch-rule-progress progress::-webkit-progress-value {
+  background: var(--green);
+}
+.watch-rule-progress progress::-moz-progress-bar {
+  background: var(--green);
+}
+.watch-progress-note {
+  color: var(--amber);
+}
+.watch-activity {
+  margin: 28px 0;
+}
+.watch-activity-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.watch-activity-heading h2 {
+  font-size: 17px;
+  margin: 0;
+}
+.watch-activity a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+.watch-activity-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 13px;
+}
+.watch-activity-row > svg {
+  margin-top: 3px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.watch-activity-row p {
+  margin: 5px 0;
+  overflow-wrap: anywhere;
+}
+.watch-activity-meta {
+  display: grid;
+  justify-items: end;
+  gap: 9px;
+  color: var(--muted);
+  font-size: 12px;
+  margin-left: auto;
+}
+@media (max-width: 600px) {
+  .watch-activity-row {
+    flex-wrap: wrap;
+  }
+  .watch-activity-meta {
+    width: 100%;
+    margin-left: 31px;
+    justify-items: start;
+  }
+}
+@media (max-width: 600px) {
+  .watch-status-cards {
+    grid-template-columns: 1fr;
+  }
+  .watch-status-hero h2 {
+    font-size: 23px;
+  }
+}
+@media (max-width: 380px) {
+  .watch-check-times {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
