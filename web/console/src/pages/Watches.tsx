@@ -41,6 +41,7 @@ import { Deliveries } from "./Deliveries";
 import { Demo } from "../components/Demo";
 import { LogEvidence } from "../components/LogEvidence";
 import { WatchStatus } from "../components/WatchStatus";
+import { WatchRule } from "../components/WatchRule";
 export function Watches() {
   const location = useLocation();
   const [p, set] = useSearchParams();
@@ -405,10 +406,11 @@ export function WatchDetail() {
               status={w.status}
             />
           )}
-          <section className="panel rule-panel">
-            <p className="eyebrow">The rule</p>
-            <Rule definition={d} />
-          </section>
+          <WatchRule
+            definition={d}
+            entityCount={summary.error ? undefined : s?.entities}
+            entity={!summary.error && s?.entities === 1 && !query.data.entitiesMore ? query.data.entities[0] : undefined}
+          />
           <div className="section-heading">
             <div>
               <p className="eyebrow">Follow the evidence</p>
@@ -428,38 +430,6 @@ export function WatchDetail() {
               </p>
             </Empty>
           )}
-          <section className="panel">
-            <h3>Entity state</h3>
-            {query.data.entities.slice(0, 5).map((e) => (
-              <div className="entity-row" key={e.key}>
-                <code>{e.key || "Default entity"}</code>
-                <span>
-                  {e.matches} matching · {e.recoveries} recovering · {e.samples}{" "}
-                  window samples
-                  {e.waitingReason &&
-                    ` · ${e.waitingReason.replaceAll("_", " ")}`}
-                </span>
-                <Badge
-                  value={
-                    e.sourceUnhealthy
-                      ? "unknown"
-                      : e.open
-                        ? "firing"
-                        : "neutral"
-                  }
-                >
-                  {e.sourceUnhealthy
-                    ? "Source unknown"
-                    : e.open
-                      ? "Incident open"
-                      : "No open incident"}
-                </Badge>
-              </div>
-            ))}
-            {!query.data.entities.length && (
-              <p className="muted">No evaluated entities yet.</p>
-            )}
-          </section>
         </>
       )}
       {tab === "Overview" && <Availability watchID={id} sourceType={d.spec.source.type} />}

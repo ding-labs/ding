@@ -86,6 +86,51 @@
   display: inline-flex;
   margin-top: 7px;
 }
+.watch-rule {
+  margin-bottom: 28px;
+}
+.watch-rule h2 {
+  margin: 0 0 12px;
+  font-size: 17px;
+}
+.watch-rule .watch-rule-lead {
+  font-size: 17px;
+  line-height: 1.75;
+}
+.watch-rule code {
+  overflow-wrap: anywhere;
+}
+.watch-rule-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 18px 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.watch-rule-progress progress {
+  width: 100px;
+  height: 7px;
+  appearance: none;
+  border: 0;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--soft);
+  color: var(--green);
+}
+.watch-rule-progress progress::-webkit-progress-bar {
+  background: var(--soft);
+}
+.watch-rule-progress progress::-webkit-progress-value {
+  background: var(--green);
+}
+.watch-rule-progress progress::-moz-progress-bar {
+  background: var(--green);
+}
+.watch-progress-note {
+  color: var(--amber);
+}
 @media (max-width: 600px) {
   .watch-status-cards {
     grid-template-columns: 1fr;
