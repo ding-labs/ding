@@ -1,6 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Search, ArrowRight } from "lucide-react";
+import {
+  Search,
+  ArrowRight,
+  ArrowLeft,
+  Check,
+  ChevronRight,
+  X,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 const commands = [
   { name: "Find a watch", to: "/watches" },
@@ -11,33 +18,72 @@ const commands = [
   { name: "Back up this daemon", to: "/system?tab=Backup" },
   { name: "Read CLI help", to: "/system?tab=CLI+setup" },
 ];
-export function CommandMenu() {
-  const [open, setOpen] = useState(false);
+type Preference = {
+  id: string;
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+};
+export function CommandMenu({
+  open,
+  onOpenChange,
+  preferences,
+  initialSearch = "",
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  preferences: Preference[];
+  initialSearch?: string;
+}) {
   const [search, setSearch] = useState("");
+  const [preferenceId, setPreferenceId] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const results = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const selected = preferences.find((p) => p.id === preferenceId);
+  const matches = (label: string) =>
+    label.toLowerCase().includes(search.trim().toLowerCase());
+  const navigation = commands.filter((c) => matches(c.name));
+  const settings = preferences.filter((p) =>
+    matches(
+      `Preferences ${p.label} ${p.options.map((o) => o.label).join(" ")}`,
+    ),
+  );
+  const options = selected?.options.filter((o) => matches(o.label));
+  const empty = selected
+    ? !options?.length
+    : !navigation.length && !settings.length;
+  const back = () => {
+    setPreferenceId(null);
+    setSearch("");
+  };
+  useEffect(() => {
+    if (open) {
+      setSearch(initialSearch);
+      setPreferenceId(null);
+    }
+  }, [open, initialSearch]);
+  useEffect(() => {
+    input.current?.focus();
+  }, [preferenceId]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       if (
         (e.metaKey || e.ctrlKey) &&
         e.key.toLowerCase() === "k" &&
-        !t.closest("input,textarea,[contenteditable=true]")
+        (open || !t.closest("input,textarea,[contenteditable=true]"))
       ) {
         e.preventDefault();
-        setOpen((v) => !v);
+        onOpenChange(!open);
       }
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, []);
+  }, [open, onOpenChange]);
   return (
-    <Dialog.Root
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v);
-        setSearch("");
-      }}
-    >
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Trigger asChild>
         <button
           className="button command-trigger"
@@ -45,26 +91,70 @@ export function CommandMenu() {
         >
           <Search size={14} />
           <span>Go to…</span>
-          <kbd>⌘ / Ctrl K</kbd>
+          <kbd>
+            {/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘ K" : "Ctrl K"}
+          </kbd>
         </button>
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay" />
-        <Dialog.Content className="dialog-content command-menu">
-          <Dialog.Title>Go to a task</Dialog.Title>
-          <Dialog.Description>
-            Search navigation commands. Use the arrow keys to select, Enter to
-            open, or Escape to close.
+        <Dialog.Content
+          className="dialog-content command-menu"
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            input.current?.focus();
+          }}
+          onEscapeKeyDown={(e) => {
+            if (selected) {
+              e.preventDefault();
+              back();
+            }
+          }}
+        >
+          <div className="command-heading">
+            {selected && (
+              <button
+                className="icon-button"
+                aria-label="Back to all commands"
+                onClick={back}
+              >
+                <ArrowLeft size={17} />
+              </button>
+            )}
+            <Dialog.Title>
+              {selected?.label || "Go to a task or preference"}
+            </Dialog.Title>
+            <Dialog.Close asChild>
+              <button className="icon-button" aria-label="Close command menu">
+                <X size={17} />
+              </button>
+            </Dialog.Close>
+          </div>
+          <Dialog.Description className="sr-only">
+            Search tasks and preferences. Use the arrow keys to select, Enter to
+            choose, or Escape to go back or close.
           </Dialog.Description>
           <input
-            aria-label="Search navigation commands"
-            placeholder="What would you like to do?"
+            ref={input}
+            aria-label={
+              selected
+                ? `Search ${selected.label.toLowerCase()} options`
+                : "Search tasks and preferences"
+            }
+            placeholder={
+              selected ? "Find an option…" : "Find a task or preference…"
+            }
             onKeyDown={(e) => {
-              if (e.key === "ArrowDown") {
+              if (["ArrowDown", "ArrowUp", "Enter"].includes(e.key)) {
                 e.preventDefault();
-                document
-                  .querySelector<HTMLButtonElement>(".command-results button")
-                  ?.focus();
+                const buttons =
+                  results.current?.querySelectorAll<HTMLButtonElement>(
+                    "button",
+                  );
+                const button =
+                  buttons?.[e.key === "ArrowUp" ? buttons.length - 1 : 0];
+                if (e.key === "Enter") button?.click();
+                else button?.focus();
               }
             }}
             value={search}
@@ -72,6 +162,7 @@ export function CommandMenu() {
           />
           <div
             className="command-results"
+            ref={results}
             onKeyDown={(e) => {
               if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
               e.preventDefault();
@@ -87,22 +178,60 @@ export function CommandMenu() {
               ]?.focus();
             }}
           >
-            {commands
-              .filter((c) =>
-                c.name.toLowerCase().includes(search.toLowerCase()),
-              )
-              .map((c) => (
+            {selected ? (
+              options?.map((option) => (
                 <button
-                  key={c.to}
+                  key={option.value}
+                  aria-pressed={selected.value === option.value}
                   onClick={() => {
-                    setOpen(false);
-                    navigate(c.to);
+                    selected.onChange(option.value);
+                    back();
                   }}
                 >
-                  {c.name}
-                  <ArrowRight size={15} />
+                  <span>{option.label}</span>
+                  {selected.value === option.value && (
+                    <Check size={16} aria-hidden="true" />
+                  )}
                 </button>
-              ))}
+              ))
+            ) : (
+              <>
+                {navigation.length > 0 && <h3>Navigate</h3>}
+                {navigation.map((c) => (
+                  <button
+                    key={c.to}
+                    onClick={() => {
+                      onOpenChange(false);
+                      navigate(c.to);
+                    }}
+                  >
+                    <span>{c.name}</span>
+                    <ArrowRight size={15} />
+                  </button>
+                ))}
+                {settings.length > 0 && <h3>Preferences</h3>}
+                {settings.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      setPreferenceId(p.id);
+                      setSearch("");
+                    }}
+                  >
+                    <span>{p.label}</span>
+                    <small>
+                      {p.options.find((o) => o.value === p.value)?.label}
+                    </small>
+                    <ChevronRight size={15} aria-hidden="true" />
+                  </button>
+                ))}
+              </>
+            )}
+            {empty && (
+              <p className="command-empty" role="status">
+                No matching {selected ? "options" : "tasks or preferences"}.
+              </p>
+            )}
           </div>
         </Dialog.Content>
       </Dialog.Portal>

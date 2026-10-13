@@ -168,29 +168,86 @@ small {
   font-size: 12px;
   color: var(--muted);
 }
-.location-bar > div:first-child > span {
+.location-crumb > span {
   margin: 0 10px;
   color: var(--line);
+}
+.header-context {
+  flex: 1;
+  min-width: 0;
+}
+.workspace-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.location-bar .workspace-selector {
+  width: 100%;
+  max-width: 260px;
+  min-width: 0;
+  color: var(--ink);
+  background: transparent;
+  border-color: transparent;
+  font-size: 12px;
+}
+.workspace-selector option {
+  background: var(--panel);
+}
+.location-bar > .header-actions {
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+.account-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 600;
+}
+.account-trigger:hover,
+.account-trigger[data-state="open"] {
+  border-color: var(--green);
+}
+.account-menu {
+  width: 250px;
+  max-width: calc(100vw - 24px);
+}
+.account-identity {
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+}
+.account-identity strong,
+.account-identity span {
+  display: block;
+  font-size: 12px;
+}
+.account-identity span {
+  color: var(--muted);
+  margin-top: 3px;
+}
+.account-separator {
+  height: 1px;
+  background: var(--line);
+  margin: 5px;
+}
+.dropdown.account-menu [data-highlighted] {
+  background: var(--soft);
 }
 .toolbar {
   display: flex;
   align-items: center;
   gap: 9px;
   flex-wrap: wrap;
-}
-.theme-select {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.theme-select select {
-  background: var(--panel);
-  border: 0;
-  max-width: 90px;
-  font-size: 12px;
-}
-.theme-select option {
-  background: var(--panel);
 }
 .icon-button {
   display: inline-flex;
@@ -1710,15 +1767,30 @@ a:hover {
   font-size: 10px;
 }
 .command-trigger {
-  font-size: 11px;
-  padding: 5px 8px;
+  font-size: 12px;
+  padding: 6px 10px;
+  min-width: 210px;
 }
 .command-trigger kbd {
+  margin-left: auto;
   font-size: 9px;
   color: var(--muted);
   border: 1px solid var(--line);
   border-radius: 3px;
   padding: 1px 4px;
+}
+.command-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.command-heading h2 {
+  flex: 1;
+  padding: 0;
+  font-size: 16px;
+}
+.command-menu {
+  padding: 20px;
 }
 .command-menu input {
   width: 100%;
@@ -1728,30 +1800,53 @@ a:hover {
   display: grid;
   gap: 5px;
 }
+.command-results h3 {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 10px 12px 3px;
+}
 .command-results button {
-  background: var(--soft);
+  background: transparent;
   border: 0;
   border-radius: var(--ding-radius-control);
   padding: 12px;
   color: var(--ink);
   text-align: left;
   display: flex;
+  align-items: center;
+  gap: 12px;
   justify-content: space-between;
   font: inherit;
+}
+.command-results button > span {
+  flex: 1;
+}
+.command-results button > small {
+  color: var(--muted);
+  text-align: right;
+}
+.command-results button[aria-pressed="true"] {
+  color: var(--green);
+}
+.command-empty {
+  color: var(--muted);
+  padding: 20px 12px;
 }
 .command-results button:hover {
   background: var(--green-soft);
 }
 @media (max-width: 768px) {
+  .command-trigger {
+    min-width: 34px;
+    min-height: 34px;
+  }
   .command-trigger span,
   .command-trigger kbd {
     display: none;
   }
   .location-bar > .toolbar {
     gap: 6px;
-  }
-  .location-bar select {
-    max-width: 110px;
   }
   .location-bar > div:first-child {
     font-size: 11px;
@@ -1765,11 +1860,6 @@ a:hover {
 }
 :root[data-density="compact"] .event-row {
   padding-block: 14px;
-}
-@media (max-width: 900px) {
-  .location-bar [aria-label="Display density"] {
-    display: none;
-  }
 }
 .evaluation-result {
   padding: 15px;
@@ -1795,7 +1885,7 @@ a:hover {
   .location-bar {
     height: auto;
     min-height: 58px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 10px;
   }
   .location-bar > .toolbar {
@@ -1823,17 +1913,6 @@ a:hover {
 }
 .brand strong {
   font: inherit;
-}
-
-@media (max-width: 768px) {
-  .location-bar > .shared-toolbar {
-    flex-wrap: wrap;
-    max-width: 100%;
-  }
-  .shared-toolbar > span {
-    overflow-wrap: anywhere;
-    max-width: 100%;
-  }
 }
 
 .log-fields {

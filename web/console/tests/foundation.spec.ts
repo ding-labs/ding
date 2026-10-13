@@ -1,3 +1,4 @@
+import { setAppearance } from "./preferences";
 import { test, expect } from "./fixtures";
 test("one-use launch, deep link, appearance and logout", async ({
   page,
@@ -12,7 +13,7 @@ test("one-use launch, deep link, appearance and logout", async ({
   ).toBeVisible();
   await expect(page).not.toHaveURL(/handoff/);
   expect(await page.evaluate(() => localStorage.getItem("admin"))).toBeNull();
-  await page.getByLabel("Appearance").selectOption("light");
+  await setAppearance(page, "light");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.goto(daemon.url + "/ui/events");
   await expect(
@@ -21,7 +22,8 @@ test("one-use launch, deep link, appearance and logout", async ({
       exact: true,
     }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Log out" }).click();
+  await page.getByRole("button", { name: "Open account menu" }).click();
+  await page.getByRole("menuitem", { name: "Log out" }).click();
   await expect(
     page.getByRole("heading", { name: "Open your console." }),
   ).toBeVisible();
