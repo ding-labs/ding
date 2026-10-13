@@ -199,7 +199,9 @@ test("management fetches keys on demand, preserves watch permissions, and rotate
   const { user, requests } = setup();
   await screen.findByText(producer.name, { exact: false });
   expect(requests.some((r) => r.path.endsWith("/keys"))).toBe(false);
-  await user.click(screen.getByRole("button", { name: "Manage" }));
+  await user.click(
+    screen.getByRole("button", { name: `Manage ${producer.name}` }),
+  );
   await screen.findByText("current-key", { selector: "code" });
   expect(screen.getAllByText("Last accepted use")).toHaveLength(2);
   await user.click(screen.getByRole("button", { name: "Edit watches" }));
@@ -233,7 +235,9 @@ test("management fetches keys on demand, preserves watch permissions, and rotate
 test("key revocation and credential revocation have distinct confirmations", async () => {
   const { user, requests } = setup();
   await screen.findByText(producer.name, { exact: false });
-  await user.click(screen.getByRole("button", { name: "Manage" }));
+  await user.click(
+    screen.getByRole("button", { name: `Manage ${producer.name}` }),
+  );
   await user.click(
     await screen.findByRole("button", { name: "Revoke key previous-key" }),
   );
@@ -271,7 +275,9 @@ test("key revocation and credential revocation have distinct confirmations", asy
 test("a lost rotation response refreshes metadata and never invents a secret", async () => {
   const { user, requests } = setup({ rotateError: true });
   await screen.findByText(producer.name, { exact: false });
-  await user.click(screen.getByRole("button", { name: "Manage" }));
+  await user.click(
+    screen.getByRole("button", { name: `Manage ${producer.name}` }),
+  );
   await screen.findByText("current-key", { selector: "code" });
   await user.click(screen.getByRole("button", { name: "Rotate key" }));
   await user.click(screen.getByRole("button", { name: "Rotate key" }));
