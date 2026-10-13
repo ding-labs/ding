@@ -49,6 +49,15 @@ Create `push-soak-20261012` through Console review/apply with `source.type: push
 credentials: one ingest-only grant for that watch and a separate inspect-only
 grant for the workspace. Revoke both after the run.
 
+After warmup and before measurement, inspect each grant's individual key metadata.
+Match the key actually used by warmup using its updated last-accepted-use time,
+and record that key's ID and expiry. Its expiry must exceed the planned measurement
+end plus a cleanup margin. The grant's displayed expiry alone is insufficient:
+rotation leaves an older key usable for only one hour. A successful request or
+scope check does not prove the installed key has the intended lifetime. If no key
+can be matched unambiguously, do not start measurement. Replace the private copy
+and repeat this check; never print the token to diagnose clipboard problems.
+
 Private operator state is `~/.config/ding-cloud/push-soak/` (0700). Keep
 `worker-secrets.json` (0600) containing `ADMIN_TOKEN`, `PRODUCER_TOKEN`,
 `INSPECT_TOKEN`, and the existing production-scoped `RAILWAY_TOKEN`. Upload using
