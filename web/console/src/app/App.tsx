@@ -11,7 +11,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   ArrowRight,
-  LogOut,
   Radio,
   Send,
   SlidersHorizontal,
@@ -25,6 +24,7 @@ import { preference, savePreference, setPreferenceWorkspace } from "./preference
 import { ExecutionContext, discoverAuth, type AuthConfig, type Execution } from "./execution";
 import { SignIn } from "../components/SignIn";
 import { CommandMenu } from "../components/CommandMenu";
+import { AccountMenu } from "../components/AccountMenu";
 import { System } from "../pages/System";
 import { Workbench } from "../pages/Workbench";
 import { FirstWatch } from "../pages/FirstWatch";
@@ -63,6 +63,7 @@ export function App() {
   const [theme, setTheme] = useState(() => preference("ding.theme", "system"));
   const [timeMode, setTimeMode] = useState(preference("ding.time", "local"));
   const [commandOpen, setCommandOpen] = useState(false);
+  const [commandSearch, setCommandSearch] = useState("");
   const client = useQueryClient();
   const location = useLocation();
   const establish = () => {
@@ -117,6 +118,7 @@ export function App() {
     refetchIntervalInBackground: false,
   });
   const current = nav.find((n) => location.pathname.startsWith(n.path));
+  const workspaceName = memberships?.find(m => m.workspace === execution.workspace)?.name || "Workspace";
   if (session !== "ready")
     return (
       <main className="connect-page">
@@ -194,18 +196,18 @@ export function App() {
         </aside>
         <div className="workspace">
           <header className="location-bar">
-            <div>
-              Console <span>/</span> {current?.label || "Watches"}
-            </div>
-            <div className={execution.mode === "local" ? "toolbar" : "toolbar shared-toolbar"}>
-              {execution.mode !== "local" && <>
-                <span>{execution.user?.name} · {execution.role}</span>
-                <select aria-label="Workspace" value={execution.workspace || ""} onChange={async e => {
+            <div className="header-context">
+              {execution.mode === "local" ? <div className="location-crumb">Console <span>/</span> {current?.label || "Watches"}</div> : (memberships?.length || 0) > 1 ? (
+                <select className="workspace-selector" aria-label="Workspace" title={workspaceName} value={execution.workspace || ""} onChange={async e => {
                   const next = e.target.value; setSession("loading");
                   await client.cancelQueries(); selectWorkspace(next); client.clear(); resetDraft(); sessionAttempt = undefined; establish();
                 }}>{memberships?.map(m => <option key={m.workspace} value={m.workspace}>{m.name}</option>)}</select>
-              </>}
-              <CommandMenu open={commandOpen} onOpenChange={setCommandOpen} preferences={[
+              ) : <span className="workspace-name" title={workspaceName}>{workspaceName}</span>}
+            </div>
+            <div className="toolbar header-actions">
+              <CommandMenu open={commandOpen} initialSearch={commandSearch} onOpenChange={next => {
+                setCommandSearch(""); setCommandOpen(next);
+              }} preferences={[
                 { id: "density", label: "Display density", value: density, onChange: setDensity, options: [
                   { value: "comfortable", label: "Comfortable" }, { value: "compact", label: "Compact" },
                 ] },
@@ -218,10 +220,9 @@ export function App() {
                   { value: "system", label: "System" }, { value: "light", label: "Light" }, { value: "dark", label: "Dark" },
                 ] },
               ]} />
-              <button
-                className="icon-button"
-                aria-label="Log out"
-                onClick={async () => {
+              <AccountMenu name={execution.user?.name} role={execution.role} workspace={execution.mode === "local" ? undefined : workspaceName}
+                onPreferences={() => {setCommandSearch("Preferences"); setCommandOpen(true);}}
+                onLogout={async () => {
                   try {
                     await logout();
                     await client.cancelQueries(); client.clear();
@@ -231,9 +232,7 @@ export function App() {
                     setError((e as Error).message);
                   }
                 }}
-              >
-                <LogOut size={16} />
-              </button>
+              />
             </div>
           </header>
           {error && (

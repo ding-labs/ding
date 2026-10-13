@@ -22,7 +22,8 @@ test("one-use launch, deep link, appearance and logout", async ({
       exact: true,
     }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Log out" }).click();
+  await page.getByRole("button", { name: "Open account menu" }).click();
+  await page.getByRole("menuitem", { name: "Log out" }).click();
   await expect(
     page.getByRole("heading", { name: "Open your console." }),
   ).toBeVisible();

@@ -28,7 +28,7 @@ In a second terminal using the same state directory:
 ./ding ui
 ```
 
-`ding ui --no-open` prints a launch link instead of opening a browser. The link expires after 60 seconds and can be used once. Sessions expire after eight hours or when the daemon restarts. Log out using the console's top bar. The long-lived admin and ingest tokens remain on the daemon host.
+`ding ui --no-open` prints a launch link instead of opening a browser. The link expires after 60 seconds and can be used once. Sessions expire after eight hours or when the daemon restarts. Open the account menu in the top bar to log out. The long-lived admin and ingest tokens remain on the daemon host.
 
 `make headless` and ordinary `go build ./cmd/ding` require no Node installation. Console-enabled builds use `go build -tags console` after `npm run build` in `web/console`. The build fails if the embedded production assets are absent.
 
@@ -55,6 +55,8 @@ These screenshots use an isolated local fixture with clearly labeled preview wat
 For design and implementation status, see the [console plan](../development/console-plan.md) and [phase progress](../development/console-progress.md).
 
 ## Operating the console
+
+Use **Go to…** or **⌘ K / Ctrl K** to search tasks and display preferences. Density, time display, and appearance each open a list of options with the current selection marked. The account menu also provides a **Preferences** shortcut. Shared workspaces appear on the left of the top bar, with a switcher when you belong to more than one; display preferences are saved separately for each workspace.
 
 Watches separates lifecycle, incident state, source health, and delivery problems. Its attention counts cover the entire store. Events starts newest first; **Follow live** announces new events without moving your place. A retention gap must be acknowledged by loading available history. Event evidence always uses that event's definition revision.
 

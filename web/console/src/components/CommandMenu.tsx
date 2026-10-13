@@ -29,10 +29,12 @@ export function CommandMenu({
   open,
   onOpenChange,
   preferences,
+  initialSearch = "",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   preferences: Preference[];
+  initialSearch?: string;
 }) {
   const [search, setSearch] = useState("");
   const [preferenceId, setPreferenceId] = useState<string | null>(null);
@@ -44,7 +46,9 @@ export function CommandMenu({
     label.toLowerCase().includes(search.trim().toLowerCase());
   const navigation = commands.filter((c) => matches(c.name));
   const settings = preferences.filter((p) =>
-    matches(`${p.label} ${p.options.map((o) => o.label).join(" ")}`),
+    matches(
+      `Preferences ${p.label} ${p.options.map((o) => o.label).join(" ")}`,
+    ),
   );
   const options = selected?.options.filter((o) => matches(o.label));
   const empty = selected
@@ -56,10 +60,10 @@ export function CommandMenu({
   };
   useEffect(() => {
     if (open) {
-      setSearch("");
+      setSearch(initialSearch);
       setPreferenceId(null);
     }
-  }, [open]);
+  }, [open, initialSearch]);
   useEffect(() => {
     input.current?.focus();
   }, [preferenceId]);
@@ -96,6 +100,10 @@ export function CommandMenu({
         <Dialog.Overlay className="dialog-overlay" />
         <Dialog.Content
           className="dialog-content command-menu"
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            input.current?.focus();
+          }}
           onEscapeKeyDown={(e) => {
             if (selected) {
               e.preventDefault();
