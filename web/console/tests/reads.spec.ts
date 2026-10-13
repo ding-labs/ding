@@ -25,11 +25,7 @@ test("real observations explain a firing and delivery; list filters distinguish 
     page.getByRole("heading", { name: "Incident opened", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("Replay verified", { exact: false }),
-  ).toBeVisible();
-  await expect(page.getByText("503", { exact: true })).toBeVisible();
-  await expect(
-    page.getByText(/This input matched the condition/),
+    page.getByRole("heading", { name: "1 open incident", exact: true }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Watches", exact: true }).last().click();
   await expect(page.getByLabel("Search watches")).toHaveValue("API health");
@@ -48,6 +44,13 @@ test("real observations explain a firing and delivery; list filters distinguish 
     ).error,
   ).toBeUndefined();
   await page.getByRole("link", { name: "Inspect event" }).click();
+  await expect(
+    page.getByText("Replay verified", { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByText("503", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/This input matched the condition/),
+  ).toBeVisible();
   const evidence = page.waitForEvent("download");
   await page
     .getByRole("button", { name: "Download evidence", exact: true })

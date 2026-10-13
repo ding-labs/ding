@@ -131,6 +131,60 @@
 .watch-progress-note {
   color: var(--amber);
 }
+.watch-activity {
+  margin: 28px 0;
+}
+.watch-activity-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.watch-activity-heading h2 {
+  font-size: 17px;
+  margin: 0;
+}
+.watch-activity a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+.watch-activity-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 13px;
+}
+.watch-activity-row > svg {
+  margin-top: 3px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.watch-activity-row p {
+  margin: 5px 0;
+  overflow-wrap: anywhere;
+}
+.watch-activity-meta {
+  display: grid;
+  justify-items: end;
+  gap: 9px;
+  color: var(--muted);
+  font-size: 12px;
+  margin-left: auto;
+}
+@media (max-width: 600px) {
+  .watch-activity-row {
+    flex-wrap: wrap;
+  }
+  .watch-activity-meta {
+    width: 100%;
+    margin-left: 31px;
+    justify-items: start;
+  }
+}
 @media (max-width: 600px) {
   .watch-status-cards {
     grid-template-columns: 1fr;

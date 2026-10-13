@@ -36,12 +36,13 @@ import {
 import { useDraft } from "../app/draft";
 import { savedViews, savePreference } from "../app/preferences";
 import { WatchActions } from "../components/Actions";
-import { Events, Evidence } from "./Events";
+import { Events } from "./Events";
 import { Deliveries } from "./Deliveries";
 import { Demo } from "../components/Demo";
 import { LogEvidence } from "../components/LogEvidence";
 import { WatchStatus } from "../components/WatchStatus";
 import { WatchRule } from "../components/WatchRule";
+import { WatchActivity } from "../components/WatchActivity";
 export function Watches() {
   const location = useLocation();
   const [p, set] = useSearchParams();
@@ -411,25 +412,14 @@ export function WatchDetail() {
             entityCount={summary.error ? undefined : s?.entities}
             entity={!summary.error && s?.entities === 1 && !query.data.entitiesMore ? query.data.entities[0] : undefined}
           />
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Follow the evidence</p>
-              <h2>Why the latest event happened</h2>
-            </div>
-            <Link to={`/events?watch=${encodeURIComponent(id)}`}>
-              All events <ArrowUpRight size={14} />
-            </Link>
-          </div>
-          {latest.data?.events[0] ? (
-            <Evidence id={latest.data.events[0].id} compact />
-          ) : (
-            <Empty title="No recorded events yet">
-              <p>
-                The first event will appear here with its evidence. A watch can
-                receive inputs without producing events.
-              </p>
-            </Empty>
-          )}
+          <WatchActivity
+            watchID={id}
+            event={latest.data?.events[0]}
+            transition={d.spec.policy.trigger === "transition"}
+            loading={latest.isPending}
+            error={latest.error}
+            retry={() => void latest.refetch()}
+          />
         </>
       )}
       {tab === "Overview" && <Availability watchID={id} sourceType={d.spec.source.type} />}
