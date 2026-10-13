@@ -64,7 +64,7 @@ export function Services() {
       <div className="services-heading">
         <div>
           <h2 id="services-heading">
-            Service credentials
+            Service credentials{" "}
             {list.data && (
               <span className="services-count">{list.data.length}</span>
             )}

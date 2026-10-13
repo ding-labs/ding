@@ -1,3 +1,6 @@
+.service-dialog > p {
+  overflow-wrap: anywhere;
+}
 .service-form fieldset {
   border: 0;
   padding: 0;
