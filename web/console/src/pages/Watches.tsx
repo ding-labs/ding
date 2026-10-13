@@ -40,7 +40,7 @@ import { Events } from "./Events";
 import { Deliveries } from "./Deliveries";
 import { Demo } from "../components/Demo";
 import { LogEvidence } from "../components/LogEvidence";
-import { WatchStatus } from "../components/WatchStatus";
+import { WatchContext, WatchStatus } from "../components/WatchStatus";
 import { WatchRule } from "../components/WatchRule";
 import { WatchActivity } from "../components/WatchActivity";
 export function Watches() {
@@ -361,13 +361,11 @@ export function WatchDetail() {
       <Back to="/watches">Watches</Back>
       <Heading
         title={d.metadata.name || id}
-        eyebrow={id}
+        eyebrow="Watch"
         description={
           <>
-            <Badge value={w.status} />{" "}
-            <span className="mono">
-              Revision {w.plan.revision.slice(0, 12)}
-            </span>
+            <Badge value={w.status} />
+            <WatchContext definition={d} />
           </>
         }
       >
@@ -502,6 +500,7 @@ export function WatchDetail() {
       />
       {tab === "Definition" && (
         <section className="panel">
+          <p className="muted mono">{id} · Revision {w.plan.revision.slice(0, 12)}</p>
           <Rule definition={d} />
           <h3>Permissions</h3>
           {w.plan.permissions.map((x) => (

@@ -3,7 +3,20 @@
   gap: 20px;
   margin-bottom: 24px;
 }
-.watch-status-hero {
+.watch-context {
+  margin-left: 9px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.watch-hosting {
+  margin: 24px 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.watch-hosting > .panel {
+  margin-top: 16px;
+}
+.panel.watch-status-hero {
   border-left-width: 3px;
 }
 .watch-status-hero.is-clear {
@@ -55,7 +68,10 @@
 .watch-status-cards > .panel {
   margin: 0;
 }
-.watch-status-cards p {
+.watch-status-cards > .panel + .panel {
+  margin-top: 0;
+}
+.watch-status-cards p:not(.eyebrow) {
   font-size: 13px;
   overflow-wrap: anywhere;
 }

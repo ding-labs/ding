@@ -1,8 +1,51 @@
 import { CircleCheck, CirclePause, CircleAlert, Radio } from "lucide-react";
 import { Link } from "react-router-dom";
-import type { StoreConsoleWatch, StoreWatchSummary } from "../api/contracts";
+import type {
+  StoreConsoleWatch,
+  StoreWatchSummary,
+  WatchDefinition,
+} from "../api/contracts";
+import { useExecution } from "../app/execution";
 import { ErrorBox, Time, labels } from "./common";
 import "./WatchOverview.css";
+
+export function WatchContext({ definition }: { definition: WatchDefinition }) {
+  const { mode } = useExecution();
+  const source = definition.spec.source;
+  const parts = source.every?.match(/\d+(?:\.\d+)?(?:ms|s|m|h)/g);
+  const units: Record<string, string> = {
+    ms: "millisecond",
+    s: "second",
+    m: "minute",
+    h: "hour",
+  };
+  const every =
+    parts?.join("") === source.every && parts?.length
+      ? parts
+          .filter((part) => parseFloat(part) > 0)
+          .map((part) => {
+            const value = parseFloat(part);
+            const unit = units[part.replace(/[\d.]/g, "")];
+            return `${value} ${unit}${value === 1 ? "" : "s"}`;
+          })
+          .join(" ")
+      : source.every;
+  return (
+    <span className="watch-context">
+      {source.type === "push"
+        ? "On incoming inputs"
+        : every
+          ? `Every ${every}`
+          : "On source input"}
+      <span aria-hidden="true"> · </span>
+      {mode === "cloud"
+        ? "Ding Cloud"
+        : mode === "shared"
+          ? "Shared server"
+          : "This computer"}
+    </span>
+  );
+}
 
 export function WatchStatus({
   detail,

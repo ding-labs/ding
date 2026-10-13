@@ -2,7 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { StoreConsoleWatch, StoreWatchSummary } from "../api/contracts";
-import { WatchStatus } from "./WatchStatus";
+import { WatchContext, WatchStatus } from "./WatchStatus";
+import { ExecutionContext } from "../app/execution";
 
 function fixture() {
   const detail = {
@@ -73,6 +74,23 @@ function show({
 }
 
 describe("watch status overview", () => {
+  it.each(["local", "shared", "cloud"] as const)(
+    "describes the cadence and %s execution host",
+    (mode) => {
+      render(
+        <ExecutionContext.Provider value={{ mode }}>
+          <WatchContext definition={fixture().detail.watch.plan.definition} />
+        </ExecutionContext.Provider>,
+      );
+      expect(screen.getByText(/Every 5 minutes/)).toHaveTextContent(
+        {
+          local: "This computer",
+          shared: "Shared server",
+          cloud: "Ding Cloud",
+        }[mode],
+      );
+    },
+  );
   it("leads with the condition and schedule independently of recorded events", () => {
     show(fixture());
     expect(

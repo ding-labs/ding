@@ -33,7 +33,9 @@ export function WatchActivity({
   const message =
     configuration && event.message === "preserved"
       ? "Existing incident state preserved"
-      : event?.message;
+      : configuration && event.message === "created"
+        ? "Initial definition saved"
+        : event?.message;
   const Icon = configuration ? FileCheck2 : Activity;
   return (
     <section className="watch-activity" aria-labelledby="watch-activity-title">
