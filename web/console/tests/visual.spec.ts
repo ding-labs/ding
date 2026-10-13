@@ -1,3 +1,4 @@
+import { setAppearance } from "./preferences";
 import { test, expect } from "./fixtures";
 import { call, manifest } from "./data";
 import { mkdirSync } from "node:fs";
@@ -28,7 +29,7 @@ test("capture the isolated evidence-first fixture for visual review", async ({
   await call(daemon, "/watches/worker/lifecycle", { action: "pause" });
   await page.goto(await daemon.launch());
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.getByLabel("Appearance").selectOption("light");
+  await setAppearance(page, "light");
   await expect(
     page.getByRole("link", { name: "Preview · Payments API" }),
   ).toBeVisible();
@@ -49,12 +50,12 @@ test("capture the isolated evidence-first fixture for visual review", async ({
     .locator(".evidence")
     .screenshot({ path: resolve(dir, "event-evidence.png") });
   await page.goBack();
-  await page.getByLabel("Appearance").selectOption("dark");
+  await setAppearance(page, "dark");
   await page.screenshot({ path: resolve(dir, "evidence-dark.png") });
   await page.setViewportSize({ width: 375, height: 900 });
   await page.screenshot({ path: resolve(dir, "evidence-mobile.png") });
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.getByLabel("Appearance").selectOption("light");
+  await setAppearance(page, "light");
   await page.getByRole("link", { name: "Workbench", exact: true }).click();
   await page.getByRole("button", { name: /Receive a signal/ }).click();
   await expect(

@@ -1,3 +1,4 @@
+import { setAppearance } from "./preferences";
 import { test, expect } from "./fixtures";
 import { call, manifest } from "./data";
 import AxeBuilder from "@axe-core/playwright";
@@ -13,7 +14,7 @@ test("every Console section uses the shared design in both themes", async ({
     await call(daemon, "/ingest/api-health", { status: 503 }, true);
   await page.goto(await daemon.launch());
   for (const theme of ["light", "dark"]) {
-    await page.getByLabel("Appearance").selectOption(theme);
+    await setAppearance(page, theme);
     for (const width of [375, 1440]) {
       await page.setViewportSize({ width, height: 1000 });
       for (const route of [

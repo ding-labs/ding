@@ -12,7 +12,6 @@ import {
   Activity,
   ArrowRight,
   LogOut,
-  Monitor,
   Radio,
   Send,
   SlidersHorizontal,
@@ -63,6 +62,7 @@ export function App() {
   const [error, setError] = useState("");
   const [theme, setTheme] = useState(() => preference("ding.theme", "system"));
   const [timeMode, setTimeMode] = useState(preference("ding.time", "local"));
+  const [commandOpen, setCommandOpen] = useState(false);
   const client = useQueryClient();
   const location = useLocation();
   const establish = () => {
@@ -205,39 +205,19 @@ export function App() {
                   await client.cancelQueries(); selectWorkspace(next); client.clear(); resetDraft(); sessionAttempt = undefined; establish();
                 }}>{memberships?.map(m => <option key={m.workspace} value={m.workspace}>{m.name}</option>)}</select>
               </>}
-              <CommandMenu />
-              <select
-                aria-label="Display density"
-                value={density}
-                onChange={(e) => setDensity(e.target.value)}
-              >
-                <option value="comfortable">Comfortable</option>
-                <option value="compact">Compact</option>
-              </select>
-              <select
-                aria-label="Display timezone"
-                value={timeMode}
-                onChange={(e) => {
-                  setTimeMode(e.target.value);
-                  savePreference("ding.time", e.target.value);
-                }}
-              >
-                <option value="local">Local time</option>
-                <option value="utc">UTC</option>
-                <option value="relative">Relative time</option>
-              </select>
-              <label className="theme-select">
-                <Monitor size={15} />
-                <select
-                  aria-label="Appearance"
-                  value={theme}
-                  onChange={(e) => setTheme(e.target.value)}
-                >
-                  <option value="system">System</option>
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                </select>
-              </label>
+              <CommandMenu open={commandOpen} onOpenChange={setCommandOpen} preferences={[
+                { id: "density", label: "Display density", value: density, onChange: setDensity, options: [
+                  { value: "comfortable", label: "Comfortable" }, { value: "compact", label: "Compact" },
+                ] },
+                { id: "time", label: "Display time", value: timeMode, onChange: value => {
+                  setTimeMode(value); savePreference("ding.time", value);
+                }, options: [
+                  { value: "local", label: "Local time" }, { value: "utc", label: "UTC" }, { value: "relative", label: "Relative time" },
+                ] },
+                { id: "appearance", label: "Appearance", value: theme, onChange: setTheme, options: [
+                  { value: "system", label: "System" }, { value: "light", label: "Light" }, { value: "dark", label: "Dark" },
+                ] },
+              ]} />
               <button
                 className="icon-button"
                 aria-label="Log out"

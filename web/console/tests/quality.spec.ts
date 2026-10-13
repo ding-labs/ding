@@ -1,3 +1,4 @@
+import { setAppearance } from "./preferences";
 import { test, expect } from "./fixtures";
 import { call, manifest } from "./data";
 import AxeBuilder from "@axe-core/playwright";
@@ -11,7 +12,7 @@ test("responsive themes, accessibility and keyboard navigation", async ({
     await call(daemon, "/ingest/api-health", { status: 503 }, true);
   await page.goto(await daemon.launch());
   for (const theme of ["light", "dark"]) {
-    await page.getByLabel("Appearance").selectOption(theme);
+    await setAppearance(page, theme);
     for (const width of [375, 768, 1024, 1440]) {
       await page.setViewportSize({ width, height: 1000 });
       await page.goto(daemon.url + "/ui/watches/api-health");
@@ -37,7 +38,7 @@ test("responsive themes, accessibility and keyboard navigation", async ({
     process.platform === "darwin" ? "Meta+k" : "Control+k",
   );
   await expect(page.getByRole("dialog")).toBeVisible();
-  await page.getByLabel("Search navigation commands").fill("Doctor");
+  await page.getByLabel("Search tasks and preferences").fill("Doctor");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
   await expect(
