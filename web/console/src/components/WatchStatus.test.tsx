@@ -161,6 +161,23 @@ describe("watch status overview", () => {
     expect(screen.queryByText("No open incidents")).toBeNull();
   });
 
+  it("keeps log collection waiting reasons and its continuous schedule visible", () => {
+    const data = fixture();
+    data.detail.watch.plan.definition.spec.source.type = "logs";
+    data.detail.entities[0].waitingReason = "warming_up";
+    show(data);
+    expect(
+      screen.getByRole("heading", { name: "Waiting for log evidence" }),
+    ).toBeVisible();
+    expect(screen.getByText("warming up")).toBeVisible();
+    expect(
+      screen.getByText("Once per second while collection is active"),
+    ).toBeVisible();
+    expect(screen.queryByText("Next scheduled check")).toBeNull();
+    expect(screen.queryByText("No open incidents")).toBeNull();
+    expect(screen.queryByText("No acquisition error reported")).toBeNull();
+  });
+
   it("does not aggregate per-entity progress into a misleading single counter", () => {
     const data = fixture();
     data.summary.entities = 8;

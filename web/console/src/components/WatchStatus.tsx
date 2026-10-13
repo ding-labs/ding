@@ -34,9 +34,11 @@ export function WatchContext({ definition }: { definition: WatchDefinition }) {
     <span className="watch-context">
       {source.type === "push"
         ? "On incoming inputs"
-        : every
-          ? `Every ${every}`
-          : "On source input"}
+        : source.type === "logs"
+          ? "Live log summaries"
+          : every
+            ? `Every ${every}`
+            : "On source input"}
       <span aria-hidden="true"> · </span>
       {mode === "cloud"
         ? "Ding Cloud"
@@ -67,6 +69,16 @@ export function WatchStatus({
   const hasInput = Boolean(w.lastInputAt && !w.lastInputAt.startsWith("0001"));
   const sourceError = Boolean(w.lastError || current?.unhealthy);
   const missing = current?.missing || [];
+  const logReason =
+    source.type === "logs"
+      ? detail.entities.find((entity) => entity.waitingReason)?.waitingReason ||
+        String(
+          detail.logObservation?.fields?.reason ||
+            detail.logObservation?.detail ||
+            "",
+        )
+      : "";
+  const waitingForLogs = source.type === "logs" && logReason !== "ready";
   const eventOnly = ["changed", "new-event"].includes(condition.operator || "");
   const incidents =
     current && policy.trigger === "transition" && !eventOnly
@@ -82,6 +94,7 @@ export function WatchStatus({
     !stopped &&
     !needsAttention &&
     Boolean(current?.entities) &&
+    !waitingForLogs &&
     incidents !== undefined;
   const Icon = stopped
     ? CirclePause
@@ -104,15 +117,17 @@ export function WatchStatus({
           ? "Credentials need attention"
           : sourceError
             ? "Source needs attention"
-            : !current.entities
-              ? "Waiting for first input"
-              : condition.operator === "changed"
-                ? "Watching for value changes"
-                : condition.operator === "new-event"
-                  ? "Watching for new events"
-                  : incidents
-                    ? "No open incidents"
-                    : `Monitoring ${current.entities} ${current.entities === 1 ? "entity" : "entities"}`;
+            : waitingForLogs
+              ? "Waiting for log evidence"
+              : !current.entities
+                ? "Waiting for first input"
+                : condition.operator === "changed"
+                  ? "Watching for value changes"
+                  : condition.operator === "new-event"
+                    ? "Watching for new events"
+                    : incidents
+                      ? "No open incidents"
+                      : `Monitoring ${current.entities} ${current.entities === 1 ? "entity" : "entities"}`;
   const onlyEntity =
     current?.entities === 1 &&
     !detail.entitiesMore &&
@@ -135,13 +150,15 @@ export function WatchStatus({
           <p className="muted watch-condition-context">
             {current.entities} monitored{" "}
             {current.entities === 1 ? "entity" : "entities"}
-            {incidents && (stopped || sourceError || missing.length > 0)
+            {incidents &&
+            (stopped || sourceError || waitingForLogs || missing.length > 0)
               ? ` · ${incidents}`
               : ""}
             {onlyEntity &&
             !eventOnly &&
             !stopped &&
             !sourceError &&
+            !waitingForLogs &&
             !missing.length &&
             !onlyEntity.open
               ? ` · ${onlyEntity.matches} consecutive ${onlyEntity.matches === 1 ? "match" : "matches"} at the current checkpoint`
@@ -159,13 +176,17 @@ export function WatchStatus({
             <dt>
               {source.type === "push"
                 ? "Input schedule"
-                : "Next scheduled check"}
+                : source.type === "logs"
+                  ? "Evaluation schedule"
+                  : "Next scheduled check"}
             </dt>
             <dd>
               {stopped ? (
                 "Checks stopped"
               ) : source.type === "push" ? (
                 "When your source sends an input"
+              ) : source.type === "logs" ? (
+                "Once per second while collection is active"
               ) : (
                 <Time value={w.nextAt} />
               )}
@@ -180,13 +201,15 @@ export function WatchStatus({
             Source
           </p>
           <h3 className="watch-status-value">
-            {sourceError
-              ? "Acquisition error"
-              : missing.length
-                ? "Missing credentials"
-                : hasInput
-                  ? "Input received"
-                  : "No input yet"}
+            {source.type === "logs"
+              ? "Log collection status"
+              : sourceError
+                ? "Acquisition error"
+                : missing.length
+                  ? "Missing credentials"
+                  : hasInput
+                    ? "Input received"
+                    : "No input yet"}
           </h3>
           <p
             className={sourceError || missing.length ? "danger-text" : "muted"}
@@ -194,11 +217,13 @@ export function WatchStatus({
             {w.lastError ||
               (missing.length
                 ? `Required credentials: ${missing.join(", ")}`
-                : current?.unhealthy
-                  ? "Source status is unknown; an incident can remain open."
-                  : current
-                    ? "No acquisition error reported"
-                    : "Source health totals unavailable")}
+                : source.type === "logs"
+                  ? logReason.replaceAll("_", " ") || "Waiting for collector"
+                  : current?.unhealthy
+                    ? "Source status is unknown; an incident can remain open."
+                    : current
+                      ? "No acquisition error reported"
+                      : "Source health totals unavailable")}
           </p>
           {hasInput && (
             <details className="watch-disclosure">
