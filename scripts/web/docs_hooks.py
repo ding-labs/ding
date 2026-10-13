@@ -12,17 +12,17 @@ REF = os.environ.get('DING_DOCS_REF', PRODUCT['runtime']['sourceRef'])
 
 
 def on_config(config):
-    label = f"Watch source preview · {PRODUCT['runtime']['sourceRef']} · source build required"
+    label = f"Source preview docs · {PRODUCT['runtime']['sourceRef']} · build from source"
     if PRODUCT['runtime']['channel'] == 'stable':
-        label = f"Watch runtime · {PRODUCT['runtime']['version']}"
+        label = f"Ding docs · {PRODUCT['runtime']['version']}"
     if CHANNEL == 'legacy':
-        label = f'Legacy runtime · {REF} · commands differ from persistent watches'
+        label = f'Legacy docs · {REF}'
     elif CHANNEL == 'preview':
-        label = f'Development preview · {REF} · not a released version'
+        label = f'Unreleased preview docs · {REF[:7]}'
     elif CHANNEL == 'version':
-        label = f'Watch release · {REF}'
-    config.extra.update(channel_label=label, noindex=CHANNEL in ('preview', 'legacy'),
-                        public_docs_url=PRODUCT['docsUrl'] + '/')
+        label = f'Ding docs · {REF}'
+    config.extra.update(channel_label=label, docs_channel=CHANNEL, noindex=CHANNEL in ('preview', 'legacy'),
+                        public_docs_url=PRODUCT['docsUrl'] + '/', repository_url=PRODUCT['repositoryUrl'])
     return config
 
 
