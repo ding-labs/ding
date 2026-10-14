@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -15,12 +17,17 @@ func TestPushBenchmarkNoRetryAccountsThrottle(t *testing.T) {
 	}))
 	defer s.Close()
 	t.Setenv("DING_LOAD_TEST", "test")
+	ledger := t.TempDir() + "/ledger"
 	r, err := BenchmarkPush(context.Background(), PushBenchmarkOptions{
 		Producers: []PushProducer{{URL: s.URL, TokenEnv: "DING_LOAD_TEST", Body: []byte(`{}`)}},
-		Duration:  time.Second, Rate: 20, Workers: 4, NoRetry: true, Ledger: t.TempDir() + "/ledger", Client: s.Client(),
+		Duration:  time.Second, Rate: 20, Workers: 4, NoRetry: true, Ledger: ledger, Client: s.Client(), LedgerBatch: 8, CompactLedger: true,
 	})
 	if err != nil || r.Offered < 15 || r.Attempts != r.Offered || r.Statuses[429] != r.Offered || r.Unconfirmed != r.Offered || r.FirstAccepted != 0 {
 		t.Fatal(r, err)
+	}
+	raw, err := os.ReadFile(ledger)
+	if err != nil || len(strings.Split(strings.TrimSpace(string(raw)), "\n")) != 1+r.Offered+r.Attempts || strings.Count(string(raw), `"body":{}`) != 1 {
+		t.Fatal("compact ledger incomplete", err)
 	}
 }
 

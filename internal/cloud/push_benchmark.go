@@ -26,13 +26,15 @@ type PushProducer struct {
 	Body     json.RawMessage `json:"body"`
 }
 type PushBenchmarkOptions struct {
-	Producers []PushProducer
-	Duration  time.Duration
-	Rate      int
-	Ledger    string
-	Client    *http.Client
-	Workers   int
-	NoRetry   bool
+	Producers     []PushProducer
+	Duration      time.Duration
+	Rate          int
+	Ledger        string
+	Client        *http.Client
+	Workers       int
+	NoRetry       bool
+	LedgerBatch   int
+	CompactLedger bool
 }
 type PushBenchmarkResult struct {
 	GeneratorBusy   int         `json:"generatorBusy"`
@@ -67,6 +69,12 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 	if o.Workers == 0 {
 		o.Workers = 16
 	}
+	if o.LedgerBatch == 0 {
+		o.LedgerBatch = 1
+	}
+	if o.LedgerBatch < 1 || o.LedgerBatch > 1024 {
+		return result, fmt.Errorf("ledger batch must be 1–1024")
+	}
 	if len(o.Producers) == 0 || len(o.Producers) > 10000 || o.Rate < 1 || o.Rate > 100000 || o.Workers < 1 || o.Workers > 1024 || o.Duration < time.Second || o.Duration > 7*24*time.Hour {
 		return result, fmt.Errorf("provide bounded producers, duration (1s–7d), rate (1–100000/sec), workers (1–1024), and a new ledger file")
 	}
@@ -87,14 +95,14 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 		return result, err
 	}
 	defer ledger.Close()
-	var ledgerMu sync.Mutex
-	record := func(e pushLedgerEntry) error {
-		ledgerMu.Lock()
-		defer ledgerMu.Unlock()
-		if err := json.NewEncoder(ledger).Encode(e); err != nil {
-			return err
+	record, closeLedger := groupedPushLedger(ledger, o.LedgerBatch)
+	defer closeLedger()
+	if o.CompactLedger {
+		for i, p := range o.Producers {
+			if err := record(pushLedgerEntry{Producer: i, Body: p.Body, Stage: "producer", At: time.Now().UTC()}); err != nil {
+				return result, err
+			}
 		}
-		return ledger.Sync()
 	}
 	client := o.Client
 	if client == nil {
@@ -137,7 +145,11 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 				i := j.producer
 				p := o.Producers[i]
 				key := state.ID()
-				if err := record(pushLedgerEntry{Key: key, Producer: i, Body: p.Body, Stage: "offered", At: time.Now().UTC(), ScheduledAt: j.due}); err != nil {
+				body := p.Body
+				if o.CompactLedger {
+					body = nil
+				}
+				if err := record(pushLedgerEntry{Key: key, Producer: i, Body: body, Stage: "offered", At: time.Now().UTC(), ScheduledAt: j.due}); err != nil {
 					fail(err)
 					continue
 				}
