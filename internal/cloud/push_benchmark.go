@@ -31,18 +31,22 @@ type PushBenchmarkOptions struct {
 	Rate      int
 	Ledger    string
 	Client    *http.Client
+	Workers   int
+	NoRetry   bool
 }
 type PushBenchmarkResult struct {
-	GeneratorBusy   int     `json:"generatorBusy"`
-	Offered         int     `json:"offered"`
-	Accepted        int     `json:"accepted"`
-	Replayed        int     `json:"replayed"`
-	Rejected        int     `json:"rejected"`
-	Unconfirmed     int     `json:"unconfirmed"`
-	Attempts        int     `json:"attempts"`
-	P95MS           float64 `json:"p95MS"`
-	P99MS           float64 `json:"p99MS"`
-	DurationSeconds float64 `json:"durationSeconds"`
+	GeneratorBusy   int         `json:"generatorBusy"`
+	Offered         int         `json:"offered"`
+	Accepted        int         `json:"accepted"`
+	Replayed        int         `json:"replayed"`
+	Rejected        int         `json:"rejected"`
+	Unconfirmed     int         `json:"unconfirmed"`
+	Attempts        int         `json:"attempts"`
+	P95MS           float64     `json:"p95MS"`
+	P99MS           float64     `json:"p99MS"`
+	DurationSeconds float64     `json:"durationSeconds"`
+	FirstAccepted   int         `json:"firstAccepted"`
+	Statuses        map[int]int `json:"statuses"`
 }
 type pushLedgerEntry struct {
 	Key      string             `json:"key"`
@@ -56,9 +60,13 @@ type pushLedgerEntry struct {
 
 func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkResult, error) {
 	var result PushBenchmarkResult
-	if len(o.Producers) == 0 || len(o.Producers) > 10000 || o.Rate < 1 || o.Rate > 1000 || o.Duration < time.Second || o.Duration > 7*24*time.Hour {
-		return result, fmt.Errorf("provide bounded producers, duration (1s–7d), rate (1–1000/sec), and a new ledger file")
+	if o.Workers == 0 {
+		o.Workers = 16
 	}
+	if len(o.Producers) == 0 || len(o.Producers) > 10000 || o.Rate < 1 || o.Rate > 100000 || o.Workers < 1 || o.Workers > 1024 || o.Duration < time.Second || o.Duration > 7*24*time.Hour {
+		return result, fmt.Errorf("provide bounded producers, duration (1s–7d), rate (1–100000/sec), workers (1–1024), and a new ledger file")
+	}
+	result.Statuses = map[int]int{}
 	tokens := make([]string, len(o.Producers))
 	for i, p := range o.Producers {
 		u, err := url.Parse(p.URL)
@@ -102,7 +110,7 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 	var mu sync.Mutex
 	var failure error
 	histogram := make([]int, 120001) // Bounded millisecond histogram, including retry latency.
-	jobs := make(chan int, 32)
+	jobs := make(chan int, o.Workers*2)
 	var workers sync.WaitGroup
 	fail := func(err error) {
 		mu.Lock()
@@ -112,7 +120,7 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 		}
 		cancel()
 	}
-	for worker := 0; worker < 16; worker++ {
+	for worker := 0; worker < o.Workers; worker++ {
 		workers.Add(1)
 		go func() {
 			defer workers.Done()
@@ -155,10 +163,14 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 							retryAfter = min(delay, 30*time.Second)
 						}
 						mu.Lock()
+						result.Statuses[status]++
 						if status == 202 && decode == nil && envelope.Data.AcceptanceID != "" {
 							receipt = &envelope.Data
 							accepted = true
 							result.Accepted++
+							if attempt == 0 {
+								result.FirstAccepted++
+							}
 							if receipt.Duplicate {
 								result.Replayed++
 							}
@@ -170,11 +182,16 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 						}
 						mu.Unlock()
 					}
+					if err != nil {
+						mu.Lock()
+						result.Statuses[0]++
+						mu.Unlock()
+					}
 					if err := record(pushLedgerEntry{Key: key, Producer: i, Stage: "response", Status: status, At: time.Now().UTC(), Receipt: receipt}); err != nil {
 						fail(err)
 						break
 					}
-					if accepted || rejected || run.Err() != nil {
+					if accepted || rejected || run.Err() != nil || o.NoRetry {
 						break
 					}
 					// Stable body/key, bounded backoff and deterministic per-request jitter.
