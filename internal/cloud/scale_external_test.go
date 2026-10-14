@@ -27,6 +27,7 @@ func scaleExternal(t *testing.T, lab *scaleLab, out string) (func(), func() Push
 	start := make(chan struct{})
 	ready := make(chan struct{})
 	finish := make(chan PushBenchmarkResult)
+	lab.controlMu.Lock()
 	lab.control = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+token)) != 1 {
 			w.WriteHeader(401)
@@ -57,6 +58,7 @@ func scaleExternal(t *testing.T, lab *scaleLab, out string) (func(), func() Push
 			w.WriteHeader(404)
 		}
 	})
+	lab.controlMu.Unlock()
 	tokens := map[string]string{}
 	for _, p := range lab.producers {
 		tokens[p.TokenEnv] = os.Getenv(p.TokenEnv)
@@ -76,19 +78,19 @@ func scaleExternal(t *testing.T, lab *scaleLab, out string) (func(), func() Push
 		t.Fatal(err)
 	}
 	return func() {
-		select {
-		case <-start:
-		case <-time.After(2 * time.Minute):
-			t.Fatal("local generator did not start")
+			select {
+			case <-start:
+			case <-time.After(2 * time.Minute):
+				t.Fatal("local generator did not start")
+			}
+		}, func() PushBenchmarkResult {
+			close(ready)
+			select {
+			case result := <-finish:
+				return result
+			case <-time.After(time.Hour + 5*time.Minute):
+				t.Fatal("local generator did not finish")
+				return PushBenchmarkResult{}
+			}
 		}
-	}, func() PushBenchmarkResult {
-		close(ready)
-		select {
-		case result := <-finish:
-			return result
-		case <-time.After(time.Hour + 5*time.Minute):
-			t.Fatal("local generator did not finish")
-			return PushBenchmarkResult{}
-		}
-	}
 }

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -31,6 +32,7 @@ type scaleLab struct {
 	receiver  *scaleReceiver
 	key       []byte
 	control   http.Handler
+	controlMu sync.RWMutex
 }
 
 func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
@@ -73,10 +75,13 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 	lab := &scaleLab{server: s, root: root, key: key}
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/lab/") {
-			if lab.control == nil {
+			lab.controlMu.RLock()
+			control := lab.control
+			lab.controlMu.RUnlock()
+			if control == nil {
 				w.WriteHeader(404)
 			} else {
-				lab.control.ServeHTTP(w, r)
+				control.ServeHTTP(w, r)
 			}
 			return
 		}
