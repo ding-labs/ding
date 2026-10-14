@@ -1,8 +1,11 @@
 package cloud
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -20,6 +23,39 @@ func scalePreload(t *testing.T, lab *scaleLab, c scaleConfig, out string) PushBe
 	r, err := BenchmarkPush(context.Background(), PushBenchmarkOptions{Producers: lab.producers, Client: lab.http.Client(), Rate: rate, Duration: time.Duration(seconds) * time.Second, Workers: c.Workers, Ledger: filepath.Join(out, "preload.jsonl"), LedgerBatch: 32, CompactLedger: true, NoRetry: true})
 	if err != nil {
 		t.Fatal(err)
+	}
+	// Complete group coverage deterministically after the timed seed attempt.
+	// Saturation can drop scheduled seed jobs, which must not silently turn a
+	// "10,000 groups" case into a much smaller database.
+	if c.Groups > c.Outputs && c.Preload >= c.Groups/c.Outputs {
+		covered := map[int]bool{}
+		f, err := os.Open(filepath.Join(out, "preload.jsonl"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		scanner := bufio.NewScanner(f)
+		scanner.Buffer(make([]byte, 4096), 2<<20)
+		for scanner.Scan() {
+			var e pushLedgerEntry
+			if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
+				t.Fatal(err)
+			}
+			if e.Receipt != nil {
+				covered[e.Producer] = true
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			t.Fatal(err)
+		}
+		f.Close()
+		for i, p := range lab.producers {
+			if !covered[i] {
+				status, _ := scaleSend(t, lab, p, fmt.Sprintf("seed-group-%d", i), p.Body)
+				if status != 202 {
+					t.Fatal("group seed rejected", status)
+				}
+			}
+		}
 	}
 	t.Logf("preload actual=%d target=%d", r.Accepted, c.Preload)
 	return r
