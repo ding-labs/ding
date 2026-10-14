@@ -85,6 +85,13 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 		if e.Stage != "offered" && e.Receipt == nil {
 			continue
 		}
+		if e.Stage == "offered" {
+			hash := sha256.Sum256([]byte(e.Key))
+			if seen[hash] {
+				problems = append(problems, "duplicate offered key")
+			}
+			seen[hash] = true
+		}
 		p := lab.producers[e.Producer]
 		i, err := strconv.Atoi(strings.TrimPrefix(p.TokenEnv, "DING_LOCAL_SCALE_"))
 		if err != nil {
@@ -103,12 +110,10 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 			continue
 		}
 		if e.Stage == "offered" {
-			hash := sha256.Sum256([]byte(e.Key))
 			id := sha256.Sum256([]byte(r.AcceptanceID))
-			if seen[hash] || ids[id] || r.Last-r.First+1 != int64(c.Outputs) {
+			if ids[id] || r.Last-r.First+1 != int64(c.Outputs) {
 				problems = append(problems, "duplicate key or receipt range/identity mismatch")
 			}
-			seen[hash] = true
 			ids[id] = true
 			committed++
 			expected[i].Requests++
