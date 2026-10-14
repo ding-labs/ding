@@ -14,6 +14,7 @@ import (
 func TestPushBenchmarkNoRetryAccountsThrottle(t *testing.T) {
 	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusTooManyRequests)
+		fmt.Fprint(w, `{"error":{"code":"ingest_rate","message":"private failure text"}}`)
 	}))
 	defer s.Close()
 	t.Setenv("DING_LOAD_TEST", "test")
@@ -25,9 +26,15 @@ func TestPushBenchmarkNoRetryAccountsThrottle(t *testing.T) {
 	if err != nil || r.Offered < 15 || r.Attempts != r.Offered || r.Statuses[429] != r.Offered || r.Throttled != r.Offered || r.Unconfirmed != 0 || r.FirstAccepted != 0 {
 		t.Fatal(r, err)
 	}
+	if r.ErrorCodes["ingest_rate"] != r.Offered {
+		t.Fatal(r)
+	}
 	raw, err := os.ReadFile(ledger)
 	if err != nil || len(strings.Split(strings.TrimSpace(string(raw)), "\n")) != 1+r.Offered+r.Attempts || strings.Count(string(raw), `"body":{}`) != 1 {
 		t.Fatal("compact ledger incomplete", err)
+	}
+	if strings.Contains(string(raw), "private failure text") {
+		t.Fatal("recorded error text")
 	}
 }
 

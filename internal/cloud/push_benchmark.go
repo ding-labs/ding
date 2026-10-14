@@ -37,22 +37,23 @@ type PushBenchmarkOptions struct {
 	CompactLedger bool
 }
 type PushBenchmarkResult struct {
-	GeneratorBusy   int         `json:"generatorBusy"`
-	Offered         int         `json:"offered"`
-	Accepted        int         `json:"accepted"`
-	Replayed        int         `json:"replayed"`
-	Rejected        int         `json:"rejected"`
-	Unconfirmed     int         `json:"unconfirmed"`
-	Attempts        int         `json:"attempts"`
-	P95MS           float64     `json:"p95MS"`
-	P99MS           float64     `json:"p99MS"`
-	DurationSeconds float64     `json:"durationSeconds"`
-	FirstAccepted   int         `json:"firstAccepted"`
-	Statuses        map[int]int `json:"statuses"`
-	Scheduled       int         `json:"scheduled"`
-	ScheduleP99MS   float64     `json:"scheduleP99MS"`
-	HTTPP99MS       float64     `json:"httpP99MS"`
-	Throttled       int         `json:"throttled"`
+	GeneratorBusy   int            `json:"generatorBusy"`
+	Offered         int            `json:"offered"`
+	Accepted        int            `json:"accepted"`
+	Replayed        int            `json:"replayed"`
+	Rejected        int            `json:"rejected"`
+	Unconfirmed     int            `json:"unconfirmed"`
+	Attempts        int            `json:"attempts"`
+	P95MS           float64        `json:"p95MS"`
+	P99MS           float64        `json:"p99MS"`
+	DurationSeconds float64        `json:"durationSeconds"`
+	FirstAccepted   int            `json:"firstAccepted"`
+	Statuses        map[int]int    `json:"statuses"`
+	Scheduled       int            `json:"scheduled"`
+	ScheduleP99MS   float64        `json:"scheduleP99MS"`
+	HTTPP99MS       float64        `json:"httpP99MS"`
+	Throttled       int            `json:"throttled"`
+	ErrorCodes      map[string]int `json:"errorCodes"`
 }
 type pushLedgerEntry struct {
 	Key         string             `json:"key"`
@@ -63,6 +64,7 @@ type pushLedgerEntry struct {
 	At          time.Time          `json:"at"`
 	Receipt     *store.PushReceipt `json:"receipt,omitempty"`
 	ScheduledAt time.Time          `json:"scheduledAt,omitempty"`
+	ErrorCode   string             `json:"errorCode,omitempty"`
 }
 
 func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkResult, error) {
@@ -80,6 +82,7 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 		return result, fmt.Errorf("provide bounded producers, duration (1s–7d), rate (1–100000/sec), workers (1–1024), and a new ledger file")
 	}
 	result.Statuses = map[int]int{}
+	result.ErrorCodes = map[string]int{}
 	tokens := make([]string, len(o.Producers))
 	for i, p := range o.Producers {
 		u, err := url.Parse(p.URL)
@@ -179,10 +182,14 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 					status := 0
 					retryAfter := time.Duration(1<<attempt) * time.Second
 					var receipt *store.PushReceipt
+					code := ""
 					if err == nil {
 						status = response.StatusCode
 						var envelope struct {
-							Data store.PushReceipt `json:"data"`
+							Data  store.PushReceipt `json:"data"`
+							Error struct {
+								Code string `json:"code"`
+							} `json:"error"`
 						}
 						decode := json.NewDecoder(io.LimitReader(response.Body, 64<<10)).Decode(&envelope)
 						response.Body.Close()
@@ -190,6 +197,13 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 							retryAfter = min(delay, 30*time.Second)
 						}
 						mu.Lock()
+						code = envelope.Error.Code
+						if len(code) > 128 || (len(result.ErrorCodes) >= 100 && result.ErrorCodes[code] == 0) {
+							code = "other"
+						}
+						if code != "" {
+							result.ErrorCodes[code]++
+						}
 						result.Statuses[status]++
 						if status == 202 && decode == nil && envelope.Data.AcceptanceID != "" {
 							receipt = &envelope.Data
@@ -218,7 +232,7 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 						result.Statuses[0]++
 						mu.Unlock()
 					}
-					if err := record(pushLedgerEntry{Key: key, Producer: i, Stage: "response", Status: status, At: time.Now().UTC(), Receipt: receipt}); err != nil {
+					if err := record(pushLedgerEntry{Key: key, Producer: i, Stage: "response", Status: status, At: time.Now().UTC(), Receipt: receipt, ErrorCode: code}); err != nil {
 						fail(err)
 						break
 					}
