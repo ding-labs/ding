@@ -58,7 +58,7 @@ func (c scaleConfig) manifest() string {
 	if c.Condition == "alerts" {
 		policy = "{trigger: level, interval: 0s}"
 	}
-	m := fmt.Sprintf("apiVersion: ding.ing/v1alpha1\nkind: Watch\nmetadata: {id: ci}\nspec:\n  source: {type: push, itemsPath: events, fields: %s}\n  groupBy: [repo]\n  condition: %s\n  policy: %s\n  limits: {maxBytes: 1048576, maxEntities: %d, maxOutputs: %d, maxSamples: 10000}\n", fields, condition, policy, c.Groups, c.Outputs)
+	m := fmt.Sprintf("apiVersion: ding.ing/v1alpha1\nkind: Watch\nmetadata: {id: ci}\nspec:\n  source: {type: push, itemsPath: events, fields: %s}\n  groupBy: [repo]\n  condition: %s\n  policy: %s\n  limits: {maxBytes: 1048576, maxEntities: %d, maxOutputs: 100, maxSamples: 10000}\n", fields, condition, policy, c.Groups)
 	if c.Receiver != "" {
 		m += "  destinations: [{ref: hook}]\n---\napiVersion: ding.ing/v1alpha1\nkind: Destination\nmetadata: {id: hook}\nspec: {type: webhook, urlRef: {env: SCALE_WEBHOOK}}\n"
 	}

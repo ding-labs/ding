@@ -1,9 +1,7 @@
 package cloud
 
 import (
-	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,44 +18,34 @@ func scalePreload(t *testing.T, lab *scaleLab, c scaleConfig, out string) PushBe
 	if c.Preload == 0 {
 		return PushBenchmarkResult{}
 	}
+	if c.Groups > c.Outputs && c.Preload >= c.Groups/c.Outputs {
+		seed := c
+		seed.Outputs = min(100, c.Groups)
+		seed.BodyBytes = 0
+		bodies, err := seed.bodies()
+		if err != nil {
+			t.Fatal(err)
+		}
+		start := time.Now()
+		count := 0
+		for i := range lab.tenants {
+			p := PushProducer{URL: lab.http.URL + "/v1/ingest/ci", TokenEnv: fmt.Sprintf("DING_LOCAL_SCALE_%d", i)}
+			for j, body := range bodies {
+				status, _ := scaleSend(t, lab, p, fmt.Sprintf("seed-groups-%d-%d", i, j), body)
+				if status != 202 {
+					t.Fatal("group seed rejected", status)
+				}
+				count++
+			}
+		}
+		t.Logf("seeded %d groups per workspace using %d real batches", c.Groups, count)
+		return PushBenchmarkResult{Offered: count, Accepted: count, FirstAccepted: count, Attempts: count, DurationSeconds: time.Since(start).Seconds()}
+	}
 	rate := min(500, c.Preload)
 	seconds := (c.Preload + rate - 1) / rate
 	r, err := BenchmarkPush(context.Background(), PushBenchmarkOptions{Producers: lab.producers, Client: lab.http.Client(), Rate: rate, Duration: time.Duration(seconds) * time.Second, Workers: c.Workers, Ledger: filepath.Join(out, "preload.jsonl"), LedgerBatch: 32, CompactLedger: true, NoRetry: true})
 	if err != nil {
 		t.Fatal(err)
-	}
-	// Complete group coverage deterministically after the timed seed attempt.
-	// Saturation can drop scheduled seed jobs, which must not silently turn a
-	// "10,000 groups" case into a much smaller database.
-	if c.Groups > c.Outputs && c.Preload >= c.Groups/c.Outputs {
-		covered := map[int]bool{}
-		f, err := os.Open(filepath.Join(out, "preload.jsonl"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		scanner := bufio.NewScanner(f)
-		scanner.Buffer(make([]byte, 4096), 2<<20)
-		for scanner.Scan() {
-			var e pushLedgerEntry
-			if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
-				t.Fatal(err)
-			}
-			if e.Receipt != nil {
-				covered[e.Producer] = true
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			t.Fatal(err)
-		}
-		f.Close()
-		for i, p := range lab.producers {
-			if !covered[i] {
-				status, _ := scaleSend(t, lab, p, fmt.Sprintf("seed-group-%d", i), p.Body)
-				if status != 202 {
-					t.Fatal("group seed rejected", status)
-				}
-			}
-		}
 	}
 	t.Logf("preload actual=%d target=%d", r.Accepted, c.Preload)
 	return r
@@ -116,5 +104,18 @@ func TestScalePreloadIsRealAcceptedHistory(t *testing.T) {
 	a := scaleAccounts(t, lab)
 	if r.Accepted != 10 || a[0].Usage.Requests != 10 || a[0].Rows.Observations != 10 {
 		t.Fatal(fmt.Sprint(r, a))
+	}
+}
+
+func TestScaleGroupSeedPopulatesEveryConfiguredGroup(t *testing.T) {
+	c := scaleConfig{Name: "groups", Rate: 10, Seconds: 1, Groups: 1000, Preload: 1000}
+	if err := c.validate(); err != nil {
+		t.Fatal(err)
+	}
+	lab := newScaleLab(t, c)
+	r := scalePreload(t, lab, c, t.TempDir())
+	a := scaleAccounts(t, lab)
+	if r.Accepted != 10 || a[0].Rows.Entities != 1000 || a[0].Rows.Observations != 1000 {
+		t.Fatal(r, a)
 	}
 }
