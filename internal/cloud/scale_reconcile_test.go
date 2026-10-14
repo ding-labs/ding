@@ -3,13 +3,16 @@ package cloud
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
 
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watchrun"
 )
@@ -55,11 +58,23 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 		t.Fatal(err)
 	}
 	defer f.Close()
-	seen := map[string]bool{}
-	ids := map[string]bool{}
+	seen := map[[32]byte]bool{}
+	ids := map[[32]byte]bool{}
 	expected := make([]store.PushUsage, len(lab.tenants))
-	responses := map[string]store.PushReceipt{}
-	offers := []pushLedgerEntry{}
+	records := make([]store.WatchRecord, len(lab.tenants))
+	grants := make([]state.Service, len(lab.tenants))
+	for i, tenant := range lab.tenants {
+		records[i], err = tenant.App.Record(context.Background(), "ci")
+		if err != nil {
+			t.Fatal(err)
+		}
+		grants[i], err = lab.server.DB.ServiceToken(context.Background(), os.Getenv(fmt.Sprintf("DING_LOCAL_SCALE_%d", i)))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	problems := []string{}
+	committed, acknowledged := 0, 0
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 4096), 2<<20)
 	for scanner.Scan() {
@@ -67,76 +82,65 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
 			t.Fatal(err)
 		}
-		if e.Stage == "offered" {
-			if seen[e.Key] {
-				t.Fatal("duplicate offered key")
-			}
-			seen[e.Key] = true
-			offers = append(offers, e)
+		if e.Stage != "offered" && e.Receipt == nil {
+			continue
 		}
-		if e.Receipt != nil {
-			responses[e.Key] = *e.Receipt
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		t.Fatal(err)
-	}
-	errors := []string{}
-	resolved := 0
-	for _, e := range offers {
 		p := lab.producers[e.Producer]
 		i, err := strconv.Atoi(strings.TrimPrefix(p.TokenEnv, "DING_LOCAL_SCALE_"))
 		if err != nil {
 			t.Fatal(err)
 		}
-		tenant := lab.tenants[i]
-		record, err := tenant.App.Record(context.Background(), "ci")
-		if err != nil {
-			t.Fatal(err)
-		}
-		grant, err := lab.server.DB.ServiceToken(context.Background(), os.Getenv(p.TokenEnv))
-		if err != nil {
-			t.Fatal(err)
-		}
-		input := watchrun.NewPushInput(grant.ID, e.Key, p.Body, 1000000, 24*60*60*1000000000)
-		r, err := tenant.App.ReplayPush(context.Background(), record, input)
-		if err == store.ErrNotFound {
-			if _, ok := responses[e.Key]; ok {
-				errors = append(errors, "acknowledged receipt absent")
+		input := watchrun.NewPushInput(grants[i].ID, e.Key, p.Body, 1000000, 24*60*60*1000000000)
+		r, err := lab.tenants[i].App.ReplayPush(context.Background(), records[i], input)
+		if errors.Is(err, store.ErrNotFound) {
+			if e.Receipt != nil {
+				problems = append(problems, "acknowledged receipt absent")
 			}
 			continue
 		}
 		if err != nil {
-			errors = append(errors, err.Error())
+			problems = append(problems, err.Error())
 			continue
 		}
-		if r.Last-r.First+1 != int64(c.Outputs) || ids[r.AcceptanceID] {
-			errors = append(errors, "receipt range/identity mismatch")
-		}
-		ids[r.AcceptanceID] = true
-		if ack, ok := responses[e.Key]; ok {
-			if ack.AcceptanceID != r.AcceptanceID || ack.First != r.First || ack.Last != r.Last {
-				errors = append(errors, "response and durable receipt differ")
+		if e.Stage == "offered" {
+			hash := sha256.Sum256([]byte(e.Key))
+			id := sha256.Sum256([]byte(r.AcceptanceID))
+			if seen[hash] || ids[id] || r.Last-r.First+1 != int64(c.Outputs) {
+				problems = append(problems, "duplicate key or receipt range/identity mismatch")
 			}
+			seen[hash] = true
+			ids[id] = true
+			committed++
+			expected[i].Requests++
+			expected[i].Bytes += int64(len(p.Body))
+			expected[i].Observations += int64(c.Outputs)
 		} else {
-			resolved++
+			ack := e.Receipt
+			acknowledged++
+			if ack.AcceptanceID != r.AcceptanceID || ack.First != r.First || ack.Last != r.Last || ack.Revision != r.Revision || ack.Generation != r.Generation || ack.WatchID != r.WatchID {
+				problems = append(problems, "response and durable receipt differ")
+			}
 		}
-		expected[i].Requests++
-		expected[i].Bytes += int64(len(p.Body))
-		expected[i].Observations += int64(c.Outputs)
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatal(err)
+	}
+	resolved := committed - acknowledged
+	if resolved < 0 {
+		problems = append(problems, "more acknowledgments than durable offers")
 	}
 	after := scaleAccounts(t, lab)
 	for i, a := range after {
 		b := before[i]
 		delta := store.PushUsage{Requests: a.Usage.Requests - b.Usage.Requests, Bytes: a.Usage.Bytes - b.Usage.Bytes, Observations: a.Usage.Observations - b.Usage.Observations}
 		if delta != expected[i] || int64(a.Rows.Observations-b.Rows.Observations) != expected[i].Observations {
-			errors = append(errors, fmt.Sprintf("workspace %d durable usage/rows differ", i))
+			problems = append(problems, fmt.Sprintf("workspace %d durable usage/rows differ", i))
 		}
 		if a.Health.Integrity != "ok" {
-			errors = append(errors, "database integrity failure")
+			problems = append(problems, "database integrity failure")
 		}
 	}
-	return resolved, errors
+	return resolved, problems
 }
 
 func TestScaleReconcilesFullPushLedger(t *testing.T) {
