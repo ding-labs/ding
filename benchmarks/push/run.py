@@ -42,6 +42,7 @@ def execute(binary, driver, config, output, environment):
     samples = []
     bootstrap = output/'bootstrap.json'
     generator = None
+    code, generator_code, failure = 124, None, None
     with (output/'run.log').open('x') as log, (output/'generator.log').open('x') as generator_log:
         process = subprocess.Popen(args, cwd=REPO, env=env, stdout=log, stderr=subprocess.STDOUT)
         try:
@@ -72,6 +73,8 @@ def execute(binary, driver, config, output, environment):
                 time.sleep(1 if generator is None else 5)
             code = process.wait()
             generator_code = generator.wait() if generator is not None else None
+        except (RuntimeError, TimeoutError) as error:
+            failure = str(error)
         finally:
             if process.poll() is None:
                 process.kill();process.wait()
@@ -81,7 +84,7 @@ def execute(binary, driver, config, output, environment):
             if environment == 'container':
                 subprocess.run(['docker','kill',container],capture_output=True)
     metadata = {'exitCode':code,'generatorExitCode':generator_code,
-                'wallSeconds':time.monotonic()-started,'resources':samples}
+                'wallSeconds':time.monotonic()-started,'resources':samples,'failure':failure}
     if environment == 'container':
         try:
             metadata['container'] = json.loads(command(['docker','inspect',container]))[0]['State']

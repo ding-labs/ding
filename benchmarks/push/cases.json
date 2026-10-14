@@ -1,4 +1,5 @@
 [
+  {"Name":"generator-2500","Rate":2500,"Seconds":30,"Noop":true},
   {"Name":"generator-5000","Rate":5000,"Seconds":30,"Noop":true},
   {"Name":"defaults-100","Rate":100,"Seconds":30,"Defaults":true},
   {"Name":"one-100","Rate":100,"Seconds":180},
