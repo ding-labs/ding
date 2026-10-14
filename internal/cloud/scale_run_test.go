@@ -3,8 +3,6 @@ package cloud
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -67,12 +65,6 @@ func TestLocalPushScale(t *testing.T) {
 	}
 	report := scaleReport{Config: c, Runtime: runtime.Version() + " " + runtime.GOOS + "/" + runtime.GOARCH, GOMAXPROCS: runtime.GOMAXPROCS(0)}
 	lab := newScaleLab(t, c)
-	if c.Noop {
-		lab.http.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(202)
-			fmt.Fprintf(w, `{"data":{"acceptanceId":%q}}`, r.Header.Get("Idempotency-Key"))
-		})
-	}
 	if c.Noisy > 0 {
 		first := lab.producers[0]
 		n := (len(lab.producers) - 1) * c.Noisy / (100 - c.Noisy)
@@ -82,6 +74,12 @@ func TestLocalPushScale(t *testing.T) {
 	}
 	report.Preload = scalePreload(t, lab, c, out)
 	report.Before = scaleAccounts(t, lab)
+	var waitStart func()
+	var waitFinish func() PushBenchmarkResult
+	if os.Getenv("DING_SCALE_EXTERNAL") != "" {
+		waitStart, waitFinish = scaleExternal(t, lab, out)
+		waitStart()
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 	var finishReads func() (int, float64, int)
@@ -108,7 +106,11 @@ func TestLocalPushScale(t *testing.T) {
 	}()
 	stopProfiles := scaleProfiles(t, out)
 	report.StartedAt = time.Now().UTC()
-	report.Load, err = BenchmarkPush(context.Background(), PushBenchmarkOptions{Producers: lab.producers, Client: lab.http.Client(), Rate: c.Rate, Duration: time.Duration(c.Seconds) * time.Second, Workers: c.Workers, Ledger: filepath.Join(out, "requests.jsonl"), LedgerBatch: 32, CompactLedger: true, NoRetry: true})
+	if waitFinish != nil {
+		report.Load = waitFinish()
+	} else {
+		report.Load, err = BenchmarkPush(context.Background(), PushBenchmarkOptions{Producers: lab.producers, Client: lab.http.Client(), Rate: c.Rate, Duration: time.Duration(c.Seconds) * time.Second, Workers: c.Workers, Ledger: filepath.Join(out, "requests.jsonl"), LedgerBatch: 32, CompactLedger: true, NoRetry: true})
+	}
 	report.EndedAt = time.Now().UTC()
 	stopProfiles()
 	cancel()

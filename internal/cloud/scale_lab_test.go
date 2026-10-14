@@ -5,8 +5,10 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -28,6 +30,7 @@ type scaleLab struct {
 	root      string
 	receiver  *scaleReceiver
 	key       []byte
+	control   http.Handler
 }
 
 func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
@@ -67,9 +70,34 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 	if !c.Defaults {
 		s.pushGlobal = rate.NewLimiter(100000, 100000)
 	}
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { r.Host = "ding.example"; h.ServeHTTP(w, r) }))
+	lab := &scaleLab{server: s, root: root, key: key}
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/lab/") {
+			if lab.control == nil {
+				w.WriteHeader(404)
+			} else {
+				lab.control.ServeHTTP(w, r)
+			}
+			return
+		}
+		if c.Noop {
+			w.WriteHeader(202)
+			fmt.Fprintf(w, `{"data":{"acceptanceId":%q}}`, r.Header.Get("Idempotency-Key"))
+			return
+		}
+		r.Host = "ding.example"
+		h.ServeHTTP(w, r)
+	}))
+	if os.Getenv("DING_SCALE_EXTERNAL") == "container" {
+		server.Listener.Close()
+		server.Listener, err = net.Listen("tcp", ":8443")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	server.StartTLS()
 	t.Cleanup(server.Close)
-	lab := &scaleLab{server: s, http: server, root: root, key: key}
+	lab.http = server
 	if c.Receiver != "" {
 		lab.receiver = newScaleReceiver(t, c.Receiver, c.Seconds, filepath.Join(root, "receiver.jsonl"))
 		pool.http.Transport = scaleDeliveryTransport{receiver: lab.receiver, next: pool.http.Transport}
