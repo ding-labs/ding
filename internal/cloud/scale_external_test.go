@@ -1,6 +1,7 @@
 package cloud
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
@@ -17,7 +18,7 @@ import (
 
 // This protocol exists only in the opt-in test binary. All network exposure is
 // localhost or a Docker port published explicitly to the host's loopback.
-func scaleExternal(t *testing.T, lab *scaleLab, out string) (func(), func() PushBenchmarkResult) {
+func scaleExternal(t *testing.T, lab *scaleLab, out string) (func(), func(context.Context) PushBenchmarkResult) {
 	t.Helper()
 	var key [32]byte
 	if _, err := rand.Read(key[:]); err != nil {
@@ -83,11 +84,14 @@ func scaleExternal(t *testing.T, lab *scaleLab, out string) (func(), func() Push
 			case <-time.After(2 * time.Minute):
 				t.Fatal("local generator did not start")
 			}
-		}, func() PushBenchmarkResult {
+		}, func(ctx context.Context) PushBenchmarkResult {
 			close(ready)
 			select {
 			case result := <-finish:
 				return result
+			case <-ctx.Done():
+				t.Fatal("local disk guard stopped the server")
+				return PushBenchmarkResult{}
 			case <-time.After(time.Hour + 5*time.Minute):
 				t.Fatal("local generator did not finish")
 				return PushBenchmarkResult{}

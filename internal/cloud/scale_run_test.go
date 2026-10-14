@@ -35,6 +35,7 @@ type scaleReport struct {
 	ReceiverAttempts, ReceiverAccepted int
 	ReceiverUnique                     int
 	DeliveryDrainSeconds               float64
+	Aborted                            string
 	RestartVerified                    bool
 }
 
@@ -74,13 +75,14 @@ func TestLocalPushScale(t *testing.T) {
 	}
 	report.Preload = scalePreload(t, lab, c, out)
 	var waitStart func()
-	var waitFinish func() PushBenchmarkResult
+	var waitFinish func(context.Context) PushBenchmarkResult
 	if os.Getenv("DING_SCALE_EXTERNAL") != "" {
 		waitStart, waitFinish = scaleExternal(t, lab, out)
 		waitStart()
 	}
 	report.Before = scaleAccounts(t, lab)
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	var wg sync.WaitGroup
 	var finishReads func() (int, float64, int)
 	if c.Reads {
@@ -96,6 +98,13 @@ func TestLocalPushScale(t *testing.T) {
 			case <-ctx.Done():
 				return
 			case <-tick.C:
+				for _, path := range []string{lab.root, out} {
+					if free, err := freeDiskBytes(path); err != nil || free < 20<<30 {
+						report.Aborted = "local free-disk floor reached"
+						cancel()
+						return
+					}
+				}
 				var mem runtime.MemStats
 				runtime.ReadMemStats(&mem)
 				w := httptest.NewRecorder()
@@ -107,9 +116,9 @@ func TestLocalPushScale(t *testing.T) {
 	stopProfiles := scaleProfiles(t, out)
 	report.StartedAt = time.Now().UTC()
 	if waitFinish != nil {
-		report.Load = waitFinish()
+		report.Load = waitFinish(ctx)
 	} else {
-		report.Load, err = BenchmarkPush(context.Background(), PushBenchmarkOptions{Producers: lab.producers, Client: lab.http.Client(), Rate: c.Rate, Duration: time.Duration(c.Seconds) * time.Second, Workers: c.Workers, Ledger: filepath.Join(out, "requests.jsonl"), LedgerBatch: 32, CompactLedger: true, NoRetry: true})
+		report.Load, err = BenchmarkPush(ctx, PushBenchmarkOptions{Producers: lab.producers, Client: lab.http.Client(), Rate: c.Rate, Duration: time.Duration(c.Seconds) * time.Second, Workers: c.Workers, Ledger: filepath.Join(out, "requests.jsonl"), LedgerBatch: 32, CompactLedger: true, NoRetry: true})
 	}
 	report.EndedAt = time.Now().UTC()
 	stopProfiles()
@@ -120,6 +129,9 @@ func TestLocalPushScale(t *testing.T) {
 	}
 	if err != nil {
 		report.Errors = append(report.Errors, err.Error())
+	}
+	if report.Aborted != "" {
+		report.Errors = append(report.Errors, report.Aborted)
 	}
 	if !c.Noop {
 		var errs []string

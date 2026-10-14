@@ -72,6 +72,8 @@ def execute(binary, driver, config, output, environment):
                         pass
                 time.sleep(1 if generator is None else 5)
             code = process.wait()
+            if code != 0 and generator is not None and generator.poll() is None:
+                generator.kill()
             generator_code = generator.wait() if generator is not None else None
         except (RuntimeError, TimeoutError) as error:
             failure = str(error)
