@@ -73,13 +73,13 @@ func TestLocalPushScale(t *testing.T) {
 		}
 	}
 	report.Preload = scalePreload(t, lab, c, out)
-	report.Before = scaleAccounts(t, lab)
 	var waitStart func()
 	var waitFinish func() PushBenchmarkResult
 	if os.Getenv("DING_SCALE_EXTERNAL") != "" {
 		waitStart, waitFinish = scaleExternal(t, lab, out)
 		waitStart()
 	}
+	report.Before = scaleAccounts(t, lab)
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 	var finishReads func() (int, float64, int)
