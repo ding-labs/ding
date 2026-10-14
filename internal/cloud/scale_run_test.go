@@ -22,18 +22,20 @@ type scaleSample struct {
 	Metrics         string
 }
 type scaleReport struct {
-	Config                scaleConfig
-	StartedAt, EndedAt    time.Time
-	Runtime               string
-	GOMAXPROCS            int
-	Before, After         []scaleAccounting
-	Load                  PushBenchmarkResult
-	Resolved              int
-	Errors                []string
-	Samples               []scaleSample
-	Preload               PushBenchmarkResult
-	ReadCount, ReadErrors int
-	ReadP99MS             float64
+	Config                             scaleConfig
+	StartedAt, EndedAt                 time.Time
+	Runtime                            string
+	GOMAXPROCS                         int
+	Before, After                      []scaleAccounting
+	Load                               PushBenchmarkResult
+	Resolved                           int
+	Errors                             []string
+	Samples                            []scaleSample
+	Preload                            PushBenchmarkResult
+	ReadCount, ReadErrors              int
+	ReadP99MS                          float64
+	ReceiverAttempts, ReceiverAccepted int
+	DeliveryDrainSeconds               float64
 }
 
 // Opt-in only. The config and evidence directory must be supplied explicitly;
@@ -121,6 +123,25 @@ func TestLocalPushScale(t *testing.T) {
 		report.Errors = append(report.Errors, errs...)
 	}
 	report.After = scaleAccounts(t, lab)
+	if lab.receiver != nil {
+		start := time.Now()
+		deadline := start.Add(time.Minute)
+		for time.Now().Before(deadline) {
+			pending := 0
+			for _, a := range report.After {
+				pending += a.Rows.Pending
+			}
+			if pending == 0 {
+				break
+			}
+			time.Sleep(time.Second)
+			report.After = scaleAccounts(t, lab)
+		}
+		report.DeliveryDrainSeconds = time.Since(start).Seconds()
+		lab.receiver.mu.Lock()
+		report.ReceiverAttempts, report.ReceiverAccepted = lab.receiver.attempts, lab.receiver.accepted
+		lab.receiver.mu.Unlock()
+	}
 	f, err := mcpconfig.CreatePrivate(filepath.Join(out, "report.json"))
 	if err != nil {
 		t.Fatal(err)

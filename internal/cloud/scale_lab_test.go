@@ -26,6 +26,7 @@ type scaleLab struct {
 	tenants   []*Tenant
 	producers []PushProducer
 	root      string
+	receiver  *scaleReceiver
 }
 
 func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
@@ -68,6 +69,10 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { r.Host = "ding.example"; h.ServeHTTP(w, r) }))
 	t.Cleanup(server.Close)
 	lab := &scaleLab{server: s, http: server, root: root}
+	if c.Receiver != "" {
+		lab.receiver = newScaleReceiver(t, c.Receiver, c.Seconds)
+		pool.http.Transport = scaleDeliveryTransport{receiver: lab.receiver, next: pool.http.Transport}
+	}
 	bodies, err := c.bodies()
 	if err != nil {
 		t.Fatal(err)
@@ -76,6 +81,11 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 		enrolled, err := db.Enroll(ctx, "local-scale", fmt.Sprintf("user-%d", i), MaxAccounts)
 		if err != nil {
 			t.Fatal(err)
+		}
+		if lab.receiver != nil {
+			if err := vault.Put(ctx, enrolled.Workspace.ID, "SCALE_WEBHOOK", lab.receiver.server.URL); err != nil {
+				t.Fatal(err)
+			}
 		}
 		tenant, err := scaleTenant(pool, enrolled.Workspace, c.Defaults)
 		if err != nil {
