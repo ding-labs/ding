@@ -1,0 +1,124 @@
+package cloud
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"runtime"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/ding-labs/ding/internal/mcpconfig"
+)
+
+type scaleSample struct {
+	At              time.Time
+	Heap, Allocated uint64
+	Metrics         string
+}
+type scaleReport struct {
+	Config             scaleConfig
+	StartedAt, EndedAt time.Time
+	Runtime            string
+	GOMAXPROCS         int
+	Before, After      []scaleAccounting
+	Load               PushBenchmarkResult
+	Resolved           int
+	Errors             []string
+	Samples            []scaleSample
+}
+
+// Opt-in only. The config and evidence directory must be supplied explicitly;
+// no production URL, account, state directory, or credential is accepted.
+func TestLocalPushScale(t *testing.T) {
+	path := os.Getenv("DING_SCALE_CONFIG")
+	if path == "" {
+		t.Skip("opt-in local stress lab")
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var c scaleConfig
+	if err := json.Unmarshal(raw, &c); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.validate(); err != nil {
+		t.Fatal(err)
+	}
+	out := os.Getenv("DING_SCALE_OUTPUT")
+	if out == "" {
+		t.Fatal("DING_SCALE_OUTPUT required")
+	}
+	if err := os.MkdirAll(out, 0700); err != nil {
+		t.Fatal(err)
+	}
+	report := scaleReport{Config: c, Runtime: runtime.Version() + " " + runtime.GOOS + "/" + runtime.GOARCH, GOMAXPROCS: runtime.GOMAXPROCS(0)}
+	lab := newScaleLab(t, c)
+	if c.Noop {
+		lab.http.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(202)
+			fmt.Fprintf(w, `{"data":{"acceptanceId":%q}}`, r.Header.Get("Idempotency-Key"))
+		})
+	}
+	if c.Noisy > 0 {
+		first := lab.producers[0]
+		n := (len(lab.producers) - 1) * c.Noisy / (100 - c.Noisy)
+		for range n {
+			lab.producers = append(lab.producers, first)
+		}
+	}
+	report.Before = scaleAccounts(t, lab)
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		tick := time.NewTicker(5 * time.Second)
+		defer tick.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-tick.C:
+				var mem runtime.MemStats
+				runtime.ReadMemStats(&mem)
+				w := httptest.NewRecorder()
+				lab.server.Pool.Metrics(w, httptest.NewRequest("GET", "http://127.0.0.1/metrics", nil))
+				report.Samples = append(report.Samples, scaleSample{At: time.Now().UTC(), Heap: mem.HeapAlloc, Allocated: mem.TotalAlloc, Metrics: w.Body.String()})
+			}
+		}
+	}()
+	report.StartedAt = time.Now().UTC()
+	report.Load, err = BenchmarkPush(context.Background(), PushBenchmarkOptions{Producers: lab.producers, Client: lab.http.Client(), Rate: c.Rate, Duration: time.Duration(c.Seconds) * time.Second, Workers: c.Workers, Ledger: filepath.Join(out, "requests.jsonl"), LedgerBatch: 32, CompactLedger: true, NoRetry: true})
+	report.EndedAt = time.Now().UTC()
+	cancel()
+	wg.Wait()
+	if err != nil {
+		report.Errors = append(report.Errors, err.Error())
+	}
+	if !c.Noop {
+		var errs []string
+		report.Resolved, errs = scaleReconcile(t, lab, c, filepath.Join(out, "requests.jsonl"), report.Before)
+		report.Errors = append(report.Errors, errs...)
+	}
+	report.After = scaleAccounts(t, lab)
+	f, err := mcpconfig.CreatePrivate(filepath.Join(out, "report.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = json.NewEncoder(f).Encode(report)
+	f.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("local scale %s: %+v; resolved=%d errors=%v", c.Name, report.Load, report.Resolved, report.Errors)
+	if len(report.Errors) > 0 {
+		t.Fatal(report.Errors)
+	}
+}
