@@ -94,9 +94,11 @@ func TestLocalPushScale(t *testing.T) {
 			}
 		}
 	}()
+	stopProfiles := scaleProfiles(t, out)
 	report.StartedAt = time.Now().UTC()
 	report.Load, err = BenchmarkPush(context.Background(), PushBenchmarkOptions{Producers: lab.producers, Client: lab.http.Client(), Rate: c.Rate, Duration: time.Duration(c.Seconds) * time.Second, Workers: c.Workers, Ledger: filepath.Join(out, "requests.jsonl"), LedgerBatch: 32, CompactLedger: true, NoRetry: true})
 	report.EndedAt = time.Now().UTC()
+	stopProfiles()
 	cancel()
 	wg.Wait()
 	if err != nil {
