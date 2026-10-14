@@ -47,15 +47,19 @@ type PushBenchmarkResult struct {
 	DurationSeconds float64     `json:"durationSeconds"`
 	FirstAccepted   int         `json:"firstAccepted"`
 	Statuses        map[int]int `json:"statuses"`
+	Scheduled       int         `json:"scheduled"`
+	ScheduleP99MS   float64     `json:"scheduleP99MS"`
+	HTTPP99MS       float64     `json:"httpP99MS"`
 }
 type pushLedgerEntry struct {
-	Key      string             `json:"key"`
-	Producer int                `json:"producer"`
-	Body     json.RawMessage    `json:"body,omitempty"`
-	Stage    string             `json:"stage"`
-	Status   int                `json:"status,omitempty"`
-	At       time.Time          `json:"at"`
-	Receipt  *store.PushReceipt `json:"receipt,omitempty"`
+	Key         string             `json:"key"`
+	Producer    int                `json:"producer"`
+	Body        json.RawMessage    `json:"body,omitempty"`
+	Stage       string             `json:"stage"`
+	Status      int                `json:"status,omitempty"`
+	At          time.Time          `json:"at"`
+	Receipt     *store.PushReceipt `json:"receipt,omitempty"`
+	ScheduledAt time.Time          `json:"scheduledAt,omitempty"`
 }
 
 func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkResult, error) {
@@ -106,11 +110,16 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 	run, cancel := context.WithCancel(ctx)
 	defer cancel()
 	start := time.Now()
-	deadline := start.Add(o.Duration)
 	var mu sync.Mutex
 	var failure error
 	histogram := make([]int, 120001) // Bounded millisecond histogram, including retry latency.
-	jobs := make(chan int, o.Workers*2)
+	scheduleHistogram := make([]int, 120001)
+	httpHistogram := make([]int, 120001)
+	type job struct {
+		producer int
+		due      time.Time
+	}
+	jobs := make(chan job, o.Workers*2)
 	var workers sync.WaitGroup
 	fail := func(err error) {
 		mu.Lock()
@@ -124,10 +133,11 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 		workers.Add(1)
 		go func() {
 			defer workers.Done()
-			for i := range jobs {
+			for j := range jobs {
+				i := j.producer
 				p := o.Producers[i]
 				key := state.ID()
-				if err := record(pushLedgerEntry{Key: key, Producer: i, Body: p.Body, Stage: "offered", At: time.Now().UTC()}); err != nil {
+				if err := record(pushLedgerEntry{Key: key, Producer: i, Body: p.Body, Stage: "offered", At: time.Now().UTC(), ScheduledAt: j.due}); err != nil {
 					fail(err)
 					continue
 				}
@@ -135,7 +145,9 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 				result.Offered++
 				mu.Unlock()
 				accepted, rejected := false, false
-				begin := time.Now()
+				mu.Lock()
+				scheduleHistogram[min(int(time.Since(j.due).Milliseconds()), len(scheduleHistogram)-1)]++
+				mu.Unlock()
 				for attempt := 0; attempt < 4; attempt++ {
 					req, err := http.NewRequestWithContext(run, "POST", p.URL, bytes.NewReader(p.Body))
 					if err != nil {
@@ -148,6 +160,7 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 					mu.Lock()
 					result.Attempts++
 					mu.Unlock()
+					begin := time.Now()
 					response, err := client.Do(req)
 					status := 0
 					retryAfter := time.Duration(1<<attempt) * time.Second
@@ -174,7 +187,7 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 							if receipt.Duplicate {
 								result.Replayed++
 							}
-							histogram[min(int(time.Since(begin).Milliseconds()), len(histogram)-1)]++
+							histogram[min(int(time.Since(j.due).Milliseconds()), len(histogram)-1)]++
 						}
 						if status >= 400 && status < 500 && status != 429 {
 							rejected = true
@@ -182,6 +195,9 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 						}
 						mu.Unlock()
 					}
+					mu.Lock()
+					httpHistogram[min(int(time.Since(begin).Milliseconds()), len(httpHistogram)-1)]++
+					mu.Unlock()
 					if err != nil {
 						mu.Lock()
 						result.Statuses[0]++
@@ -211,19 +227,29 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 			}
 		}()
 	}
-	tick := time.NewTicker(time.Second / time.Duration(o.Rate))
-	defer tick.Stop()
-	offered := 0
+	timer := time.NewTimer(time.Hour)
+	defer timer.Stop()
+	timer.Stop()
+	totalScheduled := int(float64(o.Duration) / float64(time.Second) * float64(o.Rate))
 schedule:
-	for time.Now().Before(deadline) {
-		select {
-		case <-run.Done():
-			break schedule
-		case <-tick.C:
+	for i := 0; i < totalScheduled; i++ {
+		due := start.Add(time.Duration(float64(i+1) * float64(time.Second) / float64(o.Rate)))
+		if delay := time.Until(due); delay > 0 {
+			timer.Reset(delay)
+			select {
+			case <-run.Done():
+				break schedule
+			case <-timer.C:
+			}
 		}
+		if run.Err() != nil {
+			break
+		}
+		mu.Lock()
+		result.Scheduled++
+		mu.Unlock()
 		select {
-		case jobs <- offered % len(o.Producers):
-			offered++
+		case jobs <- job{producer: i % len(o.Producers), due: due}:
 		default:
 			mu.Lock()
 			result.GeneratorBusy++
@@ -232,23 +258,10 @@ schedule:
 	}
 	close(jobs)
 	workers.Wait()
-	total := 0
-	for _, n := range histogram {
-		total += n
-	}
-	cumulative := 0
-	p95Set := false
-	for ms, n := range histogram {
-		cumulative += n
-		if !p95Set && cumulative >= (total*95+99)/100 {
-			p95Set = true
-			result.P95MS = float64(ms)
-		}
-		if cumulative >= (total*99+99)/100 {
-			result.P99MS = float64(ms)
-			break
-		}
-	}
+	result.P95MS = histogramPercentile(histogram, 95)
+	result.P99MS = histogramPercentile(histogram, 99)
+	result.ScheduleP99MS = histogramPercentile(scheduleHistogram, 99)
+	result.HTTPP99MS = histogramPercentile(httpHistogram, 99)
 	result.DurationSeconds = time.Since(start).Seconds()
 	if failure != nil {
 		return result, failure
@@ -257,4 +270,22 @@ schedule:
 		return result, ctx.Err()
 	}
 	return result, nil
+}
+
+func histogramPercentile(histogram []int, percentile int) float64 {
+	total := 0
+	for _, n := range histogram {
+		total += n
+	}
+	if total == 0 {
+		return 0
+	}
+	count := 0
+	for ms, n := range histogram {
+		count += n
+		if count >= (total*percentile+99)/100 {
+			return float64(ms)
+		}
+	}
+	return 0
 }
