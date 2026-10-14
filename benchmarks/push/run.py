@@ -23,8 +23,9 @@ def save(path, value):
         json.dump(value, f, indent=2)
 
 
-def execute(binary, config, output, environment):
-    env = dict(os.environ, DING_SCALE_CONFIG=str(output / 'config.json'), DING_SCALE_OUTPUT=str(output))
+def execute(binary, driver, config, output, environment):
+    env = dict(os.environ, DING_SCALE_CONFIG=str(output / 'config.json'),
+               DING_SCALE_OUTPUT=str(output), DING_SCALE_EXTERNAL=environment)
     timeout = config['Seconds'] + config.get('Preload', 0) / 500 + 900
     container = 'ding-scale-' + output.parent.name.lower() + '-' + output.name.lower()
     volume = container + '-data'
@@ -32,40 +33,58 @@ def execute(binary, config, output, environment):
     if environment == 'container':
         command(['docker', 'volume', 'create', volume])
         args = ['docker', 'run', '--name', container, '--cpus=1', '--memory=1g', '--memory-swap=1g',
-                '--mount', 'type=volume,source='+volume+',target=/lab',
+                '-p', '127.0.0.1::8443', '--mount', 'type=volume,source='+volume+',target=/lab',
                 '--mount', 'type=bind,source='+str(binary)+',target=/scale.test,readonly',
-                '--mount', 'type=bind,source='+str(output/'config.json')+',target=/config.json,readonly',
-                '-e', 'DING_SCALE_CONFIG=/config.json', '-e', 'DING_SCALE_OUTPUT=/lab/evidence',
-                '-e', 'TMPDIR=/lab', 'debian:bookworm-slim'] + ['/scale.test'] + args[1:]
+                '--mount', 'type=bind,source='+str(output)+',target=/evidence',
+                '-e', 'DING_SCALE_CONFIG=/evidence/config.json', '-e', 'DING_SCALE_OUTPUT=/evidence',
+                '-e', 'DING_SCALE_EXTERNAL=container', '-e', 'TMPDIR=/lab', 'debian:bookworm-slim'] + ['/scale.test'] + args[1:]
     started = time.monotonic()
     samples = []
-    with (output/'run.log').open('x') as log:
+    bootstrap = output/'bootstrap.json'
+    generator = None
+    with (output/'run.log').open('x') as log, (output/'generator.log').open('x') as generator_log:
         process = subprocess.Popen(args, cwd=REPO, env=env, stdout=log, stderr=subprocess.STDOUT)
         try:
             while process.poll() is None:
                 if time.monotonic()-started > timeout+60:
-                    process.kill()
+                    raise TimeoutError('local case timed out')
+                if generator is None and bootstrap.exists():
+                    try:
+                        endpoint = json.loads(bootstrap.read_text())['URL']
+                    except (json.JSONDecodeError, KeyError):
+                        time.sleep(.1)
+                        continue
                     if environment == 'container':
-                        subprocess.run(['docker','kill',container],capture_output=True)
-                    break
-                try:
-                    if environment == 'container':
-                        value = command(['docker','stats','--no-stream','--format','{{json .}}',container])
-                    else:
-                        value = command(['ps','-o','rss=,%cpu=','-p',str(process.pid)])
-                    samples.append({'elapsed':time.monotonic()-started,'value':value})
-                except subprocess.CalledProcessError:
-                    pass
-                time.sleep(5)
+                        endpoint = 'https://'+command(['docker','port',container,'8443/tcp'])
+                    generator = subprocess.Popen([str(driver),'-bootstrap',str(bootstrap),'-url',endpoint,
+                        '-output',str(output),'-seconds',str(config['Seconds']),'-rate',str(config['Rate']),
+                        '-workers',str(config.get('Workers',128))],cwd=REPO,stdout=generator_log,stderr=subprocess.STDOUT)
+                if generator is not None and generator.poll() not in (None,0):
+                    raise RuntimeError('local generator failed; inspect private generator.log')
+                if generator is not None:
+                    try:
+                        value = (command(['docker','stats','--no-stream','--format','{{json .}}',container])
+                            if environment == 'container' else command(['ps','-o','rss=,%cpu=','-p',str(process.pid)]))
+                        producer = command(['ps','-o','rss=,%cpu=','-p',str(generator.pid)]) if generator.poll() is None else None
+                        samples.append({'elapsed':time.monotonic()-started,'server':value,'generator':producer})
+                    except subprocess.CalledProcessError:
+                        pass
+                time.sleep(1 if generator is None else 5)
             code = process.wait()
+            generator_code = generator.wait() if generator is not None else None
         finally:
             if process.poll() is None:
                 process.kill();process.wait()
-    metadata = {'exitCode':code,'wallSeconds':time.monotonic()-started,'resources':samples}
+            if generator is not None and generator.poll() is None:
+                generator.kill();generator.wait()
+            bootstrap.unlink(missing_ok=True)
+            if environment == 'container':
+                subprocess.run(['docker','kill',container],capture_output=True)
+    metadata = {'exitCode':code,'generatorExitCode':generator_code,
+                'wallSeconds':time.monotonic()-started,'resources':samples}
     if environment == 'container':
         try:
             metadata['container'] = json.loads(command(['docker','inspect',container]))[0]['State']
-            subprocess.run(['docker','cp',container+':/lab/evidence/.',str(output)],check=False,capture_output=True)
         finally:
             subprocess.run(['docker','rm','-f',container],check=False,capture_output=True)
             subprocess.run(['docker','volume','rm',volume],check=False,capture_output=True)
@@ -77,11 +96,11 @@ def execute(binary, config, output, environment):
     load = report['Load']
     fraction = load['firstAccepted']/max(1,config['Rate']*config['Seconds'])
     return {'case':output.name,'exitCode':code,'offeredRate':config['Rate'],
-            'acceptedRate':load['accepted']/load['durationSeconds'], 'acceptedFraction':fraction,
+            'acceptedRate':load['accepted']/max(.001,load['durationSeconds']), 'acceptedFraction':fraction,
             'p99MS':load['p99MS'],'httpP99MS':load['httpP99MS'],'scheduleP99MS':load['scheduleP99MS'],
             'generatorBusy':load['generatorBusy'],'statuses':load['statuses'],'resolved':report['Resolved'],
             'reconciliationErrors':report['Errors'],
-            'stable':code==0 and fraction>=.999 and load['p99MS']<250 and not report['Errors'] and not report['ReadErrors']}
+            'stable':code==0 and generator_code==0 and fraction>=.999 and load['p99MS']<250 and not report['Errors'] and not report['ReadErrors']}
 
 
 def main():
@@ -103,6 +122,8 @@ def main():
     root = args.output.resolve()/(stamp+'-'+args.environment)
     root.mkdir(mode=0o700, parents=True)
     binary = root/'scale.test'
+    driver = root/'load'
+    subprocess.run(['go','build','-o',str(driver),'./cmd/ding-local-load'],cwd=REPO,check=True)
     build_env = dict(os.environ)
     if args.environment == 'container':
         build_env.update(GOOS='linux',CGO_ENABLED='0')
@@ -112,7 +133,7 @@ def main():
          'dirty':bool(command(['git','status','--porcelain'])), 'platform':platform.platform(),
          'environment':args.environment,'binarySHA256':hashlib.sha256(binary.read_bytes()).hexdigest(),
          'createdAt':stamp,'cases':requested,'repeat':args.repeat,'secondsOverride':args.seconds,
-         'note':'Generator and server share one process/CPU budget. Container databases and ledgers use a Docker local volume; native uses the host filesystem.'})
+         'note':'Separate host generator. Only the server is CPU/memory constrained. Container databases use a Docker local volume; ledgers use the host filesystem.'})
     results = []
     print('Evidence: '+str(root),flush=True)
     for name in requested:
@@ -125,7 +146,7 @@ def main():
             output = root/(name+'-'+str(repeat+1));output.mkdir(mode=0o700)
             save(output/'config.json',config)
             print('Starting '+output.name,flush=True)
-            result = execute(binary,config,output,args.environment)
+            result = execute(binary,driver,config,output,args.environment)
             results.append(result)
             with (root/'summary.json').open('w') as f:
                 json.dump(results,f,indent=2)
