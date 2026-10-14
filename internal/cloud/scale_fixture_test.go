@@ -19,7 +19,7 @@ type scaleConfig struct {
 
 func (c *scaleConfig) validate() error {
 	if c.Workers == 0 {
-		c.Workers = 128
+		c.Workers = 512
 	}
 	if c.Workspaces == 0 {
 		c.Workspaces = 1

@@ -59,7 +59,7 @@ def execute(binary, driver, config, output, environment):
                         endpoint = 'https://'+command(['docker','port',container,'8443/tcp'])
                     generator = subprocess.Popen([str(driver),'-bootstrap',str(bootstrap),'-url',endpoint,
                         '-output',str(output),'-seconds',str(config['Seconds']),'-rate',str(config['Rate']),
-                        '-workers',str(config.get('Workers',128))],cwd=REPO,stdout=generator_log,stderr=subprocess.STDOUT)
+                        '-workers',str(config.get('Workers',512))],cwd=REPO,stdout=generator_log,stderr=subprocess.STDOUT)
                 if generator is not None and generator.poll() not in (None,0):
                     raise RuntimeError('local generator failed; inspect private generator.log')
                 if generator is not None:

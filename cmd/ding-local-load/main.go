@@ -34,7 +34,7 @@ func run() error {
 	output := flag.String("output", "", "private evidence directory")
 	rate := flag.Int("rate", 100, "offered requests/second")
 	seconds := flag.Int("seconds", 180, "measured seconds")
-	workers := flag.Int("workers", 128, "generator workers")
+	workers := flag.Int("workers", 512, "generator workers")
 	flag.Parse()
 	if *output == "" {
 		return fmt.Errorf("output directory required")
