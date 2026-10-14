@@ -1,6 +1,7 @@
 package cloud
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -99,15 +100,23 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 		return result, err
 	}
 	defer ledger.Close()
-	record, closeLedger := groupedPushLedger(ledger, o.LedgerBatch)
-	defer closeLedger()
 	if o.CompactLedger {
+		buffer := bufio.NewWriter(ledger)
+		encoder := json.NewEncoder(buffer)
 		for i, p := range o.Producers {
-			if err := record(pushLedgerEntry{Producer: i, Body: p.Body, Stage: "producer", At: time.Now().UTC()}); err != nil {
+			if err := encoder.Encode(pushLedgerEntry{Producer: i, Body: p.Body, Stage: "producer", At: time.Now().UTC()}); err != nil {
 				return result, err
 			}
 		}
+		if err := buffer.Flush(); err != nil {
+			return result, err
+		}
+		if err := ledger.Sync(); err != nil {
+			return result, err
+		}
 	}
+	record, closeLedger := groupedPushLedger(ledger, o.LedgerBatch)
+	defer closeLedger()
 	client := o.Client
 	if client == nil {
 		client = &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
