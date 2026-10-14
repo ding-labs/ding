@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -76,9 +78,23 @@ func scaleReads(ctx context.Context, lab *scaleLab) func() (int, float64, int) {
 				return
 			case <-tick.C:
 				start := time.Now()
-				tenant := lab.tenants[i%len(lab.tenants)]
+				index := i % len(lab.tenants)
 				i++
-				_, err := tenant.App.Inspect(ctx, "ci")
+				readCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				req, err := http.NewRequestWithContext(readCtx, "GET", lab.http.URL+"/v1/watches/ci", nil)
+				if err == nil {
+					req.Header.Set("Authorization", "Bearer "+os.Getenv(fmt.Sprintf("DING_LOCAL_SCALE_%d", index)))
+					var response *http.Response
+					response, err = lab.http.Client().Do(req)
+					if err == nil {
+						_, err = io.Copy(io.Discard, response.Body)
+						response.Body.Close()
+						if err == nil && response.StatusCode != 200 {
+							err = fmt.Errorf("read status %d", response.StatusCode)
+						}
+					}
+				}
+				cancel()
 				if err != nil && ctx.Err() == nil {
 					errors++
 				}
