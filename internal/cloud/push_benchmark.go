@@ -52,6 +52,7 @@ type PushBenchmarkResult struct {
 	Scheduled       int         `json:"scheduled"`
 	ScheduleP99MS   float64     `json:"scheduleP99MS"`
 	HTTPP99MS       float64     `json:"httpP99MS"`
+	Throttled       int         `json:"throttled"`
 }
 type pushLedgerEntry struct {
 	Key         string             `json:"key"`
@@ -157,6 +158,7 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 				result.Offered++
 				mu.Unlock()
 				accepted, rejected := false, false
+				lastStatus := 0
 				mu.Lock()
 				scheduleHistogram[min(int(time.Since(j.due).Milliseconds()), len(scheduleHistogram)-1)]++
 				mu.Unlock()
@@ -207,6 +209,7 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 						}
 						mu.Unlock()
 					}
+					lastStatus = status
 					mu.Lock()
 					httpHistogram[min(int(time.Since(begin).Milliseconds()), len(httpHistogram)-1)]++
 					mu.Unlock()
@@ -233,7 +236,11 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 				}
 				if !accepted && !rejected {
 					mu.Lock()
-					result.Unconfirmed++
+					if o.NoRetry && lastStatus == 429 {
+						result.Throttled++
+					} else {
+						result.Unconfirmed++
+					}
 					mu.Unlock()
 				}
 			}
