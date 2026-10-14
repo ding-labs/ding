@@ -70,7 +70,7 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 	t.Cleanup(server.Close)
 	lab := &scaleLab{server: s, http: server, root: root}
 	if c.Receiver != "" {
-		lab.receiver = newScaleReceiver(t, c.Receiver, c.Seconds)
+		lab.receiver = newScaleReceiver(t, c.Receiver, c.Seconds, filepath.Join(root, "receiver.jsonl"))
 		pool.http.Transport = scaleDeliveryTransport{receiver: lab.receiver, next: pool.http.Transport}
 	}
 	bodies, err := c.bodies()
