@@ -100,12 +100,15 @@ def execute(binary, driver, config, output, environment):
     report = json.loads(report_path.read_text())
     load = report['Load']
     fraction = load['firstAccepted']/max(1,config['Rate']*config['Seconds'])
+    pending = sum(a['Rows']['pending'] for a in report['After'])
+    postchecks = report.get('PostChecksVerified',False) or config.get('Noop',False)
     return {'case':output.name,'exitCode':code,'offeredRate':config['Rate'],
             'acceptedRate':load['accepted']/max(.001,load['durationSeconds']), 'acceptedFraction':fraction,
             'p99MS':load['p99MS'],'httpP99MS':load['httpP99MS'],'scheduleP99MS':load['scheduleP99MS'],
             'generatorBusy':load['generatorBusy'],'statuses':load['statuses'],'resolved':report['Resolved'],
-            'reconciliationErrors':report['Errors'],
-            'stable':code==0 and generator_code==0 and fraction>=.999 and load['p99MS']<250 and not report['Errors'] and not report['ReadErrors']}
+            'reconciliationErrors':report['Errors'],'readP99MS':report['ReadP99MS'],
+            'pendingDeliveries':pending,'postChecksVerified':postchecks,
+            'stable':code==0 and generator_code==0 and fraction>=.999 and load['p99MS']<250 and not report['Errors'] and not report['ReadErrors'] and pending==0 and postchecks}
 
 
 def main():
