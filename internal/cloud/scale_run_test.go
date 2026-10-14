@@ -37,6 +37,7 @@ type scaleReport struct {
 	ReceiverAttempts, ReceiverAccepted int
 	ReceiverUnique                     int
 	DeliveryDrainSeconds               float64
+	RestartVerified                    bool
 }
 
 // Opt-in only. The config and evidence directory must be supplied explicitly;
@@ -122,6 +123,12 @@ func TestLocalPushScale(t *testing.T) {
 		var errs []string
 		report.Resolved, errs = scaleReconcile(t, lab, c, filepath.Join(out, "requests.jsonl"), report.Before)
 		report.Errors = append(report.Errors, errs...)
+	}
+	if c.Restart {
+		scaleRestart(t, lab, c)
+		_, errs := scaleReconcile(t, lab, c, filepath.Join(out, "requests.jsonl"), report.Before)
+		report.Errors = append(report.Errors, errs...)
+		report.RestartVerified = len(errs) == 0
 	}
 	report.After = scaleAccounts(t, lab)
 	if lab.receiver != nil {

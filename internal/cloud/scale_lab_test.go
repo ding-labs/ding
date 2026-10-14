@@ -27,6 +27,7 @@ type scaleLab struct {
 	producers []PushProducer
 	root      string
 	receiver  *scaleReceiver
+	key       []byte
 }
 
 func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
@@ -68,7 +69,7 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 	}
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { r.Host = "ding.example"; h.ServeHTTP(w, r) }))
 	t.Cleanup(server.Close)
-	lab := &scaleLab{server: s, http: server, root: root}
+	lab := &scaleLab{server: s, http: server, root: root, key: key}
 	if c.Receiver != "" {
 		lab.receiver = newScaleReceiver(t, c.Receiver, c.Seconds, filepath.Join(root, "receiver.jsonl"))
 		pool.http.Transport = scaleDeliveryTransport{receiver: lab.receiver, next: pool.http.Transport}
