@@ -101,6 +101,9 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 		}
 	}
 	server.StartTLS()
+	if os.Getenv("DING_SCALE_EXTERNAL") == "container" {
+		server.URL = "https://127.0.0.1:8443"
+	}
 	t.Cleanup(server.Close)
 	lab.http = server
 	if c.Receiver != "" {

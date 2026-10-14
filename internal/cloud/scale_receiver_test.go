@@ -37,7 +37,7 @@ func newScaleReceiver(t *testing.T, mode string, seconds int, path string) *scal
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { f.Close() })
-	s := &scaleReceiver{recoverAt: time.Now().Add(time.Duration(seconds/2) * time.Second), ids: map[string]bool{}, ledger: f}
+	s := &scaleReceiver{ids: map[string]bool{}, ledger: f}
 	s.server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if mode == "slow" {
 			time.Sleep(100 * time.Millisecond)

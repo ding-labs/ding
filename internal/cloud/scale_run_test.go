@@ -116,6 +116,11 @@ func TestLocalPushScale(t *testing.T) {
 	}()
 	stopProfiles := scaleProfiles(t, out)
 	report.StartedAt = time.Now().UTC()
+	if lab.receiver != nil && c.Receiver == "outage" {
+		lab.receiver.mu.Lock()
+		lab.receiver.recoverAt = report.StartedAt.Add(time.Duration(c.Seconds/2) * time.Second)
+		lab.receiver.mu.Unlock()
+	}
 	if waitFinish != nil {
 		report.Load = waitFinish(ctx)
 	} else {
