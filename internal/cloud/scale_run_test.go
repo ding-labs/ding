@@ -22,15 +22,18 @@ type scaleSample struct {
 	Metrics         string
 }
 type scaleReport struct {
-	Config             scaleConfig
-	StartedAt, EndedAt time.Time
-	Runtime            string
-	GOMAXPROCS         int
-	Before, After      []scaleAccounting
-	Load               PushBenchmarkResult
-	Resolved           int
-	Errors             []string
-	Samples            []scaleSample
+	Config                scaleConfig
+	StartedAt, EndedAt    time.Time
+	Runtime               string
+	GOMAXPROCS            int
+	Before, After         []scaleAccounting
+	Load                  PushBenchmarkResult
+	Resolved              int
+	Errors                []string
+	Samples               []scaleSample
+	Preload               PushBenchmarkResult
+	ReadCount, ReadErrors int
+	ReadP99MS             float64
 }
 
 // Opt-in only. The config and evidence directory must be supplied explicitly;
@@ -73,9 +76,14 @@ func TestLocalPushScale(t *testing.T) {
 			lab.producers = append(lab.producers, first)
 		}
 	}
+	report.Preload = scalePreload(t, lab, c, out)
 	report.Before = scaleAccounts(t, lab)
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
+	var finishReads func() (int, float64, int)
+	if c.Reads {
+		finishReads = scaleReads(ctx, lab)
+	}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -101,6 +109,9 @@ func TestLocalPushScale(t *testing.T) {
 	stopProfiles()
 	cancel()
 	wg.Wait()
+	if finishReads != nil {
+		report.ReadCount, report.ReadP99MS, report.ReadErrors = finishReads()
+	}
 	if err != nil {
 		report.Errors = append(report.Errors, err.Error())
 	}
