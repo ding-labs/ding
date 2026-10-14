@@ -155,4 +155,7 @@ func TestScaleReconcilesFullPushLedger(t *testing.T) {
 	if resolved != 0 || len(errs) > 0 {
 		t.Fatal(resolved, errs)
 	}
+	if errs := scaleChecks(t, lab, c, path); len(errs) > 0 {
+		t.Fatal(errs)
+	}
 }

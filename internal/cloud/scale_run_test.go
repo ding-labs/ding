@@ -37,6 +37,7 @@ type scaleReport struct {
 	DeliveryDrainSeconds               float64
 	Aborted                            string
 	RestartVerified                    bool
+	PostChecksVerified                 bool
 }
 
 // Opt-in only. The config and evidence directory must be supplied explicitly;
@@ -143,6 +144,11 @@ func TestLocalPushScale(t *testing.T) {
 		_, errs := scaleReconcile(t, lab, c, filepath.Join(out, "requests.jsonl"), report.Before)
 		report.Errors = append(report.Errors, errs...)
 		report.RestartVerified = len(errs) == 0
+	}
+	if !c.Noop {
+		errs := scaleChecks(t, lab, c, filepath.Join(out, "requests.jsonl"))
+		report.Errors = append(report.Errors, errs...)
+		report.PostChecksVerified = len(errs) == 0 && report.Load.Accepted > 0
 	}
 	report.After = scaleAccounts(t, lab)
 	if lab.receiver != nil {
