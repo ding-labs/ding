@@ -23,7 +23,7 @@ services:
       interval: 2s
       timeout: 2s
       retries: 30
-    command: ['postgres', '-c', 'fsync=on', '-c', 'synchronous_commit=on', '-c', 'full_page_writes=on', '-c', 'max_connections=40', '-c', 'track_io_timing=on', '-c', 'track_wal_io_timing=on']
+    command: ['postgres', '-c', 'fsync=on', '-c', 'synchronous_commit=on', '-c', 'full_page_writes=on', '-c', 'max_connections=40', '-c', 'track_io_timing=on', '-c', 'track_wal_io_timing=on', '-c', 'shared_preload_libraries=${DING_PG_PROFILE_LIBRARY:-}', '-c', 'pg_stat_statements.track_planning=on']
 secrets:
   admin_password:
     file: '${DING_PG_PASSWORD_FILE}'

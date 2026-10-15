@@ -308,7 +308,7 @@ def main():
                    env=build_env if args.generator_placement=='container' else None,check=True)
     subprocess.run(['go','test','-c','-o',str(binary),'./internal/cloud'],cwd=REPO,env=build_env,check=True)
     pg = LocalPostgres(root/'postgres-lab', args.environment, args.resource_units,args.database_cpu_share,
-                       cpus=resources['databaseCPUs'], memory_mib=resources['databaseMemoryMiB']) if args.backend=='postgres' else None
+                       cpus=resources['databaseCPUs'], memory_mib=resources['databaseMemoryMiB'], profiles=args.profiles) if args.backend=='postgres' else None
     save(root/'manifest.json',{'backend':args.backend,'poolLimit':args.pool_limit,'queryMode':args.query_mode,
          'credentialReaders':args.credential_readers,'resourceUnits':args.resource_units,
          'receiverProcess':args.receiver_process,'generatorPlacement':args.generator_placement,

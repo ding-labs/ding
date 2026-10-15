@@ -6,6 +6,11 @@ Every offered key is reconciled against durable receipts, usage, and observation
 rows after measurement. Capacity runs leave profiling off. Use `--profiles` for
 diagnostic runs; their profiles exclude setup, warmup, and reconciliation. Compare
 profiled results with unprofiled controls before making a capacity claim.
+With PostgreSQL, `--profiles` also enables `pg_stat_statements` in the disposable
+fixture. Resource snapshots contain cumulative app-role planning/execution, block
+and WAL counters grouped by bounded operation names; subtract snapshots for a
+measurement interval. SQL text, parameters and credential roles are not exported.
+This profiling overhead is excluded from ordinary capacity runs.
 
 ## Run cases
 
