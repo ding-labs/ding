@@ -33,7 +33,7 @@ func (t *Tx) PushReceipt(lifetime, producer, key, digest string, now time.Time) 
 	var receipt PushReceipt
 	var body []byte
 	var stored string
-	err := t.sql.QueryRowContext(t.ctx, "SELECT digest,body FROM push_receipts WHERE lifetime=? AND producer=? AND input_key=? AND expires_at>?", lifetime, producer, key, timestamp(now)).Scan(&stored, &body)
+	err := t.sql.QueryRowContext(t.ctx, t.query(qPushReceipt), lifetime, producer, key, timestamp(now)).Scan(&stored, &body)
 	if err != nil {
 		return receipt, missing(err)
 	}
@@ -50,21 +50,21 @@ func (t *Tx) SavePushReceipt(lifetime, producer, key, digest string, receipt Pus
 	if err != nil {
 		return err
 	}
-	_, err = t.sql.ExecContext(t.ctx, `INSERT INTO push_receipts(lifetime,producer,input_key,digest,body,expires_at) VALUES(?,?,?,?,?,?) ON CONFLICT(lifetime,producer,input_key) DO UPDATE SET digest=excluded.digest,body=excluded.body,expires_at=excluded.expires_at`, lifetime, producer, key, digest, body, timestamp(receipt.ExpiresAt))
+	_, err = t.exec(qSavePushReceipt, lifetime, producer, key, digest, body, timestamp(receipt.ExpiresAt))
 	if err != nil {
 		return err
 	}
-	_, err = t.sql.ExecContext(t.ctx, "INSERT INTO push_last(watch,lifetime,body) VALUES(?,?,?) ON CONFLICT(watch) DO UPDATE SET lifetime=excluded.lifetime,body=excluded.body", receipt.WatchID, lifetime, body)
+	_, err = t.exec(qSaveLastPush, receipt.WatchID, lifetime, body)
 	if err != nil {
 		return err
 	}
-	_, err = t.sql.ExecContext(t.ctx, "UPDATE push_usage SET requests=requests+1,bytes=bytes+?,observations=observations+? WHERE singleton=1", bytes, observations)
+	_, err = t.exec(qAddPushUsage, bytes, observations)
 	return err
 }
 
 func (t *Tx) PushReceiptCount(now time.Time) (int, error) {
 	var total, expired, checked, earliest int64
-	err := t.sql.QueryRowContext(t.ctx, "SELECT total,expired,checked_at,earliest FROM push_receipt_stats WHERE singleton=1").Scan(&total, &expired, &checked, &earliest)
+	err := t.sql.QueryRowContext(t.ctx, t.query(qPushReceiptStats)).Scan(&total, &expired, &checked, &earliest)
 	if err == sql.ErrNoRows {
 		return t.rebuildPushReceiptCount(now)
 	}
@@ -78,10 +78,10 @@ func (t *Tx) PushReceiptCount(now time.Time) (int, error) {
 	n := expired
 	if at < checked {
 		// A backward clock jump may make retained receipts active again.
-		err = t.sql.QueryRowContext(t.ctx, "SELECT count(*) FROM push_receipts WHERE expires_at<=?", at).Scan(&n)
+		err = t.sql.QueryRowContext(t.ctx, t.query(qExpiredPushCount), at).Scan(&n)
 	} else if at > checked {
 		var due int64
-		err = t.sql.QueryRowContext(t.ctx, "SELECT count(*) FROM push_receipts WHERE expires_at>? AND expires_at<=?", checked, at).Scan(&due)
+		err = t.sql.QueryRowContext(t.ctx, t.query(qNewExpiredPushCount), checked, at).Scan(&due)
 		n += due
 	}
 	if err != nil {
@@ -90,7 +90,7 @@ func (t *Tx) PushReceiptCount(now time.Time) (int, error) {
 	// Readers compute exact counts without mutating their snapshot. Admission
 	// advances the watermark only when expiry changes the cached population.
 	if t.writable && (n != expired || at < checked) {
-		_, err = t.sql.ExecContext(t.ctx, "UPDATE push_receipt_stats SET expired=?,checked_at=? WHERE singleton=1", n, at)
+		_, err = t.exec(qAdvancePushExpiry, n, at)
 	}
 	return int(total - n), err
 }
@@ -98,23 +98,23 @@ func (t *Tx) PushReceiptCount(now time.Time) (int, error) {
 func (t *Tx) rebuildPushReceiptCount(now time.Time) (int, error) {
 	var total, expired, earliest int64
 	at := timestamp(now)
-	err := t.sql.QueryRowContext(t.ctx, `SELECT count(*),coalesce(sum(CASE WHEN expires_at<=? THEN 1 ELSE 0 END),0),coalesce(min(expires_at),0) FROM push_receipts`, at).Scan(&total, &expired, &earliest)
+	err := t.sql.QueryRowContext(t.ctx, t.query(qRebuildPushCount), at).Scan(&total, &expired, &earliest)
 	if err == nil && t.writable {
-		_, err = t.sql.ExecContext(t.ctx, "INSERT INTO push_receipt_stats(singleton,total,expired,checked_at,earliest) VALUES(1,?,?,?,?)", total, expired, at, earliest)
+		_, err = t.exec(qSavePushCount, total, expired, at, earliest)
 	}
 	return int(total - expired), err
 }
 
 func (t *Tx) PushUsage() (PushUsage, error) {
 	var u PushUsage
-	err := t.sql.QueryRowContext(t.ctx, "SELECT requests,bytes,observations FROM push_usage WHERE singleton=1").Scan(&u.Requests, &u.Bytes, &u.Observations)
+	err := t.sql.QueryRowContext(t.ctx, t.query(qPushUsage)).Scan(&u.Requests, &u.Bytes, &u.Observations)
 	return u, err
 }
 
 func (t *Tx) LastPush(lifetime, watch string) (PushReceipt, error) {
 	var out PushReceipt
 	var body []byte
-	if err := t.sql.QueryRowContext(t.ctx, "SELECT body FROM push_last WHERE lifetime=? AND watch=?", lifetime, watch).Scan(&body); err != nil {
+	if err := t.sql.QueryRowContext(t.ctx, t.query(qLastPush), lifetime, watch).Scan(&body); err != nil {
 		return out, missing(err)
 	}
 	err := json.Unmarshal(body, &out)
