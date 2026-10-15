@@ -26,8 +26,9 @@ def run():
     manifest = json.loads(args.manifest.read_text())
     root = args.manifest.parent/'cases'/args.label
     root.mkdir(parents=True, mode=0o700)
-    ssh = ['npx', '--yes', '@railway/cli@5.68.0', 'ssh', '-p', manifest['project'],
-           '-e', manifest['environment'], '-s', manifest['generator'], '--']
+    ssh_base = ['npx', '--yes', '@railway/cli@5.68.0', 'ssh', '-p', manifest['project'],
+                '-e', manifest['environment'], '-s']
+    ssh = ssh_base+[manifest['generator'], '--']
     metadata = {'startedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 'manifest': manifest, 'arguments': {k:str(v) for k,v in vars(args).items()}}
     with (root/'launcher.stdout').open('xb') as output, (root/'launcher.stderr').open('xb') as errors:
@@ -59,6 +60,18 @@ def run():
         # the compressed archive and no archive-controlled paths are extracted.
         for name in names[:3]:
             (root/name).write_bytes(evidence.extractfile(name).read())
+    config = json.loads((root/'config.json').read_text())
+    result = json.loads((root/'result.json').read_text())
+    if config.get('Receiver') and result.get('report'):
+        # Delivery evidence is written by the app-side receiver, whereas the
+        # request journal lives on the generator. Preserve both before cleanup.
+        receiver_archive = root/'receiver.tar.gz'
+        with receiver_archive.open('xb') as output:
+            subprocess.run(ssh_base+[manifest['app'], '--', 'tar', '-czf', '-', '-C', remote, 'receiver.jsonl'],
+                           stdout=output, stderr=subprocess.PIPE, check=True, timeout=180)
+        with tarfile.open(receiver_archive) as evidence:
+            if evidence.getnames() != ['receiver.jsonl'] or not evidence.getmembers()[0].isfile():
+                raise RuntimeError('unexpected receiver evidence archive')
     load = summary['load']
     print(json.dumps({'label':args.label, 'id':identity, 'pass':summary['pass'],
                       'rate':args.rate, 'seconds':args.seconds, 'accepted':load.get('firstAccepted'),
