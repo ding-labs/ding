@@ -1,8 +1,10 @@
 package cloud
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math/rand/v2"
 	"strings"
 	"testing"
 )
@@ -13,6 +15,7 @@ type scaleConfig struct {
 	PoolLimit, CredentialReaders                                   int
 	Watches, DeliveryWorkers                                       int
 	ReceiverProcess                                                bool
+	EntropyPadding, Nested                                         bool
 	Rate, Seconds, Workers, Workspaces, Outputs, Groups, BodyBytes int
 	Condition                                                      string // simple, window, or alerts
 	RetainPadding, Defaults, Reads, Restart, Noop, Profiles        bool
@@ -105,6 +108,12 @@ func (c scaleConfig) bodies() ([]json.RawMessage, error) {
 				e["value"] = 100
 			}
 		}
+		if c.Nested {
+			for _, event := range events {
+				event["repository"] = map[string]any{"full_name": event["repo"], "private": true}
+				event["workflow_run"] = map[string]any{"status": "completed", "conclusion": "success", "head_branch": "main", "jobs": []any{map[string]any{"name": "test", "steps": []any{map[string]any{"name": "build", "duration_ms": 1234}, map[string]any{"name": "verify", "duration_ms": 4321}}}}}
+			}
+		}
 		body := map[string]any{"events": events}
 		if c.RetainPadding {
 			events[0]["padding"] = ""
@@ -113,7 +122,16 @@ func (c scaleConfig) bodies() ([]json.RawMessage, error) {
 		}
 		raw, _ := json.Marshal(body)
 		if c.BodyBytes > len(raw) {
-			pad := strings.Repeat("x", c.BodyBytes-len(raw))
+			size := c.BodyBytes - len(raw)
+			pad := strings.Repeat("x", size)
+			if c.EntropyPadding {
+				rng := rand.New(rand.NewPCG(123, uint64(variant)+456))
+				data := make([]byte, size)
+				for i := range data {
+					data[i] = byte(rng.Uint32())
+				}
+				pad = base64.RawStdEncoding.EncodeToString(data)[:size]
+			}
 			if c.RetainPadding {
 				events[0]["padding"] = pad
 			} else {
