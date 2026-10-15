@@ -10,11 +10,14 @@ import (
 
 // PostgreSQL migrations have their own version stream. SQLite user_version and
 // existing on-disk migrations are independent.
-const PostgresSchemaVersion = 1
+const PostgresSchemaVersion = 2
 
 //go:embed postgres/001_records.sql
 var postgresRecordsSchema string
 
+//go:embed postgres/002_state.sql
+var postgresStateSchema string
+
 func MigratePostgres(ctx context.Context, migrationDB *sql.DB, appRole string) error {
-	return database.Migrate(ctx, migrationDB, "runtime", []string{postgresRecordsSchema}, appRole)
+	return database.Migrate(ctx, migrationDB, "runtime", []string{postgresRecordsSchema, postgresStateSchema}, appRole)
 }
