@@ -78,7 +78,7 @@ def measurements(root):
             'serverExitCode': execution['exitCode'], 'generatorExitCode': execution['generatorExitCode'],
             'oomKilled': execution.get('container', {}).get('OOMKilled', False),
             'reportedStable': result['stable'],
-            'stable': result['stable'] and not manifest.get('profiles', True) and qualified_load(load),
+            'stable': result['stable'] and not manifest.get('profiles', True) and qualified_load(load, planned),
         }
 
 

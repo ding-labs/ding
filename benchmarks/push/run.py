@@ -28,8 +28,9 @@ def save(path, value):
         json.dump(value, f, indent=2)
 
 
-def qualified_load(load):
+def qualified_load(load, planned=None):
     return (load['generatorBusy'] == 0 and load['unconfirmed'] == 0 and load['rejected'] == 0
+            and (planned is None or load['firstAccepted'] == planned)
             and load.get('throttled', 0) == 0 and load.get('statuses', {}).get('429', 0) == 0
             and load.get('scheduleP99MS', 0) <= 20
             and not load.get('clockDiscontinuity', False))
@@ -244,7 +245,7 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
                              'server clock discontinuity' if report.get('InternalObservations',0) else
                              'local resource observation unavailable' if observer_errors or failure else
                              'diagnostic profiling enabled' if config.get('Profiles', False) else None),
-            'stable':not config.get('Profiles',False) and code==0 and generator_code==0 and not failure and not observer_errors and qualified_load(load) and fraction>=.999 and load['p99MS']<250 and not report['Errors'] and not report['ReadErrors'] and not report.get('InternalObservations',0) and pending==0 and postchecks}
+            'stable':not config.get('Profiles',False) and code==0 and generator_code==0 and not failure and not observer_errors and qualified_load(load, config['Rate']*config['Seconds']) and load['p99MS']<250 and not report['Errors'] and not report['ReadErrors'] and not report.get('InternalObservations',0) and pending==0 and postchecks}
 
 
 def main():

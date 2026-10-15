@@ -9,6 +9,12 @@ from run import execute, qualified_load
 
 
 class LoadQualification(unittest.TestCase):
+    def test_every_planned_arrival_must_be_accepted_even_without_a_reported_error(self):
+        load = {'generatorBusy': 0, 'unconfirmed': 0, 'rejected': 0, 'firstAccepted': 29999}
+        self.assertFalse(qualified_load(load, 30000))
+        load['firstAccepted'] = 30000
+        self.assertTrue(qualified_load(load, 30000))
+
     def test_late_generator_cannot_qualify_fixed_arrival_load(self):
         load = {'generatorBusy': 0, 'unconfirmed': 0, 'rejected': 0, 'scheduleP99MS': 21}
         self.assertFalse(qualified_load(load))
