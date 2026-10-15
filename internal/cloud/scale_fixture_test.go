@@ -12,6 +12,7 @@ type scaleConfig struct {
 	Backend                                                        string
 	PoolLimit, CredentialReaders                                   int
 	Watches, DeliveryWorkers                                       int
+	ReceiverProcess                                                bool
 	Rate, Seconds, Workers, Workspaces, Outputs, Groups, BodyBytes int
 	Condition                                                      string // simple, window, or alerts
 	RetainPadding, Defaults, Reads, Restart, Noop, Profiles        bool

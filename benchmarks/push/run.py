@@ -13,6 +13,7 @@ import subprocess
 import time
 
 from postgres_runtime import LocalPostgres
+from receiver_runtime import LocalReceiver
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -51,6 +52,10 @@ def execute(binary, driver, config, output, environment, pg=None, units=1):
         env['DING_TEST_POSTGRES_FILE'] = str(pg.connections)
     database_start = pg.sample() if pg else None
     timeout = config['Seconds'] + config.get('Preload', 0) / 100 + 900
+    receiver = LocalReceiver(binary,output,config['Receiver'],environment,
+                             pg.container if pg and environment=='container' else None,timeout) if config.get('ReceiverProcess') and config.get('Receiver') else None
+    if receiver:
+        env['DING_SCALE_RECEIVER_FILE'] = str(receiver.bootstrap)
     container = 'ding-scale-' + output.parent.name.lower() + '-' + output.name.lower()
     volume = container + '-data'
     args = [str(binary), '-test.run=^TestLocalPushScale$', '-test.v', '-test.timeout='+str(int(timeout))+'s']
@@ -58,9 +63,11 @@ def execute(binary, driver, config, output, environment, pg=None, units=1):
         command(['docker', 'volume', 'create', volume])
         app_cpus = units/2 if pg else units
         app_memory = str(units*512 if pg else units*1024)+'m'
-        network = ['--network', 'container:'+pg.container] if pg else ['-p', '127.0.0.1::8443']
+        network = ['--network', 'container:'+pg.container] if pg else (['--network','container:'+receiver.container] if receiver else ['-p','127.0.0.1::8443'])
         fixture = ['--mount', 'type=bind,source='+str(pg.connections)+',target=/postgres-fixture.json,readonly',
                    '-e', 'DING_TEST_POSTGRES_FILE=/postgres-fixture.json'] if pg else []
+        if receiver:
+            fixture += ['-e','DING_SCALE_RECEIVER_FILE=/evidence/receiver/bootstrap.json']
         args = ['docker', 'run', '--name', container, '--cpus='+str(app_cpus), '--memory='+app_memory, '--memory-swap='+app_memory] + network + fixture + [ '--mount', 'type=volume,source='+volume+',target=/lab',
                 '--mount', 'type=bind,source='+str(binary)+',target=/scale.test,readonly',
                 '--mount', 'type=bind,source='+str(output)+',target=/evidence',
@@ -85,7 +92,7 @@ def execute(binary, driver, config, output, environment, pg=None, units=1):
                         time.sleep(.1)
                         continue
                     if environment == 'container':
-                        endpoint = pg.endpoint() if pg else 'https://'+command(['docker','port',container,'8443/tcp'])
+                        endpoint = pg.endpoint() if pg else (receiver.endpoint() if receiver else 'https://'+command(['docker','port',container,'8443/tcp']))
                     generator = subprocess.Popen([str(driver),'-bootstrap',str(bootstrap),'-url',endpoint,
                         '-output',str(output),'-seconds',str(config['Seconds']),'-rate',str(config['Rate']),
                         '-workers',str(config.get('Workers',512))],cwd=REPO,stdout=generator_log,stderr=subprocess.STDOUT)
@@ -97,7 +104,8 @@ def execute(binary, driver, config, output, environment, pg=None, units=1):
                             if environment == 'container' else command(['ps','-o','rss=,%cpu=','-p',str(process.pid)]))
                         producer = command(['ps','-o','rss=,%cpu=','-p',str(generator.pid)]) if generator.poll() is None else None
                         samples.append({'elapsed':time.monotonic()-started,'server':value,'generator':producer,
-                                        'database':pg.sample() if pg else None})
+                                        'database':pg.sample() if pg else None,
+                                        'receiver':receiver.sample() if receiver else None})
                     except subprocess.CalledProcessError:
                         pass
                 time.sleep(1 if generator is None else 5)
@@ -121,7 +129,8 @@ def execute(binary, driver, config, output, environment, pg=None, units=1):
                 subprocess.run(['docker','kill',container],capture_output=True)
     metadata = {'exitCode':code,'generatorExitCode':generator_code,
                 'wallSeconds':time.monotonic()-started,'resources':samples,'failure':failure,
-                'cancelledByUser':cancelled, 'databaseStart':database_start,
+                'cancelledByUser':cancelled, 'receiver':receiver.metadata if receiver else {'placement':'cohosted' if config.get('Receiver') else 'none'},
+                'databaseStart':database_start,
                 'databaseEnd':pg.sample() if pg else None,
                 'appCPULimit':(units/2 if pg else units) if environment=='container' else None,
                 'appMemoryBytes':(units*512 if pg else units*1024)*1024**2 if environment=='container' else None}
@@ -146,6 +155,8 @@ def execute(binary, driver, config, output, environment, pg=None, units=1):
         subprocess.run(['docker','rm','-f',container],check=False,capture_output=True)
         if remove_volume:
             subprocess.run(['docker','volume','rm',volume],check=False,capture_output=True)
+    if receiver:
+        receiver.stop()
     save(output/'execution.json',metadata)
     report_path = output/'report.json'
     if cancelled or not report_path.exists():
@@ -174,6 +185,7 @@ def main():
     signal.signal(signal.SIGTERM, cancel_run)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--environment', choices=['native','container'], default='native')
+    parser.add_argument('--receiver-process', action='store_true', help='use a separately resourced local receiver for delivery cases')
     parser.add_argument('--backend', choices=['sqlite','postgres'], default='sqlite')
     parser.add_argument('--resource-units', type=int, choices=[1,2,4], default=1,
                         help='total CPU cores and GiB; PostgreSQL splits app/database equally')
@@ -209,6 +221,7 @@ def main():
     pg = LocalPostgres(root/'postgres-lab', args.environment, args.resource_units) if args.backend=='postgres' else None
     save(root/'manifest.json',{'backend':args.backend,'poolLimit':args.pool_limit,
          'credentialReaders':args.credential_readers,'resourceUnits':args.resource_units,
+         'receiverProcess':args.receiver_process,
          'totalCPULimit':args.resource_units if args.environment=='container' else None,
          'totalMemoryBytes':args.resource_units*1024**3 if args.environment=='container' else None,
          'postgres':pg.metadata if pg else None,
@@ -231,7 +244,7 @@ def main():
                 raise SystemExit('Host free-disk floor reached; preserve evidence and stop.')
             config = dict(cases[name])
             config['Profiles'] = args.profiles
-            config.update(Backend=args.backend, PoolLimit=args.pool_limit, CredentialReaders=args.credential_readers)
+            config.update(Backend=args.backend, PoolLimit=args.pool_limit, CredentialReaders=args.credential_readers, ReceiverProcess=args.receiver_process)
             if args.rate is not None:
                 config['Rate']=args.rate
             if args.seconds is not None:
