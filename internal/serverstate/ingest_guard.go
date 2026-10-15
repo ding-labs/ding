@@ -10,7 +10,7 @@ import (
 	"github.com/ding-labs/ding/internal/database"
 )
 
-var ErrServiceRevoked = errors.New("producer credential expired or unavailable")
+var ErrServiceRevoked = database.ErrAuthorization
 
 func (t *transaction) lockService(ctx context.Context, workspace, id string) error {
 	if !t.postgres {
