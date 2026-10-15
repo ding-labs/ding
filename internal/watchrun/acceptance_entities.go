@@ -24,6 +24,35 @@ func newAcceptanceEntities(tx *store.Tx, id string) *acceptanceEntities {
 	return &acceptanceEntities{tx: tx, id: id, states: map[string]json.RawMessage{}, known: map[string]bool{}, n: -1}
 }
 
+func (s *acceptanceEntities) preload(e *condition.Evaluator, observations []watch.Observation) error {
+	if len(observations) < 2 {
+		return nil
+	}
+	wanted := map[string]bool{condition.SourceEntity: true}
+	for _, o := range observations {
+		if o.Health != "ok" {
+			continue // Source-health fanout is loaded when evaluated in order.
+		}
+		keys, _, err := e.Route(nil, o)
+		if err != nil {
+			return err
+		}
+		for _, key := range keys {
+			wanted[key] = true
+		}
+	}
+	keys := make([]string, 0, len(wanted))
+	for key := range wanted {
+		keys = append(keys, key)
+	}
+	states, err := s.tx.EntitySubset(s.id, keys)
+	if err != nil {
+		return err
+	}
+	s.states, s.known = states, wanted
+	return nil
+}
+
 func (s *acceptanceEntities) load(key string) (json.RawMessage, bool, error) {
 	if !s.all && !s.known[key] {
 		data, err := s.tx.Entity(s.id, key)

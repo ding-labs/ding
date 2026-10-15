@@ -482,6 +482,9 @@ func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch so
 		}
 		receipt.First, receipt.Last = sequences[0], sequences[len(sequences)-1]
 		states := newAcceptanceEntities(tx, id)
+		if err := states.preload(evaluator, observations); err != nil {
+			return err
+		}
 		for i, o := range observations {
 			o.Sequence = sequences[i]
 			keys, clearSource, err := states.route(evaluator, o)
