@@ -26,6 +26,15 @@ func TestPostgresEncryptedNativeBackup(t *testing.T) {
 	if err := MigrateDatabase(ctx, c, "BACKUP_ADMIN"); err != nil {
 		t.Fatal(err)
 	}
+	f.SetMigrationEnvironment(t, "BACKUP_NON_BYPASS")
+	denied := filepath.Join(t.TempDir(), "denied.age")
+	rejectedKey, _ := age.GenerateX25519Identity()
+	if err := BackupPostgres(ctx, c, "BACKUP_NON_BYPASS", denied, rejectedKey.Recipient().String()); err == nil {
+		t.Fatal("non-bypass operator accepted")
+	}
+	if _, err := os.Stat(denied); !os.IsNotExist(err) {
+		t.Fatal("denied backup created output")
+	}
 	key, _ := age.GenerateX25519Identity()
 	output := filepath.Join(t.TempDir(), "backup.age")
 	if err := BackupPostgres(ctx, c, "BACKUP_ADMIN", output, key.Recipient().String()); err != nil {

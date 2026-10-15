@@ -152,6 +152,25 @@ func RestorePostgres(ctx context.Context, c Config, adminEnv, input, identity st
 	if err = s.Control.ConfigureDataKey(ctx, keyBytes); err != nil {
 		return err
 	}
+	// Byte limits belong to the destination deployment. Keeping the source's
+	// exact full quota could prevent pausing watches during quarantine.
+	tx, err := admin.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	if err = s.owner.Fence(ctx, tx, true); err == nil {
+		_, err = tx.ExecContext(ctx, "UPDATE ding_runtime.workspaces SET max_logical_bytes=0")
+	}
+	if err == nil {
+		err = s.owner.Fence(ctx, tx, true)
+	}
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err = tx.Commit(); err != nil {
+		return err
+	}
 	if err = quarantinePostgresState(ctx, s); err != nil {
 		return err
 	}
