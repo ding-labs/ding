@@ -165,7 +165,8 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 		t.Fatal(err)
 	}
 	for i := range c.Workspaces {
-		enrolled, err := db.Enroll(ctx, "local-scale", fmt.Sprintf("user-%d", i), MaxAccounts)
+		// Lab-only capacity expansion; the production account policy is unchanged.
+		enrolled, err := db.Enroll(ctx, "local-scale", fmt.Sprintf("user-%d", i), max(MaxAccounts, c.Workspaces))
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -61,7 +61,7 @@ func (c *scaleConfig) validate() error {
 	if c.Condition == "" {
 		c.Condition = "simple"
 	}
-	if c.Name == "" || c.Rate < 1 || c.Rate > 100000 || c.Seconds < 1 || c.Seconds > 3600 || c.Workers < 1 || c.Workers > 1024 || c.Workspaces < 1 || c.Workspaces > 100 || c.Outputs < 1 || c.Outputs > 100 || c.Groups < c.Outputs || c.Groups > 10000 || c.BodyBytes < 0 || c.BodyBytes > 1<<20 || c.Preload < 0 || c.Preload > 500000 || c.Noisy < 0 || c.Noisy > 99 {
+	if c.Name == "" || c.Rate < 1 || c.Rate > 100000 || c.Seconds < 1 || c.Seconds > 3600 || c.Workers < 1 || c.Workers > 1024 || c.Workspaces < 1 || c.Workspaces > 1000 || c.Outputs < 1 || c.Outputs > 100 || c.Groups < c.Outputs || c.Groups > 10000 || c.BodyBytes < 0 || c.BodyBytes > 1<<20 || c.Preload < 0 || c.Preload > 500000 || c.Noisy < 0 || c.Noisy > 99 {
 		return fmt.Errorf("invalid scale configuration")
 	}
 	if c.Condition != "simple" && c.Condition != "window" && c.Condition != "alerts" {
