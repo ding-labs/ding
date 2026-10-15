@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-var postgresAccountedTables = []string{"metadata", "watch_revisions", "watches", "destination_revisions", "destinations", "observations", "entities", "input_receipts", "timers", "events", "event_evidence", "event_replays", "outbox", "delivery_attempts", "audit", "integration_grants", "integration_previews", "integration_operations", "handoffs", "push_receipts", "push_usage", "push_last", "push_receipt_stats"}
+var postgresAccountedTables = []string{"metadata", "watch_revisions", "watches", "destination_revisions", "destinations", "observations", "entities", "input_receipts", "timers", "events", "event_evidence", "event_replays", "outbox", "delivery_attempts", "audit", "integration_grants", "integration_previews", "integration_operations", "handoffs", "push_receipts", "push_usage", "push_last", "push_receipt_stats", "delivery_streams"}
 
 func checkPostgresLogicalBytes(t *testing.T, tx *Tx) {
 	t.Helper()

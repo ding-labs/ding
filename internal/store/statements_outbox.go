@@ -20,3 +20,5 @@ var qDeliveryAttempt = statement{sqlite: `INSERT INTO delivery_attempts(outbox_i
 
 var qEvents = statement{sqlite: `SELECT sequence,body FROM events WHERE sequence>? ORDER BY sequence LIMIT ?`, postgres: `SELECT sequence,body FROM events WHERE workspace_id=current_setting('ding.workspace') AND sequence>$1 ORDER BY sequence LIMIT $2`}
 var qWatchEvents = statement{sqlite: `SELECT sequence,body FROM events WHERE sequence>? AND watch_id=? ORDER BY sequence LIMIT ?`, postgres: `SELECT sequence,body FROM events WHERE workspace_id=current_setting('ding.workspace') AND sequence>$1 AND watch_id=$2 ORDER BY sequence LIMIT $3`}
+
+var qDeliveryStream = statement{sqlite: `INSERT INTO delivery_streams(watch_id,destination_id) VALUES(?,?) ON CONFLICT DO NOTHING`, postgres: `INSERT INTO delivery_streams(watch_id,destination_id) VALUES($1,$2) ON CONFLICT DO NOTHING`}

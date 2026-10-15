@@ -28,7 +28,7 @@ func DeletePostgresWorkspace(ctx context.Context, pool *sql.DB, workspace string
 	if err != nil {
 		return err
 	}
-	for _, table := range []string{"delivery_attempts", "event_replays", "event_evidence", "outbox", "push_last", "handoffs", "timers", "input_receipts", "entities", "events", "observations", "watches", "watch_revisions", "destinations", "destination_revisions", "integration_previews", "integration_operations", "integration_grants", "push_receipt_stats", "push_receipts", "push_usage", "audit", "metadata", "workspaces"} {
+	for _, table := range []string{"delivery_streams", "delivery_attempts", "event_replays", "event_evidence", "outbox", "push_last", "handoffs", "timers", "input_receipts", "entities", "events", "observations", "watches", "watch_revisions", "destinations", "destination_revisions", "integration_previews", "integration_operations", "integration_grants", "push_receipt_stats", "push_receipts", "push_usage", "audit", "metadata", "workspaces"} {
 		if _, err = tx.ExecContext(ctx, "DELETE FROM "+table+" WHERE workspace_id=$1", workspace); err != nil {
 			return err
 		}

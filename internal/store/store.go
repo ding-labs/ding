@@ -19,7 +19,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const SchemaVersion = 8
+const SchemaVersion = 9
 
 //go:embed schema.sql
 var initialSchema string
@@ -44,6 +44,9 @@ var pushSchema string
 
 //go:embed schema8.sql
 var pushStatsSchema string
+
+//go:embed schema9.sql
+var deliveryStreamsSchema string
 var ErrClosed = errors.New("store closed")
 var ErrNotFound = errors.New("not found")
 var ErrConflict = errors.New("revision conflict")
@@ -133,7 +136,7 @@ func Open(ctx context.Context, dir string) (s *Store, err error) {
 		return nil, err
 	}
 	s = &Store{db: db, lock: lock, dir: dir, writer: make(chan struct{}, 1)}
-	if err = s.migrate(ctx, SchemaVersion, []string{initialSchema, inspectionSchema, queueIndexSchema, integrationSchema, handoffSchema, auditSchema, pushSchema, pushStatsSchema}); err != nil {
+	if err = s.migrate(ctx, SchemaVersion, []string{initialSchema, inspectionSchema, queueIndexSchema, integrationSchema, handoffSchema, auditSchema, pushSchema, pushStatsSchema, deliveryStreamsSchema}); err != nil {
 		return nil, err
 	}
 	s.readers, err = openSnapshotReaders(ctx, uri)

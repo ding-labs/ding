@@ -28,6 +28,9 @@ type Intent struct {
 }
 
 func (t *Tx) Enqueue(i Intent) (int64, error) {
+	if _, err := t.exec(qDeliveryStream, i.WatchID, i.DestinationID); err != nil {
+		return 0, err
+	}
 	return t.insertID(qEnqueue, i.EventID, i.WatchID, i.DestinationID, i.DestinationRevision, i.Payload, timestamp(i.NextAt), timestamp(i.CreatedAt))
 }
 func (t *Tx) Intent(id int64) (Intent, error) {
