@@ -1,5 +1,6 @@
 """Run a bounded case from the separate private Railway generator service."""
 import argparse
+import base64
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,14 @@ from urllib.request import Request, urlopen
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from railway_app import resources
+
+
+def save_bootstrap(root, encoded):
+    # JSON intermediaries must not reformat the request bodies. Receipts bind
+    # idempotency keys to their exact bytes, not just equivalent JSON values.
+    raw = base64.b64decode(encoded, validate=True)
+    json.loads(raw)
+    (root/'bootstrap.json').write_bytes(raw)
 
 
 def qualifies(result, config):
@@ -48,7 +57,7 @@ def run():
     identity = job['id']
     root = Path('/data/ding-lab/runs')/identity
     root.mkdir(parents=True,mode=0o700)
-    (root/'bootstrap.json').write_text(json.dumps(job['bootstrap']))
+    save_bootstrap(root,job['bootstrap'])
     (root/'config.json').write_text(json.dumps(job['config']))
     stop = threading.Event()
     def observe():

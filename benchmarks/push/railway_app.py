@@ -1,4 +1,5 @@
 """Private control plane for one disposable Go test process at a time."""
+import base64
 import hmac
 import json
 import os
@@ -75,12 +76,13 @@ def start_case(request):
     # bootstrap is written by Go before it accepts start. Retry partial JSON.
     while True:
         try:
-            value = json.loads((directory/'bootstrap.json').read_text())
+            value = (directory/'bootstrap.json').read_bytes()
+            json.loads(value)
             break
         except json.JSONDecodeError:
             if time.monotonic() >= deadline: raise
             time.sleep(.1)
-    return {'id':identity, 'config':config, 'bootstrap':value}
+    return {'id':identity, 'config':config, 'bootstrap':base64.b64encode(value).decode('ascii')}
 
 
 class Handler(BaseHTTPRequestHandler):
