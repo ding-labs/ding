@@ -125,17 +125,18 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
                     generator = subprocess.Popen(generator_args,cwd=REPO,stdout=generator_log,stderr=subprocess.STDOUT)
                 if generator is not None and generator.poll() not in (None,0):
                     raise RuntimeError('local generator failed; inspect private generator.log')
-                if generator is not None:
+                # Observe slow prepopulation and cohort setup as well as load.
+                if generator is not None or time.monotonic()-started >= 1:
                     try:
                         value = (command(['docker','stats','--no-stream','--format','{{json .}}',container])
                             if environment == 'container' else command(['ps','-o','rss=,%cpu=','-p',str(process.pid)]))
                         producer = (command(['docker','stats','--no-stream','--format','{{json .}}',generator_container]) if generator_container else
-                                    command(['ps','-o','rss=,%cpu=','-p',str(generator.pid)])) if generator.poll() is None else None
-                        samples.append({'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'elapsed':time.monotonic()-started,'server':value,'generator':producer,
+                                    command(['ps','-o','rss=,%cpu=','-p',str(generator.pid)])) if generator is not None and generator.poll() is None else None
+                        samples.append({'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'elapsed':time.monotonic()-started,'phase':'setup' if generator is None else 'producer','server':value,'generator':producer,
                                         'database':pg.sample() if pg else None,
                                         'receiver':receiver.sample() if receiver else None})
                     except (subprocess.CalledProcessError, OSError, json.JSONDecodeError):
-                        if process.poll() is None and generator.poll() is None:
+                        if process.poll() is None and generator is not None and generator.poll() is None:
                             observer_errors += 1
                 time.sleep(1 if generator is None else 5)
             code = process.wait()
