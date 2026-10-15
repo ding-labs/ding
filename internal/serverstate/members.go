@@ -16,7 +16,7 @@ type Member struct {
 }
 
 func (d *DB) Members(ctx context.Context, workspace string) ([]Member, error) {
-	rows, err := d.sql.QueryContext(ctx, `SELECT u.id,u.name,COALESCE(u.username,''),u.disabled,m.role FROM memberships m JOIN users u ON u.id=m.user WHERE m.workspace=? ORDER BY u.name,u.id LIMIT 1000`, workspace)
+	rows, err := d.sql.QueryContext(ctx, d.query(qMembers1), workspace)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func (d *DB) Members(ctx context.Context, workspace string) ([]Member, error) {
 }
 
 func memberActor(ctx context.Context, tx *transaction, p access.Principal) (access.Principal, error) {
-	err := tx.QueryRowContext(ctx, `SELECT m.role FROM memberships m JOIN users u ON u.id=m.user JOIN workspaces w ON w.id=m.workspace WHERE m.user=? AND m.workspace=? AND u.disabled=0 AND w.deleting=0`, p.User, p.Workspace).Scan(&p.Role)
+	err := tx.QueryRowContext(ctx, tx.query(qmemberActor1), p.User, p.Workspace).Scan(&p.Role)
 	if err != nil || !p.Allows(access.Members) {
 		return p, fmt.Errorf("member administration denied")
 	}
@@ -58,7 +58,7 @@ func (d *DB) ChangeMember(ctx context.Context, actor access.Principal, user stri
 		return err
 	}
 	var old access.Role
-	err = tx.QueryRowContext(ctx, "SELECT role FROM memberships WHERE user=? AND workspace=?", user, actor.Workspace).Scan(&old)
+	err = tx.QueryRowContext(ctx, tx.query(qChangeMember1), user, actor.Workspace).Scan(&old)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
@@ -67,7 +67,7 @@ func (d *DB) ChangeMember(ctx context.Context, actor access.Principal, user stri
 	}
 	if old == access.Owner && role != access.Owner {
 		var owners int
-		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM memberships m JOIN users u ON u.id=m.user WHERE workspace=? AND role='owner' AND u.disabled=0 AND (u.password IS NOT NULL OR EXISTS(SELECT 1 FROM identities i WHERE i.user=u.id))`, actor.Workspace).Scan(&owners); err != nil {
+		if err := tx.QueryRowContext(ctx, tx.query(qChangeMember2), actor.Workspace).Scan(&owners); err != nil {
 			return err
 		}
 		if owners <= 1 {
@@ -75,19 +75,19 @@ func (d *DB) ChangeMember(ctx context.Context, actor access.Principal, user stri
 		}
 	}
 	if role == "" {
-		_, err = tx.ExecContext(ctx, "DELETE FROM memberships WHERE user=? AND workspace=?", user, actor.Workspace)
+		_, err = tx.ExecContext(ctx, tx.query(qChangeMember3), user, actor.Workspace)
 	} else {
 		var active int
-		if err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM users WHERE id=? AND disabled=0", user).Scan(&active); err != nil || active != 1 {
+		if err = tx.QueryRowContext(ctx, tx.query(qChangeMember4), user).Scan(&active); err != nil || active != 1 {
 			return fmt.Errorf("user unavailable")
 		}
-		_, err = tx.ExecContext(ctx, "INSERT INTO memberships(user,workspace,role) VALUES(?,?,?) ON CONFLICT(user,workspace) DO UPDATE SET role=excluded.role", user, actor.Workspace, role)
+		_, err = tx.ExecContext(ctx, tx.query(qChangeMember5), user, actor.Workspace, role)
 	}
 	if err != nil {
 		return err
 	}
 	if role == "" {
-		for _, query := range []string{"DELETE FROM sessions WHERE user=? AND workspace=? AND kind!='browser'", "DELETE FROM devices WHERE user=? AND workspace=?", "DELETE FROM mcp_bindings WHERE user=? AND workspace=?", "DELETE FROM activations WHERE user=? AND workspace=?"} {
+		for _, query := range []string{tx.query(qChangeMember6), tx.query(qChangeMember7), tx.query(qChangeMember8), tx.query(qChangeMember9)} {
 			if _, err := tx.ExecContext(ctx, query, user, actor.Workspace); err != nil {
 				return err
 			}
@@ -110,14 +110,14 @@ func (d *DB) DeleteUser(ctx context.Context, user string) error {
 	}
 	defer tx.Rollback()
 	var sole int
-	err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM memberships mine WHERE mine.user=? AND mine.role='owner' AND NOT EXISTS(SELECT 1 FROM memberships other JOIN users u ON u.id=other.user WHERE other.workspace=mine.workspace AND other.user!=mine.user AND other.role='owner' AND u.disabled=0 AND (u.password IS NOT NULL OR EXISTS(SELECT 1 FROM identities i WHERE i.user=u.id)))`, user).Scan(&sole)
+	err = tx.QueryRowContext(ctx, tx.query(qDeleteUser1), user).Scan(&sole)
 	if err != nil {
 		return err
 	}
 	if sole != 0 {
 		return fmt.Errorf("transfer workspace ownership first")
 	}
-	if _, err = tx.ExecContext(ctx, "DELETE FROM users WHERE id=?", user); err != nil {
+	if _, err = tx.ExecContext(ctx, tx.query(qDeleteUser2), user); err != nil {
 		return err
 	}
 	if err = audit(ctx, tx, user, "", "user:delete", user); err != nil {
@@ -136,15 +136,15 @@ type Audit struct {
 }
 
 func audit(ctx context.Context, tx *transaction, actor, workspace, action, target string) error {
-	if _, err := tx.ExecContext(ctx, "INSERT INTO audit(actor,workspace,action,target,at) VALUES(?,?,?,?,?)", actor, workspace, action, target, time.Now().Unix()); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.query(qaudit1), actor, workspace, action, target, time.Now().Unix()); err != nil {
 		return err
 	}
-	_, err := tx.ExecContext(ctx, "DELETE FROM audit WHERE sequence <= (SELECT COALESCE(MAX(sequence),0)-10000 FROM audit)")
+	_, err := tx.ExecContext(ctx, tx.query(qaudit2))
 	return err
 }
 
 func (d *DB) Audit(ctx context.Context, workspace string, before int64) ([]Audit, error) {
-	rows, err := d.sql.QueryContext(ctx, "SELECT sequence,actor,workspace,action,target,at FROM audit WHERE workspace=? AND (?=0 OR sequence<?) ORDER BY sequence DESC LIMIT 100", workspace, before, before)
+	rows, err := d.sql.QueryContext(ctx, d.query(qAudit1), workspace, before, before)
 	if err != nil {
 		return nil, err
 	}

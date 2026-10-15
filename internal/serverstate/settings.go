@@ -15,11 +15,11 @@ func (d *DB) ConfigureDataKey(ctx context.Context, key []byte) error {
 		return fmt.Errorf("data key must contain 32 bytes")
 	}
 	fingerprint := fmt.Sprintf("%x", sha256.Sum256(append([]byte("ding.cloud.key.v1/"), key...)))
-	if _, err := d.sql.ExecContext(ctx, "INSERT INTO settings(key,value) VALUES('data_key',?) ON CONFLICT(key) DO NOTHING", fingerprint); err != nil {
+	if _, err := d.exec(ctx, qConfigureDataKey1, fingerprint); err != nil {
 		return err
 	}
 	var saved string
-	if err := d.sql.QueryRowContext(ctx, "SELECT value FROM settings WHERE key='data_key'").Scan(&saved); err != nil {
+	if err := d.sql.QueryRowContext(ctx, d.query(qConfigureDataKey2)).Scan(&saved); err != nil {
 		return err
 	}
 	if saved != fingerprint {
@@ -32,11 +32,11 @@ func (d *DB) ConfigureHosting(ctx context.Context, hosting string) error {
 	if hosting != "cloud" && hosting != "self-hosted" {
 		return fmt.Errorf("invalid hosting profile")
 	}
-	if _, err := d.sql.ExecContext(ctx, "INSERT INTO settings(key,value) VALUES('hosting',?) ON CONFLICT(key) DO NOTHING", hosting); err != nil {
+	if _, err := d.exec(ctx, qConfigureHosting1, hosting); err != nil {
 		return err
 	}
 	var saved string
-	if err := d.sql.QueryRowContext(ctx, "SELECT value FROM settings WHERE key='hosting'").Scan(&saved); err != nil {
+	if err := d.sql.QueryRowContext(ctx, d.query(qConfigureHosting2)).Scan(&saved); err != nil {
 		return err
 	}
 	if saved != hosting {
@@ -54,11 +54,11 @@ func (d *DB) ConfigureLoginMethods(ctx context.Context, methods []string) error 
 	if value != "password" && value != "oidc" && value != "oidc,password" {
 		return fmt.Errorf("invalid login methods")
 	}
-	if _, err := d.sql.ExecContext(ctx, "INSERT INTO settings(key,value) VALUES('login_methods',?) ON CONFLICT(key) DO NOTHING", value); err != nil {
+	if _, err := d.exec(ctx, qConfigureLoginMethods1, value); err != nil {
 		return err
 	}
 	var saved string
-	if err := d.sql.QueryRowContext(ctx, "SELECT value FROM settings WHERE key='login_methods'").Scan(&saved); err != nil {
+	if err := d.sql.QueryRowContext(ctx, d.query(qConfigureLoginMethods2)).Scan(&saved); err != nil {
 		return err
 	}
 	if saved != value {
