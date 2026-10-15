@@ -2,6 +2,28 @@ name: Linux capacity
 
 on:
   workflow_dispatch:
+    inputs:
+      cases:
+        description: Comma-separated names from benchmarks/push/cases.json
+        default: one-100,hundred-1000
+        type: string
+      rate:
+        description: Offered pushes per second (all cases)
+        default: '25'
+        type: string
+      seconds:
+        description: Measured seconds per case
+        default: '30'
+        type: string
+      repeat:
+        description: Repeats per case
+        default: '1'
+        type: string
+      pool:
+        description: PostgreSQL query connections
+        default: '4'
+        type: choice
+        options: ['2', '4', '8', '16']
   push:
     branches: [codex/cloud-postgres-single]
     paths: [.github/workflows/linux-capacity.yml]
@@ -14,7 +36,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  baseline:
+  single-server:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
@@ -37,6 +59,11 @@ jobs:
       - name: Screen one Go server on Linux
         env:
           BACKEND: ${{ matrix.backend }}
+          CASES: ${{ inputs.cases || 'one-100,hundred-1000' }}
+          RATE: ${{ inputs.rate || '25' }}
+          SECONDS: ${{ inputs.seconds || '30' }}
+          REPEATS: ${{ inputs.repeat || '1' }}
+          POOL: ${{ inputs.pool || '4' }}
         run: |
           extra=()
           if [ "$BACKEND" = postgres ]; then
@@ -44,12 +71,11 @@ jobs:
           fi
           python3 benchmarks/push/run.py --environment container --generator-placement container \
             --backend "$BACKEND" --app-cpus 1 --app-memory-mib 1024 "${extra[@]}" \
-            --pool-limit 4 --cases one-100,hundred-1000 --rate 25 --seconds 30 \
+            --pool-limit "$POOL" --cases "$CASES" --rate "$RATE" --seconds "$SECONDS" --repeat "$REPEATS" \
             --output "$RUNNER_TEMP/capacity/runs"
       - name: Export public comparison
         if: always()
         run: |
-          python3 benchmarks/push/export.py --help > "$RUNNER_TEMP/capacity/export-help.txt"
           python3 - <<'PY'
           import json,os
           from pathlib import Path
