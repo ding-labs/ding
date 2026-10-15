@@ -90,6 +90,60 @@ and HTTP-polling scenarios separately before claiming a complete business mix.
 
 ## Interpret evidence
 
+### Railway private-network lab
+
+`Railway.Dockerfile` builds the same Go test server and load driver into an
+isolated image. Deploy separate app (`railway_app.py`) and generator
+(`railway_run.py`, with no arguments) services beside a dedicated PostgreSQL
+service. Pin both source deployments to the same commit. No public domain or
+database proxy is required. Business logic remains in Go; Python starts cases
+and collects evidence. This is the real ingestion handler and storage stack in
+a test process, with expanded lab admission limits, rather than a complete
+production deployment or a default-policy capacity claim.
+
+Both services require a shared private `DING_LAB_CONTROL` secret and
+`DING_TEST_RAILWAY_PROJECT` equal to Railway's injected `RAILWAY_PROJECT_ID`.
+Set `DING_SCALE_PRIVATE_HOST=ding-scale-app.railway.internal`. The app additionally
+requires `PGADMIN_URL` referencing the dedicated Postgres service,
+`DING_LAB_PG_CA` containing its public certificate, and `DING_SCALE_TLS_CERT` /
+`DING_SCALE_TLS_KEY` under `/data/ding-lab`. PostgreSQL uses verified TLS with
+fsync, synchronous commits and full-page writes enabled. The launcher creates
+only random `dingtest_*` databases and verifies ownership of its two test roles;
+successful fixtures drop their database, while failures retain evidence for
+inspection. Never use this launcher against the production soak database.
+
+From SSH on the generator, run one case at a time:
+
+```sh
+python3 /opt/lab/railway_run.py --case generator-mixed --rate 100 --seconds 30
+python3 /opt/lab/railway_run.py --case business-mixed --rate 25 --seconds 180 --pool 4
+```
+
+Copy private run artifacts before redeploying either ephemeral service. Record
+actual cgroup limits, pinned revision, database settings and resource samples
+for every case. Resource observations include setup and reconciliation; select
+only the report's measurement timestamps when calculating CPU and I/O rates.
+Calibrate the generator at or above each intended rate before accepting a
+capacity result. Railway qualification requires every planned first attempt
+accepted, scheduling p99 at most 20 ms and acceptance p99 below 250 ms, plus
+reconciliation, reads, restart and resource-observation gates.
+
+Start with Ding at 1 CPU/1 GB and PostgreSQL at 1 CPU/2 GB. Independently test
+PostgreSQL at 2 CPU/4 GB and 4 CPU/8 GB, holding Ding fixed; then Ding at 2 CPU/2 GB
+and 4 CPU/4 GB, holding PostgreSQL fixed. Test the best combined configuration
+and repeat a previous size as a control. Report throughput per allocated CPU and
+memory as well as absolute throughput. Keep database settings constant for the
+resource-only comparison; label any tuning separately. Connection-pool sweeps
+(2/4/8/16) are separate experiments, not silent changes between sizes.
+
+Screen rates briefly, repeat promising boundaries three times for 180 seconds,
+then sustain an operating rate with headroom for 30 minutes. Include 10/100
+workspace mixes, retained high-entropy JSON and alert delivery controls. This
+does not establish multi-server failover, physical crash recovery or arbitrary
+customer workload capacity. Export evidence, remove only owned fixture
+databases/roles and temporary services, and restore the dedicated database's
+prior resource allocation when the matrix ends. Preserve its existing volume.
+
 Private evidence defaults to `~/.config/ding-cloud/local-scale/runs/`. Each run
 records its revision, executable hash, settings, execution status, resource
 samples, raw ledger, and CPU/mutex/block/heap profiles. Bootstrap credentials are
