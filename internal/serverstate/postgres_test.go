@@ -2,44 +2,17 @@ package state
 
 import (
 	"context"
-	"encoding/json"
-	"os"
+	"github.com/ding-labs/ding/internal/pgtest"
 	"testing"
-
-	"github.com/ding-labs/ding/internal/database"
 )
 
 func postgresTestDB(t *testing.T) *DB {
 	t.Helper()
-	file := os.Getenv("DING_TEST_POSTGRES_FILE")
-	if file == "" {
-		t.Skip("requires isolated PostgreSQL lab")
-	}
-	data, err := os.ReadFile(file)
-	if err != nil {
-		t.Fatal("cannot read private PostgreSQL fixture")
-	}
-	var values map[string]string
-	if json.Unmarshal(data, &values) != nil {
-		t.Fatal("invalid PostgreSQL fixture")
-	}
-	cfg := database.Config{Backend: "postgres", DSNRef: &database.SecretRef{Env: "FIXTURE"}, MaxOpenConns: 1}
-	ctx := context.Background()
-	migration, err := database.OpenPostgres(ctx, cfg, func(string) (string, bool) { return values["migration"], values["migration"] != "" })
-	if err != nil {
+	fixture := pgtest.New(t)
+	if err := MigratePostgres(context.Background(), fixture.Migration, "ding_app"); err != nil {
 		t.Fatal(err)
 	}
-	err = MigratePostgres(ctx, migration, "ding_app")
-	migration.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
-	pool, err := database.OpenPostgres(ctx, cfg, func(string) (string, bool) { return values["app"], values["app"] != "" })
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { pool.Close() })
-	db, err := OpenPostgres(ctx, pool)
+	db, err := OpenPostgres(context.Background(), fixture.App)
 	if err != nil {
 		t.Fatal(err)
 	}
