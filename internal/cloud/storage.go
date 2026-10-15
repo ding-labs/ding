@@ -45,7 +45,12 @@ func (s *ServerStorage) Close() error {
 	return errors.Join(s.Control.Close(), closePool, s.owner.Close())
 }
 
-func OpenServerStorage(ctx context.Context, dir string, c database.Config) (result *ServerStorage, err error) {
+func OpenServerStorage(ctx context.Context, dir string, c database.Config) (*ServerStorage, error) {
+	return openServerStorage(ctx, dir, c, true)
+}
+
+// Native restore binds only after the source instance identity has been loaded.
+func openServerStorage(ctx context.Context, dir string, c database.Config, bind bool) (result *ServerStorage, err error) {
 	if err = c.Validate(); err != nil {
 		return nil, err
 	}
@@ -107,6 +112,10 @@ func OpenServerStorage(ctx context.Context, dir string, c database.Config) (resu
 			return nil, err
 		}
 		s.workspaces = postgresWorkspaces{s.pool, s.owner}
+	}
+	if !bind {
+		ok = true
+		return s, nil
 	}
 	instance, err := s.Control.InstanceID(s.ctx)
 	if err != nil {
