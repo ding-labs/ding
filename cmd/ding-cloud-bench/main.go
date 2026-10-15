@@ -22,6 +22,10 @@ func main() {
 	pushFile := flag.String("push-producers", "", "JSON producer file for real HTTPS ingestion qualification")
 	ledger := flag.String("ledger", "", "new private JSONL request ledger")
 	rate := flag.Int("rate", 10, "offered push requests per second")
+	workers := flag.Int("push-workers", 16, "push generator workers (1–1024)")
+	noRetry := flag.Bool("push-no-retry", false, "measure first attempts without retry backoff")
+	ledgerBatch := flag.Int("push-ledger-batch", 1, "entries per durable ledger sync (1–1024)")
+	compact := flag.Bool("push-compact-ledger", false, "store producer bodies once in the ledger")
 	flag.Parse()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
@@ -35,7 +39,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		result, err := cloud.BenchmarkPush(ctx, cloud.PushBenchmarkOptions{Producers: producers, Duration: o.Duration, Rate: *rate, Ledger: *ledger})
+		result, err := cloud.BenchmarkPush(ctx, cloud.PushBenchmarkOptions{Producers: producers, Duration: o.Duration, Rate: *rate, Ledger: *ledger, Workers: *workers, NoRetry: *noRetry, LedgerBatch: *ledgerBatch, CompactLedger: *compact})
 		if err == nil {
 			err = json.NewEncoder(os.Stdout).Encode(result)
 		}

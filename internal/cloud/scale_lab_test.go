@@ -1,0 +1,234 @@
+package cloud
+
+import (
+	"context"
+	"crypto/rand"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/ding-labs/ding/internal/cloud/egress"
+	"github.com/ding-labs/ding/internal/integrationpolicy"
+	state "github.com/ding-labs/ding/internal/serverstate"
+	"github.com/ding-labs/ding/internal/store"
+	"github.com/ding-labs/ding/internal/watchrun"
+	"golang.org/x/time/rate"
+)
+
+type scaleLab struct {
+	server       *Server
+	http         *httptest.Server
+	tenants      []*Tenant
+	producers    []PushProducer
+	root         string
+	receiver     *scaleReceiver
+	key          []byte
+	control      http.Handler
+	controlMu    sync.RWMutex
+	preloadFills []PushBenchmarkResult
+}
+
+func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
+	t.Helper()
+	ctx := context.Background()
+	root := t.TempDir()
+	db, err := state.Open(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		t.Fatal(err)
+	}
+	vault, err := state.NewVault(db, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client, closeHTTP := (egress.Guard{}).Client()
+	t.Cleanup(closeHTTP)
+	pool := NewPool(ctx, root, db, vault, client)
+	t.Cleanup(func() { pool.Close() })
+
+	// Lab-only expansion bypasses the production 128 MiB backup envelope.
+	// The real store, WAL/FULL durability, auth, and evaluator are retained.
+	if !c.Defaults {
+		pool.Capacity.MaxEntities = 10000
+	}
+	s := &Server{DB: db, Vault: vault, Pool: pool, PublicURL: "https://ding.example", Version: "local-scale"}
+	if !c.Defaults {
+		s.Push = PushConfig{HostConcurrent: 256, WorkspaceConcurrent: 256, WorkspaceRate: 10000, WorkspaceBurst: 10000, ProducerRate: 10000, ProducerBurst: 10000, BytesPerSecond: 1 << 30, ByteBurst: 1 << 30, MaxReceipts: 1000000}
+	}
+	h, err := s.Handler()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.Defaults {
+		s.pushGlobal = rate.NewLimiter(100000, 100000)
+	}
+	lab := &scaleLab{server: s, root: root, key: key}
+	t.Cleanup(func() {
+		out := os.Getenv("DING_SCALE_OUTPUT")
+		if !t.Failed() || out == "" {
+			return
+		}
+		lab.server.Pool.Close()
+		lab.server.DB.Close()
+		destination := filepath.Join(out, "failed-state")
+		if os.Getenv("DING_SCALE_EXTERNAL") == "container" {
+			// Move outside testing's temporary parent but stay on the same
+			// volume so the launcher can archive it after the process exits.
+			parent := filepath.Dir(root)
+			destination = filepath.Join(filepath.Dir(parent), "failed-"+filepath.Base(parent))
+		}
+		if _, err := os.Stat(destination); !os.IsNotExist(err) {
+			t.Errorf("failed-state destination already exists or is inaccessible")
+			return
+		}
+		if err := os.Rename(root, destination); err != nil {
+			t.Errorf("preserving failed fixture state: %v", err)
+		}
+	})
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/lab/") {
+			lab.controlMu.RLock()
+			control := lab.control
+			lab.controlMu.RUnlock()
+			if control == nil {
+				w.WriteHeader(404)
+			} else {
+				control.ServeHTTP(w, r)
+			}
+			return
+		}
+		if c.Noop {
+			w.WriteHeader(202)
+			fmt.Fprintf(w, `{"data":{"acceptanceId":%q}}`, r.Header.Get("Idempotency-Key"))
+			return
+		}
+		r.Host = "ding.example"
+		h.ServeHTTP(w, r)
+	}))
+	if os.Getenv("DING_SCALE_EXTERNAL") == "container" {
+		server.Listener.Close()
+		server.Listener, err = net.Listen("tcp", ":8443")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	server.StartTLS()
+	if os.Getenv("DING_SCALE_EXTERNAL") == "container" {
+		server.URL = "https://127.0.0.1:8443"
+	}
+	t.Cleanup(server.Close)
+	lab.http = server
+	if c.Receiver != "" {
+		lab.receiver = newScaleReceiver(t, c.Receiver, c.Seconds, filepath.Join(root, "receiver.jsonl"))
+		pool.http.Transport = scaleDeliveryTransport{receiver: lab.receiver, next: pool.http.Transport}
+	}
+	bodies, err := c.bodies()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range c.Workspaces {
+		enrolled, err := db.Enroll(ctx, "local-scale", fmt.Sprintf("user-%d", i), MaxAccounts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if lab.receiver != nil {
+			if err := vault.Put(ctx, enrolled.Workspace.ID, "SCALE_WEBHOOK", lab.receiver.server.URL); err != nil {
+				t.Fatal(err)
+			}
+		}
+		tenant, err := scaleTenant(pool, enrolled.Workspace, c.Defaults)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tenant.App.Apply(ctx, watchrun.ApplyRequest{Manifest: c.manifest()}); err != nil {
+			t.Fatal(err)
+		}
+		principal, err := db.Principal(ctx, enrolled.User, enrolled.Workspace.ID, "browser", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		life, err := s.producerLifetimes(ctx, enrolled.Workspace.ID, []string{"ci"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		grant, err := db.CreateBoundService(ctx, principal, "scale", []string{"ingest", "inspect"}, []string{"ci"}, 30, life)
+		if err != nil {
+			t.Fatal(err)
+		}
+		env := fmt.Sprintf("DING_LOCAL_SCALE_%d", i)
+		t.Setenv(env, grant.Token)
+		for _, body := range bodies {
+			lab.producers = append(lab.producers, PushProducer{URL: server.URL + "/v1/ingest/ci", TokenEnv: env, Body: body})
+		}
+		lab.tenants = append(lab.tenants, tenant)
+	}
+	if len(lab.producers) > 10000 {
+		t.Fatal("too many fixture variants")
+	}
+	return lab
+}
+
+// Configure limits before workers start; changing App.Limits on a running
+// production Pool tenant would race with retention and acquisition workers.
+func scaleTenant(pool *Pool, w state.Workspace, defaults bool) (*Tenant, error) {
+	db, err := store.Open(pool.ctx, filepath.Join(pool.root, "workspaces", w.ID))
+	if err != nil {
+		return nil, err
+	}
+	app := watchrun.New(db)
+	app.Integration = integrationpolicy.Hosted(w.ID, w.Name, false)
+	app.Limits = pool.Capacity.Limits()
+	if !defaults {
+		app.Limits.MaxBytes = 4 << 30
+		app.Limits.MaxPending = 100000
+	}
+	app.AcquisitionWorkers, app.DeliveryWorkers = 1, 1
+	app.PollInterval = time.Second
+	app.SchedulingJitter = 5 * time.Second
+	app.Lookup = pool.vault.Lookup(w.ID)
+	app.HTTP.Lookup = app.Lookup
+	app.HTTP.Client = pool.http
+	app.Output = io.Discard
+	app.ValidateBundle = pool.Capacity.Policy
+	run, stop := context.WithCancel(pool.ctx)
+	tenant := &Tenant{Workspace: w, App: app, stop: stop, done: make(chan struct{}), ctx: run}
+	pool.mu.Lock()
+	pool.tenants[w.ID] = tenant
+	pool.mu.Unlock()
+	go func() { tenant.err = app.Run(run); tenant.failed.Store(true); close(tenant.done) }()
+	return tenant, nil
+}
+
+func TestScaleLabUsesIsolatedHostedPath(t *testing.T) {
+	c := scaleConfig{Name: "smoke", Rate: 10, Seconds: 1, Workspaces: 2, Outputs: 18}
+	if err := c.validate(); err != nil {
+		t.Fatal(err)
+	}
+	lab := newScaleLab(t, c)
+	if lab.tenants[0].Workspace.ID == lab.tenants[1].Workspace.ID {
+		t.Fatal("shared workspace")
+	}
+	r, err := lab.http.Client().Post(lab.producers[0].URL, "application/json", strings.NewReader("{}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Body.Close()
+	if r.StatusCode != 401 {
+		t.Fatal("fixture disabled authorization", r.StatusCode)
+	}
+	if filepath.Dir(lab.root) == "/data" {
+		t.Fatal("unexpected production path")
+	}
+}

@@ -1,11 +1,14 @@
 package cloud
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -26,39 +29,63 @@ type PushProducer struct {
 	Body     json.RawMessage `json:"body"`
 }
 type PushBenchmarkOptions struct {
-	Producers []PushProducer
-	Duration  time.Duration
-	Rate      int
-	Ledger    string
-	Client    *http.Client
+	Producers     []PushProducer
+	Duration      time.Duration
+	Rate          int
+	Ledger        string
+	Client        *http.Client
+	Workers       int
+	NoRetry       bool
+	LedgerBatch   int
+	CompactLedger bool
 }
 type PushBenchmarkResult struct {
-	GeneratorBusy   int     `json:"generatorBusy"`
-	Offered         int     `json:"offered"`
-	Accepted        int     `json:"accepted"`
-	Replayed        int     `json:"replayed"`
-	Rejected        int     `json:"rejected"`
-	Unconfirmed     int     `json:"unconfirmed"`
-	Attempts        int     `json:"attempts"`
-	P95MS           float64 `json:"p95MS"`
-	P99MS           float64 `json:"p99MS"`
-	DurationSeconds float64 `json:"durationSeconds"`
+	GeneratorBusy   int            `json:"generatorBusy"`
+	Offered         int            `json:"offered"`
+	Accepted        int            `json:"accepted"`
+	Replayed        int            `json:"replayed"`
+	Rejected        int            `json:"rejected"`
+	Unconfirmed     int            `json:"unconfirmed"`
+	Attempts        int            `json:"attempts"`
+	P95MS           float64        `json:"p95MS"`
+	P99MS           float64        `json:"p99MS"`
+	DurationSeconds float64        `json:"durationSeconds"`
+	FirstAccepted   int            `json:"firstAccepted"`
+	Statuses        map[int]int    `json:"statuses"`
+	Scheduled       int            `json:"scheduled"`
+	ScheduleP99MS   float64        `json:"scheduleP99MS"`
+	HTTPP99MS       float64        `json:"httpP99MS"`
+	Throttled       int            `json:"throttled"`
+	ErrorCodes      map[string]int `json:"errorCodes"`
 }
 type pushLedgerEntry struct {
-	Key      string             `json:"key"`
-	Producer int                `json:"producer"`
-	Body     json.RawMessage    `json:"body,omitempty"`
-	Stage    string             `json:"stage"`
-	Status   int                `json:"status,omitempty"`
-	At       time.Time          `json:"at"`
-	Receipt  *store.PushReceipt `json:"receipt,omitempty"`
+	Key         string             `json:"key"`
+	Producer    int                `json:"producer"`
+	Body        json.RawMessage    `json:"body,omitempty"`
+	Stage       string             `json:"stage"`
+	Status      int                `json:"status,omitempty"`
+	At          time.Time          `json:"at"`
+	Receipt     *store.PushReceipt `json:"receipt,omitempty"`
+	ScheduledAt time.Time          `json:"scheduledAt,omitempty"`
+	ErrorCode   string             `json:"errorCode,omitempty"`
 }
 
 func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkResult, error) {
 	var result PushBenchmarkResult
-	if len(o.Producers) == 0 || len(o.Producers) > 10000 || o.Rate < 1 || o.Rate > 1000 || o.Duration < time.Second || o.Duration > 7*24*time.Hour {
-		return result, fmt.Errorf("provide bounded producers, duration (1s–7d), rate (1–1000/sec), and a new ledger file")
+	if o.Workers == 0 {
+		o.Workers = 16
 	}
+	if o.LedgerBatch == 0 {
+		o.LedgerBatch = 1
+	}
+	if o.LedgerBatch < 1 || o.LedgerBatch > 1024 {
+		return result, fmt.Errorf("ledger batch must be 1–1024")
+	}
+	if len(o.Producers) == 0 || len(o.Producers) > 10000 || o.Rate < 1 || o.Rate > 100000 || o.Workers < 1 || o.Workers > 1024 || o.Duration < time.Second || o.Duration > 7*24*time.Hour {
+		return result, fmt.Errorf("provide bounded producers, duration (1s–7d), rate (1–100000/sec), workers (1–1024), and a new ledger file")
+	}
+	result.Statuses = map[int]int{}
+	result.ErrorCodes = map[string]int{}
 	tokens := make([]string, len(o.Producers))
 	for i, p := range o.Producers {
 		u, err := url.Parse(p.URL)
@@ -75,15 +102,23 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 		return result, err
 	}
 	defer ledger.Close()
-	var ledgerMu sync.Mutex
-	record := func(e pushLedgerEntry) error {
-		ledgerMu.Lock()
-		defer ledgerMu.Unlock()
-		if err := json.NewEncoder(ledger).Encode(e); err != nil {
-			return err
+	if o.CompactLedger {
+		buffer := bufio.NewWriter(ledger)
+		encoder := json.NewEncoder(buffer)
+		for i, p := range o.Producers {
+			if err := encoder.Encode(pushLedgerEntry{Producer: i, Body: p.Body, Stage: "producer", At: time.Now().UTC()}); err != nil {
+				return result, err
+			}
 		}
-		return ledger.Sync()
+		if err := buffer.Flush(); err != nil {
+			return result, err
+		}
+		if err := ledger.Sync(); err != nil {
+			return result, err
+		}
 	}
+	record, closeLedger := groupedPushLedger(ledger, o.LedgerBatch)
+	defer closeLedger()
 	client := o.Client
 	if client == nil {
 		client = &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
@@ -98,11 +133,16 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 	run, cancel := context.WithCancel(ctx)
 	defer cancel()
 	start := time.Now()
-	deadline := start.Add(o.Duration)
 	var mu sync.Mutex
 	var failure error
 	histogram := make([]int, 120001) // Bounded millisecond histogram, including retry latency.
-	jobs := make(chan int, 32)
+	scheduleHistogram := make([]int, 120001)
+	httpHistogram := make([]int, 120001)
+	type job struct {
+		producer int
+		due      time.Time
+	}
+	jobs := make(chan job, o.Workers*2)
 	var workers sync.WaitGroup
 	fail := func(err error) {
 		mu.Lock()
@@ -112,14 +152,19 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 		}
 		cancel()
 	}
-	for worker := 0; worker < 16; worker++ {
+	for worker := 0; worker < o.Workers; worker++ {
 		workers.Add(1)
 		go func() {
 			defer workers.Done()
-			for i := range jobs {
+			for j := range jobs {
+				i := j.producer
 				p := o.Producers[i]
 				key := state.ID()
-				if err := record(pushLedgerEntry{Key: key, Producer: i, Body: p.Body, Stage: "offered", At: time.Now().UTC()}); err != nil {
+				body := p.Body
+				if o.CompactLedger {
+					body = nil
+				}
+				if err := record(pushLedgerEntry{Key: key, Producer: i, Body: body, Stage: "offered", At: time.Now().UTC(), ScheduledAt: j.due}); err != nil {
 					fail(err)
 					continue
 				}
@@ -127,7 +172,10 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 				result.Offered++
 				mu.Unlock()
 				accepted, rejected := false, false
-				begin := time.Now()
+				lastStatus := 0
+				mu.Lock()
+				scheduleHistogram[min(int(time.Since(j.due).Milliseconds()), len(scheduleHistogram)-1)]++
+				mu.Unlock()
 				for attempt := 0; attempt < 4; attempt++ {
 					req, err := http.NewRequestWithContext(run, "POST", p.URL, bytes.NewReader(p.Body))
 					if err != nil {
@@ -140,29 +188,38 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 					mu.Lock()
 					result.Attempts++
 					mu.Unlock()
+					begin := time.Now()
 					response, err := client.Do(req)
 					status := 0
 					retryAfter := time.Duration(1<<attempt) * time.Second
 					var receipt *store.PushReceipt
+					code := ""
 					if err == nil {
 						status = response.StatusCode
 						var envelope struct {
-							Data store.PushReceipt `json:"data"`
+							Data  store.PushReceipt `json:"data"`
+							Error struct {
+								Code string `json:"code"`
+							} `json:"error"`
 						}
 						decode := json.NewDecoder(io.LimitReader(response.Body, 64<<10)).Decode(&envelope)
 						response.Body.Close()
 						if delay, e := time.ParseDuration(response.Header.Get("Retry-After") + "s"); e == nil && delay > retryAfter {
 							retryAfter = min(delay, 30*time.Second)
 						}
+						code = envelope.Error.Code
 						mu.Lock()
 						if status == 202 && decode == nil && envelope.Data.AcceptanceID != "" {
 							receipt = &envelope.Data
 							accepted = true
 							result.Accepted++
+							if attempt == 0 {
+								result.FirstAccepted++
+							}
 							if receipt.Duplicate {
 								result.Replayed++
 							}
-							histogram[min(int(time.Since(begin).Milliseconds()), len(histogram)-1)]++
+							histogram[min(int(time.Since(j.due).Milliseconds()), len(histogram)-1)]++
 						}
 						if status >= 400 && status < 500 && status != 429 {
 							rejected = true
@@ -170,11 +227,25 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 						}
 						mu.Unlock()
 					}
-					if err := record(pushLedgerEntry{Key: key, Producer: i, Stage: "response", Status: status, At: time.Now().UTC(), Receipt: receipt}); err != nil {
+					lastStatus = status
+					if err != nil {
+						code = pushTransportCode(err)
+					}
+					mu.Lock()
+					if code != "" && (len(code) > 128 || (len(result.ErrorCodes) >= 100 && result.ErrorCodes[code] == 0)) {
+						code = "other"
+					}
+					if code != "" {
+						result.ErrorCodes[code]++
+					}
+					result.Statuses[status]++
+					httpHistogram[min(int(time.Since(begin).Milliseconds()), len(httpHistogram)-1)]++
+					mu.Unlock()
+					if err := record(pushLedgerEntry{Key: key, Producer: i, Stage: "response", Status: status, At: time.Now().UTC(), Receipt: receipt, ErrorCode: code}); err != nil {
 						fail(err)
 						break
 					}
-					if accepted || rejected || run.Err() != nil {
+					if accepted || rejected || run.Err() != nil || o.NoRetry {
 						break
 					}
 					// Stable body/key, bounded backoff and deterministic per-request jitter.
@@ -188,25 +259,39 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 				}
 				if !accepted && !rejected {
 					mu.Lock()
-					result.Unconfirmed++
+					if o.NoRetry && lastStatus == 429 {
+						result.Throttled++
+					} else {
+						result.Unconfirmed++
+					}
 					mu.Unlock()
 				}
 			}
 		}()
 	}
-	tick := time.NewTicker(time.Second / time.Duration(o.Rate))
-	defer tick.Stop()
-	offered := 0
+	timer := time.NewTimer(time.Hour)
+	defer timer.Stop()
+	timer.Stop()
+	totalScheduled := int(float64(o.Duration) / float64(time.Second) * float64(o.Rate))
 schedule:
-	for time.Now().Before(deadline) {
-		select {
-		case <-run.Done():
-			break schedule
-		case <-tick.C:
+	for i := 0; i < totalScheduled; i++ {
+		due := start.Add(time.Duration(float64(i+1) * float64(time.Second) / float64(o.Rate)))
+		if delay := time.Until(due); delay > 0 {
+			timer.Reset(delay)
+			select {
+			case <-run.Done():
+				break schedule
+			case <-timer.C:
+			}
 		}
+		if run.Err() != nil {
+			break
+		}
+		mu.Lock()
+		result.Scheduled++
+		mu.Unlock()
 		select {
-		case jobs <- offered % len(o.Producers):
-			offered++
+		case jobs <- job{producer: i % len(o.Producers), due: due}:
 		default:
 			mu.Lock()
 			result.GeneratorBusy++
@@ -215,23 +300,10 @@ schedule:
 	}
 	close(jobs)
 	workers.Wait()
-	total := 0
-	for _, n := range histogram {
-		total += n
-	}
-	cumulative := 0
-	p95Set := false
-	for ms, n := range histogram {
-		cumulative += n
-		if !p95Set && cumulative >= (total*95+99)/100 {
-			p95Set = true
-			result.P95MS = float64(ms)
-		}
-		if cumulative >= (total*99+99)/100 {
-			result.P99MS = float64(ms)
-			break
-		}
-	}
+	result.P95MS = histogramPercentile(histogram, 95)
+	result.P99MS = histogramPercentile(histogram, 99)
+	result.ScheduleP99MS = histogramPercentile(scheduleHistogram, 99)
+	result.HTTPP99MS = histogramPercentile(httpHistogram, 99)
 	result.DurationSeconds = time.Since(start).Seconds()
 	if failure != nil {
 		return result, failure
@@ -240,4 +312,40 @@ schedule:
 		return result, ctx.Err()
 	}
 	return result, nil
+}
+
+// Error strings may contain URLs or credential material. Persist fixed classes.
+func pushTransportCode(err error) string {
+	if errors.Is(err, context.Canceled) {
+		return "transport_cancelled"
+	}
+	var network net.Error
+	if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &network) && network.Timeout()) {
+		return "transport_timeout"
+	}
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return "transport_eof"
+	}
+	if errors.Is(err, net.ErrClosed) {
+		return "transport_closed"
+	}
+	return "transport_error"
+}
+
+func histogramPercentile(histogram []int, percentile int) float64 {
+	total := 0
+	for _, n := range histogram {
+		total += n
+	}
+	if total == 0 {
+		return 0
+	}
+	count := 0
+	for ms, n := range histogram {
+		count += n
+		if count >= (total*percentile+99)/100 {
+			return float64(ms)
+		}
+	}
+	return 0
 }
