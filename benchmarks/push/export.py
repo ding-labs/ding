@@ -12,15 +12,27 @@ def measurements(root):
         case = result['case']
         directory = root / case
         report_path = directory / 'report.json'
-        if not report_path.exists():
-            raise ValueError('case has no report: ' + case)
-        report = json.loads(report_path.read_text())
         execution = json.loads((directory / 'execution.json').read_text())
+        if not report_path.exists():
+            config = json.loads((directory / 'config.json').read_text())
+            yield {
+                'run': root.name, 'case': case, 'revision': manifest['revision'],
+                'environment': manifest['environment'], 'seconds': config['Seconds'],
+                'offeredRate': config['Rate'], 'planned': config['Rate'] * config['Seconds'],
+                'profiles': manifest.get('profiles', True), 'reportMissing': True,
+                'serverExitCode': execution['exitCode'], 'generatorExitCode': execution['generatorExitCode'],
+                'oomKilled': execution.get('container', {}).get('OOMKilled', False),
+                'failedStatePreserved': bool(execution.get('failedStateArchive') or execution.get('preservedVolume')),
+                'stable': False,
+            }
+            continue
+        report = json.loads(report_path.read_text())
         config, load = report['Config'], report['Load']
         before, after = report['Before'], report['After']
         planned = config['Rate'] * config['Seconds']
         yield {
             'run': root.name, 'case': case, 'revision': manifest['revision'],
+            'reportMissing': False,
             'environment': manifest['environment'], 'seconds': config['Seconds'],
             'workspaces': config['Workspaces'], 'outputs': config['Outputs'],
             'groups': config['Groups'], 'bodyBytes': config['BodyBytes'],
@@ -65,7 +77,7 @@ def main():
     if not rows:
         parser.error('no completed cases')
     with args.output.open('x', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0]))
+        writer = csv.DictWriter(f, fieldnames=list(dict.fromkeys(key for row in rows for key in row)))
         writer.writeheader()
         writer.writerows(rows)
 
