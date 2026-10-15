@@ -44,6 +44,9 @@ spec:
 }
 func setup(t *testing.T) (*App, string) {
 	t.Helper()
+	if os.Getenv("DING_TEST_BACKEND") == "postgres" {
+		return postgresSetup(t)
+	}
 	dir := t.TempDir()
 	s, err := store.Open(ctx, dir)
 	if err != nil {
