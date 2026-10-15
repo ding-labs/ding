@@ -64,3 +64,31 @@ func (d *DB) IngestGuard(token, producer, workspace, watch, lifetime string) dat
 		return check, nil
 	}}
 }
+
+// WebhookIngestGuard reuses the provider's existing Go verification while its
+// connection and workspace rows are locked. Ciphertext reads stay in this tx.
+func (v *Vault) WebhookIngestGuard(id, workspace string, authorize func(context.Context) error, until func() time.Time) database.TransactionGuard {
+	if !v.db.postgres {
+		return database.TransactionGuard{}
+	}
+	return database.TransactionGuard{Pool: v.db.sql, Lock: func(ctx context.Context, tx *sql.Tx) (func() error, error) {
+		var found string
+		if err := tx.QueryRowContext(ctx, "SELECT id FROM ding_control.workspaces WHERE id=$1 AND deleting=false FOR SHARE", workspace).Scan(&found); err != nil {
+			return nil, ErrServiceRevoked
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT id FROM ding_control.webhook_connections WHERE id=$1 AND workspace=$2 FOR SHARE", id, workspace).Scan(&found); err != nil {
+			return nil, ErrServiceRevoked
+		}
+		if err := authorize(database.WithTransaction(ctx, v.db.sql, tx)); err != nil {
+			return nil, ErrServiceRevoked
+		}
+		deadline := until()
+		check := func() error {
+			if !deadline.IsZero() && !time.Now().Before(deadline) {
+				return ErrServiceRevoked
+			}
+			return nil
+		}
+		return check, check()
+	}}
+}

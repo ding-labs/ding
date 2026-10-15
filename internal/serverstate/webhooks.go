@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/access"
+	"github.com/ding-labs/ding/internal/database"
 )
 
 type WebhookConnection struct {
@@ -90,7 +91,7 @@ func (v *Vault) Webhook(ctx context.Context, id string) (WebhookConnection, erro
 	var c WebhookConnection
 	var raw, secret, previous []byte
 	var until int64
-	err := v.db.sql.QueryRowContext(ctx, v.db.query(qWebhook1), id).Scan(&raw, &c.Lifetime, &secret, &previous, &until)
+	err := database.Executor(ctx, v.db.sql).QueryRowContext(ctx, v.db.query(qWebhook1), id).Scan(&raw, &c.Lifetime, &secret, &previous, &until)
 	if err != nil {
 		return c, err
 	}

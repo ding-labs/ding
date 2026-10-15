@@ -38,3 +38,23 @@ func LockTransactionGuard(ctx context.Context, tx *sql.Tx, pool *sql.DB) (func()
 	}
 	return check, nil
 }
+
+type queryScopeKey struct{}
+type queryScope struct {
+	pool *sql.DB
+	tx   *sql.Tx
+}
+type QueryExecutor interface {
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+}
+
+func WithTransaction(ctx context.Context, pool *sql.DB, tx *sql.Tx) context.Context {
+	return context.WithValue(ctx, queryScopeKey{}, queryScope{pool, tx})
+}
+func Executor(ctx context.Context, pool *sql.DB) QueryExecutor {
+	if s, ok := ctx.Value(queryScopeKey{}).(queryScope); ok && s.pool == pool {
+		return s.tx
+	}
+	return pool
+}
