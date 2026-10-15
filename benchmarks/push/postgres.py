@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import subprocess
 
@@ -18,9 +19,12 @@ def private(path, content):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["start", "status", "stop"])
+    parser.add_argument("action", choices=["start", "status", "stop", "destroy"])
     parser.add_argument("--root", type=Path, required=True)
+    parser.add_argument("--discard-data", action="store_true", help="confirm deletion of this owned lab after evidence export")
     args = parser.parse_args()
+    if args.action == 'destroy' and not args.discard_data:
+        parser.error('destroy requires --discard-data after evidence export')
     root = args.root.expanduser().resolve()
     manifest = root / "lab.json"
     if args.action == "start":
@@ -41,6 +45,8 @@ GRANT CONNECT, CREATE, TEMPORARY ON DATABASE ding TO ding_migrator;
         if not manifest.exists():
             parser.error("no owned lab at this root")
         project = json.loads(manifest.read_text())["project"]
+    if not re.fullmatch(r'ding-pg-[0-9a-f]{10}', project):
+        parser.error('manifest does not identify an owned Ding PostgreSQL lab')
     env = dict(os.environ, DING_PG_PASSWORD_FILE=str(root / "admin-password"))
     command = ["docker", "compose", "-p", project, "-f", str(COMPOSE)]
     if args.action == "start":
@@ -64,6 +70,14 @@ GRANT CONNECT, CREATE, TEMPORARY ON DATABASE ding TO ding_migrator;
         print(f"Local PostgreSQL lab ready: {project}; private connection file saved.")
     elif args.action == "status":
         subprocess.run(command + ["ps"], env=env, check=True)
+    elif args.action == 'destroy':
+        subprocess.run(command + ['down', '--volumes'], env=env, check=True)
+        for name in ('admin-password', 'roles.sql', 'connections.json', 'container-connections.json'):
+            (root/name).unlink(missing_ok=True)
+        state = json.loads(manifest.read_text())
+        state['state'] = 'destroyed'
+        manifest.write_text(json.dumps(state, indent=2))
+        print('Owned PostgreSQL lab removed; reports and ownership manifest retained.')
     else:
         # Keep the volume and private evidence. Destruction requires an explicit
         # operator action after failed-state evidence has been preserved.
