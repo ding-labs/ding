@@ -74,7 +74,9 @@ def run():
                                      stdout=log,stderr=subprocess.STDOUT,timeout=args.seconds+600)
         if process.returncode:
             control('/abort/'+identity,{})
-        deadline = time.monotonic()+600
+        # Long cases verify every receipt twice over a real database network
+        # (including after restart). Keep this outside the measured interval.
+        deadline = time.monotonic()+2100
         while True:
             result = control('/result/'+identity)
             if not result['running']: break

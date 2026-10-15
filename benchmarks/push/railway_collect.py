@@ -33,7 +33,7 @@ def run():
         process = subprocess.run(ssh+['python3', '/opt/lab/railway_run.py', '--case', args.case,
                                      '--rate', str(args.rate), '--seconds', str(args.seconds), '--pool', str(args.pool)]
                                  + (['--seed', str(args.seed)] if args.seed else []),
-                                 stdout=output, stderr=errors, timeout=args.seconds+1200)
+                                 stdout=output, stderr=errors, timeout=args.seconds+2400)
     metadata.update(endedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(), exitCode=process.returncode)
     (root/'execution.json').write_text(json.dumps(metadata, indent=2))
     summaries = [json.loads(line) for line in (root/'launcher.stdout').read_text().splitlines() if line.startswith('{')]
