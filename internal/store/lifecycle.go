@@ -79,6 +79,9 @@ type Usage struct {
 }
 
 func (t *Tx) Usage() (Usage, error) {
+	if t.postgres {
+		return t.postgresUsage(true)
+	}
 	var u Usage
 	for _, q := range []struct {
 		sql  string
@@ -190,6 +193,9 @@ func (t *Tx) Observations(id string, sequences []int64) ([]json.RawMessage, erro
 }
 
 func (t *Tx) Budget() (Usage, error) {
+	if t.postgres {
+		return t.postgresUsage(false)
+	}
 	var u Usage
 	var pages, free, size int64
 	for _, q := range []struct {
@@ -211,6 +217,9 @@ func (s *Store) LimitBytes(ctx context.Context, max int64) error {
 	defer s.mu.Unlock()
 	if s.closed {
 		return ErrClosed
+	}
+	if s.postgres {
+		return s.limitPostgresBytes(ctx, max)
 	}
 	var size int64
 	if err := s.db.QueryRowContext(ctx, "PRAGMA page_size").Scan(&size); err != nil {

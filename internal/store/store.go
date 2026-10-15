@@ -316,6 +316,10 @@ func (s *Store) backup(ctx context.Context, path string) error {
 }
 
 type Health struct {
+	Backend       string `json:"backend"`
+	Postgres      string `json:"postgres,omitempty"`
+	Durability    string `json:"durability,omitempty"`
+	LogicalBytes  int64  `json:"logicalBytes,omitempty"`
 	SQLite        string `json:"sqlite"`
 	Schema        int    `json:"schema"`
 	Journal       string `json:"journal"`
@@ -326,7 +330,10 @@ type Health struct {
 }
 
 func (s *Store) Health(ctx context.Context) (Health, error) {
-	var h Health
+	if s.postgres {
+		return s.healthPostgres(ctx)
+	}
+	h := Health{Backend: "sqlite"}
 	err := s.View(ctx, func(tx *Tx) error {
 		for _, q := range []struct {
 			query  string
