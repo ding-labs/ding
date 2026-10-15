@@ -87,6 +87,11 @@ explicit, and the report records per-class accepted counts, bytes, observation
 counts and p99. Each 20 arrivals represents 1.06 MB and 170 observations. Reads
 and graceful restart reconciliation are enabled. Run retained-padding, alert
 and HTTP-polling scenarios separately before claiming a complete business mix.
+The default weighted cycle groups arrivals into short producer/workspace blocks.
+For an interleaved Railway control, pass `--seed 42` to `railway_collect.py` (or
+`railway_run.py` inside the generator). The seed shuffles the complete weighted
+cycle reproducibly, preserving its exact counts and every planned receipt key.
+Keep burst and interleaved results separate; they have different queueing behavior.
 
 ## Interpret evidence
 
