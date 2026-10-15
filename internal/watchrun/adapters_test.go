@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/source"
-	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watch"
 )
 
@@ -81,7 +80,7 @@ func TestSignalStateSurvivesRestartAndRetention(t *testing.T) {
 			if err := a.Store.Close(); err != nil {
 				t.Fatal(err)
 			}
-			reopened, err := store.Open(ctx, dir)
+			reopened, err := reopenTestStore(ctx, dir)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -138,7 +137,7 @@ func TestDestinationBackoffIsSharedAndDurable(t *testing.T) {
 		t.Fatal("another watch bypassed destination backoff", worked, err)
 	}
 	a.Store.Close()
-	reopened, err := store.Open(ctx, dir)
+	reopened, err := reopenTestStore(ctx, dir)
 	if err != nil {
 		t.Fatal(err)
 	}

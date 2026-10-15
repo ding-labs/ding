@@ -51,7 +51,10 @@ func postgresSetup(t *testing.T) (*App, string) {
 	t.Cleanup(func() { s.Close() })
 	a := New(s)
 	a.Now = func() time.Time { return start }
-	return a, t.TempDir()
+	dir := t.TempDir()
+	postgresReopen.Store(dir, func(ctx context.Context) (*store.Store, error) { return store.OpenPostgres(ctx, pool, id) })
+	t.Cleanup(func() { postgresReopen.Delete(dir) })
+	return a, dir
 }
 
 func TestPostgresApplicationPushReplayAndQuota(t *testing.T) {
@@ -152,4 +155,15 @@ func TestPostgresConcurrentPushReceipts(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+}
+
+var postgresReopen sync.Map
+
+// Shared restart tests reopen the same backend rather than replacing a
+// PostgreSQL workspace with a new, empty SQLite directory.
+func reopenTestStore(ctx context.Context, dir string) (*store.Store, error) {
+	if factory, ok := postgresReopen.Load(dir); ok {
+		return factory.(func(context.Context) (*store.Store, error))(ctx)
+	}
+	return store.Open(ctx, dir)
 }
