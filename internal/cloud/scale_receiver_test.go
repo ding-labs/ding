@@ -1,25 +1,32 @@
 package cloud
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"github.com/ding-labs/ding/internal/mcpconfig"
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 )
 
 type scaleReceiver struct {
-	server             *httptest.Server
-	endpoint           string
-	mu                 sync.Mutex
-	accepted, attempts int
-	recoverAt          time.Time
-	ids                map[string]bool
-	ledger             *os.File
+	remoteToken, remoteLedger string
+	client                    *http.Client
+	admin                     string
+	server                    *httptest.Server
+	endpoint                  string
+	mu                        sync.Mutex
+	accepted, attempts        int
+	recoverAt                 time.Time
+	ids                       map[string]bool
+	ledger                    *os.File
 }
 type scaleDeliveryTransport struct {
 	receiver *scaleReceiver
@@ -28,18 +35,49 @@ type scaleDeliveryTransport struct {
 
 func (s scaleDeliveryTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	if r.URL.Scheme == "https" && "https://"+r.URL.Host == s.receiver.endpoint {
-		return s.receiver.server.Client().Transport.RoundTrip(r)
+		return s.receiver.client.Transport.RoundTrip(r)
 	}
 	return s.next.RoundTrip(r)
 }
 func newScaleReceiver(t *testing.T, mode string, seconds int, path string) *scaleReceiver {
+	if file := os.Getenv("DING_SCALE_RECEIVER_FILE"); file != "" {
+		return loadScaleReceiver(t, file)
+	}
 	f, err := mcpconfig.CreatePrivate(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { f.Close() })
-	s := &scaleReceiver{ids: map[string]bool{}, ledger: f}
-	s.server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	s := &scaleReceiver{ids: map[string]bool{}, ledger: f, admin: state.ID()}
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/lab/") {
+			if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+s.admin)) != 1 {
+				w.WriteHeader(401)
+				return
+			}
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			switch r.URL.Path {
+			case "/lab/state":
+				info, err := f.Stat()
+				if err != nil {
+					w.WriteHeader(500)
+					return
+				}
+				json.NewEncoder(w).Encode(scaleReceiverState{s.attempts, s.accepted, s.ids, info.Size()})
+			case "/lab/start":
+				var input struct{ At time.Time }
+				if r.Method != "POST" || json.NewDecoder(io.LimitReader(r.Body, 1024)).Decode(&input) != nil {
+					w.WriteHeader(400)
+					return
+				}
+				s.recoverAt = input.At
+				w.WriteHeader(204)
+			default:
+				w.WriteHeader(404)
+			}
+			return
+		}
 		if mode == "slow" {
 			time.Sleep(100 * time.Millisecond)
 		}
@@ -70,7 +108,17 @@ func newScaleReceiver(t *testing.T, mode string, seconds int, path string) *scal
 		s.ids[event.Data.ID] = true
 		s.accepted++
 		w.WriteHeader(204)
-	}))
+	})
+	s.server = httptest.NewUnstartedServer(handler)
+	if listen := os.Getenv("DING_SCALE_RECEIVER_LISTEN"); os.Getenv("DING_SCALE_RECEIVER_ONLY") == "1" && listen != "" {
+		s.server.Listener.Close()
+		s.server.Listener, err = net.Listen("tcp", listen)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	s.server.StartTLS()
+	s.client = s.server.Client()
 	s.endpoint = s.server.URL
 	t.Cleanup(s.server.Close)
 	return s
@@ -84,12 +132,19 @@ type scaleReceiverState struct {
 
 func (s *scaleReceiver) setRecovery(t *testing.T, at time.Time) {
 	t.Helper()
+	if s.remoteToken != "" {
+		s.remoteCall(t, "POST", "/lab/start", struct{ At time.Time }{at}, nil)
+		return
+	}
 	s.mu.Lock()
 	s.recoverAt = at
 	s.mu.Unlock()
 }
 func (s *scaleReceiver) snapshot(t *testing.T) (scaleReceiverState, []byte) {
 	t.Helper()
+	if s.remoteToken != "" {
+		return s.remoteSnapshot(t)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	raw, err := os.ReadFile(s.ledger.Name())
