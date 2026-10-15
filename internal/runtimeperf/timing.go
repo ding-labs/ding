@@ -33,11 +33,20 @@ const (
 	ConditionCompile
 	EnqueueFirst
 	WorkspaceLock
+	SQLSelect
+	SQLInsert
+	SQLUpdate
+	SQLDelete
+	SQLBegin
+	SQLCommit
+	SQLRollback
+	SQLScope
+	SQLOther
 	operationCount
 )
 
 var backends = [...]string{"sqlite", "postgres"}
-var operations = [...]string{"writer_wait", "transaction_begin", "write_callback", "commit", "snapshot", "evaluation", "maintenance", "delivery_claim", "delivery_io", "authorization", "condition_compile", "enqueue_to_first_attempt", "workspace_row_lock"}
+var operations = [...]string{"writer_wait", "transaction_begin", "write_callback", "commit", "snapshot", "evaluation", "maintenance", "delivery_claim", "delivery_io", "authorization", "condition_compile", "enqueue_to_first_attempt", "workspace_row_lock", "sql_select", "sql_insert", "sql_update", "sql_delete", "sql_begin", "sql_commit", "sql_rollback", "sql_scope", "sql_other"}
 var bounds = [...]time.Duration{time.Millisecond, 10 * time.Millisecond, 100 * time.Millisecond, time.Second, 10 * time.Second}
 var labels = [...]string{"0.001", "0.01", "0.1", "1", "10"}
 

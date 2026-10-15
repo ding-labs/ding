@@ -64,6 +64,7 @@ func postgresConfig(dsn string) (*pgx.ConnConfig, error) {
 	// Extended protocol without a session statement cache also works through
 	// transaction poolers. Workspace scope is always transaction-local.
 	cfg.DefaultQueryExecMode = pgx.QueryExecModeExec
+	cfg.Tracer = queryTrace{}
 	cfg.RuntimeParams["application_name"] = "ding"
 	cfg.RuntimeParams["statement_timeout"] = "30000"
 	cfg.RuntimeParams["lock_timeout"] = "5000"
