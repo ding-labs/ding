@@ -220,6 +220,9 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 	}
 	defer storage.Close()
 	ctx = storage.Context()
+	if err = storage.CheckQuarantine(ctx); err != nil {
+		return err
+	}
 	db := storage.Control
 	if c.Deployment == "railway" || c.Database.Effective().Backend == "postgres" {
 		if err := db.ConfigureDataKey(ctx, key); err != nil {

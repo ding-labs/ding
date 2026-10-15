@@ -14,7 +14,9 @@ import (
 const metadataSchema = `CREATE SCHEMA IF NOT EXISTS ding_meta;
  CREATE TABLE IF NOT EXISTS ding_meta.versions(component text PRIMARY KEY,version integer NOT NULL CHECK(version>=0));
  CREATE TABLE IF NOT EXISTS ding_meta.owner(singleton integer PRIMARY KEY CHECK(singleton=1),pid integer NOT NULL,nonce text NOT NULL);
- INSERT INTO ding_meta.owner(singleton,pid,nonce) VALUES(1,0,'') ON CONFLICT DO NOTHING;`
+ INSERT INTO ding_meta.owner(singleton,pid,nonce) VALUES(1,0,'') ON CONFLICT DO NOTHING;
+ CREATE TABLE IF NOT EXISTS ding_meta.lifecycle(singleton integer PRIMARY KEY CHECK(singleton=1),quarantined boolean NOT NULL DEFAULT false);
+ INSERT INTO ding_meta.lifecycle(singleton,quarantined) VALUES(1,false) ON CONFLICT DO NOTHING;`
 
 func Migrate(ctx context.Context, db *sql.DB, component string, steps []string, appRole string) error {
 	if component != "runtime" && component != "control" {
@@ -62,7 +64,7 @@ func Migrate(ctx context.Context, db *sql.DB, component string, steps []string, 
 	for _, query := range []string{
 		"GRANT USAGE ON SCHEMA ding_meta," + schema + " TO " + role,
 		"GRANT SELECT ON ding_meta.versions TO " + role,
-		"GRANT SELECT,UPDATE ON ding_meta.owner TO " + role,
+		"GRANT SELECT,UPDATE ON ding_meta.owner,ding_meta.lifecycle TO " + role,
 		"GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA " + schema + " TO " + role,
 		"GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA " + schema + " TO " + role,
 	} {

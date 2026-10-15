@@ -118,3 +118,17 @@ func OpenServerStorage(ctx context.Context, dir string, c database.Config) (resu
 	ok = true
 	return s, nil
 }
+
+func (s *ServerStorage) CheckQuarantine(ctx context.Context) error {
+	if s.pool == nil {
+		return nil
+	}
+	quarantined, err := database.Quarantined(ctx, s.pool)
+	if err != nil {
+		return err
+	}
+	if quarantined {
+		return fmt.Errorf("restored PostgreSQL state is quarantined; review and release it with the offline operator command")
+	}
+	return nil
+}
