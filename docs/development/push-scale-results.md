@@ -76,6 +76,48 @@ and WAL are separate physical costs. Repeated padding can compress heavily, so
 high-entropy retained-padding cases are reported separately. Per-case database
 high-water growth and WAL deltas can include setup and final checks.
 
+## Completed boundary and control measurements
+
+These rows use 1 CPU / 1 GiB total and profiles off. A three-minute trial is
+still a bounded local experiment, not a production service-level guarantee.
+
+| Workload | First-attempt acknowledgements per 180 s trial | Acceptance p99 per trial | Qualified trials |
+| --- | --- | --- | --- |
+| SQLite, one workspace, 500 requests/s | 90,000; 89,774; 89,810 of 90,000 | 117; 191; 420 ms | 1/3; the latter trials throttled 226 and 190 requests |
+| SQLite, one workspace, 750 requests/s | 134,239; 133,589; 134,335 of 135,000 | 188; 249; 239 ms | 0/3; all throttled |
+| PostgreSQL, one workspace, 25 requests/s, pool 8 | 4,500 of 4,500 each | 230; 113; 41 ms | 3/3 |
+| PostgreSQL, one workspace, 50 requests/s, pool 8 | 9,000 of 9,000 each | 402; 316; 587 ms | 0/3; latency exceeds target |
+| PostgreSQL, 10 workspaces plus inspection, 25 requests/s, pool 2 | 4,500 of 4,500 each | 38; 28; 29 ms | 3/3; read p99 10; 8; 8 ms |
+
+The three matched 10,000-group trials offered 25 requests/s with one observation
+per request. Control p99 was **112 / 133 / 192 ms**, candidate
+**24 / 25 / 26 ms**. Every trial acknowledged all 4,500 inputs and reconciled.
+This is a repeatable improvement for that healthy grouped-input workload.
+
+Other controls do not support a universal speedup: the 30-second one-workspace
+250/s pair measured control 93 ms versus candidate 270 ms; the ten-workspace
+500/s pair measured 10 ms versus 579 ms. Both acknowledged every request, but
+those candidate screens failed the latency target. Earlier candidate screens were
+faster, so these differences require repeated controls before attribution.
+The 100,000-receipt paired screen similarly measured 15 ms versus 433 ms, while
+the primary candidate screen measured 15 ms. Its longer paired check is pending.
+The approximately 1.23 ms to 7.3–7.7 microsecond receipt-count query improvement
+is a query microbenchmark; it cannot establish an end-to-end throughput gain.
+
+A larger connection pool did not consistently improve PostgreSQL: at 25/s across
+10 workspaces, 30-second pool 1 / 2 / 4 / 8 screens measured ingestion p99
+26 / 28 / 181 / 1,210 ms. Pool 2 then passed the three repeated trials above.
+The larger-budget 100-workspace screens passed at 50/s on both 2 CPU / 2 GiB and
+4 CPU / 4 GiB, with p99 132 and 18 ms respectively. These are separate budgets;
+they do not qualify the 1 CPU configuration.
+
+The 1 CPU PostgreSQL 100-workspace cases could not finish their live postchecks
+within the bounded test timeout. They remain inconclusive for capacity. Offline
+audits recovered all 828, 816 and 737 acknowledged receipts in the three preserved
+attempts and reconciled identities, digests, observation provenance and durable
+usage. One additional committed request had lost its HTTP response. These audits
+do not replace the failed live observer or upgrade the capacity verdict.
+
 ## Qualification status
 
 The original workload screens and selected boundary repeats are complete.
