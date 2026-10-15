@@ -60,6 +60,11 @@ def sample(admin):
     import psycopg
     with psycopg.connect(admin, autocommit=True) as db:
         return db.execute("""SELECT json_build_object('at',clock_timestamp(),
+            'cpuStat',pg_read_file('/sys/fs/cgroup/cpu.stat'),
+            'cpuMax',pg_read_file('/sys/fs/cgroup/cpu.max'),
+            'memoryBytes',pg_read_file('/sys/fs/cgroup/memory.current'),
+            'memoryMax',pg_read_file('/sys/fs/cgroup/memory.max'),
+            'ioStat',pg_read_file('/sys/fs/cgroup/io.stat'),
             'commits',sum(xact_commit),'rollbacks',sum(xact_rollback),
             'deadlocks',sum(deadlocks),'blocksRead',sum(blks_read),'blocksHit',sum(blks_hit),
             'databaseBytes',(SELECT sum(pg_database_size(oid)) FROM pg_database WHERE NOT datistemplate),
