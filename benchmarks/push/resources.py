@@ -17,6 +17,15 @@ def cgroup_sample(container):
     return {key: int(value) for key, value in (line.split() for line in raw.splitlines())}
 
 
+def linux_host_sample(container):
+    """Global Linux CPU ticks expose VM steal/I/O wait without process data."""
+    raw = subprocess.check_output(['docker', 'exec', container, 'cat', '/proc/stat'],
+                                  text=True, stderr=subprocess.DEVNULL)
+    values = next(line.split()[1:] for line in raw.splitlines() if line.startswith('cpu '))
+    names = ('user', 'nice', 'system', 'idle', 'iowait', 'irq', 'softirq', 'steal')
+    return dict(zip(names, map(int, values[:8])))
+
+
 def resource_limits(backend, units, share, app_cpus=None, app_memory_mib=None,
                     database_cpus=None, database_memory_mib=None):
     postgres = backend == 'postgres'

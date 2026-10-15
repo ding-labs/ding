@@ -14,7 +14,7 @@ import time
 
 from postgres_runtime import LocalPostgres
 from receiver_runtime import LocalReceiver
-from resources import cgroup_sample, container_user, resource_limits
+from resources import cgroup_sample, container_user, linux_host_sample, resource_limits
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -31,6 +31,7 @@ def save(path, value):
 def qualified_load(load):
     return (load['generatorBusy'] == 0 and load['unconfirmed'] == 0 and load['rejected'] == 0
             and load.get('throttled', 0) == 0 and load.get('statuses', {}).get('429', 0) == 0
+            and load.get('scheduleP99MS', 0) <= 20
             and not load.get('clockDiscontinuity', False))
 
 
@@ -139,6 +140,8 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
                                     command(['ps','-o','rss=,%cpu=','-p',str(generator.pid)])) if generator is not None and generator.poll() is None else None
                         samples.append({'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'elapsed':time.monotonic()-started,'phase':'setup' if generator is None else 'producer','server':value,'generator':producer,
                                         'appCPUStat':cgroup_sample(container) if environment == 'container' else None,
+                                        'hostCPUStat':linux_host_sample(container) if environment == 'container' else None,
+                                        'generatorCPUStat':cgroup_sample(generator_container) if producer is not None and generator_container else None,
                                         'database':pg.sample() if pg else None,
                                         'receiver':receiver.sample() if receiver else None})
                     except (subprocess.CalledProcessError, OSError, json.JSONDecodeError):
@@ -237,6 +240,7 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
             'reconciliationErrors':report['Errors'],'readP99MS':report['ReadP99MS'],
             'pendingDeliveries':pending,'postChecksVerified':postchecks,
             'inconclusive': ('producer clock discontinuity' if load.get('clockDiscontinuity') else
+                             'producer scheduling p99 exceeded 20 ms' if load.get('scheduleP99MS', 0) > 20 else
                              'server clock discontinuity' if report.get('InternalObservations',0) else
                              'local resource observation unavailable' if observer_errors or failure else None),
             'stable':code==0 and generator_code==0 and not failure and not observer_errors and qualified_load(load) and fraction>=.999 and load['p99MS']<250 and not report['Errors'] and not report['ReadErrors'] and not report.get('InternalObservations',0) and pending==0 and postchecks}

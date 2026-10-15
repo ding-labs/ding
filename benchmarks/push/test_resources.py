@@ -1,9 +1,16 @@
 import unittest
 from unittest.mock import patch
-from resources import cgroup_sample, resource_limits
+from resources import cgroup_sample, linux_host_sample, resource_limits
 
 
 class ResourceProfiles(unittest.TestCase):
+    def test_global_cpu_ticks_include_steal_and_exclude_process_details(self):
+        with patch('resources.subprocess.check_output', return_value='cpu 1 2 3 4 5 6 7 8 9 10\ncpu0 1 2 3\nprocesses 123\n'):
+            result = linux_host_sample('owned-fixture')
+        self.assertEqual(result['steal'], 8)
+        self.assertEqual(result['iowait'], 5)
+        self.assertEqual(len(result), 8)
+
     def test_throttling_counters_preserve_microseconds(self):
         with patch('resources.subprocess.check_output', return_value='usage_usec 123\nnr_periods 10\nnr_throttled 2\nthrottled_usec 456\n'):
             result = cgroup_sample('owned-fixture')
