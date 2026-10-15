@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -24,6 +25,33 @@ func snapshotCount() int64 {
 	return total
 }
 
+func TestMaintenanceSnapshotServesConcurrentIdleWorkers(t *testing.T) {
+	a, _ := setup(t)
+	var schedule scheduleCache
+	if err := a.maintain(ctx, start, &schedule); err != nil {
+		t.Fatal(err)
+	}
+	before := snapshotCount()
+	var workers sync.WaitGroup
+	for range 16 {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			var delivery deliveryCache
+			if ready, err := delivery.ready(ctx, a.Store, start.Add(time.Second), &schedule); err != nil || ready {
+				t.Error("empty maintenance snapshot not reusable", ready, err)
+			}
+			if _, err := schedule.load(ctx, a.Store, start.Add(time.Second)); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	workers.Wait()
+	if snapshotCount() != before {
+		t.Fatal("idle workers reread maintenance snapshot")
+	}
+}
+
 func TestWorkerCachesRefreshAfterCommit(t *testing.T) {
 	a, _ := setup(t)
 	var schedule scheduleCache
@@ -31,7 +59,7 @@ func TestWorkerCachesRefreshAfterCommit(t *testing.T) {
 	if _, err := schedule.load(ctx, a.Store, start); err != nil {
 		t.Fatal(err)
 	}
-	if ready, err := delivery.ready(ctx, a.Store, start); err != nil || ready {
+	if ready, err := delivery.ready(ctx, a.Store, start, &schedule); err != nil || ready {
 		t.Fatal(ready, err)
 	}
 	before := snapshotCount()
@@ -39,7 +67,7 @@ func TestWorkerCachesRefreshAfterCommit(t *testing.T) {
 		if _, err := schedule.load(ctx, a.Store, start.Add(time.Second)); err != nil {
 			t.Fatal(err)
 		}
-		if ready, err := delivery.ready(ctx, a.Store, start.Add(time.Second)); err != nil || ready {
+		if ready, err := delivery.ready(ctx, a.Store, start.Add(time.Second), &schedule); err != nil || ready {
 			t.Fatal(ready, err)
 		}
 	}
@@ -54,7 +82,7 @@ func TestWorkerCachesRefreshAfterCommit(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		input(t, a, r, i, 500)
 	}
-	if ready, err := delivery.ready(ctx, a.Store, start.Add(20*time.Second)); err != nil || !ready {
+	if ready, err := delivery.ready(ctx, a.Store, start.Add(20*time.Second), &schedule); err != nil || !ready {
 		t.Fatal("new delivery hidden by cache", ready, err)
 	}
 }
@@ -66,7 +94,7 @@ func TestWorkerCachePeriodicallyReconstructsDurableState(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := snapshotCount()
-	if _, err := schedule.load(ctx, a.Store, start.Add(time.Minute)); err != nil {
+	if _, err := schedule.load(ctx, a.Store, start.Add(2*time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	if snapshotCount() != before+1 {

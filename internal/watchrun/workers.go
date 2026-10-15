@@ -138,6 +138,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	deliveryCtx, stopDelivery := context.WithCancel(context.WithoutCancel(ctx))
 	defer stopDelivery()
+	var cached scheduleCache
 	var deliveries sync.WaitGroup
 	for i := 0; i < a.DeliveryWorkers; i++ {
 		deliveries.Add(1)
@@ -145,14 +146,14 @@ func (a *App) Run(ctx context.Context) error {
 			defer deliveries.Done()
 			ticker := time.NewTicker(poll)
 			defer ticker.Stop()
-			var cached deliveryCache
+			var delivery deliveryCache
 			for {
 				select {
 				case <-deliveryCtx.Done():
 					return
 				default:
 				}
-				ready, err := cached.ready(deliveryCtx, a.Store, a.Now())
+				ready, err := delivery.ready(deliveryCtx, a.Store, a.Now(), &cached)
 				worked := false
 				if err == nil && ready {
 					version := a.Store.ChangeVersion()
@@ -160,7 +161,7 @@ func (a *App) Run(ctx context.Context) error {
 					if err == nil && !worked {
 						// Pending work may be leased or delayed. Revisit it at the
 						// normal poll cadence; only an actually empty queue is cached.
-						cached = deliveryCache{version: version}
+						delivery = deliveryCache{version: version}
 					}
 				}
 				a.note(err)
@@ -184,7 +185,6 @@ func (a *App) Run(ctx context.Context) error {
 	defer tick.Stop()
 	lastMaintenance := time.Time{}
 	var previousWall, previousTick time.Time
-	var cached scheduleCache
 	schedule := func() {
 		now := a.Now()
 		tickNow := time.Now()
@@ -197,12 +197,11 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		previousWall, previousTick = now, tickNow
 		if lastMaintenance.IsZero() || now.Sub(lastMaintenance) >= time.Minute {
-			if err := a.Maintain(ctx, now); err != nil {
+			if err := a.maintain(ctx, now, &cached); err != nil {
 				a.note(err)
 				return
 			}
 			lastMaintenance = now
-			cached.checked = time.Time{}
 		}
 		state, err := cached.load(ctx, a.Store, now)
 		if err != nil {
@@ -214,7 +213,7 @@ func (a *App) Run(ctx context.Context) error {
 			return
 		}
 		if !state.TimerAt.IsZero() && !state.TimerAt.After(now) {
-			cached.checked = time.Time{}
+			cached.invalidate()
 			if err := a.RunTimers(ctx, now); err != nil {
 				a.note(err)
 				return
