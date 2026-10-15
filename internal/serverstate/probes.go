@@ -19,7 +19,7 @@ var operationID = regexp.MustCompile(`^[A-Za-z0-9_-]{16,128}$`)
 
 func (v *Vault) Revision(ctx context.Context, workspace, name string) (string, error) {
 	var data []byte
-	err := v.db.sql.QueryRowContext(ctx, "SELECT ciphertext FROM secrets WHERE workspace=? AND name=?", workspace, name).Scan(&data)
+	err := v.db.sql.QueryRowContext(ctx, v.db.query(qRevision1), workspace, name).Scan(&data)
 	return TokenHash(string(data)), err
 }
 
@@ -37,7 +37,7 @@ func (d *DB) BeginProbe(ctx context.Context, workspace, id, digest string) (Prob
 	defer tx.Rollback()
 	var old string
 	var at int64
-	err = tx.QueryRowContext(ctx, "SELECT digest,outcome,at FROM probes WHERE workspace=? AND id=?", workspace, id).Scan(&old, &p.Outcome, &at)
+	err = tx.QueryRowContext(ctx, tx.query(qBeginProbe1), workspace, id).Scan(&old, &p.Outcome, &at)
 	if err == nil {
 		if old != digest {
 			return p, false, fmt.Errorf("operation key was already used for a different test or credential revision")
@@ -49,13 +49,13 @@ func (d *DB) BeginProbe(ctx context.Context, workspace, id, digest string) (Prob
 		return p, false, err
 	}
 	var count int
-	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM probes WHERE workspace=?", workspace).Scan(&count); err != nil {
+	if err := tx.QueryRowContext(ctx, tx.query(qBeginProbe2), workspace).Scan(&count); err != nil {
 		return p, false, err
 	}
 	if count >= 1000 {
 		return p, false, fmt.Errorf("workspace test-receipt quota reached")
 	}
-	if _, err := tx.ExecContext(ctx, "INSERT INTO probes(workspace,id,digest,outcome,at) VALUES(?,?,?,?,?)", workspace, id, digest, p.Outcome, p.At.Unix()); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.query(qBeginProbe3), workspace, id, digest, p.Outcome, p.At.Unix()); err != nil {
 		return p, false, err
 	}
 	return p, true, tx.Commit()
@@ -65,7 +65,7 @@ func (d *DB) FinishProbe(ctx context.Context, workspace, id, outcome string) err
 	if outcome != "accepted" && outcome != "failed" {
 		return fmt.Errorf("invalid probe outcome")
 	}
-	result, err := d.sql.ExecContext(ctx, "UPDATE probes SET outcome=? WHERE workspace=? AND id=? AND outcome='pending'", outcome, workspace, id)
+	result, err := d.exec(ctx, qFinishProbe1, outcome, workspace, id)
 	if err != nil {
 		return err
 	}
