@@ -58,6 +58,14 @@ The synthetic business mix contains 80% 10 KB/one-observation requests, 15%
 100 KB/18-observation batches and 5% 600 KB/100-observation batches. Bodies contain
 nested workflow metadata and reproducible high-entropy padding. Exact weights
 apply to complete cycles; the evidence records actual counts for partial cycles.
+In these mixed cases, padding is parsed but not retained. A separate retained
+100 KB control accepted all 750 requests at 25/s, with 1,396 ms p99. This is a
+separate screen, not an isolated comparison across identical deployments.
+
+With app 4 CPU/4 GB and PostgreSQL 8 CPU/16 GB, the mixed 50/s screen accepted
+all 1,500 requests and produced 12,750 observations (425 observations/s).
+p99 was 3,274 ms for the burst pattern and 1,629 ms for interleaved arrivals.
+Neither met the 250 ms target; average requests/s hides substantial batch work.
 
 Batch fanout costs more than body size alone. A 600 KB/100-observation screen at
 5 requests/s accepted all 150 requests but had 699 ms p99. During a measured
@@ -122,5 +130,7 @@ removed. The runtime runs in a Go test process with expanded lab admission limit
 this does not establish capacity under production policy defaults.
 
 The [Linux results](cloud-postgres-progress.md) remain a separate comparison family.
+The [Railway measurement table](../../benchmarks/push/results/2026-10-15-railway.csv)
+preserves failed and inconclusive cases alongside passing screens.
 Changes continue in [PR #58](https://github.com/ding-labs/ding/pull/58), on the
 existing PR stack, with the small commits preserved.
