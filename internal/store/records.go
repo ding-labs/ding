@@ -47,7 +47,7 @@ func (t *Tx) Watch(id string) (WatchRecord, error) {
 	var r WatchRecord
 	var data []byte
 	var next, last int64
-	err := t.sql.QueryRowContext(t.ctx, `SELECT r.definition,r.revision,r.fingerprint,w.generation,w.status,w.next_at,w.cursor,w.last_input_at,w.last_error,w.lifetime FROM watches w JOIN watch_revisions r ON r.watch_id=w.id AND r.revision=w.revision WHERE w.id=?`, id).Scan(&data, &r.Plan.Revision, &r.Plan.Fingerprint, &r.Generation, &r.Status, &next, &r.Cursor, &last, &r.LastError, &r.Lifetime)
+	err := t.sql.QueryRowContext(t.ctx, t.query(qWatch), id).Scan(&data, &r.Plan.Revision, &r.Plan.Fingerprint, &r.Generation, &r.Status, &next, &r.Cursor, &last, &r.LastError, &r.Lifetime)
 	if err != nil {
 		return r, missing(err)
 	}
@@ -60,7 +60,7 @@ func (t *Tx) Watch(id string) (WatchRecord, error) {
 	return r, nil
 }
 func (t *Tx) Watches() ([]WatchRecord, error) {
-	rows, err := t.sql.QueryContext(t.ctx, "SELECT id FROM watches ORDER BY id")
+	rows, err := t.sql.QueryContext(t.ctx, t.query(qWatchIDs))
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (t *Tx) SaveWatch(r WatchRecord, now time.Time) error {
 	if err != nil {
 		return err
 	}
-	_, err = t.sql.ExecContext(t.ctx, `INSERT INTO watch_revisions(watch_id,revision,fingerprint,definition,created_at) VALUES(?,?,?,?,?) ON CONFLICT(watch_id,revision) DO NOTHING`, c.Definition.Metadata.ID, c.Revision, c.Fingerprint, data, timestamp(now))
+	_, err = t.exec(qInsertWatchRevision, c.Definition.Metadata.ID, c.Revision, c.Fingerprint, data, timestamp(now))
 	if err != nil {
 		return err
 	}
@@ -111,13 +111,13 @@ func (t *Tx) SaveWatch(r WatchRecord, now time.Time) error {
 	if _, err := rand.Read(lifetime[:]); err != nil {
 		return err
 	}
-	_, err = t.sql.ExecContext(t.ctx, `INSERT INTO watches(id,revision,generation,status,next_at,cursor,last_input_at,last_error,lifetime) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,generation=excluded.generation,status=excluded.status,next_at=excluded.next_at,cursor=excluded.cursor,last_input_at=excluded.last_input_at,last_error=excluded.last_error,lifetime=CASE WHEN watches.status='deleted' AND excluded.status!='deleted' THEN excluded.lifetime ELSE watches.lifetime END`, c.Definition.Metadata.ID, c.Revision, r.Generation, r.Status, timestamp(r.NextAt), r.Cursor, timestamp(r.LastInputAt), r.LastError, hex.EncodeToString(lifetime[:]))
+	_, err = t.exec(qSaveWatch, c.Definition.Metadata.ID, c.Revision, r.Generation, r.Status, timestamp(r.NextAt), r.Cursor, timestamp(r.LastInputAt), r.LastError, hex.EncodeToString(lifetime[:]))
 	return err
 }
 
 // Checkpoint fences results acquired for old definitions or a paused watch.
 func (t *Tx) Checkpoint(id string, generation int64, nextAt, lastAt time.Time, cursor string) error {
-	result, err := t.sql.ExecContext(t.ctx, `UPDATE watches SET next_at=?,last_input_at=?,cursor=?,last_error='' WHERE id=? AND generation=? AND status='running'`, timestamp(nextAt), timestamp(lastAt), cursor, id, generation)
+	result, err := t.exec(qCheckpoint, timestamp(nextAt), timestamp(lastAt), cursor, id, generation)
 	if err != nil {
 		return err
 	}
@@ -142,20 +142,20 @@ func (t *Tx) SaveDestination(c plan.CompiledDestination, now time.Time) error {
 	if err != nil {
 		return err
 	}
-	_, err = t.sql.ExecContext(t.ctx, `INSERT INTO destination_revisions(destination_id,revision,definition,created_at) VALUES(?,?,?,?) ON CONFLICT(destination_id,revision) DO NOTHING`, c.Definition.Metadata.ID, c.Revision, data, timestamp(now))
+	_, err = t.exec(qInsertDestinationRevision, c.Definition.Metadata.ID, c.Revision, data, timestamp(now))
 	if err != nil {
 		return err
 	}
-	_, err = t.sql.ExecContext(t.ctx, `INSERT INTO destinations(id,revision) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision`, c.Definition.Metadata.ID, c.Revision)
+	_, err = t.exec(qSaveDestination, c.Definition.Metadata.ID, c.Revision)
 	return err
 }
 func (t *Tx) Destination(id, revision string) (plan.CompiledDestination, error) {
 	var c plan.CompiledDestination
 	var data []byte
-	query := `SELECT revision,definition FROM destination_revisions WHERE destination_id=? AND revision=?`
+	query := t.query(qDestinationRevision)
 	args := []any{id, revision}
 	if revision == "" {
-		query = `SELECT r.revision,r.definition FROM destinations d JOIN destination_revisions r ON r.destination_id=d.id AND r.revision=d.revision WHERE d.id=?`
+		query = t.query(qCurrentDestination)
 		args = []any{id}
 	}
 	if err := t.sql.QueryRowContext(t.ctx, query, args...).Scan(&c.Revision, &data); err != nil {
