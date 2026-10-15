@@ -35,6 +35,8 @@ sanitized measurements and relative evidence identifiers.
 | Setting | Measured configuration |
 | --- | --- |
 | Host | Apple M3, 8 CPU cores, 16 GiB memory; Docker Desktop Linux arm64, 8 CPU and approximately 7.65 GiB available |
+| Drivers | modernc.org/sqlite v1.60.1; pgx/v5 v5.11.0 via database/sql |
+| PostgreSQL image | 17.11 bookworm, pinned digest in `benchmarks/push/postgres.compose.yml`; fsync, full_page_writes and synchronous_commit enabled |
 | Default service budget | 1 CPU and 1 GiB total for application plus database |
 | SQLite allocation | Entire service budget to Go application and embedded SQLite |
 | PostgreSQL allocation | Half the service CPU and memory to Go; half to PostgreSQL 17.11, unless the row explicitly specifies a CPU-share sweep |
