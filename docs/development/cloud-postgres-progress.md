@@ -34,9 +34,20 @@ rejected requests. App CPU had headroom. Pool-size comparisons on different VMs
 are not enough to choose an optimum. Prepared-statement caching remains optional.
 
 An experimental combined group-reference query was removed. Its suspected CPU
-regression was not confirmed by the rerun. A larger-database screen accepted all
-3,000 requests across 100 workspaces with p99 20 ms, but same-machine A/B/A controls
-are required to attribute this improvement to database sizing.
+regression was not confirmed by the rerun. A same-machine A/B/A control then measured 100 requests/s across 100 workspaces:
+
+| Database allocation | p99 | Accepted / offered |
+| --- | --- | --- |
+| 1 CPU / 2 GiB | 108 ms | 3,000 / 3,000 |
+| 2 CPU / 4 GiB | 18 ms | 3,000 / 3,000 |
+| Back to 1 CPU / 2 GiB | 128 ms | 3,000 / 3,000 |
+
+The Go server stayed at 1 CPU / 1 GiB. All three 30-second cases reconciled and
+passed the screen. In comparable resource-sample intervals, the small database
+hit its CPU quota in 27 and 30 periods; the larger database hit it zero times.
+This supports a benefit from independent database sizing and burst headroom,
+not a sustained throughput multiplier. A separate final hot-workspace stage had
+a late generator and is inconclusive.
 
 An 18-output batch screen passed after observation batching (25 requests/s,
 p99 220 ms). Its earlier baseline had a late generator, so the apparent latency
@@ -50,6 +61,10 @@ passed after the final quota-read change. SQLite's complete watch runtime race
 suite and targeted PostgreSQL runtime tests passed. All 16 Python harness tests
 passed. Disposable local PostgreSQL volumes and credentials were deleted after
 verification; private measurements remain available.
+
+The first A/B/A attempt was interrupted because a Bash `SECONDS` variable caused
+later stages to lengthen. Its evidence is retained and excluded. The corrected
+run records exactly 30 seconds in every stage.
 
 Three 180-second repeats at 50 requests/s are in progress for one and 100 workspaces
 on both backends. The initial profile allocates Go 1 CPU/1 GiB and PostgreSQL
@@ -74,8 +89,10 @@ Evidence: [baseline](https://github.com/ding-labs/ding/actions/runs/38787585777)
 [worker/query screen](https://github.com/ding-labs/ding/actions/runs/38789220528),
 [idle](https://github.com/ding-labs/ding/actions/runs/38792417789),
 [SQL diagnostic](https://github.com/ding-labs/ding/actions/runs/38795250725),
-[resource control](https://github.com/ding-labs/ding/actions/runs/38795464228),
-[longer repeats](https://github.com/ding-labs/ding/actions/runs/38795973584).
-The [qualification specification](cloud-postgres-linux-tests.md) defines the
+[resource control](https://github.com/ding-labs/ding/actions/runs/38796772072),
+[longer repeats](https://github.com/ding-labs/ding/actions/runs/38796901012).
+The [allowlisted measurements](../../benchmarks/push/results/2026-10-15-linux.csv)
+retain passing, failed and inconclusive screens, including source revisions and
+actual request sizes. The [qualification specification](cloud-postgres-linux-tests.md) defines the
 remaining acceptance gates and the [implementation plan](cloud-postgres-plan.md)
 separates single-server, operations, multi-server and migration work.
