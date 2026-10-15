@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ding-labs/ding/internal/access"
@@ -77,6 +78,8 @@ type Store struct {
 	workspace string
 	mu        sync.RWMutex
 	writer    chan struct{}
+	version   atomic.Uint64
+	wake      chan struct{}
 	db        *sql.DB
 	readers   *sql.DB
 	lock      *os.File
@@ -151,7 +154,7 @@ func Open(ctx context.Context, dir string) (s *Store, err error) {
 	if _, err = db.ExecContext(ctx, "PRAGMA wal_autocheckpoint=1000; PRAGMA journal_size_limit=16777216"); err != nil {
 		return nil, err
 	}
-	s = &Store{db: db, lock: lock, dir: dir, writer: make(chan struct{}, 1)}
+	s = &Store{db: db, lock: lock, dir: dir, writer: make(chan struct{}, 1), wake: make(chan struct{}, 1)}
 	if err = s.migrate(ctx, SchemaVersion, []string{initialSchema, inspectionSchema, queueIndexSchema, integrationSchema, handoffSchema, auditSchema, pushSchema, pushStatsSchema, deliveryStreamsSchema, entityPinsSchema, retentionIndexesSchema, retentionSweepIndexesSchema, activeDeliveryStreamsSchema, streamActivitySchema}); err != nil {
 		return nil, err
 	}
@@ -237,6 +240,7 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 	started := time.Now()
 	err = tx.Commit()
 	runtimeperf.Since(s.PerfBackend(), runtimeperf.Commit, started)
+	s.signalCommit(stx.changed)
 	return err
 }
 func (s *Store) View(ctx context.Context, fn func(*Tx) error) error {

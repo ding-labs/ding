@@ -25,7 +25,7 @@ func OpenPostgres(ctx context.Context, db *sql.DB, workspace string, owners ...*
 	if err := ValidatePostgres(ctx, db); err != nil {
 		return nil, err
 	}
-	s := &Store{db: db, postgres: true, workspace: workspace, writer: make(chan struct{}, 1)}
+	s := &Store{db: db, postgres: true, workspace: workspace, writer: make(chan struct{}, 1), wake: make(chan struct{}, 1)}
 	if len(owners) > 0 {
 		s.ownership = owners[0]
 	}
@@ -150,6 +150,7 @@ func (s *Store) updatePostgres(ctx context.Context, fn func(*Tx) error) error {
 	started := time.Now()
 	err = tx.Commit()
 	runtimeperf.Since(s.PerfBackend(), runtimeperf.Commit, started)
+	s.signalCommit(stx.changed)
 	return err
 }
 
