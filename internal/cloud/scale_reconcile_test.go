@@ -97,7 +97,7 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 		digests[index] = fmt.Sprintf("%x", sha256.Sum256(p.Body))
 	}
 	consume := func(tx *store.Tx, i int, current map[string]store.WatchRecord, e pushLedgerEntry) {
-		if e.Stage == "offered" {
+		if e.Stage == "offered" || e.Stage == "planned" {
 			hash := sha256.Sum256([]byte(e.Key))
 			if seen[hash] {
 				problems = append(problems, "duplicate offered key")
@@ -131,7 +131,7 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 			problems = append(problems, err.Error())
 			return
 		}
-		if e.Stage == "offered" {
+		if e.Stage == "offered" || e.Stage == "planned" {
 			id := sha256.Sum256([]byte(r.AcceptanceID))
 			if ids[id] || r.First < 1 || r.Last < r.First || r.Last-r.First+1 > int64(c.Outputs+1) {
 				problems = append(problems, "duplicate key or receipt range/identity mismatch")
@@ -183,7 +183,7 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
 			t.Fatal(err)
 		}
-		if e.Stage == "offered" || e.Receipt != nil {
+		if (e.Stage == "offered" || e.Stage == "planned") || e.Receipt != nil {
 			if e.Producer < 0 || e.Producer >= len(lab.producers) {
 				t.Fatal("ledger producer is outside the fixture")
 			}
@@ -232,7 +232,7 @@ func TestScaleReconcilesFullPushLedger(t *testing.T) {
 	lab := newScaleLab(t, c)
 	before := scaleAccounts(t, lab)
 	path := t.TempDir() + "/ledger"
-	r, err := BenchmarkPush(context.Background(), PushBenchmarkOptions{Producers: lab.producers, Client: lab.http.Client(), Duration: 1000000000, Rate: 10, Ledger: path, LedgerBatch: 8, CompactLedger: true, NoRetry: true})
+	r, err := BenchmarkPush(context.Background(), PushBenchmarkOptions{Producers: lab.producers, Client: lab.http.Client(), Duration: 1000000000, Rate: 10, Ledger: path, LedgerBatch: 8, CompactLedger: true, PreplannedLedger: true, NoRetry: true})
 	if err != nil || r.Accepted != 10 {
 		t.Fatal(r, err)
 	}
@@ -242,6 +242,28 @@ func TestScaleReconcilesFullPushLedger(t *testing.T) {
 	}
 	if errs := scaleChecks(t, lab, c, path); len(errs) > 0 {
 		t.Fatal(errs)
+	}
+	// Simulate losing every asynchronously journaled response after a driver
+	// crash. The durable plan must still recover every accepted receipt.
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var plan strings.Builder
+	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
+		var entry pushLedgerEntry
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			t.Fatal(err)
+		}
+		if entry.Stage != "response" {
+			plan.WriteString(line + "\n")
+		}
+	}
+	if err := os.WriteFile(path, []byte(plan.String()), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if recovered, errs := scaleReconcile(t, lab, c, path, before); recovered != 10 || len(errs) != 0 {
+		t.Fatal(recovered, errs)
 	}
 }
 

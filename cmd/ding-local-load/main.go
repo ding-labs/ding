@@ -104,7 +104,7 @@ func run() error {
 		}
 		return nil
 	}
-	options := cloud.PushBenchmarkOptions{Producers: b.Producers, Client: client, Rate: min(*rate, 100), Duration: 5 * time.Second, Workers: *workers, Ledger: filepath.Join(*output, "warmup.jsonl"), LedgerBatch: 32, CompactLedger: true, NoRetry: true}
+	options := cloud.PushBenchmarkOptions{Producers: b.Producers, Client: client, Rate: min(*rate, 100), Duration: 5 * time.Second, Workers: *workers, Ledger: filepath.Join(*output, "warmup.jsonl"), LedgerBatch: 32, CompactLedger: true, PreplannedLedger: true, NoRetry: true}
 	if _, err := cloud.BenchmarkPush(context.Background(), options); err != nil {
 		return err
 	}

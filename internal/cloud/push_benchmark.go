@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -22,23 +23,25 @@ import (
 )
 
 // Producer files contain environment variable names, never inline credentials.
-// The ledger is synced before submission and after every attempt, so a crashed
-// driver leaves enough information to reconcile uncertain acceptance.
+// The default ledger syncs offers and responses. Preplanned mode syncs all
+// possible keys before measurement and drains a bounded response journal at the
+// end. Either mode leaves enough intent evidence to recover after a driver crash.
 type PushProducer struct {
 	URL      string          `json:"url"`
 	TokenEnv string          `json:"tokenEnv"`
 	Body     json.RawMessage `json:"body"`
 }
 type PushBenchmarkOptions struct {
-	Producers     []PushProducer
-	Duration      time.Duration
-	Rate          int
-	Ledger        string
-	Client        *http.Client
-	Workers       int
-	NoRetry       bool
-	LedgerBatch   int
-	CompactLedger bool
+	Producers        []PushProducer
+	Duration         time.Duration
+	Rate             int
+	Ledger           string
+	Client           *http.Client
+	Workers          int
+	NoRetry          bool
+	LedgerBatch      int
+	CompactLedger    bool
+	PreplannedLedger bool // Persist every possible key before the measured clock starts.
 }
 type PushBenchmarkResult struct {
 	BodyBytesMin        int            `json:"bodyBytesMin"`
@@ -62,6 +65,8 @@ type PushBenchmarkResult struct {
 	HTTPP99MS           float64        `json:"httpP99MS"`
 	Throttled           int            `json:"throttled"`
 	ErrorCodes          map[string]int `json:"errorCodes"`
+	PreplannedLedger    bool           `json:"preplannedLedger"`
+	JournalDrainSeconds float64        `json:"journalDrainSeconds"`
 }
 type pushLedgerEntry struct {
 	Key         string             `json:"key"`
@@ -126,8 +131,39 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 			return result, err
 		}
 	}
-	record, closeLedger := groupedPushLedger(ledger, o.LedgerBatch)
-	defer closeLedger()
+	totalScheduled := int(float64(o.Duration) / float64(time.Second) * float64(o.Rate))
+	planID := ""
+	var record func(pushLedgerEntry) error
+	var drain func() error
+	if o.PreplannedLedger {
+		if !o.CompactLedger || totalScheduled > 1000000 {
+			return result, fmt.Errorf("preplanned journal requires compact producers and at most one million arrivals")
+		}
+		planID = state.ID()
+		buffer := bufio.NewWriter(ledger)
+		encoder := json.NewEncoder(buffer)
+		for i := range totalScheduled {
+			if err := encoder.Encode(pushLedgerEntry{Stage: "planned", Key: planID + "-" + strconv.Itoa(i), Producer: i % len(o.Producers)}); err != nil {
+				return result, err
+			}
+		}
+		if err := buffer.Flush(); err != nil {
+			return result, err
+		}
+		if err := ledger.Sync(); err != nil {
+			return result, err
+		}
+		record, drain = plannedPushJournal(ledger, 4096)
+		result.PreplannedLedger = true
+	} else {
+		var closeLedger func()
+		record, closeLedger = groupedPushLedger(ledger, o.LedgerBatch)
+		drain = func() error { closeLedger(); return nil }
+	}
+	var drainOnce sync.Once
+	var drainErr error
+	finishLedger := func() error { drainOnce.Do(func() { drainErr = drain() }); return drainErr }
+	defer finishLedger()
 	client := o.Client
 	if client == nil {
 		client = &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
@@ -149,6 +185,7 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 	httpHistogram := make([]int, 120001)
 	type job struct {
 		producer int
+		index    int
 		due      time.Time
 	}
 	jobs := make(chan job, o.Workers*2)
@@ -169,13 +206,18 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 				i := j.producer
 				p := o.Producers[i]
 				key := state.ID()
+				if o.PreplannedLedger {
+					key = planID + "-" + strconv.Itoa(j.index)
+				}
 				body := p.Body
 				if o.CompactLedger {
 					body = nil
 				}
-				if err := record(pushLedgerEntry{Key: key, Producer: i, Body: body, Stage: "offered", At: time.Now().UTC(), ScheduledAt: j.due}); err != nil {
-					fail(err)
-					continue
+				if !o.PreplannedLedger {
+					if err := record(pushLedgerEntry{Key: key, Producer: i, Body: body, Stage: "offered", At: time.Now().UTC(), ScheduledAt: j.due}); err != nil {
+						fail(err)
+						continue
+					}
 				}
 				mu.Lock()
 				result.Offered++
@@ -250,7 +292,7 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 					result.Statuses[status]++
 					httpHistogram[min(int(time.Since(begin).Milliseconds()), len(httpHistogram)-1)]++
 					mu.Unlock()
-					if err := record(pushLedgerEntry{Key: key, Producer: i, Stage: "response", Status: status, At: time.Now().UTC(), Receipt: receipt, ErrorCode: code}); err != nil {
+					if err := record(pushLedgerEntry{Key: key, Producer: i, Stage: "response", Status: status, At: time.Now().UTC(), ScheduledAt: j.due, Receipt: receipt, ErrorCode: code}); err != nil {
 						fail(err)
 						break
 					}
@@ -281,7 +323,6 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 	timer := time.NewTimer(time.Hour)
 	defer timer.Stop()
 	timer.Stop()
-	totalScheduled := int(float64(o.Duration) / float64(time.Second) * float64(o.Rate))
 schedule:
 	for i := 0; i < totalScheduled; i++ {
 		due := start.Add(time.Duration(float64(i+1) * float64(time.Second) / float64(o.Rate)))
@@ -300,7 +341,7 @@ schedule:
 		result.Scheduled++
 		mu.Unlock()
 		select {
-		case jobs <- job{producer: i % len(o.Producers), due: due}:
+		case jobs <- job{producer: i % len(o.Producers), index: i, due: due}:
 		default:
 			mu.Lock()
 			result.GeneratorBusy++
@@ -317,6 +358,11 @@ schedule:
 	result.DurationSeconds = end.Sub(start).Seconds()
 	result.WallDurationSeconds = end.UTC().Sub(start.UTC()).Seconds()
 	result.ClockDiscontinuity = pushClockDiscontinuity(result.WallDurationSeconds, result.DurationSeconds)
+	drainStart := time.Now()
+	if err := finishLedger(); err != nil {
+		return result, err
+	}
+	result.JournalDrainSeconds = time.Since(drainStart).Seconds()
 	if failure != nil {
 		return result, failure
 	}

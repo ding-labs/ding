@@ -41,6 +41,13 @@ and database, with a shared query pool selected by `--pool-limit`. Use
 `--resource-units 2` or `4` for separately labelled expanded-budget comparisons;
 `--credential-readers 1/2/4/8` sweeps the SQLite control read pool.
 
+The fixed-arrival driver persists a compact plan of every possible request key
+before starting the measurement clock (at most one million arrivals per run).
+Responses use a bounded 4,096-entry background journal that must flush successfully
+before the run completes. A crash can lose response records, but every planned key
+can still be resolved against durable receipts. Journal backpressure still counts
+as generator lateness; slow storage is never hidden or treated as a passing run.
+
 The producer is always a separate process. `--generator-placement container`
 uses a separate Linux container limited to 2 CPU/512 MiB, outside the server
 budget, with actual limits checked and usage sampled. Traffic uses Linux loopback
