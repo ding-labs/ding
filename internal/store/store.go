@@ -58,6 +58,8 @@ type Store struct {
 	closed  bool
 }
 type Tx struct {
+	postgres bool
+	changed  bool
 	ctx      context.Context
 	sql      *sql.Tx
 	writable bool
