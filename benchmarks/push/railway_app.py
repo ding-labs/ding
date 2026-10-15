@@ -44,7 +44,7 @@ def observe(job):
 def start_case(request):
     cases = json.loads((Path(__file__).parent/'cases.json').read_text())
     config = next((c.copy() for c in cases if c['Name'] == request.get('case')), None)
-    if config is None or set(request)-{'case','rate','seconds','pool','seed'}:
+    if config is None or set(request)-{'case','rate','seconds','pool','seed','workspaces'}:
         raise ValueError('unknown case or option')
     config.update(Rate=int(request.get('rate',config['Rate'])), Seconds=int(request.get('seconds',config['Seconds'])),
                   Backend='postgres', PoolLimit=int(request.get('pool',4)), QueryMode='exec', Profiles=False)
@@ -53,6 +53,10 @@ def start_case(request):
     config['ShuffleSeed'] = int(request.get('seed',0))
     if not 0 <= config['ShuffleSeed'] < 2**63:
         raise ValueError('unsupported schedule seed')
+    if request.get('workspaces') is not None:
+        config['Workspaces'] = int(request['workspaces'])
+        if not 1 <= config['Workspaces'] <= 100:
+            raise ValueError('unsupported workspace count')
     if not 1 <= config['Rate'] <= 1000 or not 1 <= config['Seconds'] <= 1800 or config['Rate']*config['Seconds'] > 1000000:
         raise ValueError('case exceeds bounded test envelope')
     with LOCK:

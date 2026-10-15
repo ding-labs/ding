@@ -52,6 +52,7 @@ def run():
     parser.add_argument('--seconds',type=int,required=True)
     parser.add_argument('--pool',type=int,choices=(2,4,8,16,32),default=4)
     parser.add_argument('--seed',type=int,default=0)
+    parser.add_argument('--workspaces',type=int)
     args = parser.parse_args()
     os.umask(0o077)
     job = control('/case',vars(args))
@@ -92,6 +93,7 @@ def run():
         load = report.get('Load',{})
         passed = qualifies(result,job['config'])
         summary = {'id':identity,'case':args.case,'rate':args.rate,'seconds':args.seconds,'pool':args.pool,'seed':args.seed,
+                   'workspaces':job['config'].get('Workspaces',1),
                    'pass':bool(passed),'load':load,'readCount':report.get('ReadCount'),
                    'readP99MS':report.get('ReadP99MS'),'readErrors':report.get('ReadErrors'),
                    'restartVerified':report.get('RestartVerified'),'errors':report.get('Errors'),
