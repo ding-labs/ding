@@ -145,13 +145,24 @@ func (a *App) Run(ctx context.Context) error {
 			defer deliveries.Done()
 			ticker := time.NewTicker(poll)
 			defer ticker.Stop()
+			var cached deliveryCache
 			for {
 				select {
 				case <-deliveryCtx.Done():
 					return
 				default:
 				}
-				worked, err := a.DeliverOne(deliveryCtx)
+				ready, err := cached.ready(deliveryCtx, a.Store, a.Now())
+				worked := false
+				if err == nil && ready {
+					version := a.Store.ChangeVersion()
+					worked, err = a.DeliverOne(deliveryCtx)
+					if err == nil && !worked {
+						// Pending work may be leased or delayed. Revisit it at the
+						// normal poll cadence; only an actually empty queue is cached.
+						cached = deliveryCache{version: version}
+					}
+				}
 				a.note(err)
 				if worked && err == nil {
 					continue
@@ -173,6 +184,7 @@ func (a *App) Run(ctx context.Context) error {
 	defer tick.Stop()
 	lastMaintenance := time.Time{}
 	var previousWall, previousTick time.Time
+	var cached scheduleCache
 	schedule := func() {
 		now := a.Now()
 		tickNow := time.Now()
@@ -190,21 +202,30 @@ func (a *App) Run(ctx context.Context) error {
 				return
 			}
 			lastMaintenance = now
+			cached.checked = time.Time{}
 		}
-		if _, err := a.Budget(ctx); err != nil {
-			a.note(err)
-			return
-		}
-		if err := a.RunTimers(ctx, now); err != nil {
-			a.note(err)
-			return
-		}
-
-		records, err := a.List(ctx)
+		state, err := cached.load(ctx, a.Store, now)
 		if err != nil {
 			a.note(err)
 			return
 		}
+		if state.Budget.Bytes >= a.Limits.MaxBytes || state.Budget.Pending >= a.Limits.MaxPending {
+			a.note(ErrQuota)
+			return
+		}
+		if !state.TimerAt.IsZero() && !state.TimerAt.After(now) {
+			cached.checked = time.Time{}
+			if err := a.RunTimers(ctx, now); err != nil {
+				a.note(err)
+				return
+			}
+			state, err = cached.load(ctx, a.Store, now)
+			if err != nil {
+				a.note(err)
+				return
+			}
+		}
+		records := state.Watches
 		a.expireLogSessions(ctx, records, now)
 		logReaders.reconcile(ctx, records, now)
 		activeMu.Lock()
