@@ -1,7 +1,7 @@
 package database
 
 import (
-	"os"
+	"github.com/ding-labs/ding/internal/mcpconfig"
 	"testing"
 )
 
@@ -22,8 +22,7 @@ func TestBackendAndInstanceBindingRefuseImplicitSwitch(t *testing.T) {
 	if err := BindDirectory(dir, "postgres", "instance-b"); err == nil {
 		t.Fatal("different database accepted")
 	}
-	info, err := os.Stat(dir + "/" + BindingFile)
-	if err != nil || info.Mode().Perm() != 0600 {
-		t.Fatal("binding is not private", err)
+	if err := mcpconfig.CheckPrivate(dir + "/" + BindingFile); err != nil {
+		t.Fatal(err)
 	}
 }

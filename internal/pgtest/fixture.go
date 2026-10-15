@@ -16,9 +16,10 @@ import (
 )
 
 type Fixture struct {
-	NewAppPool     func(int) *sql.DB
-	App, Migration *sql.DB
-	Name           string
+	SetAppEnvironment func(*testing.T, string)
+	NewAppPool        func(int) *sql.DB
+	App, Migration    *sql.DB
+	Name              string
 }
 
 func New(t *testing.T) *Fixture {
@@ -59,6 +60,14 @@ func New(t *testing.T) *Fixture {
 		t.Fatal(database.SafeError("create isolated fixture", err))
 	}
 	fixture := &Fixture{Name: name}
+	fixture.SetAppEnvironment = func(test *testing.T, key string) {
+		u, err := url.Parse(values["app"])
+		if err != nil {
+			test.Fatal("invalid private fixture URL")
+		}
+		u.Path = "/" + name
+		test.Setenv(key, u.String())
+	}
 	fixture.NewAppPool = func(max int) *sql.DB {
 		pool := open("app", name)
 		pool.SetMaxOpenConns(max)
