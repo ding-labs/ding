@@ -13,7 +13,6 @@ import (
 	"github.com/ding-labs/ding/internal/cloud"
 	"github.com/ding-labs/ding/internal/mcpconfig"
 	"github.com/ding-labs/ding/internal/serverops"
-	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/spf13/cobra"
 )
 
@@ -64,11 +63,12 @@ func serverCommand(version string) *cobra.Command {
 			if err := cloud.ValidateServerDirectory(c.DataDir); err != nil {
 				return err
 			}
-			db, err := state.Open(cmd.Context(), c.DataDir)
+			storage, err := cloud.OpenServerStorage(cmd.Context(), c.DataDir, c.Database)
 			if err != nil {
 				return err
 			}
-			defer db.Close()
+			defer storage.Close()
+			db := storage.Control
 			if err := db.ConfigureHosting(cmd.Context(), c.Hosting); err != nil {
 				return err
 			}
