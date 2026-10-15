@@ -48,8 +48,25 @@ p99**, failing the 250 ms latency target. Its 1,797 reads had no errors; receipt
 usage, replay, authorization and graceful restart checks passed. Average measured
 CPU was 0.55 app cores and 1.01 database cores, so this failure was not CPU saturation.
 
-Lower-rate repeats and a sustained run are in progress. No sustained Railway
-operating rate is qualified yet. The earlier Linux loopback result—35/s for 30
+All three 180-second repeats at 35/s then accepted their 6,300 requests:
+
+| Repeat | Push p99 | Inspection reads | Read p99 | Result |
+| --- | --- | --- | --- | --- |
+| 1 | 202 ms | 1,803 | 65 ms | Pass |
+| 2 | 162 ms | 1,802 | 42 ms | Pass |
+| 3 | 273 ms | 1,800 | 67 ms | Latency target missed |
+
+All **18,900 requests** passed durable receipt, usage, replay, authorization and
+graceful restart verification, with zero rejections, uncertainty or read errors.
+Generator scheduling p99 was 2 ms in every repeat. The slow third run averaged
+0.50 app cores and 0.81 database cores, with zero database CPU throttling or
+deadlocks. Its sampled checkpoint start/completion counters did not change.
+This does not identify a single cause for its latency spike.
+
+The failed repeat gate **deferred the planned 30-minute run at 25/s**. No sustained
+Railway operating rate is qualified. The 250 ms target is a chosen test criterion,
+not a hard ingestion ceiling: these runs establish complete acceptance at the
+reported rates and durations. The earlier Linux loopback result—35/s for 30
 minutes with 55-byte bodies—does not substitute for this separate-service test.
 
 ## What the realistic workloads revealed
