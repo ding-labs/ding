@@ -236,6 +236,8 @@ func (s *Server) pushError(w http.ResponseWriter, err error) {
 		cloudFail(w, 409, "inactive_source", "Watch changed or is not an active push source.")
 	case errors.Is(err, transform.ErrLimit):
 		cloudFail(w, 413, "input_limit", "Projected input exceeds configured limits.")
+	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		cloudFail(w, 503, "acceptance_uncertain", "Acceptance could not be confirmed; retry identical bytes with the same key.")
 	case errors.Is(err, watchrun.ErrInput):
 		cloudFail(w, 400, "invalid_input", err.Error())
 	case errors.Is(err, watchrun.ErrQuota):
