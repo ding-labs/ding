@@ -120,6 +120,28 @@ attempts and reconciled identities, digests, observation provenance and durable
 usage. One additional committed request had lost its HTTP response. These audits
 do not replace the failed live observer or upgrade the capacity verdict.
 
+## Payload and batching screens
+
+All rows below are 30-second screens across 10 workspaces with the same
+1 CPU / 1 GiB total budget. Each cell gives first acknowledgements / planned
+requests, then acceptance p99. They are not sustained rate recommendations.
+
+| Input | Offered requests/s | SQLite | Direct PostgreSQL, pool 8 |
+| --- | --- | --- | --- |
+| 10,000 bytes, one output | 500 | 15,000 / 15,000; 9 ms | 1,425 / 15,000; 9,615 ms |
+| 100,000 bytes, one output | 100 | 3,000 / 3,000; 11 ms | 1,900 / 3,000; 9,158 ms |
+| 600,000 bytes, one output | 100 | 3,000 / 3,000; 104 ms | 1,349 / 3,000; 10,458 ms |
+| 3,115 bytes, 100 distinct-group outputs | 100 | 3,000 / 3,000; 25 ms | 92 / 3,000; 20,190 ms |
+| Nested 600,000 bytes, 18 distinct-group outputs | 25 | 750 / 750; 50 ms | 750 / 750; 2,010 ms |
+
+The SQLite 100-output screen represents 10,000 projected observations/s while
+input lasts, rather than 10,000 HTTP requests/s. Incoming padding is discarded
+unless a retained-padding case explicitly projects it. PostgreSQL's later
+600 KB / 25/s single-output retry passed all 750 inputs at p99 189 ms after the
+timeout error-classification fix; its original failed attempt remains preserved.
+The measured adapter provides no evidence that a database swap alone improves
+throughput under this small shared app/database budget.
+
 ## Sustained measurements
 
 The first 1,800-second run used one SQLite workspace, 250 planned requests/s,
