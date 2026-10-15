@@ -50,6 +50,23 @@ func Run(args []string, out io.Writer) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 	started := time.Now()
+	var selected cloud.Config
+	if *config != "" && (args[0] == "backup" || args[0] == "restore" || args[0] == "release-restore" || args[0] == "delete-workspace") {
+		if err := mcpconfig.ReadPrivateJSON(*config, &selected, true); err != nil {
+			return true, err
+		}
+		if err := selected.Database.Validate(); err != nil {
+			return true, err
+		}
+		if *dir != "" && *dir != selected.DataDir {
+			return true, fmt.Errorf("--data-dir differs from configured server dataDir")
+		}
+		*dir = selected.DataDir
+	}
+	if selected.DataDir == "" {
+		selected.DataDir = *dir
+	}
+	postgres := selected.Database.Effective().Backend == "postgres"
 	var err error
 	switch args[0] {
 	case "migrate":
@@ -94,7 +111,7 @@ func Run(args []string, out io.Writer) (bool, error) {
 		if *account == "" || !*confirm {
 			return true, fmt.Errorf("--confirm-delete-workspace and --confirm-other-runners-stopped required")
 		}
-		err = cloud.DeleteOffline(ctx, *dir, *account)
+		err = cloud.DeleteOfflineConfigured(ctx, selected, *account)
 	case "backup-keygen":
 		if *output == "" {
 			return true, fmt.Errorf("--output required")
@@ -124,7 +141,11 @@ func Run(args []string, out io.Writer) (bool, error) {
 		if *dir == "" || *output == "" || *recipient == "" {
 			return true, fmt.Errorf("--data-dir, --output and --recipient required")
 		}
-		err = cloudbackup.Write(ctx, *dir, *output, *recipient)
+		if postgres {
+			err = cloud.BackupPostgres(ctx, selected, *databaseAdminEnv, *output, *recipient)
+		} else {
+			err = cloudbackup.Write(ctx, *dir, *output, *recipient)
+		}
 	case "restore":
 		if *dir == "" || *input == "" || *identity == "" {
 			return true, fmt.Errorf("--data-dir, --input and --identity-file required")
@@ -133,12 +154,20 @@ func Run(args []string, out io.Writer) (bool, error) {
 		if e != nil {
 			return true, e
 		}
-		err = cloudbackup.Restore(ctx, *input, *dir, key)
+		if postgres {
+			err = cloud.RestorePostgres(ctx, selected, *databaseAdminEnv, *input, key)
+		} else {
+			err = cloudbackup.Restore(ctx, *input, *dir, key)
+		}
 	case "release-restore":
 		if *dir == "" || !*confirm {
 			return true, fmt.Errorf("--data-dir and --confirm-other-runners-stopped required; restored watches remain paused")
 		}
-		err = cloudbackup.Release(ctx, *dir)
+		if postgres {
+			err = cloud.ReleasePostgresRestore(ctx, selected)
+		} else {
+			err = cloudbackup.Release(ctx, *dir)
+		}
 	}
 	if err != nil {
 		return true, err

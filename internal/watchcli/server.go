@@ -113,7 +113,11 @@ func serverCommand(version string) *cobra.Command {
 	}
 	for _, name := range []string{"backup", "restore", "release-restore", "backup-keygen", "delete-workspace"} {
 		root.AddCommand(&cobra.Command{Use: name, Short: "Offline host operation; stop the server before changing its state", DisableFlagParsing: true, RunE: func(cmd *cobra.Command, args []string) error {
-			_, err := serverops.Run(append([]string{cmd.Name()}, args...), cmd.OutOrStdout())
+			operatorArgs := []string{cmd.Name()}
+			if config != "" {
+				operatorArgs = append(operatorArgs, "--config", config)
+			}
+			_, err := serverops.Run(append(operatorArgs, args...), cmd.OutOrStdout())
 			return err
 		}})
 	}
