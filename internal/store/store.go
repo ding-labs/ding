@@ -49,7 +49,8 @@ var ErrConflict = errors.New("revision conflict")
 var ErrStale = errors.New("stale generation")
 
 type Store struct {
-	mu     sync.Mutex
+	mu     sync.RWMutex
+	writer chan struct{}
 	db     *sql.DB
 	lock   *os.File
 	dir    string
@@ -116,7 +117,7 @@ func Open(ctx context.Context, dir string) (s *Store, err error) {
 	if _, err = db.ExecContext(ctx, "PRAGMA wal_autocheckpoint=1000; PRAGMA journal_size_limit=16777216"); err != nil {
 		return nil, err
 	}
-	s = &Store{db: db, lock: lock, dir: dir}
+	s = &Store{db: db, lock: lock, dir: dir, writer: make(chan struct{}, 1)}
 	if err = s.migrate(ctx, SchemaVersion, []string{initialSchema, inspectionSchema, queueIndexSchema, integrationSchema, handoffSchema, auditSchema, pushSchema, pushStatsSchema}); err != nil {
 		return nil, err
 	}
@@ -135,10 +136,16 @@ func (s *Store) Close() error {
 	return errors.Join(checkpointErr, err, unlockErr)
 }
 func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.closed {
 		return ErrClosed
+	}
+	select {
+	case s.writer <- struct{}{}:
+		defer func() { <-s.writer }()
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -169,8 +176,8 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 	return tx.Commit()
 }
 func (s *Store) View(ctx context.Context, fn func(*Tx) error) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.closed {
 		return ErrClosed
 	}
