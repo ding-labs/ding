@@ -69,6 +69,7 @@
   "notification-open": "OS notification activation obtains a fresh local Console handoff; no browser equivalent.",
   "notify status": "Notification setup dialog: read native permission status without prompting.",
   "notify settings": "Notification setup dialog: open notification settings on the daemon host.",
+  "server migrate": "Offline host operation: apply backend-specific migrations with a separate operator role.",
   "server init": "Host operator boundary: shared server setup, process lifecycle, and offline account recovery.",
   "server run": "Host operator boundary: shared server setup, process lifecycle, and offline account recovery.",
   "server recover": "Host operator boundary: shared server setup, process lifecycle, and offline account recovery.",
