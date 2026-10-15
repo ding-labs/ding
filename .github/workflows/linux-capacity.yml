@@ -1,0 +1,80 @@
+name: Linux capacity
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/cloud-postgres-single]
+    paths: [.github/workflows/linux-capacity.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-capacity-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  baseline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [sqlite, postgres]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Record Linux host
+        run: |
+          mkdir -p "$RUNNER_TEMP/capacity"
+          uname -a > "$RUNNER_TEMP/capacity/host.txt"
+          lscpu >> "$RUNNER_TEMP/capacity/host.txt"
+          free -b >> "$RUNNER_TEMP/capacity/host.txt"
+          df -T >> "$RUNNER_TEMP/capacity/host.txt"
+          docker info >> "$RUNNER_TEMP/capacity/host.txt"
+      - name: Screen one Go server on Linux
+        env:
+          BACKEND: ${{ matrix.backend }}
+        run: |
+          extra=()
+          if [ "$BACKEND" = postgres ]; then
+            extra=(--database-cpus 1 --database-memory-mib 2048)
+          fi
+          python3 benchmarks/push/run.py --environment container --generator-placement container \
+            --backend "$BACKEND" --app-cpus 1 --app-memory-mib 1024 "${extra[@]}" \
+            --pool-limit 4 --cases one-100,hundred-1000 --rate 25 --seconds 30 \
+            --output "$RUNNER_TEMP/capacity/runs"
+      - name: Export public comparison
+        if: always()
+        run: |
+          python3 benchmarks/push/export.py --help > "$RUNNER_TEMP/capacity/export-help.txt"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'capacity'
+          out=[]
+          for path in root.glob('runs/*/summary.json'):
+              out.append({'run':path.parent.name,'summary':json.loads(path.read_text())})
+          (root/'summary.json').write_text(json.dumps(out,indent=2))
+          PY
+      - name: Remove owned database volumes and credentials
+        if: always()
+        run: |
+          for manifest in "$RUNNER_TEMP"/capacity/runs/*/postgres-lab/lab.json; do
+            [ -f "$manifest" ] || continue
+            python3 benchmarks/push/postgres.py destroy --root "$(dirname "$manifest")" --discard-data
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-capacity-${{ matrix.backend }}
+          path: |
+            ${{ runner.temp }}/capacity/host.txt
+            ${{ runner.temp }}/capacity/summary.json
+            ${{ runner.temp }}/capacity/runs/*/manifest.json
+            ${{ runner.temp }}/capacity/runs/*/run-state.json
+            ${{ runner.temp }}/capacity/runs/*/*/report.json
+            ${{ runner.temp }}/capacity/runs/*/*/execution.json
+          retention-days: 14
