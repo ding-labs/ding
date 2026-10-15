@@ -5,6 +5,8 @@ import csv
 import json
 from pathlib import Path
 
+from run import qualified_load
+
 
 def measurements(root):
     manifest = json.loads((root / 'manifest.json').read_text())
@@ -32,9 +34,11 @@ def measurements(root):
         config, load = report['Config'], report['Load']
         before, after = report['Before'], report['After']
         planned = config['Rate'] * config['Seconds']
+        backend = config.get('Backend', 'sqlite')
+        sqlite = backend == 'sqlite'
         yield {
             'run': root.name, 'case': case, 'revision': manifest['revision'],
-            'reportMissing': False,
+            'reportMissing': False, 'backend': backend,
             'environment': manifest['environment'], 'seconds': config['Seconds'],
             'workspaces': config['Workspaces'], 'outputs': config['Outputs'],
             'groups': config['Groups'], 'bodyBytes': config['BodyBytes'],
@@ -47,7 +51,8 @@ def measurements(root):
             'offered': load['offered'], 'accepted': load['accepted'],
             'firstAcceptedFraction': load['firstAccepted'] / max(1, planned),
             'acceptedRate': load['accepted'] / max(.001, load['durationSeconds']),
-            'observationRate': load['accepted'] * config['Outputs'] / max(.001, load['durationSeconds']),
+            'observationRate': (0 if config['Noop'] else load['accepted'] * config['Outputs'])
+                / max(.001, load['durationSeconds']),
             'p99MS': load['p99MS'], 'httpP99MS': load['httpP99MS'],
             'scheduleP99MS': load['scheduleP99MS'], 'generatorBusy': load['generatorBusy'],
             'throttles': load.get('throttled', load['statuses'].get('429', 0)),
@@ -59,9 +64,10 @@ def measurements(root):
             'beforeObservations': sum(a['Rows']['observations'] for a in before),
             'beforeGroups': sum(a['Rows']['entities'] for a in before),
             'databaseGrowthBytes': sum(a['Health']['databaseBytes'] for a in after)
-                - sum(a['Health']['databaseBytes'] for a in before),
-            'afterDatabaseBytes': sum(a['Health']['databaseBytes'] for a in after),
-            'afterWALBytes': sum(a['Health']['walBytes'] for a in after),
+                - sum(a['Health']['databaseBytes'] for a in before) if sqlite else None,
+            'afterDatabaseBytes': sum(a['Health']['databaseBytes'] for a in after) if sqlite else None,
+            'afterWALBytes': sum(a['Health']['walBytes'] for a in after) if sqlite else None,
+            'quotaBytesAfterPostchecks': sum(a['Rows'].get('liveBytes', 0) for a in after),
             'pendingDeliveries': sum(a['Rows']['pending'] for a in after),
             'receiverUnique': report['ReceiverUnique'], 'deliveryDrainSeconds': report['DeliveryDrainSeconds'],
             # Older diagnostic reports did not record these gates. Keep them
@@ -71,7 +77,8 @@ def measurements(root):
             'maxSampleHeapBytes': max((s['Heap'] for s in report['Samples']), default=0),
             'serverExitCode': execution['exitCode'], 'generatorExitCode': execution['generatorExitCode'],
             'oomKilled': execution.get('container', {}).get('OOMKilled', False),
-            'stable': result['stable'],
+            'reportedStable': result['stable'],
+            'stable': result['stable'] and qualified_load(load),
         }
 
 
