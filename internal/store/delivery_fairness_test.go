@@ -77,7 +77,11 @@ func TestDeliveryIndependentStreamsHaveFairTurns(t *testing.T) {
 				t.Fatal("overtook a stream lease", err)
 			}
 			for _, intent := range []*Intent{first, second} {
-				if err = s.Finish(ctx, *intent, delivery.Result{Outcome: delivery.Delivered}, testNow, testNow); err != nil {
+				outcome := delivery.Delivered
+				if intent == second {
+					outcome = delivery.Exhausted
+				}
+				if err = s.Finish(ctx, *intent, delivery.Result{Outcome: outcome}, testNow, testNow); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -90,6 +94,29 @@ func TestDeliveryIndependentStreamsHaveFairTurns(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			// The quiet stream has no live intents; historical rows must not keep
+			// it on the active scheduling index. A manual retry reactivates it.
+			if err := s.View(ctx, func(tx *Tx) error {
+				var active bool
+				q := statement{sqlite: "SELECT active FROM delivery_streams WHERE watch_id='other'", postgres: "SELECT active FROM delivery_streams WHERE workspace_id=current_setting('ding.workspace') AND watch_id='other'"}
+				if err := tx.sql.QueryRowContext(ctx, tx.query(q)).Scan(&active); err != nil {
+					return err
+				}
+				if active {
+					return fmt.Errorf("completed stream remains active")
+				}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.Update(ctx, func(tx *Tx) error { return tx.Retry(second.ID, testNow) }); err != nil {
+				t.Fatal(err)
+			}
+			next, err := s.Claim(ctx, testNow, time.Minute)
+			if err != nil || next == nil || next.ID != second.ID {
+				t.Fatal("manual retry did not reactivate quiet stream", err)
+			}
+
 		})
 	}
 }

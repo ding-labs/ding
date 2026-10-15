@@ -48,7 +48,7 @@ func TestQueueIndexesAndSchemaTwoUpgrade(t *testing.T) {
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
 	}
-	for _, index := range []string{"delivery_stream_turn", "outbox_live_order", "outbox_stream_lease"} {
+	for _, index := range []string{"delivery_stream_active", "outbox_live_order", "outbox_stream_lease"} {
 		if !strings.Contains(plan.String(), index) {
 			t.Fatalf("queue would scan historical deliveries; missing %s:\n%s", index, plan.String())
 		}

@@ -10,7 +10,7 @@ var qIntent = statement{sqlite: `SELECT id,event_id,watch_id,destination_id,dest
 
 var qClaim = statement{sqlite: claimQuery, postgres: `SELECT o.id FROM delivery_streams s CROSS JOIN LATERAL
  (SELECT * FROM outbox p WHERE p.workspace_id=s.workspace_id AND p.watch_id=s.watch_id AND p.destination_id=s.destination_id AND p.status IN ('pending','leased') ORDER BY p.id LIMIT 1) o
- WHERE s.workspace_id=current_setting('ding.workspace')
+ WHERE s.workspace_id=current_setting('ding.workspace') AND s.active
  AND ((o.status='pending' AND o.next_at<=$1) OR (o.status='leased' AND o.lease_until<=$2))
  AND NOT EXISTS (SELECT 1 FROM metadata m WHERE m.workspace_id=o.workspace_id AND m.key='delivery_backoff:'||o.destination_id||':'||o.destination_revision AND CASE WHEN m.key='delivery_backoff:'||o.destination_id||':'||o.destination_revision THEN CAST(m.value AS BIGINT) ELSE 0 END>$3)
  AND NOT EXISTS (SELECT 1 FROM outbox p WHERE p.workspace_id=o.workspace_id AND p.watch_id=o.watch_id AND p.destination_id=o.destination_id AND p.destination_revision=o.destination_revision AND p.status='leased' AND p.lease_until>$4)
@@ -28,5 +28,3 @@ var qDeliveryAttempt = statement{sqlite: `INSERT INTO delivery_attempts(outbox_i
 
 var qEvents = statement{sqlite: `SELECT sequence,body FROM events WHERE sequence>? ORDER BY sequence LIMIT ?`, postgres: `SELECT sequence,body FROM events WHERE workspace_id=current_setting('ding.workspace') AND sequence>$1 ORDER BY sequence LIMIT $2`}
 var qWatchEvents = statement{sqlite: `SELECT sequence,body FROM events WHERE sequence>? AND watch_id=? ORDER BY sequence LIMIT ?`, postgres: `SELECT sequence,body FROM events WHERE workspace_id=current_setting('ding.workspace') AND sequence>$1 AND watch_id=$2 ORDER BY sequence LIMIT $3`}
-
-var qDeliveryStream = statement{sqlite: `INSERT INTO delivery_streams(watch_id,destination_id) VALUES(?,?) ON CONFLICT DO NOTHING`, postgres: `INSERT INTO delivery_streams(watch_id,destination_id) VALUES($1,$2) ON CONFLICT DO NOTHING`}
