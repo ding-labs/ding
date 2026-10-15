@@ -44,10 +44,14 @@ type WatchRecord struct {
 }
 
 func (t *Tx) Watch(id string) (WatchRecord, error) {
+	return scanWatch(t.sql.QueryRowContext(t.ctx, t.query(qWatch), id))
+}
+
+func scanWatch(row interface{ Scan(...any) error }) (WatchRecord, error) {
 	var r WatchRecord
 	var data []byte
 	var next, last int64
-	err := t.sql.QueryRowContext(t.ctx, t.query(qWatch), id).Scan(&data, &r.Plan.Revision, &r.Plan.Fingerprint, &r.Generation, &r.Status, &next, &r.Cursor, &last, &r.LastError, &r.Lifetime)
+	err := row.Scan(&data, &r.Plan.Revision, &r.Plan.Fingerprint, &r.Generation, &r.Status, &next, &r.Cursor, &last, &r.LastError, &r.Lifetime)
 	if err != nil {
 		return r, missing(err)
 	}
@@ -60,33 +64,20 @@ func (t *Tx) Watch(id string) (WatchRecord, error) {
 	return r, nil
 }
 func (t *Tx) Watches() ([]WatchRecord, error) {
-	rows, err := t.sql.QueryContext(t.ctx, t.query(qWatchIDs))
+	rows, err := t.sql.QueryContext(t.ctx, t.query(qWatches))
 	if err != nil {
 		return nil, err
 	}
-	var ids []string
+	defer rows.Close()
+	result := []WatchRecord{}
 	for rows.Next() {
-		var id string
-		if err = rows.Scan(&id); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		ids = append(ids, id)
-	}
-	err = rows.Err()
-	rows.Close()
-	if err != nil {
-		return nil, err
-	}
-	result := make([]WatchRecord, 0, len(ids))
-	for _, id := range ids {
-		r, err := t.Watch(id)
+		r, err := scanWatch(rows)
 		if err != nil {
 			return nil, err
 		}
 		result = append(result, r)
 	}
-	return result, nil
+	return result, rows.Err()
 }
 
 // SaveWatch persists the immutable definition and active pointer in this
