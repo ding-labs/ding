@@ -60,7 +60,10 @@ def measurements(root):
             'afterWALBytes': sum(a['Health']['walBytes'] for a in after),
             'pendingDeliveries': sum(a['Rows']['pending'] for a in after),
             'receiverUnique': report['ReceiverUnique'], 'deliveryDrainSeconds': report['DeliveryDrainSeconds'],
-            'restartVerified': report['RestartVerified'], 'postChecksVerified': report['PostChecksVerified'],
+            # Older diagnostic reports did not record these gates. Keep them
+            # unknown instead of inventing a pass or failing the whole export.
+            'restartVerified': report.get('RestartVerified'),
+            'postChecksVerified': report.get('PostChecksVerified'),
             'maxSampleHeapBytes': max((s['Heap'] for s in report['Samples']), default=0),
             'serverExitCode': execution['exitCode'], 'generatorExitCode': execution['generatorExitCode'],
             'oomKilled': execution.get('container', {}).get('OOMKilled', False),
