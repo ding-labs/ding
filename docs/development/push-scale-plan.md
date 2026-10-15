@@ -74,6 +74,8 @@ The [Go runtime implementation](push-scale-runtime-plan.md) specifies the source
 boundaries, correctness tests and focused measurements for these changes.
 The [PostgreSQL implementation](push-scale-postgres-plan.md) defines the adapter,
 tenant schema and transaction guarantees for the database experiment.
+The [test and comparison plan](push-scale-test-plan.md) defines measurement
+qualification, correctness gates and total-resource comparisons.
 
 ## Behavior that every increment preserves
 
