@@ -30,7 +30,9 @@ func OpenPostgres(ctx context.Context, c Config, lookup func(string) (string, bo
 	}
 	db := stdlib.OpenDB(*cfg)
 	db.SetMaxOpenConns(c.Effective().MaxOpenConns)
-	db.SetMaxIdleConns(min(2, c.Effective().MaxOpenConns))
+	// Keep the bounded pool reusable between worker bursts. Closing all but two
+	// connections created repeated authentication handshakes at modest load.
+	db.SetMaxIdleConns(c.Effective().MaxOpenConns)
 	db.SetConnMaxIdleTime(time.Minute)
 	db.SetConnMaxLifetime(5 * time.Minute)
 	probe, cancel := context.WithTimeout(ctx, 5*time.Second)
