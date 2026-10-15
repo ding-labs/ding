@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"net/url"
@@ -44,6 +45,7 @@ type PushBenchmarkOptions struct {
 	LedgerBatch      int
 	CompactLedger    bool
 	PreplannedLedger bool         // Persist every possible key before the measured clock starts.
+	ShuffleSeed      uint64       // Zero keeps producer blocks; nonzero interleaves a reproducible weighted cycle.
 	BeforeStart      func() error // Coordinate snapshots after journal preparation.
 }
 type PushBenchmarkResult struct {
@@ -73,6 +75,7 @@ type PushBenchmarkResult struct {
 	AcceptedBytes        int64                         `json:"acceptedBytes"`
 	AcceptedObservations int64                         `json:"acceptedObservations"`
 	Payloads             map[string]*PushPayloadResult `json:"payloads"`
+	ShuffleSeed          uint64                        `json:"shuffleSeed"`
 }
 
 type PushPayloadResult struct {
@@ -81,7 +84,7 @@ type PushPayloadResult struct {
 	P99MS               float64
 }
 
-func pushProducerSlots(producers []PushProducer) ([]int, error) {
+func pushProducerSlots(producers []PushProducer, seed uint64) ([]int, error) {
 	var slots []int
 	for i, p := range producers {
 		weight := p.Weight
@@ -94,6 +97,9 @@ func pushProducerSlots(producers []PushProducer) ([]int, error) {
 		for range weight {
 			slots = append(slots, i)
 		}
+	}
+	if seed != 0 {
+		rand.New(rand.NewPCG(seed, 0)).Shuffle(len(slots), func(i, j int) { slots[i], slots[j] = slots[j], slots[i] })
 	}
 	return slots, nil
 }
@@ -128,7 +134,8 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 	result.ErrorCodes = map[string]int{}
 	result.Payloads = map[string]*PushPayloadResult{}
 	payloadHistograms := map[string][]int{}
-	slots, err := pushProducerSlots(o.Producers)
+	result.ShuffleSeed = o.ShuffleSeed
+	slots, err := pushProducerSlots(o.Producers, o.ShuffleSeed)
 	if err != nil {
 		return result, err
 	}

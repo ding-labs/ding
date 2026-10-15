@@ -78,7 +78,7 @@ func TestPushBenchmarkCountsMissedArrivalsAndQueueLatency(t *testing.T) {
 }
 
 func TestPushProducerWeightsAreExactAndBounded(t *testing.T) {
-	slots, err := pushProducerSlots([]PushProducer{{Weight: 16}, {Weight: 3}, {Weight: 1}})
+	slots, err := pushProducerSlots([]PushProducer{{Weight: 16}, {Weight: 3}, {Weight: 1}}, 42)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,8 +89,13 @@ func TestPushProducerWeightsAreExactAndBounded(t *testing.T) {
 	if counts != [3]int{16, 3, 1} {
 		t.Fatal(counts)
 	}
+	again, _ := pushProducerSlots([]PushProducer{{Weight: 16}, {Weight: 3}, {Weight: 1}}, 42)
+	blocked, _ := pushProducerSlots([]PushProducer{{Weight: 16}, {Weight: 3}, {Weight: 1}}, 0)
+	if fmt.Sprint(slots) != fmt.Sprint(again) || fmt.Sprint(slots) == fmt.Sprint(blocked) {
+		t.Fatal("weighted interleaving must be reproducible and differ from blocks")
+	}
 	for _, weight := range []int{-1, 101} {
-		if _, err := pushProducerSlots([]PushProducer{{Weight: weight}}); err == nil {
+		if _, err := pushProducerSlots([]PushProducer{{Weight: weight}}, 0); err == nil {
 			t.Fatal("invalid weight accepted")
 		}
 	}

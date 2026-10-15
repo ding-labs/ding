@@ -344,7 +344,7 @@ func TestScaleMixedPayloadsReconcileExactBytesAndOutputs(t *testing.T) {
 	lab := newScaleLab(t, c)
 	before := scaleAccounts(t, lab)
 	path := t.TempDir() + "/ledger"
-	r, err := BenchmarkPush(context.Background(), PushBenchmarkOptions{Producers: lab.producers, Client: lab.http.Client(), Rate: 20, Duration: 1000000000, Ledger: path, CompactLedger: true, PreplannedLedger: true, NoRetry: true})
+	r, err := BenchmarkPush(context.Background(), PushBenchmarkOptions{Producers: lab.producers, Client: lab.http.Client(), Rate: 20, Duration: 1000000000, Ledger: path, CompactLedger: true, PreplannedLedger: true, NoRetry: true, ShuffleSeed: 42})
 	if err != nil || r.Accepted != 20 || r.AcceptedBytes != 1060000 || r.AcceptedObservations != 170 {
 		t.Fatal(r, err)
 	}
