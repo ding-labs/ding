@@ -29,6 +29,23 @@ jobs:
       - run: npm test --prefix deploy/soak/worker
       - run: python3 -m py_compile deploy/soak/scripts/*.py
 
+  postgres-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Start isolated PostgreSQL fixture
+        run: python3 benchmarks/push/postgres.py start --root "$RUNNER_TEMP/ding-postgres"
+      - name: Real database and HTTP contracts
+        env:
+          DING_TEST_POSTGRES_FILE: ${{ runner.temp }}/ding-postgres/connections.json
+        run: go test -race -count=1 ./internal/database ./internal/store ./internal/serverstate ./internal/cloud ./internal/watchcli
+      - name: Stop owned PostgreSQL fixture
+        if: always()
+        run: python3 benchmarks/push/postgres.py stop --root "$RUNNER_TEMP/ding-postgres"
+
   test:
     runs-on: ubuntu-latest
     steps:
