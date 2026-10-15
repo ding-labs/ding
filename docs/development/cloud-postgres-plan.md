@@ -167,7 +167,8 @@ Keep measurement/report commits separate and preserve the small commits in PRs.
 Run both real-backend contracts for shared changes and targeted race tests for
 concurrency changes. Never change durability settings to manufacture a speedup.
 
+The [Linux qualification specification](cloud-postgres-linux-tests.md) defines
+resource profiles, workload mix, pass conditions, recovery tests and cleanup.
 The original [backend contract](push-scale-postgres-plan.md) and
-[test invariants](push-scale-test-plan.md) still apply. The next qualification
-uses a dedicated Linux host and separately sized application/database resources;
-the old Mac Docker measurements remain historical evidence.
+[test invariants](push-scale-test-plan.md) still apply; the old Mac Docker
+measurements remain historical evidence.
