@@ -125,9 +125,7 @@ func TestLocalPushScale(t *testing.T) {
 	}
 	report.StartedAt = time.Now().UTC()
 	if lab.receiver != nil && c.Receiver == "outage" {
-		lab.receiver.mu.Lock()
-		lab.receiver.recoverAt = report.StartedAt.Add(time.Duration(c.Seconds/2) * time.Second)
-		lab.receiver.mu.Unlock()
+		lab.receiver.setRecovery(t, report.StartedAt.Add(time.Duration(c.Seconds/2)*time.Second))
 	}
 	if waitFinish != nil {
 		report.Load = waitFinish(ctx)
@@ -181,37 +179,10 @@ func TestLocalPushScale(t *testing.T) {
 			report.After = scaleAccounts(t, lab)
 		}
 		report.DeliveryDrainSeconds = time.Since(start).Seconds()
-		lab.receiver.mu.Lock()
-		report.ReceiverAttempts, report.ReceiverAccepted = lab.receiver.attempts, lab.receiver.accepted
-		report.ReceiverUnique = len(lab.receiver.ids)
-		for _, tenant := range lab.tenants {
-			inspection, err := tenant.App.Inspect(context.Background(), "ci")
-			if err != nil {
-				t.Fatal(err)
-			}
-			for _, d := range inspection.Deliveries {
-				if d.Status == "delivered" && !lab.receiver.ids[d.EventID] {
-					report.Errors = append(report.Errors, "delivered event absent from receiver ledger")
-				}
-			}
-		}
-		data, err := os.ReadFile(filepath.Join(lab.root, "receiver.jsonl"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		f, err := mcpconfig.CreatePrivate(filepath.Join(out, "receiver.jsonl"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = f.Write(data)
-		if err == nil {
-			err = f.Sync()
-		}
-		f.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-		lab.receiver.mu.Unlock()
+		state, problems := scaleReceiverEvidence(t, lab, out)
+		report.ReceiverAttempts, report.ReceiverAccepted = state.Attempts, state.Accepted
+		report.ReceiverUnique = len(state.IDs)
+		report.Errors = append(report.Errors, problems...)
 	}
 	f, err := mcpconfig.CreatePrivate(filepath.Join(out, "report.json"))
 	if err != nil {

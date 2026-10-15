@@ -14,6 +14,7 @@ import (
 
 type scaleReceiver struct {
 	server             *httptest.Server
+	endpoint           string
 	mu                 sync.Mutex
 	accepted, attempts int
 	recoverAt          time.Time
@@ -26,7 +27,7 @@ type scaleDeliveryTransport struct {
 }
 
 func (s scaleDeliveryTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	if r.URL.Host == s.receiver.server.Listener.Addr().String() {
+	if r.URL.Scheme == "https" && "https://"+r.URL.Host == s.receiver.endpoint {
 		return s.receiver.server.Client().Transport.RoundTrip(r)
 	}
 	return s.next.RoundTrip(r)
@@ -70,6 +71,34 @@ func newScaleReceiver(t *testing.T, mode string, seconds int, path string) *scal
 		s.accepted++
 		w.WriteHeader(204)
 	}))
+	s.endpoint = s.server.URL
 	t.Cleanup(s.server.Close)
 	return s
+}
+
+type scaleReceiverState struct {
+	Attempts, Accepted int
+	IDs                map[string]bool
+	Bytes              int64
+}
+
+func (s *scaleReceiver) setRecovery(t *testing.T, at time.Time) {
+	t.Helper()
+	s.mu.Lock()
+	s.recoverAt = at
+	s.mu.Unlock()
+}
+func (s *scaleReceiver) snapshot(t *testing.T) (scaleReceiverState, []byte) {
+	t.Helper()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	raw, err := os.ReadFile(s.ledger.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := map[string]bool{}
+	for id := range s.ids {
+		ids[id] = true
+	}
+	return scaleReceiverState{s.attempts, s.accepted, ids, int64(len(raw))}, raw
 }

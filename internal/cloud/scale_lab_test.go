@@ -166,7 +166,7 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 			t.Fatal(err)
 		}
 		if lab.receiver != nil {
-			if err := vault.Put(ctx, enrolled.Workspace.ID, "SCALE_WEBHOOK", lab.receiver.server.URL); err != nil {
+			if err := vault.Put(ctx, enrolled.Workspace.ID, "SCALE_WEBHOOK", lab.receiver.endpoint); err != nil {
 				t.Fatal(err)
 			}
 		}
