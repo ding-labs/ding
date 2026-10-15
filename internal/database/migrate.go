@@ -1,0 +1,64 @@
+package database
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+
+	"github.com/jackc/pgx/v5"
+)
+
+// Migrate runs a component's explicit PostgreSQL migrations under one database
+// lock and transaction. Use a separate migration role, never the application
+// pool. The journal lives outside the application-writable schemas.
+func Migrate(ctx context.Context, db *sql.DB, component string, steps []string, appRole string) error {
+	if component != "runtime" && component != "control" {
+		return fmt.Errorf("invalid database component")
+	}
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return SafeError("begin migration", err)
+	}
+	defer tx.Rollback()
+	if _, err = tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(68247531912805)"); err != nil {
+		return SafeError("lock migration", err)
+	}
+	var unsafe bool
+	err = tx.QueryRowContext(ctx, `SELECT rolsuper OR rolbypassrls OR rolname=current_user OR pg_has_role(rolname,current_user,'MEMBER') FROM pg_roles WHERE rolname=$1`, appRole).Scan(&unsafe)
+	if err != nil || unsafe {
+		return fmt.Errorf("PostgreSQL application role must exist and cannot own or bypass migration security")
+	}
+	_, err = tx.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS ding_meta;
+ CREATE TABLE IF NOT EXISTS ding_meta.versions(component text PRIMARY KEY,version integer NOT NULL CHECK(version>=0));`)
+	if err != nil {
+		return SafeError("create migration journal", err)
+	}
+	var version int
+	err = tx.QueryRowContext(ctx, "SELECT version FROM ding_meta.versions WHERE component=$1", component).Scan(&version)
+	if err != nil && err != sql.ErrNoRows {
+		return SafeError("read schema version", err)
+	}
+	if version > len(steps) {
+		return fmt.Errorf("PostgreSQL %s schema is newer than this binary", component)
+	}
+	for i := version; i < len(steps); i++ {
+		if _, err = tx.ExecContext(ctx, steps[i]); err != nil {
+			return fmt.Errorf("%s migration %d: %w", component, i+1, SafeError("migrate", err))
+		}
+	}
+	if _, err = tx.ExecContext(ctx, "INSERT INTO ding_meta.versions(component,version) VALUES($1,$2) ON CONFLICT(component) DO UPDATE SET version=excluded.version", component, len(steps)); err != nil {
+		return SafeError("save schema version", err)
+	}
+	role := pgx.Identifier{appRole}.Sanitize()
+	schema := "ding_" + component
+	for _, query := range []string{
+		"GRANT USAGE ON SCHEMA ding_meta," + schema + " TO " + role,
+		"GRANT SELECT ON ding_meta.versions TO " + role,
+		"GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA " + schema + " TO " + role,
+	} {
+		if _, err = tx.ExecContext(ctx, query); err != nil {
+			return SafeError("grant application access", err)
+		}
+	}
+	return SafeError("commit migration", tx.Commit())
+}
