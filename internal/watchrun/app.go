@@ -454,10 +454,7 @@ func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch so
 		if current.LastError != "" && !timerInput {
 			batch.Observations = append([]watch.Observation{{Health: "gap", Detail: "backpressure_gap"}}, batch.Observations...)
 		}
-		states, err := tx.Entities(id)
-		if err != nil {
-			return err
-		}
+		states := newAcceptanceEntities(tx, id)
 		for i, o := range batch.Observations {
 			o.AcceptedAt = now
 			o.InputID = inputID + ":" + strconv.Itoa(i) + ":" + strconv.FormatInt(now.UnixNano(), 10)
@@ -483,23 +480,23 @@ func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch so
 				receipt.First = sequence
 			}
 			receipt.Last = sequence
-			existing := make([]string, 0, len(states))
-			for key := range states {
-				existing = append(existing, key)
-			}
-			keys, clearSource, err := evaluator.Route(existing, o)
+			keys, clearSource, err := states.route(evaluator, o)
 			if err != nil {
 				return err
 			}
 			if clearSource {
 				var bootstrap condition.State
-				if err := json.Unmarshal(states[condition.SourceEntity], &bootstrap); err != nil {
+				data, _, err := states.load(condition.SourceEntity)
+				if err != nil {
+					return err
+				}
+				if err := json.Unmarshal(data, &bootstrap); err != nil {
 					return err
 				}
 				if err := tx.DeleteEntity(id, condition.SourceEntity); err != nil {
 					return err
 				}
-				delete(states, condition.SourceEntity)
+				states.removed(condition.SourceEntity)
 				if bootstrap.SourceUnhealthy {
 					if err := a.appendEvaluated(tx, current, evaluator.SourceRecovered(o), now, replay.Checkpoint{Prior: bootstrap, Input: o, SourceRecovered: true}); err != nil {
 						return err
@@ -509,12 +506,22 @@ func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch so
 
 			for _, key := range keys {
 				state := condition.State{Entity: key}
-				if data, ok := states[key]; ok {
+				data, exists, err := states.load(key)
+				if err != nil {
+					return err
+				}
+				if exists {
 					if err := json.Unmarshal(data, &state); err != nil {
 						return err
 					}
-				} else if len(states) >= current.Plan.Definition.Spec.Limits.MaxEntities {
-					return ErrQuota
+				} else {
+					n, err := states.count()
+					if err != nil {
+						return err
+					}
+					if n >= current.Plan.Definition.Spec.Limits.MaxEntities {
+						return ErrQuota
+					}
 				}
 				result, err := evaluator.Evaluate(state, o, now)
 				if err != nil {
@@ -528,10 +535,11 @@ func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch so
 						return err
 					}
 				}
-				states[key], err = json.Marshal(result.State)
+				encodedState, err := json.Marshal(result.State)
 				if err != nil {
 					return err
 				}
+				states.saved(key, encodedState)
 				for _, event := range result.Events {
 					if err := a.appendEvaluated(tx, current, event, now, replay.Checkpoint{Prior: state, Input: o}); err != nil {
 						return err
