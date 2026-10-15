@@ -99,6 +99,9 @@ func OpenServerStorage(ctx context.Context, dir string, c database.Config) (resu
 			return nil, err
 		}
 		s.ctx = s.owner.Context()
+		if err = store.ValidatePostgres(s.ctx, s.pool); err != nil {
+			return nil, err
+		}
 		s.Control, err = state.OpenPostgres(s.ctx, s.pool, s.owner)
 		if err != nil {
 			return nil, err

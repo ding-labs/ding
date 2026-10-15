@@ -33,6 +33,16 @@ type Ownership struct {
 // TakeOwnership takes responsibility for closing dedicated, a pool with one
 // connection. Do not pass the application's query pool or a transaction pooler.
 func TakeOwnership(ctx context.Context, dedicated *sql.DB) (*Ownership, error) {
+	return takeOwnership(ctx, dedicated, false)
+}
+
+// TakeMigrationOwnership bootstraps only the private journal while holding the
+// same execution lock. Use a separate bounded migration pool for DDL.
+func TakeMigrationOwnership(ctx context.Context, dedicated *sql.DB) (*Ownership, error) {
+	return takeOwnership(ctx, dedicated, true)
+}
+
+func takeOwnership(ctx context.Context, dedicated *sql.DB, bootstrap bool) (*Ownership, error) {
 	conn, err := dedicated.Conn(ctx)
 	if err != nil {
 		dedicated.Close()
@@ -52,6 +62,11 @@ func TakeOwnership(ctx context.Context, dedicated *sql.DB) (*Ownership, error) {
 	}
 	if !locked {
 		return nil, ErrOwned
+	}
+	if bootstrap {
+		if _, err = conn.ExecContext(ctx, metadataSchema); err != nil {
+			return nil, SafeError("prepare migration journal", err)
+		}
 	}
 	var token [16]byte
 	if _, err = rand.Read(token[:]); err != nil {
@@ -140,4 +155,14 @@ func (o *Ownership) Close() error {
 		o.closeErr = errors.Join(o.conn.Close(), o.pool.Close())
 	})
 	return o.closeErr
+}
+
+type ownershipKey struct{}
+
+func WithOwnership(ctx context.Context, owner *Ownership) context.Context {
+	return context.WithValue(ctx, ownershipKey{}, owner)
+}
+func ownershipFromContext(ctx context.Context) *Ownership {
+	owner, _ := ctx.Value(ownershipKey{}).(*Ownership)
+	return owner
 }

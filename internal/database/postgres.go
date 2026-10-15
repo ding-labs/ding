@@ -89,3 +89,16 @@ func SafeError(operation string, err error) error {
 	}
 	return fmt.Errorf("PostgreSQL %s failed", operation)
 }
+
+// Role returns only the configured application role, never its DSN or password.
+func (c Config) Role(lookup func(string) (string, bool)) (string, error) {
+	dsn, err := c.ResolveDSN(lookup)
+	if err != nil {
+		return "", err
+	}
+	cfg, err := postgresConfig(dsn)
+	if err != nil {
+		return "", err
+	}
+	return cfg.User, nil
+}
