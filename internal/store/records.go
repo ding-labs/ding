@@ -188,16 +188,12 @@ func (t *Tx) AppendEvent(e watch.Event) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	result, err := t.sql.ExecContext(t.ctx, `INSERT INTO events(id,watch_id,revision,at,type,body) VALUES(?,?,?,?,?,?)`, e.ID, e.WatchID, e.Revision, timestamp(e.At), e.Type, data)
-	if err != nil {
-		return 0, err
-	}
-	seq, err := result.LastInsertId()
+	seq, err := t.insertID(qAppendEvent, e.ID, e.WatchID, e.Revision, timestamp(e.At), e.Type, data)
 	if err != nil {
 		return 0, err
 	}
 	for _, evidence := range e.Evidence {
-		if _, err = t.sql.ExecContext(t.ctx, `INSERT INTO event_evidence(event_id,observation_sequence) VALUES(?,?)`, e.ID, evidence); err != nil {
+		if _, err = t.exec(qEvidence, e.ID, evidence); err != nil {
 			return 0, err
 		}
 	}
@@ -207,14 +203,12 @@ func (t *Tx) Events(id string, after int64, limit int) ([]watch.Event, error) {
 	if limit < 1 || limit > 1000 {
 		return nil, fmt.Errorf("event limit must be 1..1000")
 	}
-	query := `SELECT sequence,body FROM events WHERE sequence>?`
-	args := []any{after}
+	query := t.query(qEvents)
+	args := []any{after, limit}
 	if id != "" {
-		query += " AND watch_id=?"
-		args = append(args, id)
+		query = t.query(qWatchEvents)
+		args = []any{after, id, limit}
 	}
-	query += " ORDER BY sequence LIMIT ?"
-	args = append(args, limit)
 	rows, err := t.sql.QueryContext(t.ctx, query, args...)
 	if err != nil {
 		return nil, err
