@@ -31,8 +31,8 @@ def run():
                 'manifest': manifest, 'arguments': {k:str(v) for k,v in vars(args).items()}}
     with (root/'launcher.stdout').open('xb') as output, (root/'launcher.stderr').open('xb') as errors:
         process = subprocess.run(ssh+['python3', '/opt/lab/railway_run.py', '--case', args.case,
-                                     '--rate', str(args.rate), '--seconds', str(args.seconds), '--pool', str(args.pool),
-                                     '--seed', str(args.seed)],
+                                     '--rate', str(args.rate), '--seconds', str(args.seconds), '--pool', str(args.pool)]
+                                 + (['--seed', str(args.seed)] if args.seed else []),
                                  stdout=output, stderr=errors, timeout=args.seconds+1200)
     metadata.update(endedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(), exitCode=process.returncode)
     (root/'execution.json').write_text(json.dumps(metadata, indent=2))
