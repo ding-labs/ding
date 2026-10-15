@@ -106,11 +106,13 @@ func TestRetentionBatchesRespectChangingLiveReferences(t *testing.T) {
 				t.Fatal(err)
 			}
 			complete := false
+			var visited int64
 			for range 40 {
 				var n int64
 				if err := s.Update(ctx, func(tx *Tx) error { var e error; n, e = tx.RetainBatch(cutoff, cutoff, 7, "all-pinned"); return e }); err != nil {
 					t.Fatal(err)
 				}
+				visited += n
 				if n > 35 {
 					t.Fatal("scan exceeded per-family candidate budget", n)
 				}
@@ -121,6 +123,9 @@ func TestRetentionBatchesRespectChangingLiveReferences(t *testing.T) {
 			}
 			if !complete {
 				t.Fatal("all-pinned pages did not finish their sweep")
+			}
+			if visited != 183 {
+				t.Fatal("sweep skipped or repeated numeric keys", visited)
 			}
 			if err := s.View(ctx, func(tx *Tx) error {
 				u, e := tx.Usage()
