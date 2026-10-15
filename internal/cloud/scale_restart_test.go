@@ -43,6 +43,11 @@ func scaleRestart(t *testing.T, lab *scaleLab, c scaleConfig) {
 	pool := NewPool(storage.Context(), lab.root, db, vault, old.http)
 	storage.ConfigurePool(pool)
 	pool.Capacity = old.Capacity
+	if lab.receiver != nil {
+		// Keep the fixture receiver's expanded delivery capacity across restart.
+		// NewPool otherwise reintroduces the production per-host rate limiter.
+		pool.http.Transport = scaleDeliveryTransport{receiver: lab.receiver, next: pool.http.Transport}
+	}
 	t.Cleanup(func() { pool.Close() })
 	lab.server.DB, lab.server.Vault, lab.server.Pool = db, vault, pool
 	var prepared []*Tenant
@@ -73,6 +78,15 @@ func scaleRestart(t *testing.T, lab *scaleLab, c scaleConfig) {
 }
 
 func TestScaleRestartPreservesQueuedDeliveries(t *testing.T) {
+	testScaleRestartDeliveries(t, true)
+}
+
+func TestScaleRestartResumesFixtureReceiverCapacity(t *testing.T) {
+	testScaleRestartDeliveries(t, false)
+}
+
+func testScaleRestartDeliveries(t *testing.T, recoverBefore bool) {
+	t.Helper()
 	c := scaleConfig{Name: "restart-deliveries", Rate: 1, Seconds: 1, Outputs: 100, Condition: "alerts", Receiver: "outage"}
 	if err := c.validate(); err != nil {
 		t.Fatal(err)
@@ -87,8 +101,13 @@ func TestScaleRestartPreservesQueuedDeliveries(t *testing.T) {
 	}
 	// Let delivery resume during the restart. Only the quiescent snapshots may
 	// be compared; resumed workers are expected to change pending row counts.
-	lab.receiver.setRecovery(t, time.Now())
+	if recoverBefore {
+		lab.receiver.setRecovery(t, time.Now())
+	}
 	scaleRestart(t, lab, c)
+	if !recoverBefore {
+		lab.receiver.setRecovery(t, time.Now())
+	}
 	deadline := time.Now().Add(20 * time.Second)
 	for scaleAccounts(t, lab)[0].Rows.Pending != 0 {
 		if time.Now().After(deadline) {
