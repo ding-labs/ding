@@ -75,9 +75,28 @@ rejections/uncertainty/read errors, and exact durable reconciliation. SQLite p99
 was 8 ms in every repeat. PostgreSQL p99 was 21–32 ms for one workspace and
 23–43 ms for 100. This is 50 observations/s and 2.75 KB/s of JSON body data.
 
-Thirty-minute hot/many-workspace runs at 35 requests/s (70% of the repeated rate)
-are now running with inspection reads and graceful restart reconciliation. The
-larger database profile completed its three 180-second repeats at 100/s, but did
+The 30-minute runs at 35 requests/s (70% of the repeated rate) completed with
+inspection reads and graceful restart reconciliation:
+
+| Backend / workspaces | Accepted | Push p99 | Read p99 | Capacity result |
+| --- | --- | --- | --- | --- |
+| PostgreSQL / 1 | 63,000 / 63,000 | 20 ms | 4 ms | Pass |
+| PostgreSQL / 100 | 63,000 / 63,000 | 24 ms | 5 ms | Pass |
+| SQLite / 100 | 63,000 / 63,000 | 10 ms | 1 ms | Pass |
+| SQLite / 1 | 63,000 / 63,000 | 75 ms | 1 ms | Inconclusive: generator p99 63 ms |
+
+All four had zero rejections, uncertain responses and read errors, exact durable
+reconciliation, and successful graceful restart and authorization postchecks.
+Each served 18,000 inspection reads (17,999 for the SQLite one-workspace case).
+PostgreSQL traversed six timed checkpoints in each measured window, with no
+recorded deadlocks. Its database grew about 150/191 MiB during the sampled portions
+of the one/100-workspace runs. These are fresh-store growth measurements before
+long-term retention; they are not a steady-state storage forecast. The harness
+retained about 13 MiB of metrics text in memory, so heap growth includes test
+instrumentation and cannot by itself establish a production memory leak.
+All four jobs completed scoped database/volume/credential cleanup.
+
+The larger database profile completed its three 180-second repeats at 100/s, but did
 **not qualify**: all six cases had late generators (p99 134–219 ms), two returned
 81 and 122 throttling responses, and acknowledgement p99 was 653–3,587 ms. Every
 accepted receipt reconciled. Host I/O wait was 4.7–10.6%; database WAL syncs averaged
@@ -87,7 +106,7 @@ or a PostgreSQL capacity ceiling. No further repeat at this rate is scheduled. T
 1 CPU/2 GiB, with four query connections. SQLite receives 1 CPU/1 GiB. Generators
 run separately on the same VM; this is a loopback diagnostic topology.
 
-Still required: sustained hot/many-workspace qualification, due-work latency,
+Still required: a valid sustained SQLite hot-workspace rerun, due-work latency,
 representative mixed and aged workloads, SQL/lock/checkpoint analysis, Linux native
 versus container control, separate-host TLS/RTT tests, recovery/PITR objectives and
 migration rehearsal. Observation inserts are batched; event, outbox and group-state
@@ -111,7 +130,9 @@ Evidence: [baseline](https://github.com/ding-labs/ding/actions/runs/38787585777)
 [SQL diagnostic](https://github.com/ding-labs/ding/actions/runs/38795250725),
 [resource control](https://github.com/ding-labs/ding/actions/runs/38796772072),
 [longer repeats](https://github.com/ding-labs/ding/actions/runs/38796901012),
-[larger-database repeats](https://github.com/ding-labs/ding/actions/runs/38799865988).
+[larger-database repeats](https://github.com/ding-labs/ding/actions/runs/38799865988),
+[30-minute hot-workspace](https://github.com/ding-labs/ding/actions/runs/38799865909),
+[30-minute many-workspace](https://github.com/ding-labs/ding/actions/runs/38799865645).
 The [allowlisted measurements](../../benchmarks/push/results/2026-10-15-linux.csv)
 retain passing, failed and inconclusive screens, including source revisions and
 actual request sizes. The [qualification specification](cloud-postgres-linux-tests.md) defines the

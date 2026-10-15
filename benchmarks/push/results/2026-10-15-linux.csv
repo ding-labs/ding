@@ -45,6 +45,10 @@ linux-pin-revert,38793892963,584758958c1ec39d73733b2ee33fd4cd7bf2e01d,postgres,h
 linux-pin-revert,38793892963,584758958c1ec39d73733b2ee33fd4cd7bf2e01d,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,100,3000,3000,2534,4,0,0,0,0,0,0,0,False,True,0,False,fail,
 linux-more-database,38794913104,584758958c1ec39d73733b2ee33fd4cd7bf2e01d,postgres,hundred-1000-1,1.0,2.0,4,exec,100,1,55,55,30,100,3000,3000,20,4,0,0,0,0,0,0,0,False,True,0,False,pass,
 linux-more-database,38794913104,584758958c1ec39d73733b2ee33fd4cd7bf2e01d,postgres,one-100-1,1.0,2.0,4,exec,1,1,55,55,30,100,3000,3000,40,22,0,0,0,0,0,0,0,False,True,0,False,inconclusive,late generator
+linux-long-38799865909,38799865909,7200de8825e6a314c8b2f947f29732c33829a4b6,postgres,sustain-one-1,1.0,1.0,4,exec,1,1,55,55,1800,35,63000,63000,20,4,0,0,0,18000,4,0,0,True,True,0,False,pass,
+linux-long-38799865909,38799865909,7200de8825e6a314c8b2f947f29732c33829a4b6,sqlite,sustain-one-1,1.0,0,4,exec,1,1,55,55,1800,35,63000,63000,75,63,0,0,0,17999,1,0,0,True,True,0,False,inconclusive,late generator
+linux-long-38799865645,38799865645,7200de8825e6a314c8b2f947f29732c33829a4b6,postgres,sustain-many-1,1.0,1.0,4,exec,100,1,55,55,1800,35,63000,63000,24,8,0,0,0,18000,5,0,0,True,True,0,False,pass,
+linux-long-38799865645,38799865645,7200de8825e6a314c8b2f947f29732c33829a4b6,sqlite,sustain-many-1,1.0,0,4,exec,100,1,55,55,1800,35,63000,63000,10,5,0,0,0,18000,1,0,0,True,True,0,False,pass,
 linux-more-db-repeat100,38799865988,7200de8825e6a314c8b2f947f29732c33829a4b6,postgres,hundred-1000-1,1.0,2.0,4,exec,100,1,55,55,180,100,18000,18000,732,183,0,0,0,0,0,0,0,False,True,0,False,inconclusive,late generator
 linux-more-db-repeat100,38799865988,7200de8825e6a314c8b2f947f29732c33829a4b6,postgres,hundred-1000-2,1.0,2.0,4,exec,100,1,55,55,180,100,18000,17878,3587,211,0,122,0,0,0,0,0,False,True,0,False,inconclusive,late generator
 linux-more-db-repeat100,38799865988,7200de8825e6a314c8b2f947f29732c33829a4b6,postgres,hundred-1000-3,1.0,2.0,4,exec,100,1,55,55,180,100,18000,18000,653,219,0,0,0,0,0,0,0,False,True,0,False,inconclusive,late generator
