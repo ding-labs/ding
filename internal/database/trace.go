@@ -20,7 +20,11 @@ type queryTiming struct {
 }
 
 func (queryTrace) TraceQueryStart(ctx context.Context, _ *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
-	return context.WithValue(ctx, queryTraceKey{}, queryTiming{time.Now(), queryOperation(data.SQL)})
+	operation := queryOperation(data.SQL)
+	if operation == runtimeperf.SQLBegin && runtimeperf.IsMaintenance(ctx) {
+		operation = runtimeperf.SQLMaintenanceBegin
+	}
+	return context.WithValue(ctx, queryTraceKey{}, queryTiming{time.Now(), operation})
 }
 
 func (queryTrace) TraceQueryEnd(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryEndData) {

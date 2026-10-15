@@ -17,6 +17,7 @@ import (
 // Maintain uses short write batches. Persistent entity references are updated
 // with state, so ingestion can advance safely between every cleanup transaction.
 func (a *App) Maintain(ctx context.Context, now time.Time) error {
+	ctx = runtimeperf.WithMaintenance(ctx)
 	defer runtimeperf.Since(a.Store.PerfBackend(), runtimeperf.Maintenance, time.Now())
 	const batch = 64
 	pass := rand.Text()

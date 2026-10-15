@@ -60,3 +60,19 @@ func TestQueryTraceBoundsLabelsAndCountsFailures(t *testing.T) {
 		t.Fatal("failed statement was not counted")
 	}
 }
+
+func TestMaintenanceTraceKeepsFiniteTransactionClass(t *testing.T) {
+	trace := queryTrace{}
+	for _, maintenance := range []bool{false, true} {
+		ctx := context.Background()
+		want := runtimeperf.SQLBegin
+		if maintenance {
+			ctx = runtimeperf.WithMaintenance(ctx)
+			want = runtimeperf.SQLMaintenanceBegin
+		}
+		ctx = trace.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{SQL: "begin"})
+		if ctx.Value(queryTraceKey{}).(queryTiming).operation != want {
+			t.Fatal("maintenance attribution lost")
+		}
+	}
+}
