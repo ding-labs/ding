@@ -46,20 +46,6 @@ func (t *Tx) syncEntityPins(id, key string, data []byte) error {
 	if err != nil {
 		return err
 	}
-	if t.postgres {
-		kinds, values := make([]string, 0, len(wanted)), make([]string, 0, len(wanted))
-		for pin := range wanted {
-			kinds, values = append(kinds, pin.kind), append(values, pin.value)
-		}
-		_, err := t.execSQL(`WITH wanted AS (
- SELECT * FROM unnest($3::text[],$4::text[]) p(kind,value)), removed AS (
- DELETE FROM entity_pins p WHERE workspace_id=current_setting('ding.workspace')
- AND watch_id=$1 AND entity_key=$2
- AND NOT EXISTS(SELECT 1 FROM wanted w WHERE w.kind=p.kind AND w.value=p.value))
- INSERT INTO entity_pins(watch_id,entity_key,kind,value)
- SELECT $1,$2,kind,value FROM wanted ON CONFLICT DO NOTHING`, id, key, kinds, values)
-		return err
-	}
 	rows, err := t.sql.QueryContext(t.ctx, t.query(qEntityPins), id, key)
 	if err != nil {
 		return err
