@@ -269,6 +269,23 @@ were recorded during that window; WAL flush latency was not collected. Tagged
 query counts and worker scheduling measurements are the next attribution step.
 That trial still missed latency at p99 319 ms after earlier trials at 55 and 51 ms.
 
+## Noisy workspace and quiet peers
+
+The 30-second raised-limit screen offered 500 requests/s, approximately 90% to
+one of 10 workspaces. The accepted-response journal gives:
+
+| Backend | Noisy workspace acknowledgements | Quiet peers combined | Noisy p99 | Per-quiet-workspace p99 range |
+| --- | --- | --- | --- | --- |
+| SQLite | 13,482 / 13,515 | 1,481 / 1,485 | 544 ms | 102–407 ms |
+| PostgreSQL | 445 / 13,515 | 71 / 1,485 | 15,152 ms | 669–2,360 ms |
+
+These are overloaded screens, with few successful PostgreSQL samples per quiet
+peer. They expose shared pressure under relaxed lab admission settings; they do
+not qualify isolated tenant service levels. The
+[per-workspace aggregate](../../benchmarks/push/results/2026-10-15-noisy-workspaces.csv)
+retains offered counts, pressure responses and accepted-response medians/tails.
+Workspace indices identify synthetic fixtures, with no account credentials.
+
 ## Correctness and release checks
 
 Implementation verification included the full local tagged Go race suite
