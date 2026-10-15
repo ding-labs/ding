@@ -51,6 +51,7 @@ def run():
     parser.add_argument('--rate',type=int,required=True)
     parser.add_argument('--seconds',type=int,required=True)
     parser.add_argument('--pool',type=int,choices=(2,4,8,16),default=4)
+    parser.add_argument('--seed',type=int,default=0)
     args = parser.parse_args()
     os.umask(0o077)
     job = control('/case',vars(args))
@@ -68,7 +69,8 @@ def run():
     try:
         with (root/'generator.log').open('x') as log:
             process = subprocess.run(['/opt/ding-local-load','--bootstrap',str(root/'bootstrap.json'),
-                                      '--output',str(root),'--rate',str(args.rate),'--seconds',str(args.seconds)],
+                                      '--output',str(root),'--rate',str(args.rate),'--seconds',str(args.seconds),
+                                      '--shuffle-seed',str(args.seed)],
                                      stdout=log,stderr=subprocess.STDOUT,timeout=args.seconds+600)
         if process.returncode:
             control('/abort/'+identity,{})
@@ -87,7 +89,7 @@ def run():
         report = result['report'] or {}
         load = report.get('Load',{})
         passed = qualifies(result,job['config'])
-        summary = {'id':identity,'case':args.case,'rate':args.rate,'seconds':args.seconds,'pool':args.pool,
+        summary = {'id':identity,'case':args.case,'rate':args.rate,'seconds':args.seconds,'pool':args.pool,'seed':args.seed,
                    'pass':bool(passed),'load':load,'readCount':report.get('ReadCount'),
                    'readP99MS':report.get('ReadP99MS'),'readErrors':report.get('ReadErrors'),
                    'restartVerified':report.get('RestartVerified'),'errors':report.get('Errors'),

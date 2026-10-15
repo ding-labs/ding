@@ -37,6 +37,7 @@ def summarize(path):
                              'memoryBytes':d['memoryBytes'], 'cpuMax':d['cpuMax'], 'memoryMax':d['memoryMax']})
     return {'label':path.parent.name, 'pass':summary['pass'], 'case':summary['case'],
             'rate':summary['rate'], 'seconds':summary['seconds'], 'pool':summary.get('pool',4),
+            'seed':load.get('shuffleSeed',0),
             'accepted':load['firstAccepted'], 'ackP99MS':load['p99MS'],
             'scheduleP99MS':load['scheduleP99MS'], 'httpP99MS':load['httpP99MS'],
             'readP99MS':report['ReadP99MS'], 'readErrors':report['ReadErrors'],

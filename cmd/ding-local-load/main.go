@@ -40,6 +40,7 @@ func run() error {
 	rate := flag.Int("rate", 100, "offered requests/second")
 	seconds := flag.Int("seconds", 180, "measured seconds")
 	workers := flag.Int("workers", 512, "generator workers")
+	seed := flag.Uint64("shuffle-seed", 0, "nonzero seed interleaves the weighted producer cycle")
 	flag.Parse()
 	allowed := os.Getenv("DING_SCALE_PRIVATE_HOST")
 	if allowed != "" && (os.Getenv("DING_TEST_RAILWAY_PROJECT") == "" || os.Getenv("DING_TEST_RAILWAY_PROJECT") != os.Getenv("RAILWAY_PROJECT_ID")) {
@@ -113,6 +114,7 @@ func run() error {
 		return nil
 	}
 	options := cloud.PushBenchmarkOptions{Producers: b.Producers, Client: client, Rate: min(*rate, 100), Duration: 5 * time.Second, Workers: *workers, Ledger: filepath.Join(*output, "warmup.jsonl"), LedgerBatch: 32, CompactLedger: true, PreplannedLedger: true, NoRetry: true}
+	options.ShuffleSeed = *seed
 	if _, err := cloud.BenchmarkPush(context.Background(), options); err != nil {
 		return err
 	}

@@ -17,6 +17,7 @@ def run():
     parser.add_argument('--rate', type=int, required=True)
     parser.add_argument('--seconds', type=int, required=True)
     parser.add_argument('--pool', type=int, choices=(2, 4, 8, 16), default=4)
+    parser.add_argument('--seed', type=int, default=0)
     args = parser.parse_args()
     if not re.fullmatch('[a-z0-9-]{1,80}', args.label):
         parser.error('label must be a short lowercase identifier')
@@ -30,7 +31,8 @@ def run():
                 'manifest': manifest, 'arguments': {k:str(v) for k,v in vars(args).items()}}
     with (root/'launcher.stdout').open('xb') as output, (root/'launcher.stderr').open('xb') as errors:
         process = subprocess.run(ssh+['python3', '/opt/lab/railway_run.py', '--case', args.case,
-                                     '--rate', str(args.rate), '--seconds', str(args.seconds), '--pool', str(args.pool)],
+                                     '--rate', str(args.rate), '--seconds', str(args.seconds), '--pool', str(args.pool),
+                                     '--seed', str(args.seed)],
                                  stdout=output, stderr=errors, timeout=args.seconds+1200)
     metadata.update(endedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(), exitCode=process.returncode)
     (root/'execution.json').write_text(json.dumps(metadata, indent=2))
