@@ -61,6 +61,7 @@ func New(t *testing.T) *Fixture {
 		admin.Close()
 		t.Fatal(database.SafeError("create isolated fixture", err))
 	}
+	admin.Close()
 	fixture := &Fixture{Name: name}
 	fixture.SetAdminEnvironment = func(test *testing.T, key string) {
 		u, err := url.Parse(values["admin"])
@@ -99,7 +100,6 @@ func New(t *testing.T) *Fixture {
 		if fixture.Migration != nil {
 			fixture.Migration.Close()
 		}
-		defer admin.Close()
 		if t.Failed() {
 			dir := filepath.Join(filepath.Dir(file), "failed-fixtures")
 			_ = os.MkdirAll(dir, 0700)
@@ -108,6 +108,8 @@ func New(t *testing.T) *Fixture {
 			t.Logf("Failed local PostgreSQL fixture preserved: %s", name)
 			return
 		}
+		admin := open("admin", "ding")
+		defer admin.Close()
 		if _, err := admin.Exec("DROP DATABASE " + name + " WITH (FORCE)"); err != nil {
 			t.Error(database.SafeError("remove owned fixture", err))
 		}
