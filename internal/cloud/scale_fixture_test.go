@@ -12,6 +12,7 @@ import (
 type scaleConfig struct {
 	Name                                                           string
 	Backend                                                        string
+	QueryMode                                                      string
 	PoolLimit, CredentialReaders                                   int
 	Watches, DeliveryWorkers                                       int
 	ReceiverProcess                                                bool
@@ -36,6 +37,9 @@ func (c *scaleConfig) validate() error {
 	}
 	if c.Backend == "" {
 		c.Backend = "sqlite"
+	}
+	if c.QueryMode != "" && c.QueryMode != "exec" && c.QueryMode != "cache_statement" {
+		return fmt.Errorf("invalid scale query mode")
 	}
 	if c.PoolLimit == 0 {
 		c.PoolLimit = 8

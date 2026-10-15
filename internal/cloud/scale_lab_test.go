@@ -51,7 +51,7 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 		f := pgtest.New(t)
 		f.SetAppEnvironment(t, "DING_SCALE_DATABASE_APP")
 		f.SetMigrationEnvironment(t, "DING_SCALE_DATABASE_MIGRATION")
-		dbConfig = database.Config{Backend: "postgres", DSNRef: &database.SecretRef{Env: "DING_SCALE_DATABASE_APP"}, MaxOpenConns: c.PoolLimit}
+		dbConfig = database.Config{Backend: "postgres", DSNRef: &database.SecretRef{Env: "DING_SCALE_DATABASE_APP"}, MaxOpenConns: c.PoolLimit, QueryMode: c.QueryMode}
 		if err := MigrateDatabase(ctx, Config{DataDir: root, Database: dbConfig}, "DING_SCALE_DATABASE_MIGRATION"); err != nil {
 			t.Fatal(err)
 		}

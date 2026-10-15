@@ -24,9 +24,11 @@ on:
         default: '4'
         type: choice
         options: ['2', '4', '8', '16']
-  push:
-    branches: [codex/cloud-postgres-single]
-    paths: [.github/workflows/linux-capacity.yml]
+      query_mode:
+        description: PostgreSQL execution mode
+        default: exec
+        type: choice
+        options: [exec, cache_statement]
 
 permissions:
   contents: read
@@ -64,6 +66,7 @@ jobs:
           SECONDS: ${{ inputs.seconds || '30' }}
           REPEATS: ${{ inputs.repeat || '1' }}
           POOL: ${{ inputs.pool || '4' }}
+          QUERY_MODE: ${{ inputs.query_mode || 'exec' }}
         run: |
           extra=()
           if [ "$BACKEND" = postgres ]; then
@@ -71,7 +74,7 @@ jobs:
           fi
           python3 benchmarks/push/run.py --environment container --generator-placement container \
             --backend "$BACKEND" --app-cpus 1 --app-memory-mib 1024 "${extra[@]}" \
-            --pool-limit "$POOL" --cases "$CASES" --rate "$RATE" --seconds "$SECONDS" --repeat "$REPEATS" \
+            --query-mode "$QUERY_MODE" --pool-limit "$POOL" --cases "$CASES" --rate "$RATE" --seconds "$SECONDS" --repeat "$REPEATS" \
             --output "$RUNNER_TEMP/capacity/runs"
       - name: Export public comparison
         if: always()

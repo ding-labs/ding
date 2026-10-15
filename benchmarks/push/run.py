@@ -261,6 +261,7 @@ def main():
     parser.add_argument('--app-memory-mib', type=int)
     parser.add_argument('--database-cpus', type=float)
     parser.add_argument('--database-memory-mib', type=int)
+    parser.add_argument('--query-mode', choices=['exec','cache_statement'], default='exec')
     parser.add_argument('--pool-limit', type=int, choices=[1,2,4,8,16], default=8)
     parser.add_argument('--credential-readers', type=int, choices=[1,2,4,8], default=4)
     parser.add_argument('--rate', type=int, help='override planned requests per second')
@@ -304,7 +305,7 @@ def main():
     subprocess.run(['go','test','-c','-o',str(binary),'./internal/cloud'],cwd=REPO,env=build_env,check=True)
     pg = LocalPostgres(root/'postgres-lab', args.environment, args.resource_units,args.database_cpu_share,
                        cpus=resources['databaseCPUs'], memory_mib=resources['databaseMemoryMiB']) if args.backend=='postgres' else None
-    save(root/'manifest.json',{'backend':args.backend,'poolLimit':args.pool_limit,
+    save(root/'manifest.json',{'backend':args.backend,'poolLimit':args.pool_limit,'queryMode':args.query_mode,
          'credentialReaders':args.credential_readers,'resourceUnits':args.resource_units,
          'receiverProcess':args.receiver_process,'generatorPlacement':args.generator_placement,
          'databaseCPUShare':args.database_cpu_share if pg else None,
@@ -333,7 +334,7 @@ def main():
                 raise SystemExit('Host free-disk floor reached; preserve evidence and stop.')
             config = dict(cases[name])
             config['Profiles'] = args.profiles
-            config.update(Backend=args.backend, PoolLimit=args.pool_limit, CredentialReaders=args.credential_readers, ReceiverProcess=args.receiver_process)
+            config.update(Backend=args.backend, QueryMode=args.query_mode, PoolLimit=args.pool_limit, CredentialReaders=args.credential_readers, ReceiverProcess=args.receiver_process)
             if args.rate is not None:
                 config['Rate']=args.rate
             if args.seconds is not None:
