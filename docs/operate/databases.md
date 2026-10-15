@@ -75,6 +75,10 @@ arguments and logs. Database errors are redacted by the Go adapter.
 There is also one dedicated direct connection for execution ownership. Increasing
 the pool does not parallelize writes within a workspace: evaluation and sequence
 allocation remain ordered by that workspace's transaction lock.
+Size the pool against the combined Go/database CPU budget. In the
+[local qualification](../development/push-scale-results.md), a pool of 2 passed
+the tested one-CPU hot-workspace profile; larger pools were not consistently
+faster. The report's workload, raised lab policy limits and storage caps apply.
 
 Prepare the private configuration/password files and writable directories, then:
 
