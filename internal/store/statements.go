@@ -1,6 +1,9 @@
 package store
 
-import "database/sql"
+import (
+	"database/sql"
+	"strconv"
+)
 
 // statement keeps dialect decisions inside data access. SQL is explicit and
 // reviewed for each backend; no runtime placeholder or syntax rewriting occurs.
@@ -46,4 +49,13 @@ func (t *Tx) insertID(q statement, args ...any) (int64, error) {
 		return 0, err
 	}
 	return result.LastInsertId()
+}
+
+// bind emits a parameter token while this operation builds its optional filters.
+// It never rewrites SQL text or values; the statement's dialect is explicit.
+func (t *Tx) bind(ordinal int) string {
+	if t.postgres {
+		return "$" + strconv.Itoa(ordinal)
+	}
+	return "?"
 }

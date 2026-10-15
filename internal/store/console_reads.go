@@ -159,8 +159,7 @@ func cursorString(c viewCursor) string {
 // SecretNames returns references, never environment values. It visits only source and
 // destination specifications, not arbitrary condition values or observation fields.
 func (t *Tx) SecretNames() (map[string][]string, error) {
-	rows, err := t.sql.QueryContext(t.ctx, `SELECT DISTINCT w.id,j.value FROM watches w JOIN watch_revisions r ON r.watch_id=w.id AND r.revision=w.revision, json_tree(r.definition,'$.spec.source') j WHERE j.key='env' AND j.type='text' AND w.status!='deleted'
- UNION SELECT DISTINCT w.id,j.value FROM watches w JOIN watch_revisions r ON r.watch_id=w.id AND r.revision=w.revision, json_each(r.definition,'$.spec.destinations') target JOIN destinations d ON d.id=json_extract(target.value,'$.ref') JOIN destination_revisions dr ON dr.destination_id=d.id AND dr.revision=d.revision, json_tree(dr.definition,'$.spec') j WHERE j.key='env' AND j.type='text' AND w.status!='deleted' ORDER BY 1,2`)
+	rows, err := t.sql.QueryContext(t.ctx, t.query(qSecretNames))
 	if err != nil {
 		return nil, err
 	}
@@ -230,8 +229,8 @@ func (t *Tx) ConsoleWatches(q ConsoleQuery, missing map[string][]string) (WatchP
 	out.Cursor = cursorString(c)
 	return out, rows.Err()
 }
-func eventFilter(q ConsoleQuery) (string, []any, error) {
-	where := " WHERE (?='' OR watch_id=?) AND (?='' OR type=?)"
+func (t *Tx) eventFilter(q ConsoleQuery) (string, []any, error) {
+	where := t.query(qEventFilter)
 	args := []any{q.Watch, q.Watch, q.Type, q.Type}
 	for _, bound := range []struct{ v, op string }{{q.From, ">="}, {q.To, "<="}} {
 		if bound.v != "" {
@@ -239,7 +238,7 @@ func eventFilter(q ConsoleQuery) (string, []any, error) {
 			if err != nil {
 				return "", nil, ErrCursor
 			}
-			where += " AND at" + bound.op + "?"
+			where += " AND at" + bound.op + t.bind(len(args)+1)
 			args = append(args, timestamp(at))
 		}
 	}
@@ -251,14 +250,14 @@ func (t *Tx) ConsoleEvents(q ConsoleQuery) (EventSummaryPage, error) {
 	if err != nil {
 		return out, err
 	}
-	where, args, err := eventFilter(q)
+	where, args, err := t.eventFilter(q)
 	if err != nil {
 		return out, err
 	}
-	if err = t.sql.QueryRowContext(t.ctx, "SELECT count(*) FROM events"+where+" AND sequence<=?", append(args, c.High)...).Scan(&out.Total); err != nil {
+	if err = t.sql.QueryRowContext(t.ctx, "SELECT count(*) FROM events"+where+" AND sequence<="+t.bind(len(args)+1), append(args, c.High)...).Scan(&out.Total); err != nil {
 		return out, err
 	}
-	rows, err := t.sql.QueryContext(t.ctx, `SELECT id,sequence,watch_id,revision,type,at,coalesce(substr(json_extract(body,'$.message'),1,1000),''),coalesce(substr(json_extract(body,'$.entity'),1,500),'') FROM events`+where+" AND sequence<? AND sequence<=? ORDER BY sequence DESC LIMIT ?", append(args, c.Before, c.High, q.Limit+1)...)
+	rows, err := t.sql.QueryContext(t.ctx, t.query(qConsoleEventProjection)+where+" AND sequence<"+t.bind(len(args)+1)+" AND sequence<="+t.bind(len(args)+2)+" ORDER BY sequence DESC LIMIT "+t.bind(len(args)+3), append(args, c.Before, c.High, q.Limit+1)...)
 	if err != nil {
 		return out, err
 	}
@@ -288,7 +287,7 @@ func (t *Tx) ConsoleDeliveries(q ConsoleQuery) (DeliveryPage, error) {
 	if err != nil {
 		return out, err
 	}
-	where := ` WHERE (?='' OR watch_id=?) AND (?='' OR event_id=?) AND (?='' OR destination_id=?) AND (?='' OR status=?)`
+	where := t.query(qConsoleDeliveryFilter)
 	args := []any{q.Watch, q.Watch, q.Event, q.Event, q.Destination, q.Destination, q.Status, q.Status}
 	if err = t.sql.QueryRowContext(t.ctx, "SELECT count(*) FROM outbox"+where, args...).Scan(&out.Total); err != nil {
 		return out, err
@@ -297,7 +296,7 @@ func (t *Tx) ConsoleDeliveries(q ConsoleQuery) (DeliveryPage, error) {
 	if err != nil {
 		return out, err
 	}
-	rows, err := t.sql.QueryContext(t.ctx, `SELECT id,event_id,watch_id,destination_id,destination_revision,status,attempts,next_at,created_at,substr(last_error,1,2000) FROM outbox`+where+" AND id<? ORDER BY id DESC LIMIT ?", append(args, c.Before, q.Limit+1)...)
+	rows, err := t.sql.QueryContext(t.ctx, `SELECT id,event_id,watch_id,destination_id,destination_revision,status,attempts,next_at,created_at,substr(last_error,1,2000) FROM outbox`+where+" AND id<"+t.bind(len(args)+1)+" ORDER BY id DESC LIMIT "+t.bind(len(args)+2), append(args, c.Before, q.Limit+1)...)
 	if err != nil {
 		return out, err
 	}
@@ -326,7 +325,7 @@ func (t *Tx) ConsoleDestinations(q ConsoleQuery) (DestinationPage, error) {
 	if err != nil {
 		return out, err
 	}
-	rows, err := t.sql.QueryContext(t.ctx, `SELECT r.definition,d.revision,(SELECT count(DISTINCT w.id) FROM watches w JOIN watch_revisions wr ON wr.watch_id=w.id AND wr.revision=w.revision,json_each(wr.definition,'$.spec.destinations') target WHERE w.status!='deleted' AND json_extract(target.value,'$.ref')=d.id) FROM destinations d JOIN destination_revisions r ON r.destination_id=d.id AND r.revision=d.revision WHERE d.id>? ORDER BY d.id LIMIT ?`, c.Key, q.Limit+1)
+	rows, err := t.sql.QueryContext(t.ctx, t.query(qConsoleDestinations), c.Key, q.Limit+1)
 	if err != nil {
 		return out, err
 	}
