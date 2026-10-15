@@ -10,7 +10,7 @@ import (
 // MCPWorkspaces returns only this user's membership-backed client bindings.
 // The caller also checks the underlying grant's current expiry and revocation.
 func (d *DB) MCPWorkspaces(ctx context.Context, user, client string) ([]Membership, error) {
-	rows, err := d.sql.QueryContext(ctx, `SELECT w.id,w.name,m.role FROM mcp_bindings b JOIN memberships m ON m.user=b.user AND m.workspace=b.workspace JOIN workspaces w ON w.id=b.workspace JOIN users u ON u.id=b.user WHERE b.user=? AND b.client=? AND w.deleting=0 AND u.disabled=0 ORDER BY w.id`, user, client)
+	rows, err := d.sql.QueryContext(ctx, d.query(qMCPWorkspaces1), user, client)
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +29,7 @@ func (d *DB) MCPWorkspaces(ctx context.Context, user, client string) ([]Membersh
 // ResolveMCPWorkspace never borrows the browser's selection. With no explicit
 // workspace, only an unambiguous approved connection may be used.
 func (d *DB) ResolveMCPWorkspace(ctx context.Context, user, client, selected string) (string, error) {
-	rows, err := d.sql.QueryContext(ctx, `SELECT b.workspace FROM mcp_bindings b JOIN memberships m ON m.user=b.user AND m.workspace=b.workspace JOIN workspaces w ON w.id=b.workspace WHERE b.user=? AND b.client=? AND w.deleting=0 AND (?='' OR b.workspace=?) LIMIT 2`, user, client, selected, selected)
+	rows, err := d.sql.QueryContext(ctx, d.query(qResolveMCPWorkspace1), user, client, selected, selected)
 	if err != nil {
 		return "", err
 	}
@@ -78,13 +78,13 @@ func (v *Vault) BindMCP(ctx context.Context, user, workspace, client string, c m
 	}
 	defer tx.Rollback()
 	var n int
-	if err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM mcp_bindings WHERE user=? AND workspace=?", user, workspace).Scan(&n); err != nil {
+	if err = tx.QueryRowContext(ctx, tx.query(qBindMCP1), user, workspace).Scan(&n); err != nil {
 		return err
 	}
 	if n >= 10 {
 		return fmt.Errorf("disconnect an existing model client first")
 	}
-	_, err = tx.ExecContext(ctx, "INSERT INTO mcp_bindings(user,workspace,client,credential_hash,ciphertext) VALUES(?,?,?,?,?)", user, workspace, client, TokenHash(c.Token), cipher)
+	_, err = tx.ExecContext(ctx, tx.query(qBindMCP2), user, workspace, client, TokenHash(c.Token), cipher)
 	if err != nil {
 		return fmt.Errorf("client already connected or workspace unavailable")
 	}
@@ -93,7 +93,7 @@ func (v *Vault) BindMCP(ctx context.Context, user, workspace, client string, c m
 func (v *Vault) MCP(ctx context.Context, user, workspace, client string) (mcpconfig.Connection, error) {
 	var c mcpconfig.Connection
 	var cipher []byte
-	if err := v.db.sql.QueryRowContext(ctx, "SELECT ciphertext FROM mcp_bindings WHERE user=? AND workspace=? AND client=?", user, workspace, client).Scan(&cipher); err != nil {
+	if err := v.db.sql.QueryRowContext(ctx, v.db.query(qMCP1), user, workspace, client).Scan(&cipher); err != nil {
 		return c, err
 	}
 	aead, err := v.aead("mcp/" + workspace)
@@ -110,7 +110,7 @@ func (v *Vault) MCP(ctx context.Context, user, workspace, client string) (mcpcon
 	return c, c.Validate()
 }
 func (d *DB) MCPClients(ctx context.Context, user, workspace string) ([]string, error) {
-	rows, err := d.sql.QueryContext(ctx, "SELECT client FROM mcp_bindings WHERE user=? AND workspace=? ORDER BY client", user, workspace)
+	rows, err := d.sql.QueryContext(ctx, d.query(qMCPClients1), user, workspace)
 	if err != nil {
 		return nil, err
 	}
@@ -126,13 +126,13 @@ func (d *DB) MCPClients(ctx context.Context, user, workspace string) ([]string, 
 	return result, rows.Err()
 }
 func (d *DB) UnbindMCP(ctx context.Context, user, workspace, client string) error {
-	_, err := d.sql.ExecContext(ctx, "DELETE FROM mcp_bindings WHERE user=? AND workspace=? AND client=?", user, workspace, client)
+	_, err := d.exec(ctx, qUnbindMCP1, user, workspace, client)
 	return err
 }
 
 // LocalAgentBinding resolves an explicitly exported self-hosted pairing file.
 // Hosted public MCP continues to require its separate JWT identity boundary.
 func (d *DB) LocalAgentBinding(ctx context.Context, token string) (user, workspace, client string, err error) {
-	err = d.sql.QueryRowContext(ctx, "SELECT user,workspace,client FROM mcp_bindings WHERE credential_hash=? AND client LIKE 'local:%'", TokenHash(token)).Scan(&user, &workspace, &client)
+	err = d.sql.QueryRowContext(ctx, d.query(qLocalAgentBinding1), TokenHash(token)).Scan(&user, &workspace, &client)
 	return
 }
