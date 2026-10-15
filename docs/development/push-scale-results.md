@@ -118,9 +118,42 @@ attempts and reconciled identities, digests, observation provenance and durable
 usage. One additional committed request had lost its HTTP response. These audits
 do not replace the failed live observer or upgrade the capacity verdict.
 
+## Storage and remaining costs
+
+Retaining arbitrary JSON needs a separate storage budget from parsing and then
+discarding padding. In the 30-second retained-payload screens, PostgreSQL's
+observed database high-water growth was:
+
+| Incoming body and offered rate | Repeated padding | High-entropy padding |
+| --- | --- | --- |
+| 100,000 bytes, 25 requests/s | 13.7 MB | 82.8 MB |
+| 600,000 bytes, 5 requests/s | 11.9 MB | 93.7 MB |
+
+These are sampled whole-case allocation changes including setup/checks, not exact
+per-tenant retained byte totals. All requests acknowledged and reconciled; the
+repeated 100 KB PostgreSQL screen nevertheless failed latency at p99 276 ms.
+Logical quota usage grew similarly within each repeated/entropy pair, while
+physical growth differed substantially. Compressible fixture strings must not
+stand in for arbitrary user data. Sampled PostgreSQL WAL reached approximately
+185 MB in the entropy cases and needs separate reserve.
+
+SQLite's final allocated database files were approximately 89–91 MB for the
+100 KB cases and 105 MB for the 600 KB cases, plus roughly 4.3–4.5 MB WAL. Those
+are final footprints including warmup and checks, rather than the PostgreSQL
+growth statistic above. The aggregate retains both accounting categories.
+
+Separate 60-second diagnostics found SQLite parser/statement execution among the
+remaining CPU costs. PostgreSQL Go profiles spent substantial time in system
+calls and waits; they do not contain PostgreSQL backend CPU stacks. Query round
+trips, ownership checks, tenant worker overhead and database waits warrant a
+focused follow-up before changing the transaction design. Pool sweeps already
+show that more connections alone do not solve the bottleneck. No exact
+observations-per-CPU-second figure was collected.
+
 ## Qualification status
 
 The original workload screens and selected boundary repeats are complete.
 Sustained hot-workspace and 100-workspace cases, mature rolling-window repeats,
-distinct-group batch controls and the longer paired aged-store check are pending.
-Final tables and the sanitized aggregate will be added after those runs finish.
+distinct-group batch controls, longer paired aged-store checks and the repeated
+ten-workspace control are pending. Final tables and the sanitized aggregate will
+be added after those runs finish.
