@@ -171,6 +171,15 @@ Its three preceding 180-second trials all acknowledged 45,000 inputs, with p99
 47 / 33 / 16 ms. Lower-budget 250/s trials did not pass consistently; this result
 does not qualify that rate on a 1 CPU or 2 CPU configuration.
 
+PostgreSQL's one-workspace run **qualified** at **50 requests/s**, using a query
+pool of **2** and **1 CPU / 1 GiB total**, split equally between Go and PostgreSQL.
+It acknowledged and reconciled **90,000 / 90,000** requests over 1,800 seconds,
+with p95 **15 ms**, p99 **117 ms**, read p99 **10 ms**, zero rejections, uncertain
+responses, missed arrivals or clock errors, and successful reopen/postchecks.
+The three preceding 180-second trials all acknowledged 9,000 inputs, with p99
+34 / 32 / 111 ms. This configuration includes concurrent inspection; the earlier
+pool-of-8 boundary trials had a different inspection configuration.
+
 ## Delivery screens
 
 At 25 requests/s for 30 seconds, both backends acknowledged every input with a
