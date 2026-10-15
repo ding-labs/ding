@@ -20,6 +20,7 @@ def measurements(root):
                 'environment': manifest['environment'], 'seconds': config['Seconds'],
                 'offeredRate': config['Rate'], 'planned': config['Rate'] * config['Seconds'],
                 'profiles': manifest.get('profiles', True), 'reportMissing': True,
+                'cancelledByUser': execution.get('cancelledByUser', False),
                 'serverExitCode': execution['exitCode'], 'generatorExitCode': execution['generatorExitCode'],
                 'oomKilled': execution.get('container', {}).get('OOMKilled', False),
                 'failedStatePreserved': bool(execution.get('failedStateArchive') or execution.get('preservedVolume')),
