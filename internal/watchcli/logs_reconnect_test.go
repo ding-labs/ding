@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -54,5 +55,71 @@ func TestLogPublisherReconnectsWithFreshEvidence(t *testing.T) {
 		}
 	case <-time.After(9 * time.Second):
 		t.Fatal("collector did not reconnect")
+	}
+}
+
+func TestLogPublisherFinishDrainsInFlightSummary(t *testing.T) {
+	started, release, interrupted := make(chan struct{}), make(chan struct{}), make(chan struct{}, 1)
+	ended := make(chan watchrun.LogSnapshot, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var input watchrun.LogSnapshot
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			t.Error(err)
+			w.WriteHeader(400)
+			return
+		}
+		if input.Sequence == 1 && !input.Ended {
+			close(started)
+			select {
+			case <-release:
+			case <-r.Context().Done():
+				interrupted <- struct{}{}
+				return
+			}
+		}
+		w.WriteHeader(202)
+		_ = json.NewEncoder(w).Encode(watch.Envelope{APIVersion: watch.APIVersion})
+		if input.Ended {
+			ended <- input
+		}
+	}))
+	defer server.Close()
+	var unblock sync.Once
+	defer unblock.Do(func() { close(release) })
+	collector, err := logs.NewCollector(logs.ParserConfig{}, logs.WindowConfig{Window: time.Second, MinEvents: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer collector.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	finish := publishLogs(ctx, control.Client{URL: server.URL, HTTP: server.Client()}, "test", collector, io.Discard, &watchrun.LogSession{ID: "session"})
+	select {
+	case <-started:
+	case <-time.After(3 * time.Second):
+		t.Fatal("publisher did not send summary")
+	}
+	finished := make(chan struct{})
+	go func() { finish(nil); close(finished) }()
+	select {
+	case <-interrupted:
+		t.Fatal("normal finish canceled an in-flight summary")
+	case <-finished:
+		t.Fatal("finish returned before the accepted summary drained")
+	case <-time.After(30 * time.Millisecond):
+	}
+	unblock.Do(func() { close(release) })
+	select {
+	case <-finished:
+	case <-time.After(2 * time.Second):
+		t.Fatal("publisher did not finish")
+	}
+	select {
+	case input := <-ended:
+		if input.Sequence != 2 {
+			t.Fatal("final status lost sequence continuity", input.Sequence)
+		}
+	default:
+		t.Fatal("final collection status was omitted")
 	}
 }
