@@ -47,7 +47,12 @@ func (t *Tx) Intent(id int64) (Intent, error) {
 	return i, err
 }
 
-const claimQuery = `SELECT o.id FROM outbox o INDEXED BY outbox_live_due WHERE o.status IN ('pending','leased') AND ((o.status='pending' AND o.next_at<=?) OR (o.status='leased' AND o.lease_until<=?)) AND NOT EXISTS (SELECT 1 FROM metadata m WHERE m.key='delivery_backoff:'||o.destination_id||':'||o.destination_revision AND CAST(m.value AS INTEGER)>?) AND NOT EXISTS (SELECT 1 FROM outbox p WHERE p.destination_id=o.destination_id AND p.destination_revision=o.destination_revision AND p.status='leased' AND p.lease_until>?) AND NOT EXISTS (SELECT 1 FROM outbox p INDEXED BY outbox_live_order WHERE p.watch_id=o.watch_id AND p.destination_id=o.destination_id AND p.id<o.id AND p.status IN ('pending','leased')) ORDER BY o.next_at,o.id LIMIT 1`
+const claimQuery = `SELECT o.id FROM delivery_streams s INDEXED BY delivery_stream_turn CROSS JOIN outbox o
+ WHERE o.id=(SELECT p.id FROM outbox p INDEXED BY outbox_live_order WHERE p.watch_id=s.watch_id AND p.destination_id=s.destination_id AND p.status IN ('pending','leased') ORDER BY p.id LIMIT 1)
+ AND ((o.status='pending' AND o.next_at<=?) OR (o.status='leased' AND o.lease_until<=?))
+ AND NOT EXISTS (SELECT 1 FROM metadata m WHERE m.key='delivery_backoff:'||o.destination_id||':'||o.destination_revision AND CAST(m.value AS INTEGER)>?)
+ AND NOT EXISTS (SELECT 1 FROM outbox p INDEXED BY outbox_stream_lease WHERE p.watch_id=o.watch_id AND p.destination_id=o.destination_id AND p.destination_revision=o.destination_revision AND p.status='leased' AND p.lease_until>?)
+ ORDER BY s.last_turn,s.watch_id,s.destination_id LIMIT 1`
 
 // Claim preserves event order per watch/destination. An expired lease becomes
 // eligible again with a new token; stale acknowledgments cannot finalize it.
@@ -75,6 +80,9 @@ func (s *Store) Claim(ctx context.Context, now time.Time, lease time.Duration) (
 		}
 		i, err := t.Intent(id)
 		if err != nil {
+			return err
+		}
+		if _, err = t.exec(qDeliveryTurn, i.WatchID, i.DestinationID); err != nil {
 			return err
 		}
 		intent = &i
