@@ -27,6 +27,16 @@ def qualified_load(load):
     return load['generatorBusy'] == 0 and load['unconfirmed'] == 0 and load['rejected'] == 0
 
 
+def capture_failed_state(volume, output):
+    archive = output / 'failed-state.tar.gz'
+    command(['docker', 'run', '--rm',
+             '--mount', 'type=volume,source='+volume+',target=/lab,readonly',
+             '--mount', 'type=bind,source='+str(output)+',target=/evidence',
+             'debian:bookworm-slim', 'tar', '-C', '/lab', '-czf', '/evidence/'+archive.name, '.'])
+    archive.chmod(0o600)
+    return archive.name
+
+
 def execute(binary, driver, config, output, environment):
     env = dict(os.environ, DING_SCALE_CONFIG=str(output / 'config.json'),
                DING_SCALE_OUTPUT=str(output), DING_SCALE_EXTERNAL=environment)
@@ -92,10 +102,20 @@ def execute(binary, driver, config, output, environment):
     metadata = {'exitCode':code,'generatorExitCode':generator_code,
                 'wallSeconds':time.monotonic()-started,'resources':samples,'failure':failure}
     if environment == 'container':
+        remove_volume = True
         try:
             metadata['container'] = json.loads(command(['docker','inspect',container]))[0]['State']
-        finally:
-            subprocess.run(['docker','rm','-f',container],check=False,capture_output=True)
+        except (subprocess.CalledProcessError, json.JSONDecodeError):
+            metadata['container'] = {'inspectionUnavailable': True}
+        if code != 0 or generator_code != 0 or failure or not (output/'report.json').exists() or metadata['container'].get('inspectionUnavailable'):
+            try:
+                metadata['failedStateArchive'] = capture_failed_state(volume, output)
+            except (subprocess.CalledProcessError, OSError):
+                remove_volume = False
+                metadata['preservedVolume'] = volume
+                metadata['failedStateCapture'] = 'failed; owned volume retained'
+        subprocess.run(['docker','rm','-f',container],check=False,capture_output=True)
+        if remove_volume:
             subprocess.run(['docker','volume','rm',volume],check=False,capture_output=True)
     save(output/'execution.json',metadata)
     report_path = output/'report.json'
