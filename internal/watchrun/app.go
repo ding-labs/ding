@@ -457,7 +457,7 @@ func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch so
 		if current.LastError != "" && !timerInput {
 			batch.Observations = append([]watch.Observation{{Health: "gap", Detail: "backpressure_gap"}}, batch.Observations...)
 		}
-		states := newAcceptanceEntities(tx, id)
+		observations := make([]watch.Observation, len(batch.Observations))
 		for i, o := range batch.Observations {
 			o.AcceptedAt = now
 			o.InputID = inputID + ":" + strconv.Itoa(i) + ":" + strconv.FormatInt(now.UnixNano(), 10)
@@ -474,15 +474,16 @@ func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch so
 			if len(encoded) > current.Plan.Definition.Spec.Limits.MaxBytes {
 				return ErrQuota
 			}
-			sequence, err := tx.AppendObservation(id, current.Plan.Revision, current.Generation, o)
-			if err != nil {
-				return err
-			}
-			o.Sequence = sequence
-			if receipt.First == 0 {
-				receipt.First = sequence
-			}
-			receipt.Last = sequence
+			observations[i] = o
+		}
+		sequences, err := tx.AppendObservations(id, current.Plan.Revision, current.Generation, observations)
+		if err != nil {
+			return err
+		}
+		receipt.First, receipt.Last = sequences[0], sequences[len(sequences)-1]
+		states := newAcceptanceEntities(tx, id)
+		for i, o := range observations {
+			o.Sequence = sequences[i]
 			keys, clearSource, err := states.route(evaluator, o)
 			if err != nil {
 				return err
