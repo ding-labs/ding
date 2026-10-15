@@ -7,6 +7,11 @@ on:
         description: Comma-separated names from benchmarks/push/cases.json
         default: one-100,hundred-1000
         type: string
+      backend:
+        description: Storage backend to qualify
+        default: both
+        type: choice
+        options: [both, sqlite, postgres]
       rate:
         description: Offered pushes per second (all cases)
         default: '25'
@@ -23,7 +28,7 @@ on:
         description: PostgreSQL query connections
         default: '4'
         type: choice
-        options: ['2', '4', '8', '16']
+        options: ['2', '4', '8', '16', all]
       query_mode:
         description: PostgreSQL execution mode
         default: exec
@@ -49,7 +54,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        backend: [sqlite, postgres]
+        backend: ${{ fromJSON(inputs.backend == 'postgres' && '["postgres"]' || inputs.backend == 'sqlite' && '["sqlite"]' || '["sqlite","postgres"]') }}
+        pool: ${{ fromJSON(inputs.pool == 'all' && '["2","4","8","16"]' || format('["{0}"]', inputs.pool || '4')) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -70,7 +76,7 @@ jobs:
           RATE: ${{ inputs.rate || '25' }}
           SECONDS: ${{ inputs.seconds || '30' }}
           REPEATS: ${{ inputs.repeat || '1' }}
-          POOL: ${{ inputs.pool || '4' }}
+          POOL: ${{ matrix.pool }}
           QUERY_MODE: ${{ inputs.query_mode || 'exec' }}
           PROFILE: ${{ inputs.profile || 'initial' }}
         run: |
@@ -112,7 +118,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: linux-capacity-${{ matrix.backend }}
+          name: linux-capacity-${{ matrix.backend }}-pool${{ matrix.pool }}
           path: |
             ${{ runner.temp }}/capacity/host.txt
             ${{ runner.temp }}/capacity/summary.json
