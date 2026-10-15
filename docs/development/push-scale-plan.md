@@ -70,6 +70,9 @@ Separate control-database pooling from workspace read concurrency in P2.
 Build PostgreSQL behind an explicit experimental configuration after those
 low-risk improvements have a measured SQLite control.
 
+The [Go runtime implementation](push-scale-runtime-plan.md) specifies the source
+boundaries, correctness tests and focused measurements for these changes.
+
 ## Behavior that every increment preserves
 
 - HTTP 202 follows durable commitment of observations, evaluated state, events,
