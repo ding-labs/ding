@@ -32,8 +32,26 @@ func OpenPostgres(ctx context.Context, db *sql.DB, workspace string, owners ...*
 		return nil, err
 	}
 	defer tx.Rollback()
-	if _, err = tx.ExecContext(ctx, "INSERT INTO workspaces(workspace_id) VALUES($1) ON CONFLICT DO NOTHING", workspace); err != nil {
+	created, err := tx.ExecContext(ctx, "INSERT INTO workspaces(workspace_id) VALUES($1) ON CONFLICT DO NOTHING", workspace)
+	if err != nil {
 		return nil, err
+	}
+	inserted, err := created.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if inserted == 1 {
+		if _, err = tx.ExecContext(ctx, "INSERT INTO push_usage(singleton) VALUES(1)"); err != nil {
+			return nil, err
+		}
+	} else {
+		var n int
+		if err = tx.QueryRowContext(ctx, "SELECT count(*) FROM push_usage WHERE singleton=1").Scan(&n); err != nil {
+			return nil, err
+		}
+		if n != 1 {
+			return nil, fmt.Errorf("workspace durable usage is missing; restore or reconcile before startup")
+		}
 	}
 	var id [16]byte
 	if _, err = rand.Read(id[:]); err != nil {
@@ -42,10 +60,13 @@ func OpenPostgres(ctx context.Context, db *sql.DB, workspace string, owners ...*
 	if _, err = tx.ExecContext(ctx, "INSERT INTO metadata(key,value) VALUES('store_id',$1) ON CONFLICT DO NOTHING", hex.EncodeToString(id[:])); err != nil {
 		return nil, err
 	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO push_usage(singleton) VALUES(1) ON CONFLICT DO NOTHING;
- INSERT INTO push_receipt_stats(singleton,total,expired,checked_at,earliest) VALUES(1,0,0,0,0) ON CONFLICT DO NOTHING;`); err != nil {
+	if _, err = tx.ExecContext(ctx, `INSERT INTO push_receipt_stats(singleton,total,expired,checked_at,earliest)
+ SELECT 1,count(*),coalesce(sum(CASE WHEN expires_at<=0 THEN 1 ELSE 0 END),0),0,coalesce(min(expires_at),0)
+ FROM push_receipts WHERE NOT EXISTS(SELECT 1 FROM push_receipt_stats WHERE singleton=1)
+ ON CONFLICT DO NOTHING`); err != nil {
 		return nil, err
 	}
+
 	if err = s.ownership.Fence(ctx, tx, true); err != nil {
 		return nil, err
 	}
