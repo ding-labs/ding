@@ -196,6 +196,16 @@ no candidate qualified. These variable latency failures do not establish a simpl
 maximum request rate. They are a gate before recommending this adapter for a
 large production cohort.
 
+## Mature rolling windows
+
+Each backend passed three 180-second trials of a healthy one-minute average
+condition in one workspace, on 1 CPU / 1 GiB total. SQLite offered 100/s and
+acknowledged all 18,000 inputs per trial, with p99 **158 / 27 / 38 ms**.
+PostgreSQL used pool 2 at 25/s and acknowledged all 4,500 per trial, with p99
+**48 / 125 / 107 ms**. Every trial reconciled and passed postchecks with no clock
+errors. Real time advanced beyond the window; source-health fanout and missing-data
+transitions at large group counts remain separate performance gates.
+
 ## Delivery screens
 
 At 25 requests/s for 30 seconds, both backends acknowledged every input with a
@@ -261,8 +271,8 @@ The screening phase and 80-case main qualification stage have finished:
 - Three 30-minute runs completed; the PostgreSQL cohort long run could not pass
   its preceding qualification gate and was skipped, as recorded above.
 
-Mature rolling-window repeats, the paired aged-store check and repeated
-ten-workspace control remain in progress. Existing 100-output and nested
+The paired aged-store check and repeated ten-workspace control remain in
+progress; all six mature rolling-window repeats have passed. Existing 100-output and nested
 18-output screens already use distinct groups within each batch, verified
 against their recorded producer bodies. The sanitized aggregate follows when
 those final runs finish.
