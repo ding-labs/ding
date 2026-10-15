@@ -1,7 +1,7 @@
 # Push performance and database results
 
-October 15, 2026. Local qualification is in progress. The tables below distinguish
-completed measurements from the sustained runs still awaiting reconciliation.
+October 15, 2026. Local qualification is complete. Qualified, failed and
+inconclusive results are recorded below, including preserved interrupted attempts.
 No cloud application deployment or database change is part of this experiment.
 
 ## What was implemented
@@ -107,7 +107,7 @@ Other controls do not support a universal speedup: the 30-second one-workspace
 250/s pair measured control 93 ms versus candidate 270 ms; the ten-workspace
 500/s pair measured 10 ms versus 579 ms. Both acknowledged every request, but
 those candidate screens failed the latency target. Earlier candidate screens were
-faster, so these differences require repeated controls before attribution.
+faster, so these the longer repeated controls below resolve the screening concern.
 The 100,000-receipt paired screen similarly measured 15 ms versus 433 ms, while
 the primary candidate screen measured 15 ms. Its longer paired check is recorded below.
 The approximately 1.23 ms to 7.3–7.7 microsecond receipt-count query improvement
@@ -148,6 +148,20 @@ unless a retained-padding case explicitly projects it. PostgreSQL's later
 timeout error-classification fix; its original failed attempt remains preserved.
 The measured adapter provides no evidence that a database swap alone improves
 throughput under this small shared app/database budget.
+
+## Repeated ten-workspace controls
+
+The six 180-second trials used the same Linux producer, 1 CPU / 1 GiB and
+500 planned requests/s across 10 workspaces. Each trial planned 90,000 requests.
+
+| Variant | First acknowledgements by trial | Acceptance p99 | HTTP 429 by trial | Qualified trials |
+| --- | --- | --- | --- | --- |
+| Control | 89,940 / 89,650 / 89,424 | 481 / 702 / 939 ms | 60 / 350 / 576 | 0/3 |
+| Candidate | 89,838 / 90,000 / 89,895 | 467 / 208 / 632 ms | 162 / 0 / 105 | 1/3 |
+
+Every acknowledged input reconciled and postchecks passed. The short-screen
+latency difference did not reproduce as a uniform candidate regression. Both
+variants fail to qualify a dependable 500/s operating point on this budget.
 
 ## Sustained measurements
 
@@ -313,20 +327,44 @@ multi-user deployment and external delivery still need their own release gates.
 Its actual producer sends 18 events in roughly 599–611 bytes each minute, with
 replay/conflict probes; large payloads belong to this independent local matrix.
 
-## Qualification status
+## Evidence and conclusion
 
-The screening phase and 80-case main qualification stage have finished:
+The [sanitized aggregate](../../benchmarks/push/results/2026-10-15-qualification.csv)
+contains **191 case records**, including generator controls, diagnostics and
+preserved failed attempts. **187 have final reports**, with zero reconciliation
+errors in completed service cases. Three missing-report cases have offline audits
+finding every acknowledged receipt; one failed setup never began measurement.
+Unknown and backend-inapplicable cells are blank.
 
-- SQLite completed all 46 catalog screens.
-- PostgreSQL completed 43 distinct catalog screens. Its 100-workspace 1,000/s
-  case lacked a final report; subsequent bounded retries remain inconclusive.
-  The higher 2,500/s and original 500/s sustained-cohort screens were deferred.
-  Lower rates and larger resource budgets are measured separately.
-- Three 30-minute runs completed; the PostgreSQL cohort long run could not pass
-  its preceding qualification gate and was skipped, as recorded above.
+`reported_stable` preserves the original result; `stable` applies the strict
+zero-rejection gate. Generator-only results have zero projected observations,
+and profiled diagnostics cannot establish capacity. `resource_window` distinguishes
+measurement samples from entire attempts whose report is missing.
+`ledger_p50_ms` is derived from accepted-response journal timestamps, rounded to
+three decimals; those timestamps follow the runtime histogram observation.
+Runtime p95/p99 use millisecond bins. All 190 available journals matched their
+recorded acceptance counts. No credentials or raw payload journals are published.
 
-The six paired ten-workspace trials remain in progress. All six mature
-rolling-window repeats and the aged-store pair have passed. Existing 100-output and nested
-18-output screens already use distinct groups within each batch, verified
-against their recorded producer bodies. The sanitized aggregate follows when
-those final runs finish.
+SQLite completed all 46 catalog screens. PostgreSQL completed 43 distinct catalog
+screens; its first 100-workspace 1,000/s setup lacked a report, and subsequent
+bounded retries could not complete live postchecks. The higher 2,500/s and original
+500/s cohort screens were deferred in favor of lower rates and larger budgets.
+The 80-case main stage, eight supplemental cases and six repeated controls are
+finished. Three 30-minute runs completed; the PostgreSQL cohort long run was
+skipped because no tested point met its preceding qualification gate.
+
+The repeatable healthy 10,000-group gain, bounded receipt accounting, concurrent
+reads and tested recovery support the focused Go improvements. SQLite remains
+the default. Explicit PostgreSQL self-hosting is available for its documented
+configuration, with further cohort performance, pooler/distributed coordination,
+recovery and migration work needed before a production cloud database decision.
+
+Review order: [plan #52](https://github.com/ding-labs/ding/pull/52),
+[SQLite #53](https://github.com/ding-labs/ding/pull/53),
+[PostgreSQL store #54](https://github.com/ding-labs/ding/pull/54),
+[shared server #55](https://github.com/ding-labs/ding/pull/55),
+[operations #56](https://github.com/ding-labs/ding/pull/56),
+[qualification #57](https://github.com/ding-labs/ding/pull/57).
+Preserve the focused commit history. The independent cloud soak continues on its
+recorded deployment; its existing missing samples and telemetry failure remain
+part of that separate experiment's evidence.
