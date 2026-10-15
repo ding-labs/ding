@@ -9,6 +9,19 @@ import subprocess
 import tarfile
 
 
+RTT_PROBE = """import json,os,time,statistics,psycopg
+from pathlib import Path
+samples=[]
+with psycopg.connect(json.loads(Path('/data/ding-lab/connections.json').read_text())['admin'],autocommit=True) as db:
+    for i in range(110):
+        began=time.perf_counter();db.execute('SELECT 1').fetchone()
+        if i>=10:samples.append((time.perf_counter()-began)*1000)
+print(json.dumps({'samples':len(samples),'medianMS':statistics.median(samples),'p99MS':sorted(samples)[98],
+                  'appDeployment':os.environ.get('RAILWAY_DEPLOYMENT_ID'),
+                  'appRevision':os.environ.get('RAILWAY_GIT_COMMIT_SHA')}))
+"""
+
+
 def run():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--manifest', type=Path, required=True)
@@ -29,8 +42,17 @@ def run():
     ssh_base = ['npx', '--yes', '@railway/cli@5.68.0', 'ssh', '-p', manifest['project'],
                 '-e', manifest['environment'], '-s']
     ssh = ssh_base+[manifest['generator'], '--']
+    # A redeploy can change private-network placement even in the same region.
+    # Probe outside measurement; never expose the private connection settings.
+    probe = subprocess.run(ssh_base+[manifest['app'], '--', 'python3', '-c', RTT_PROBE],
+                           capture_output=True, text=True, check=True, timeout=90)
+    network = json.loads(probe.stdout)
+    (root/'network.json').write_text(json.dumps(network, indent=2))
+    if network.get('appRevision') and network['appRevision'] != manifest['revision']:
+        raise RuntimeError('app revision differs from the experiment manifest')
     metadata = {'startedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                'manifest': manifest, 'arguments': {k:str(v) for k,v in vars(args).items()}}
+                'manifest': manifest, 'networkBaseline': network,
+                'arguments': {k:str(v) for k,v in vars(args).items()}}
     with (root/'launcher.stdout').open('xb') as output, (root/'launcher.stderr').open('xb') as errors:
         process = subprocess.run(ssh+['python3', '/opt/lab/railway_run.py', '--case', args.case,
                                      '--rate', str(args.rate), '--seconds', str(args.seconds), '--pool', str(args.pool)]
