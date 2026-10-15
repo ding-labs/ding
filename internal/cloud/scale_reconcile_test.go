@@ -67,12 +67,16 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 	ids := map[[32]byte]bool{}
 	expected := make([]store.PushUsage, len(lab.tenants))
 	spans := make([][]scaleSpan, len(lab.tenants))
-	records := make([]store.WatchRecord, len(lab.tenants))
+	records := make([]map[string]store.WatchRecord, len(lab.tenants))
 	grants := make([]state.Service, len(lab.tenants))
 	for i, tenant := range lab.tenants {
-		records[i], err = tenant.App.Record(context.Background(), "ci")
-		if err != nil {
-			t.Fatal(err)
+		records[i] = map[string]store.WatchRecord{}
+		for _, watchID := range c.watchIDs() {
+			record, e := tenant.App.Record(context.Background(), watchID)
+			if e != nil {
+				t.Fatal(e)
+			}
+			records[i][watchID] = record
 		}
 		grants[i], err = lab.server.DB.ServiceToken(context.Background(), os.Getenv(fmt.Sprintf("DING_LOCAL_SCALE_%d", i)))
 		if err != nil {
@@ -104,7 +108,7 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 			t.Fatal(err)
 		}
 		input := watchrun.NewPushInput(grants[i].ID, e.Key, p.Body, 1000000, 24*60*60*1000000000)
-		r, err := lab.tenants[i].App.ReplayPush(context.Background(), records[i], input)
+		r, err := lab.tenants[i].App.ReplayPush(context.Background(), records[i][scaleProducerWatch(p)], input)
 		if errors.Is(err, store.ErrNotFound) {
 			if e.Receipt != nil {
 				problems = append(problems, "acknowledged receipt absent")

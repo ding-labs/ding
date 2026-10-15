@@ -29,13 +29,15 @@ func scalePreload(t *testing.T, lab *scaleLab, c scaleConfig, out string) PushBe
 		start := time.Now()
 		count := 0
 		for i := range lab.tenants {
-			p := PushProducer{URL: lab.http.URL + "/v1/ingest/ci", TokenEnv: fmt.Sprintf("DING_LOCAL_SCALE_%d", i)}
-			for j, body := range bodies {
-				status, _ := scaleSend(t, lab, p, fmt.Sprintf("seed-groups-%d-%d", i, j), body)
-				if status != 202 {
-					t.Fatal("group seed rejected", status)
+			for _, watchID := range c.watchIDs() {
+				p := PushProducer{URL: lab.http.URL + "/v1/ingest/" + watchID, TokenEnv: fmt.Sprintf("DING_LOCAL_SCALE_%d", i)}
+				for j, body := range bodies {
+					status, _ := scaleSend(t, lab, p, fmt.Sprintf("seed-groups-%d-%s-%d", i, watchID, j), body)
+					if status != 202 {
+						t.Fatal("group seed rejected", status)
+					}
+					count++
 				}
-				count++
 			}
 		}
 		t.Logf("seeded %d groups per workspace using %d real batches", c.Groups, count)

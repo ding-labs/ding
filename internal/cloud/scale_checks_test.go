@@ -111,17 +111,19 @@ func scaleChecks(t *testing.T, lab *scaleLab, c scaleConfig, path string) []stri
 		}
 	}
 	for _, tenant := range lab.tenants {
-		inspection, err := tenant.App.Inspect(context.Background(), "ci")
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, raw := range inspection.Entities {
-			var state condition.State
-			if err := json.Unmarshal(raw, &state); err != nil {
+		for _, watchID := range c.watchIDs() {
+			inspection, err := tenant.App.Inspect(context.Background(), watchID)
+			if err != nil {
 				t.Fatal(err)
 			}
-			if state.Open || state.SourceUnhealthy {
-				return []string{"final group not healthy"}
+			for _, raw := range inspection.Entities {
+				var state condition.State
+				if err := json.Unmarshal(raw, &state); err != nil {
+					t.Fatal(err)
+				}
+				if state.Open || state.SourceUnhealthy {
+					return []string{"final group not healthy"}
+				}
 			}
 		}
 	}

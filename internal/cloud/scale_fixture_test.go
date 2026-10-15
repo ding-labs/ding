@@ -11,6 +11,7 @@ type scaleConfig struct {
 	Name                                                           string
 	Backend                                                        string
 	PoolLimit, CredentialReaders                                   int
+	Watches, DeliveryWorkers                                       int
 	Rate, Seconds, Workers, Workspaces, Outputs, Groups, BodyBytes int
 	Condition                                                      string // simple, window, or alerts
 	RetainPadding, Defaults, Reads, Restart, Noop, Profiles        bool
@@ -20,6 +21,15 @@ type scaleConfig struct {
 }
 
 func (c *scaleConfig) validate() error {
+	if c.Watches == 0 {
+		c.Watches = 1
+	}
+	if c.DeliveryWorkers == 0 {
+		c.DeliveryWorkers = 1
+	}
+	if c.Watches < 1 || c.Watches > 16 || c.DeliveryWorkers < 1 || c.DeliveryWorkers > 8 {
+		return fmt.Errorf("invalid watch or delivery worker count")
+	}
 	if c.Backend == "" {
 		c.Backend = "sqlite"
 	}
@@ -145,3 +155,12 @@ func TestScaleFixtureSizesAndGroups(t *testing.T) {
 		}
 	}
 }
+
+func (c scaleConfig) watchIDs() []string {
+	ids := []string{"ci"}
+	for i := 1; i < c.Watches; i++ {
+		ids = append(ids, fmt.Sprintf("ci-%d", i+1))
+	}
+	return ids
+}
+func scaleProducerWatch(p PushProducer) string { return p.URL[strings.LastIndexByte(p.URL, '/')+1:] }

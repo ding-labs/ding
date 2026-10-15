@@ -170,29 +170,34 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 				t.Fatal(err)
 			}
 		}
-		tenant, err := scaleTenant(pool, enrolled.Workspace, c.Defaults)
+		tenant, err := scaleTenant(pool, enrolled.Workspace, c.Defaults, c.DeliveryWorkers)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := tenant.App.Apply(ctx, watchrun.ApplyRequest{Manifest: c.manifest()}); err != nil {
-			t.Fatal(err)
+		for _, watchID := range c.watchIDs() {
+			manifest := strings.Replace(c.manifest(), "metadata: {id: ci}", "metadata: {id: "+watchID+"}", 1)
+			if _, err := tenant.App.Apply(ctx, watchrun.ApplyRequest{Manifest: manifest}); err != nil {
+				t.Fatal(err)
+			}
 		}
 		principal, err := db.Principal(ctx, enrolled.User, enrolled.Workspace.ID, "browser", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
-		life, err := s.producerLifetimes(ctx, enrolled.Workspace.ID, []string{"ci"})
+		life, err := s.producerLifetimes(ctx, enrolled.Workspace.ID, c.watchIDs())
 		if err != nil {
 			t.Fatal(err)
 		}
-		grant, err := db.CreateBoundService(ctx, principal, "scale", []string{"ingest", "inspect"}, []string{"ci"}, 30, life)
+		grant, err := db.CreateBoundService(ctx, principal, "scale", []string{"ingest", "inspect"}, c.watchIDs(), 30, life)
 		if err != nil {
 			t.Fatal(err)
 		}
 		env := fmt.Sprintf("DING_LOCAL_SCALE_%d", i)
 		t.Setenv(env, grant.Token)
-		for _, body := range bodies {
-			lab.producers = append(lab.producers, PushProducer{URL: server.URL + "/v1/ingest/ci", TokenEnv: env, Body: body})
+		for _, watchID := range c.watchIDs() {
+			for _, body := range bodies {
+				lab.producers = append(lab.producers, PushProducer{URL: server.URL + "/v1/ingest/" + watchID, TokenEnv: env, Body: body})
+			}
 		}
 		lab.tenants = append(lab.tenants, tenant)
 	}
@@ -204,7 +209,7 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 
 // Configure limits before workers start; changing App.Limits on a running
 // production Pool tenant would race with retention and acquisition workers.
-func scaleTenant(pool *Pool, w state.Workspace, defaults bool) (*Tenant, error) {
+func scaleTenant(pool *Pool, w state.Workspace, defaults bool, deliveryWorkers ...int) (*Tenant, error) {
 	db, err := pool.workspaceStorage().Open(pool.ctx, w.ID)
 	if err != nil {
 		return nil, err
@@ -217,6 +222,9 @@ func scaleTenant(pool *Pool, w state.Workspace, defaults bool) (*Tenant, error) 
 		app.Limits.MaxPending = 100000
 	}
 	app.AcquisitionWorkers, app.DeliveryWorkers = 1, 1
+	if len(deliveryWorkers) > 0 {
+		app.DeliveryWorkers = deliveryWorkers[0]
+	}
 	app.PollInterval = time.Second
 	app.SchedulingJitter = 5 * time.Second
 	app.Lookup = pool.vault.Lookup(w.ID)

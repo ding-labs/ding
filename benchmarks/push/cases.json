@@ -33,5 +33,7 @@
   {"Name":"alerts-slow","Rate":25,"Seconds":180,"Condition":"alerts","Receiver":"slow"},
   {"Name":"alerts-outage","Rate":10,"Seconds":180,"Condition":"alerts","Receiver":"outage"},
   {"Name":"sustain-one","Rate":100,"Seconds":1800,"Reads":true,"Restart":true},
-  {"Name":"sustain-many","Rate":500,"Seconds":1800,"Workspaces":100,"Reads":true,"Restart":true}
+  {"Name":"sustain-many","Rate":500,"Seconds":1800,"Workspaces":100,"Reads":true,"Restart":true},
+  {"Name":"watches10-250","Rate":250,"Seconds":180,"Watches":10},
+  {"Name":"alerts-streams-slow","Rate":25,"Seconds":180,"Watches":4,"DeliveryWorkers":4,"Condition":"alerts","Receiver":"slow"}
 ]

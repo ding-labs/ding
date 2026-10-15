@@ -37,7 +37,7 @@ func scaleRestart(t *testing.T, lab *scaleLab, c scaleConfig) {
 	t.Cleanup(func() { pool.Close() })
 	lab.server.DB, lab.server.Vault, lab.server.Pool = db, vault, pool
 	for i, tenant := range lab.tenants {
-		next, err := scaleTenant(pool, tenant.Workspace, c.Defaults)
+		next, err := scaleTenant(pool, tenant.Workspace, c.Defaults, c.DeliveryWorkers)
 		if err != nil {
 			t.Fatal(err)
 		}
