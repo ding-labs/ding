@@ -16,6 +16,7 @@ import (
 )
 
 type Fixture struct {
+	NewAppPool     func(int) *sql.DB
 	App, Migration *sql.DB
 	Name           string
 }
@@ -58,6 +59,12 @@ func New(t *testing.T) *Fixture {
 		t.Fatal(database.SafeError("create isolated fixture", err))
 	}
 	fixture := &Fixture{Name: name}
+	fixture.NewAppPool = func(max int) *sql.DB {
+		pool := open("app", name)
+		pool.SetMaxOpenConns(max)
+		t.Cleanup(func() { pool.Close() })
+		return pool
+	}
 	t.Cleanup(func() {
 		if fixture.App != nil {
 			fixture.App.Close()

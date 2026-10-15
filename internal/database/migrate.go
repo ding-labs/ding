@@ -29,7 +29,9 @@ func Migrate(ctx context.Context, db *sql.DB, component string, steps []string, 
 		return fmt.Errorf("PostgreSQL application role must exist and cannot own or bypass migration security")
 	}
 	_, err = tx.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS ding_meta;
- CREATE TABLE IF NOT EXISTS ding_meta.versions(component text PRIMARY KEY,version integer NOT NULL CHECK(version>=0));`)
+ CREATE TABLE IF NOT EXISTS ding_meta.versions(component text PRIMARY KEY,version integer NOT NULL CHECK(version>=0));
+ CREATE TABLE IF NOT EXISTS ding_meta.owner(singleton integer PRIMARY KEY CHECK(singleton=1),pid integer NOT NULL,nonce text NOT NULL);
+ INSERT INTO ding_meta.owner(singleton,pid,nonce) VALUES(1,0,'') ON CONFLICT DO NOTHING;`)
 	if err != nil {
 		return SafeError("create migration journal", err)
 	}
@@ -54,6 +56,7 @@ func Migrate(ctx context.Context, db *sql.DB, component string, steps []string, 
 	for _, query := range []string{
 		"GRANT USAGE ON SCHEMA ding_meta," + schema + " TO " + role,
 		"GRANT SELECT ON ding_meta.versions TO " + role,
+		"GRANT SELECT,UPDATE ON ding_meta.owner TO " + role,
 		"GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA " + schema + " TO " + role,
 		"GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA " + schema + " TO " + role,
 	} {
