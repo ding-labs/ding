@@ -187,6 +187,15 @@ The three preceding 180-second trials all acknowledged 9,000 inputs, with p99
 34 / 32 / 111 ms. This configuration includes concurrent inspection; the earlier
 pool-of-8 boundary trials had a different inspection configuration.
 
+No 100-workspace PostgreSQL point passed the repeatability gate. At 25 aggregate
+requests/s, 2 CPU / 2 GiB measured p99 607 ms; 4 CPU / 4 GiB measured 55 / 51 /
+319 ms, qualifying two of three trials. At 10/s, 2 CPU measured 554 ms and 4 CPU
+604 ms. All **21,600 acknowledged inputs** across those six trials reconciled,
+and postchecks/reopen passed, but the **30-minute cohort run was skipped** because
+no candidate qualified. These variable latency failures do not establish a simple
+maximum request rate. They are a gate before recommending this adapter for a
+large production cohort.
+
 ## Delivery screens
 
 At 25 requests/s for 30 seconds, both backends acknowledged every input with a
@@ -242,16 +251,18 @@ That trial still missed latency at p99 319 ms after earlier trials at 55 and 51 
 
 ## Qualification status
 
-The screening phase and selected boundary repeats have finished:
+The screening phase and 80-case main qualification stage have finished:
 
 - SQLite completed all 46 catalog screens.
 - PostgreSQL completed 43 distinct catalog screens. Its 100-workspace 1,000/s
   case lacked a final report; subsequent bounded retries remain inconclusive.
   The higher 2,500/s and original 500/s sustained-cohort screens were deferred.
   Lower rates and larger resource budgets are measured separately.
+- Three 30-minute runs completed; the PostgreSQL cohort long run could not pass
+  its preceding qualification gate and was skipped, as recorded above.
 
-Sustained hot-workspace and 100-workspace cases, mature rolling-window repeats,
-longer paired aged-store checks and the repeated ten-workspace control are
-pending. Existing 100-output and nested 18-output screens already use distinct
-groups within each batch, verified against their recorded producer bodies. Final tables and the sanitized aggregate will
-be added after those runs finish.
+Mature rolling-window repeats, the paired aged-store check and repeated
+ten-workspace control remain in progress. Existing 100-output and nested
+18-output screens already use distinct groups within each batch, verified
+against their recorded producer bodies. The sanitized aggregate follows when
+those final runs finish.
