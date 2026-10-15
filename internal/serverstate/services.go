@@ -108,7 +108,7 @@ func (d *DB) ServiceToken(ctx context.Context, token string) (Service, error) {
 	}
 	var keyID string
 	var used int64
-	out, err := scanService(d.sql.QueryRowContext(ctx, "SELECT s.id,s.name,s.workspace,s.created_by,s.scopes,s.watches,k.expires_at,s.lifetimes,k.id,k.last_used_at FROM service_grants s JOIN service_keys k ON k.service=s.id WHERE k.hash=? AND k.expires_at>? AND s.workspace IN (SELECT id FROM workspaces WHERE deleting=0)", TokenHash(token), time.Now().Unix()), &keyID, &used)
+	out, err := scanService(d.credentialDB().QueryRowContext(ctx, "SELECT s.id,s.name,s.workspace,s.created_by,s.scopes,s.watches,k.expires_at,s.lifetimes,k.id,k.last_used_at FROM service_grants s JOIN service_keys k ON k.service=s.id WHERE k.hash=? AND k.expires_at>? AND s.workspace IN (SELECT id FROM workspaces WHERE deleting=0)", TokenHash(token), time.Now().Unix()), &keyID, &used)
 	out.KeyID = keyID
 	if used > 0 {
 		at := time.Unix(used, 0).UTC()
