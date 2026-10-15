@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import tarfile
 
 
 def run():
@@ -42,16 +43,24 @@ def run():
     if not re.fullmatch('[a-f0-9]{32}', identity):
         raise RuntimeError('invalid remote evidence identity')
     remote = '/data/ding-lab/runs/'+identity
-    for name in ('result.json', 'summary.json', 'config.json'):
-        with (root/name).open('xb') as output:
-            subprocess.run(ssh+['cat', remote+'/'+name], stdout=output, stderr=subprocess.PIPE, check=True, timeout=120)
-    with (root/'requests.jsonl.gz').open('xb') as output:
-        subprocess.run(ssh+['gzip', '-c', remote+'/requests.jsonl'], stdout=output, stderr=subprocess.PIPE, check=True, timeout=120)
+    names = ('result.json', 'summary.json', 'config.json', 'requests.jsonl')
+    archive = root/'evidence.tar.gz'
+    with archive.open('xb') as output:
+        subprocess.run(ssh+['tar', '-czf', '-', '-C', remote, *names],
+                       stdout=output, stderr=subprocess.PIPE, check=True, timeout=180)
+    with tarfile.open(archive) as evidence:
+        if set(evidence.getnames()) != set(names) or any(not member.isfile() for member in evidence.getmembers()):
+            raise RuntimeError('unexpected evidence archive members')
+        # Only fixed JSON filenames are materialized; the full ledger stays in
+        # the compressed archive and no archive-controlled paths are extracted.
+        for name in names[:3]:
+            (root/name).write_bytes(evidence.extractfile(name).read())
     load = summary['load']
     print(json.dumps({'label':args.label, 'id':identity, 'pass':summary['pass'],
                       'rate':args.rate, 'seconds':args.seconds, 'accepted':load.get('firstAccepted'),
                       'ackP99MS':load.get('p99MS'), 'scheduleP99MS':load.get('scheduleP99MS'),
-                      'throttled':load.get('throttled'), 'errors':summary.get('errors'),
+                      'throttled':load.get('throttled'), 'errors':(summary.get('errors') or [])[:5],
+                      'errorCount':len(summary.get('errors') or []),
                       'artifact':str(root/'result.json')}), flush=True)
     return process.returncode
 
