@@ -85,6 +85,10 @@ multi-server scaling multiplier is published yet.
 branch. Preserve the small commits and merge in dependency order. The Cloud soak
 and Railway deployment have not been changed by this work.
 
+Merge #52 into `main`, then retarget #53 to `main` before merging it; repeat for
+each dependent PR. The repository keeps merged branches, so retargeting is an
+explicit step. Use merge commits to preserve the small commits and their ancestry.
+
 Evidence: [baseline](https://github.com/ding-labs/ding/actions/runs/38787585777),
 [worker/query screen](https://github.com/ding-labs/ding/actions/runs/38789220528),
 [idle](https://github.com/ding-labs/ding/actions/runs/38792417789),
