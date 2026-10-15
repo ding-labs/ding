@@ -1,8 +1,6 @@
 package store
 
 import (
-	"context"
-	"database/sql"
 	"time"
 
 	"github.com/ding-labs/ding/internal/access"
@@ -18,19 +16,19 @@ type Audit struct {
 	At        time.Time `json:"at"`
 }
 
-func auditMutation(ctx context.Context, tx *sql.Tx, p access.Principal) error {
-	action, target := access.Operation(ctx)
+func (t *Tx) auditMutation(p access.Principal) error {
+	action, target := access.Operation(t.ctx)
 	if action == "" {
 		action = "update"
 	}
-	if _, err := tx.ExecContext(ctx, "INSERT INTO audit(actor,workspace,grant_id,action,target,at) VALUES(?,?,?,?,?,?)", p.User, p.Workspace, p.Grant, action, target, time.Now().Unix()); err != nil {
+	if _, err := t.exec(qauditMutation1, p.User, p.Workspace, p.Grant, action, target, time.Now().Unix()); err != nil {
 		return err
 	}
-	_, err := tx.ExecContext(ctx, "DELETE FROM audit WHERE sequence <= (SELECT COALESCE(MAX(sequence),0)-10000 FROM audit)")
+	_, err := t.exec(qauditMutation2)
 	return err
 }
 func (t *Tx) Audit(before int64) ([]Audit, error) {
-	rows, err := t.sql.QueryContext(t.ctx, "SELECT sequence,actor,workspace,grant_id,action,target,at FROM audit WHERE (?=0 OR sequence<?) ORDER BY sequence DESC LIMIT 100", before, before)
+	rows, err := t.sql.QueryContext(t.ctx, t.query(qAudit1), before, before)
 	if err != nil {
 		return nil, err
 	}

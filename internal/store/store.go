@@ -167,7 +167,8 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 			return err
 		}
 	}
-	if err = fn(&Tx{ctx: ctx, sql: tx, writable: true}); err != nil {
+	stx := &Tx{ctx: ctx, sql: tx, writable: true}
+	if err = fn(stx); err != nil {
 		return err
 	}
 	if attributed {
@@ -176,7 +177,7 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 			return err
 		}
 		if after > before {
-			if err := auditMutation(ctx, tx, p); err != nil {
+			if err := stx.auditMutation(p); err != nil {
 				return err
 			}
 		}

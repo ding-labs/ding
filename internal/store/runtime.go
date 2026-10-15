@@ -31,13 +31,12 @@ func (t *Tx) Entities(id string) (map[string]json.RawMessage, error) {
 	return result, rows.Err()
 }
 func (t *Tx) Outbox(id string) ([]Intent, error) {
-	query := "SELECT id FROM outbox"
+	query := t.query(qAllOutbox)
 	var args []any
 	if id != "" {
-		query += " WHERE watch_id=?"
-		args = append(args, id)
+		query = t.query(qWatchOutbox)
+		args = []any{id}
 	}
-	query += " ORDER BY id DESC LIMIT 1000"
 	rows, err := t.sql.QueryContext(t.ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -68,15 +67,15 @@ func (t *Tx) Outbox(id string) ([]Intent, error) {
 }
 func (t *Tx) LastError(id string, generation int64, detail string, next time.Time) error {
 	if next.IsZero() {
-		_, err := t.sql.ExecContext(t.ctx, "UPDATE watches SET last_error=? WHERE id=? AND generation=?", detail, id, generation)
+		_, err := t.exec(qLastError1, detail, id, generation)
 		return err
 	}
-	_, err := t.sql.ExecContext(t.ctx, "UPDATE watches SET last_error=?,next_at=? WHERE id=? AND generation=?", detail, timestamp(next), id, generation)
+	_, err := t.exec(qLastError2, detail, timestamp(next), id, generation)
 	return err
 }
 
 func (t *Tx) Pending() (int, error) {
 	var n int
-	err := t.sql.QueryRowContext(t.ctx, "SELECT count(*) FROM outbox WHERE status IN ('pending','leased')").Scan(&n)
+	err := t.sql.QueryRowContext(t.ctx, t.query(qPending1)).Scan(&n)
 	return n, err
 }
