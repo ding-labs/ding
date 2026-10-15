@@ -14,7 +14,7 @@ were unchanged. A separate generator is outside the app/database resource budget
 | --- | --- | --- |
 | Database: 1 CPU/2 GB → 2 CPU/4 GB; mixed JSON at 50 requests/s | p99 fell from 4,291 to 416 ms; all 1,500 requests accepted in both screens | Removing database CPU throttling helped substantially |
 | Database: 2 CPU/4 GB → 4 CPU/8 GB, same workload | p99 416 → 486 ms | More database CPU alone did not fix this workload |
-| Go connection pool: 8 → 16; 10 KB JSON at 250/s | 7,032/7,500 accepted and p99 2,086 ms → 7,500/7,500 and 163 ms | Pool sizing mattered; 32 connections then worsened p99 to 447 ms |
+| Go connection pool: 8 → 16; 10 KB JSON at 250/s | 7,032/7,500 accepted and p99 2,086 ms → 7,500/7,500 and 163 ms | Promising, but a redeployment prevents isolating the pool's benefit; 32 connections then worsened p99 to 447 ms on the same deployment |
 | Database: 4 CPU/8 GB → 8 CPU/16 GB; 10 KB JSON at 500/s, pool 32 | 9,475/15,000 → 11,294/15,000 accepted | More throughput under overload, but neither configuration qualified |
 
 These are **30-second screens**, mostly with 10 workspaces. They identify useful
@@ -81,15 +81,15 @@ and client overhead. Hundreds of sequential calls amplify small delays.
 
 The collector now records deployment identity and a 100-query SQL round-trip
 baseline before every case. Cross-deployment improvements cannot be attributed
-solely to CPU. The final resource control and qualification use app deployment
+solely to CPU or pool sizing. The final resource control and qualification use app deployment
 `be64def2-efff-45f4-b83f-d89613a57d42`, source `db0594d`.
 
 ## PgBouncer and next improvements
 
 Ding already shares a bounded Go connection pool. PgBouncer can help manage
 connections as application instances multiply, but it does not eliminate the
-SQL round trips measured here. Increasing our pool helped up to a point; more
-connections subsequently made latency worse.
+SQL round trips measured here. Pool sizes must be tested against the workload;
+the same-deployment 16 → 32 connection screen made latency worse.
 
 Transaction pooling is **not currently a drop-in configuration**: Ding's ownership
 guard needs a persistent session advisory lock and backend identity. It would
