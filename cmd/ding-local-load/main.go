@@ -78,6 +78,11 @@ func run() error {
 	transport.TLSClientConfig = &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}
 	client := &http.Client{Transport: transport, Timeout: 30 * time.Second}
 	defer transport.CloseIdleConnections()
+	// Baseline snapshots for a large cohort can be slow on a deliberately
+	// constrained database. This deadline applies only to lab coordination;
+	// offered ingestion requests keep the client deadline above.
+	controlClient := *client
+	controlClient.Timeout = 3 * time.Minute
 	control := func(path string, value any) error {
 		body, err := json.Marshal(value)
 		if err != nil {
@@ -89,7 +94,7 @@ func run() error {
 		}
 		req.Header.Set("Authorization", "Bearer "+b.Admin)
 		req.Header.Set("Content-Type", "application/json")
-		r, err := client.Do(req)
+		r, err := controlClient.Do(req)
 		if err != nil {
 			return err
 		}
