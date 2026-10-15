@@ -14,6 +14,7 @@ import time
 
 from postgres_runtime import LocalPostgres
 from receiver_runtime import LocalReceiver
+from resources import resource_limits
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -52,7 +53,8 @@ def sample_database(pg):
         return {'unavailable': True}
 
 
-def execute(binary, driver, config, output, environment, pg=None, units=1, generator_placement="host", database_cpu_share=.5):
+def execute(binary, driver, config, output, environment, pg=None, units=1, generator_placement="host", database_cpu_share=.5, resources=None):
+    resources = resources or resource_limits('postgres' if pg else 'sqlite', units, database_cpu_share)
     if generator_placement not in ("host", "container") or (generator_placement == "container" and environment != "container"):
         raise ValueError("container generator requires the Linux container environment")
     env = dict(os.environ, DING_SCALE_CONFIG=str(output / 'config.json'),
@@ -73,8 +75,8 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
     args = [str(binary), '-test.run=^TestLocalPushScale$', '-test.v', '-test.timeout='+str(int(timeout))+'s']
     if environment == 'container':
         command(['docker', 'volume', 'create', volume])
-        app_cpus = units*(1-database_cpu_share) if pg else units
-        app_memory = str(units*512 if pg else units*1024)+'m'
+        app_cpus = resources['appCPUs']
+        app_memory = str(resources['appMemoryMiB'])+'m'
         network = ['--network', 'container:'+pg.container] if pg else (['--network','container:'+receiver.container] if receiver else ['-p','127.0.0.1::8443'])
         fixture = ['--mount', 'type=bind,source='+str(pg.connections)+',target=/postgres-fixture.json,readonly',
                    '-e', 'DING_TEST_POSTGRES_FILE=/postgres-fixture.json'] if pg else []
@@ -182,8 +184,8 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
                 'cancelledByUser':cancelled, 'generator':generator_metadata, 'receiver':receiver.metadata if receiver else {'placement':'cohosted' if config.get('Receiver') else 'none'},
                 'databaseStart':database_start,
                 'databaseEnd':database_end, 'observerErrors':observer_errors, 'serverExitCode':process.returncode,
-                'appCPULimit':(units*(1-database_cpu_share) if pg else units) if environment=='container' else None,
-                'appMemoryBytes':(units*512 if pg else units*1024)*1024**2 if environment=='container' else None}
+                'appCPULimit':resources['appCPUs'] if environment=='container' else None,
+                'appMemoryBytes':resources['appMemoryMiB']*1024**2 if environment=='container' else None}
     if environment == 'native' and (code != 0 or failure):
         for directory in [output/'failed-state', fixture_tmp]:
             if any(directory.rglob('ding.db')):
@@ -192,7 +194,13 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
     if environment == 'container':
         remove_volume = True
         try:
-            metadata['container'] = json.loads(command(['docker','inspect',container]))[0]['State']
+            inspected = json.loads(command(['docker','inspect',container]))[0]
+            metadata['container'] = inspected['State']
+            limits = inspected['HostConfig']
+            metadata['appLimitsVerified'] = (limits['NanoCpus'] == int(resources['appCPUs']*1e9) and
+                limits['Memory'] == resources['appMemoryMiB']*1024**2 and limits['MemorySwap'] == limits['Memory'])
+            if not metadata['appLimitsVerified']:
+                failure = metadata['failure'] = 'Application resource limits do not match the manifest.'
         except (subprocess.CalledProcessError, json.JSONDecodeError):
             metadata['container'] = {'inspectionUnavailable': True}
         if code != 0 or generator_code != 0 or failure or not (output/'report.json').exists() or metadata['container'].get('inspectionUnavailable'):
@@ -246,6 +254,10 @@ def main():
                         help='total CPU cores and GiB; PostgreSQL splits app/database equally')
     parser.add_argument('--database-cpu-share', type=float, choices=[.25,.5,.75], default=.5,
                         help='PostgreSQL fraction of total CPU; memory stays evenly split')
+    parser.add_argument('--app-cpus', type=float)
+    parser.add_argument('--app-memory-mib', type=int)
+    parser.add_argument('--database-cpus', type=float)
+    parser.add_argument('--database-memory-mib', type=int)
     parser.add_argument('--pool-limit', type=int, choices=[1,2,4,8,16], default=8)
     parser.add_argument('--credential-readers', type=int, choices=[1,2,4,8], default=4)
     parser.add_argument('--rate', type=int, help='override planned requests per second')
@@ -260,6 +272,13 @@ def main():
         parser.error("container generator requires --environment container")
     if args.backend != "postgres" and args.database_cpu_share != .5:
         parser.error("database CPU split requires PostgreSQL")
+    overrides = (args.app_cpus, args.app_memory_mib, args.database_cpus, args.database_memory_mib)
+    if args.environment != 'container' and any(value is not None for value in overrides):
+        parser.error('explicit resource limits require the container environment')
+    try:
+        resources = resource_limits(args.backend, args.resource_units, args.database_cpu_share, *overrides)
+    except ValueError as error:
+        parser.error(str(error))
     if args.rate is not None and not 1 <= args.rate <= 100000:
         parser.error('rate outside local bounds')
     if not 1 <= args.repeat <= 10 or (args.seconds is not None and not 1 <= args.seconds <= 3600):
@@ -280,15 +299,17 @@ def main():
     subprocess.run(['go','build','-o',str(driver),'./cmd/ding-local-load'],cwd=REPO,
                    env=build_env if args.generator_placement=='container' else None,check=True)
     subprocess.run(['go','test','-c','-o',str(binary),'./internal/cloud'],cwd=REPO,env=build_env,check=True)
-    pg = LocalPostgres(root/'postgres-lab', args.environment, args.resource_units,args.database_cpu_share) if args.backend=='postgres' else None
+    pg = LocalPostgres(root/'postgres-lab', args.environment, args.resource_units,args.database_cpu_share,
+                       cpus=resources['databaseCPUs'], memory_mib=resources['databaseMemoryMiB']) if args.backend=='postgres' else None
     save(root/'manifest.json',{'backend':args.backend,'poolLimit':args.pool_limit,
          'credentialReaders':args.credential_readers,'resourceUnits':args.resource_units,
          'receiverProcess':args.receiver_process,'generatorPlacement':args.generator_placement,
          'databaseCPUShare':args.database_cpu_share if pg else None,
+         'resourceProfile':resources,
          'driverSHA256':hashlib.sha256(driver.read_bytes()).hexdigest(),
          'runnerImage':command(['docker','image','inspect','--format','{{.Id}}','debian:bookworm-slim']) if args.environment=='container' else None,
-         'totalCPULimit':args.resource_units if args.environment=='container' else None,
-         'totalMemoryBytes':args.resource_units*1024**3 if args.environment=='container' else None,
+         'totalCPULimit':resources['appCPUs']+resources['databaseCPUs'] if args.environment=='container' else None,
+         'totalMemoryBytes':(resources['appMemoryMiB']+resources['databaseMemoryMiB'])*1024**2 if args.environment=='container' else None,
          'postgres':pg.metadata if pg else None,
          'pgx':command(['go','list','-m','github.com/jackc/pgx/v5']),
          'revision':command(['git','rev-parse','HEAD']),
@@ -317,7 +338,7 @@ def main():
             output = root/(name+'-'+str(repeat+1));output.mkdir(mode=0o700)
             save(output/'config.json',config)
             print('Starting '+output.name,flush=True)
-            result = execute(binary,driver,config,output,args.environment,pg,args.resource_units,args.generator_placement,args.database_cpu_share)
+            result = execute(binary,driver,config,output,args.environment,pg,args.resource_units,args.generator_placement,args.database_cpu_share,resources)
             results.append(result)
             with (root/'summary.json').open('w') as f:
                 json.dump(results,f,indent=2)

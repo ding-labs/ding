@@ -15,11 +15,13 @@ def output(args):
 
 
 class LocalPostgres:
-    def __init__(self, root, environment, units, cpu_share=.5):
+    def __init__(self, root, environment, units, cpu_share=.5, *, cpus=None, memory_mib=None):
+        cpus = units*cpu_share if cpus is None else cpus
+        memory_mib = units*512 if memory_mib is None else memory_mib
         self.root = root
         self.root.mkdir(mode=0o700)
-        self.env = dict(os.environ, DING_PG_CPUS=str(units*cpu_share),
-                        DING_PG_MEMORY=str(units*512)+'m')
+        self.env = dict(os.environ, DING_PG_CPUS=str(cpus),
+                        DING_PG_MEMORY=str(memory_mib)+'m')
         self.stopped = False
         with (root/'setup.log').open('x') as log:
             subprocess.run([sys.executable, str(HERE/'postgres.py'), 'start', '--root', str(root)],
@@ -40,9 +42,9 @@ class LocalPostgres:
                 json.dump(values, f)
         info = json.loads(output(['docker', 'inspect', self.container]))[0]
         limits = info['HostConfig']
-        if limits['NanoCpus'] != int(units*cpu_share*1e9) or limits['Memory'] != units*512*1024**2 or limits['MemorySwap'] != limits['Memory']:
+        if limits['NanoCpus'] != int(cpus*1e9) or limits['Memory'] != memory_mib*1024**2 or limits['MemorySwap'] != limits['Memory']:
             raise RuntimeError('PostgreSQL resource limits do not match the declared budget')
-        self.metadata = dict(self.manifest, cpuLimit=units*cpu_share, memoryBytes=limits['Memory'],
+        self.metadata = dict(self.manifest, cpuLimit=cpus, memoryBytes=limits['Memory'],
                              memorySwapBytes=limits['MemorySwap'], settings=self.sql("""SELECT json_build_object(
                 'version',version(),'fsync',current_setting('fsync'),
                 'fullPageWrites',current_setting('full_page_writes'),
