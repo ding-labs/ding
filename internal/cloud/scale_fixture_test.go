@@ -11,7 +11,7 @@ type scaleConfig struct {
 	Name                                                           string
 	Rate, Seconds, Workers, Workspaces, Outputs, Groups, BodyBytes int
 	Condition                                                      string // simple, window, or alerts
-	RetainPadding, Defaults, Reads, Restart, Noop                  bool
+	RetainPadding, Defaults, Reads, Restart, Noop, Profiles        bool
 	Preload                                                        int
 	Noisy                                                          int    // percentage of producers assigned to the first workspace
 	Receiver                                                       string // fast, slow, outage

@@ -118,6 +118,7 @@ def main():
     parser.add_argument('--cases', required=True, help='comma-separated names from cases.json')
     parser.add_argument('--seconds', type=int, help='override measured interval')
     parser.add_argument('--repeat', type=int, default=1)
+    parser.add_argument('--profiles', action='store_true', help='collect diagnostic profiles; off for capacity runs')
     parser.add_argument('--output', type=Path, default=Path.home()/'.config/ding-cloud/local-scale/runs')
     args = parser.parse_args()
     if not 1 <= args.repeat <= 10 or (args.seconds is not None and not 1 <= args.seconds <= 3600):
@@ -141,6 +142,7 @@ def main():
          'dirty':bool(command(['git','status','--porcelain'])), 'platform':platform.platform(),
          'environment':args.environment,'binarySHA256':hashlib.sha256(binary.read_bytes()).hexdigest(),
          'createdAt':stamp,'cases':requested,'repeat':args.repeat,'secondsOverride':args.seconds,
+         'profiles':args.profiles,
          'note':'Separate host generator. Only the server is CPU/memory constrained. Container databases use a Docker local volume; ledgers use the host filesystem.'})
     results = []
     print('Evidence: '+str(root),flush=True)
@@ -149,6 +151,7 @@ def main():
             if shutil.disk_usage(root).free < 20<<30:
                 raise SystemExit('Host free-disk floor reached; preserve evidence and stop.')
             config = dict(cases[name])
+            config['Profiles'] = args.profiles
             if args.seconds is not None:
                 config['Seconds']=args.seconds
             output = root/(name+'-'+str(repeat+1));output.mkdir(mode=0o700)

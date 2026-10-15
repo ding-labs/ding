@@ -3,7 +3,9 @@
 This suite measures Ding's authenticated JSON ingestion through real local TLS,
 workspace SQLite stores, evaluation, receipts, and optional webhook delivery.
 Every offered key is reconciled against durable receipts, usage, and observation
-rows after measurement. Profiles exclude setup, warmup, and reconciliation.
+rows after measurement. Capacity runs leave profiling off. Use `--profiles` for
+diagnostic runs; their profiles exclude setup, warmup, and reconciliation. Compare
+profiled results with unprofiled controls before making a capacity claim.
 
 ## Run cases
 

@@ -24,6 +24,7 @@ def measurements(root):
             'environment': manifest['environment'], 'seconds': config['Seconds'],
             'workspaces': config['Workspaces'], 'outputs': config['Outputs'],
             'groups': config['Groups'], 'bodyBytes': config['BodyBytes'],
+            'profiles': manifest.get('profiles', True),
             'retainedPadding': config['RetainPadding'], 'condition': config['Condition'],
             'receiver': config['Receiver'], 'noop': config['Noop'],
             'offeredRate': config['Rate'], 'planned': planned,
