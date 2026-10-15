@@ -143,6 +143,7 @@ def main():
     parser.add_argument('--seconds', type=int, help='override measured interval')
     parser.add_argument('--repeat', type=int, default=1)
     parser.add_argument('--profiles', action='store_true', help='collect diagnostic profiles; off for capacity runs')
+    parser.add_argument('--stop-file', type=Path, help='finish the active case and defer queued cases when this file exists')
     parser.add_argument('--output', type=Path, default=Path.home()/'.config/ding-cloud/local-scale/runs')
     args = parser.parse_args()
     if not 1 <= args.repeat <= 10 or (args.seconds is not None and not 1 <= args.seconds <= 3600):
@@ -169,9 +170,13 @@ def main():
          'profiles':args.profiles,
          'note':'Separate host generator. Only the server is CPU/memory constrained. Container databases use a Docker local volume; ledgers use the host filesystem.'})
     results = []
+    stop_file = args.stop_file.resolve() if args.stop_file else root/'STOP'
     print('Evidence: '+str(root),flush=True)
+    print('Stop after current case: create '+str(stop_file),flush=True)
     for name in requested:
         for repeat in range(args.repeat):
+            if stop_file.exists():
+                break
             if shutil.disk_usage(root).free < 20<<30:
                 raise SystemExit('Host free-disk floor reached; preserve evidence and stop.')
             config = dict(cases[name])
@@ -186,6 +191,13 @@ def main():
             with (root/'summary.json').open('w') as f:
                 json.dump(results,f,indent=2)
             print(json.dumps(result),flush=True)
+        if stop_file.exists():
+            break
+    completed = {r['case'] for r in results}
+    deferred = [name+'-'+str(i+1) for name in requested for i in range(args.repeat)
+                if name+'-'+str(i+1) not in completed]
+    save(root/'run-state.json', {'state':'deferred' if deferred else 'complete',
+         'completed':list(r['case'] for r in results), 'deferred':deferred})
     print('Completed '+str(len(results))+' cases.',flush=True)
 
 

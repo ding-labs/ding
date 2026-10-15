@@ -28,6 +28,9 @@ The producer runs as a separate host process. Only the container server gets the
 the producer ledger use the host filesystem. The volume has no 1 GiB size cap;
 compare recorded growth with Railway's actual storage allocation separately.
 Native and container filesystem performance cannot establish Railway capacity.
+Create the run directory's `STOP` file to finish the active case and defer the
+queue, or supply a shared `--stop-file PATH` for orchestration. `run-state.json`
+records exactly which cases completed and which remain deferred.
 If a container exits abnormally or cannot report, its stopped database volume is
 archived privately before removal. If capture fails, that owned volume is retained
 and named in `execution.json`. Failed-state archives can contain local fixture
