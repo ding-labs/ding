@@ -10,37 +10,37 @@ import (
 )
 
 func (t *Tx) ResetState(id string) error {
-	for _, table := range []string{"entities", "timers", "input_receipts"} {
-		if _, err := t.sql.ExecContext(t.ctx, "DELETE FROM "+table+" WHERE watch_id=?", id); err != nil {
+	for _, q := range []statement{qResetEntities, qResetTimers, qResetReceipts} {
+		if _, err := t.exec(q, id); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 func (t *Tx) DeleteEntity(id, key string) error {
-	_, err := t.sql.ExecContext(t.ctx, "DELETE FROM entities WHERE watch_id=? AND entity_key=?", id, key)
+	_, err := t.exec(qDeleteEntity1, id, key)
 	return err
 }
 func (t *Tx) DeleteTimers(id string) error {
-	_, err := t.sql.ExecContext(t.ctx, "DELETE FROM timers WHERE watch_id=?", id)
+	_, err := t.exec(qDeleteTimers1, id)
 	return err
 }
 func (t *Tx) Timer(id, key, kind string) (Timer, error) {
 	timer := Timer{WatchID: id, Entity: key, Kind: kind}
 	var due int64
-	err := t.sql.QueryRowContext(t.ctx, "SELECT generation,due_at,body FROM timers WHERE watch_id=? AND entity_key=? AND kind=?", id, key, kind).Scan(&timer.Generation, &due, &timer.Body)
+	err := t.sql.QueryRowContext(t.ctx, t.query(qTimer1), id, key, kind).Scan(&timer.Generation, &due, &timer.Body)
 	timer.Due = instant(due)
 	return timer, missing(err)
 }
 func (t *Tx) DeleteTimer(timer Timer) error {
-	_, err := t.sql.ExecContext(t.ctx, "DELETE FROM timers WHERE watch_id=? AND entity_key=? AND kind=? AND generation=? AND due_at=?", timer.WatchID, timer.Entity, timer.Kind, timer.Generation, timestamp(timer.Due))
+	_, err := t.exec(qDeleteTimer1, timer.WatchID, timer.Entity, timer.Kind, timer.Generation, timestamp(timer.Due))
 	return err
 }
 func (t *Tx) DueTimers(now time.Time, limit int) ([]Timer, error) {
 	if limit < 1 || limit > 1000 {
 		return nil, fmt.Errorf("invalid timer limit")
 	}
-	rows, err := t.sql.QueryContext(t.ctx, `SELECT t.watch_id,t.entity_key,t.kind,t.generation,t.due_at,t.body FROM timers t JOIN watches w ON w.id=t.watch_id WHERE w.status='running' AND t.generation=w.generation AND t.due_at<=? ORDER BY t.due_at,t.watch_id,t.entity_key LIMIT ?`, timestamp(now), limit)
+	rows, err := t.sql.QueryContext(t.ctx, t.query(qDueTimers1), timestamp(now), limit)
 	if err != nil {
 		return nil, err
 	}
@@ -60,11 +60,11 @@ func (t *Tx) DueTimers(now time.Time, limit int) ([]Timer, error) {
 func (t *Tx) CancelDeliveries(id string, now time.Time) error {
 	// This invalidates active leases. A request already accepted remotely cannot
 	// be unsent; its late acknowledgment will be rejected as stale.
-	_, err := t.sql.ExecContext(t.ctx, `INSERT INTO delivery_attempts(outbox_id,attempt,at,outcome,detail) SELECT id,attempts,?,'canceled','explicit cancellation' FROM outbox WHERE watch_id=? AND status IN ('pending','leased')`, timestamp(now), id)
+	_, err := t.exec(qCancelDeliveries1, timestamp(now), id)
 	if err != nil {
 		return err
 	}
-	_, err = t.sql.ExecContext(t.ctx, `UPDATE outbox SET status='canceled',lease_token='',lease_until=0,last_error='explicit cancellation' WHERE watch_id=? AND status IN ('pending','leased')`, id)
+	_, err = t.exec(qCancelDeliveries2, id)
 	return err
 }
 
@@ -104,21 +104,21 @@ func (t *Tx) Usage() (Usage, error) {
 // Retain removes old history only after its durable references are no longer
 // needed. The caller supplies sequence pins from all active entity state.
 func (t *Tx) Retain(cutoff, now time.Time, pins []int64, eventPins []string) error {
-	if _, err := t.sql.ExecContext(t.ctx, "CREATE TEMP TABLE IF NOT EXISTS retained_inputs(sequence INTEGER PRIMARY KEY)"); err != nil {
+	if _, err := t.exec(qRetain1); err != nil {
 		return err
 	}
-	if _, err := t.sql.ExecContext(t.ctx, "DELETE FROM retained_inputs"); err != nil {
+	if _, err := t.exec(qRetain2); err != nil {
 		return err
 	}
-	if _, err := t.sql.ExecContext(t.ctx, "CREATE TEMP TABLE IF NOT EXISTS retained_events(id TEXT PRIMARY KEY)"); err != nil {
+	if _, err := t.exec(qRetain3); err != nil {
 		return err
 	}
-	if _, err := t.sql.ExecContext(t.ctx, "DELETE FROM retained_events"); err != nil {
+	if _, err := t.exec(qRetain4); err != nil {
 		return err
 	}
 	for _, id := range eventPins {
 		if id != "" {
-			if _, err := t.sql.ExecContext(t.ctx, "INSERT OR IGNORE INTO retained_events(id) VALUES(?)", id); err != nil {
+			if _, err := t.exec(qRetain5, id); err != nil {
 				return err
 			}
 		}
@@ -127,7 +127,7 @@ func (t *Tx) Retain(cutoff, now time.Time, pins []int64, eventPins []string) err
 		if sequence < 1 {
 			continue
 		}
-		if _, err := t.sql.ExecContext(t.ctx, "INSERT OR IGNORE INTO retained_inputs(sequence) VALUES(?)", sequence); err != nil {
+		if _, err := t.exec(qRetain6, sequence); err != nil {
 			return err
 		}
 	}
@@ -135,17 +135,17 @@ func (t *Tx) Retain(cutoff, now time.Time, pins []int64, eventPins []string) err
 		sql string
 		arg any
 	}{
-		{"DELETE FROM input_receipts WHERE expires_at<=?", timestamp(now)},
-		{"DELETE FROM push_receipts WHERE expires_at<=?", timestamp(now)},
-		{"DELETE FROM metadata WHERE key LIKE 'delivery_backoff:%' AND CAST(value AS INTEGER)<=?", timestamp(now)},
-		{"DELETE FROM outbox WHERE created_at<? AND status NOT IN ('pending','leased')", timestamp(cutoff)},
-		{"DELETE FROM events WHERE at<? AND NOT EXISTS (SELECT 1 FROM outbox WHERE event_id=events.id) AND NOT EXISTS (SELECT 1 FROM retained_events WHERE retained_events.id=events.id)", timestamp(cutoff)},
-		{"DELETE FROM observations WHERE accepted_at<? AND NOT EXISTS (SELECT 1 FROM event_evidence WHERE observation_sequence=observations.sequence) AND NOT EXISTS (SELECT 1 FROM retained_inputs WHERE sequence=observations.sequence)", timestamp(cutoff)},
-		{`DELETE FROM watches WHERE status='deleted' AND next_at<? AND NOT EXISTS (SELECT 1 FROM entities WHERE watch_id=watches.id) AND NOT EXISTS (SELECT 1 FROM observations WHERE watch_id=watches.id) AND NOT EXISTS (SELECT 1 FROM events WHERE watch_id=watches.id) AND NOT EXISTS (SELECT 1 FROM outbox WHERE watch_id=watches.id) AND NOT EXISTS (SELECT 1 FROM timers WHERE watch_id=watches.id) AND NOT EXISTS (SELECT 1 FROM input_receipts WHERE watch_id=watches.id)`, timestamp(cutoff)},
-		{`DELETE FROM watch_revisions WHERE created_at<? AND NOT EXISTS (SELECT 1 FROM watches WHERE id=watch_id AND watches.revision=watch_revisions.revision) AND NOT EXISTS (SELECT 1 FROM entities WHERE entities.watch_id=watch_revisions.watch_id AND entities.revision=watch_revisions.revision) AND NOT EXISTS (SELECT 1 FROM observations WHERE observations.watch_id=watch_revisions.watch_id AND observations.revision=watch_revisions.revision) AND NOT EXISTS (SELECT 1 FROM events WHERE events.watch_id=watch_revisions.watch_id AND events.revision=watch_revisions.revision)`, timestamp(cutoff)},
-		{`DELETE FROM destination_revisions WHERE created_at<? AND NOT EXISTS (SELECT 1 FROM destinations WHERE destinations.id=destination_id AND destinations.revision=destination_revisions.revision) AND NOT EXISTS (SELECT 1 FROM outbox WHERE outbox.destination_id=destination_revisions.destination_id AND outbox.destination_revision=destination_revisions.revision)`, timestamp(cutoff)},
+		{t.query(qRetain7), timestamp(now)},
+		{t.query(qRetain8), timestamp(now)},
+		{t.query(qRetain9), timestamp(now)},
+		{t.query(qRetain10), timestamp(cutoff)},
+		{t.query(qRetain11), timestamp(cutoff)},
+		{t.query(qRetain12), timestamp(cutoff)},
+		{t.query(qRetain13), timestamp(cutoff)},
+		{t.query(qRetain14), timestamp(cutoff)},
+		{t.query(qRetain15), timestamp(cutoff)},
 	} {
-		if _, err := t.sql.ExecContext(t.ctx, q.sql, q.arg); err != nil {
+		if _, err := t.execSQL(q.sql, q.arg); err != nil {
 			return err
 		}
 	}
@@ -155,26 +155,23 @@ func (t *Tx) Retain(cutoff, now time.Time, pins []int64, eventPins []string) err
 // RetainLogSummaries follows Retain in the same transaction, sharing its input
 // pins. Event evidence and pending delivery history retain the global policy.
 func (t *Tx) RetainLogSummaries(id string, cutoff time.Time) error {
-	_, err := t.sql.ExecContext(t.ctx, `DELETE FROM observations WHERE watch_id=? AND accepted_at<?
- AND revision IN (SELECT revision FROM watch_revisions WHERE watch_id=? AND json_extract(definition,'$.spec.source.type')='logs')
- AND NOT EXISTS (SELECT 1 FROM event_evidence WHERE observation_sequence=observations.sequence)
- AND NOT EXISTS (SELECT 1 FROM retained_inputs WHERE sequence=observations.sequence)`, id, timestamp(cutoff), id)
+	_, err := t.exec(qRetainLogSummaries1, id, timestamp(cutoff), id)
 	return err
 }
 
 // RevisionState changes only the metadata pointer of compatible entity state.
 func (t *Tx) RevisionState(id, revision string, generation int64) error {
-	if _, err := t.sql.ExecContext(t.ctx, "UPDATE entities SET revision=? WHERE watch_id=?", revision, id); err != nil {
+	if _, err := t.exec(qRevisionState1, revision, id); err != nil {
 		return err
 	}
-	_, err := t.sql.ExecContext(t.ctx, "UPDATE timers SET generation=? WHERE watch_id=?", generation, id)
+	_, err := t.exec(qRevisionState2, generation, id)
 	return err
 }
 func (t *Tx) Observations(id string, sequences []int64) ([]json.RawMessage, error) {
 	var out []json.RawMessage
 	for _, seq := range sequences {
 		var body []byte
-		err := t.sql.QueryRowContext(t.ctx, "SELECT body FROM observations WHERE watch_id=? AND sequence=?", id, seq).Scan(&body)
+		err := t.sql.QueryRowContext(t.ctx, t.query(qObservations1), id, seq).Scan(&body)
 		if err != nil {
 			return nil, missing(err)
 		}

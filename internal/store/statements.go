@@ -14,7 +14,11 @@ func (t *Tx) query(q statement) string {
 }
 
 func (t *Tx) exec(q statement, args ...any) (sql.Result, error) {
-	result, err := t.sql.ExecContext(t.ctx, t.query(q), args...)
+	return t.execSQL(t.query(q), args...)
+}
+
+func (t *Tx) execSQL(query string, args ...any) (sql.Result, error) {
+	result, err := t.sql.ExecContext(t.ctx, query, args...)
 	if err == nil {
 		n, e := result.RowsAffected()
 		if e != nil {
