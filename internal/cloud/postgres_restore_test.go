@@ -131,4 +131,52 @@ func TestPostgresNativeRestorePreservesReceiptsAndQuarantines(t *testing.T) {
 	}); err != nil {
 		t.Fatal("restored allocator", err)
 	}
+	tenant.Close()
+	restored.Close()
+	if err = ReleasePostgresRestore(ctx, c); err != nil {
+		t.Fatal(err)
+	}
+	released, err := OpenServerStorage(ctx, c.DataDir, c.Database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = released.CheckQuarantine(ctx); err != nil {
+		t.Fatal(err)
+	}
+	releasedTenant, err := released.workspaces.Open(ctx, enrolled.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	releasedRecord, err := watchrun.New(releasedTenant).Record(ctx, "ci")
+	if err != nil || releasedRecord.Status != "paused" {
+		t.Fatal("release resumed watch", err)
+	}
+	releasedTenant.Close()
+	released.Close()
+	// Corrupt the encrypted tail after a valid manifest. A failed import cannot
+	// be released or bypassed with another local data directory.
+	raw, err := os.ReadFile(backup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	truncated := filepath.Join(t.TempDir(), "truncated.age")
+	if err = os.WriteFile(truncated, raw[:len(raw)-12], 0600); err != nil {
+		t.Fatal(err)
+	}
+	failed := pgtest.New(t)
+	failed.SetAppEnvironment(t, "RESTORE_FAILED_APP")
+	failed.SetAdminEnvironment(t, "RESTORE_FAILED_ADMIN")
+	c.DataDir = filepath.Join(t.TempDir(), "failed")
+	c.Database.DSNRef = &database.SecretRef{Env: "RESTORE_FAILED_APP"}
+	if err = RestorePostgres(ctx, c, "RESTORE_FAILED_ADMIN", truncated, key.String()); err == nil {
+		t.Fatal("corrupt archive imported")
+	}
+	if err = ReleasePostgresRestore(ctx, c); err == nil {
+		t.Fatal("incomplete restore released")
+	}
+	quarantined, err := database.Quarantined(ctx, failed.App)
+	if err != nil || !quarantined {
+		t.Fatal("failed restore lost durable quarantine", err)
+	}
+
 }
