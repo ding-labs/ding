@@ -1,11 +1,24 @@
-"""Regression for evidence preservation when the local database observer fails."""
+"""Load qualification and evidence preservation regressions."""
 import json
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
 
-from run import execute
+from run import execute, qualified_load
+
+
+class LoadQualification(unittest.TestCase):
+    def test_small_throttled_fraction_still_fails_the_zero_rejection_gate(self):
+        load = {'generatorBusy': 0, 'unconfirmed': 0, 'rejected': 0,
+                'firstAccepted': 29977, 'scheduled': 30000, 'throttled': 23,
+                'statuses': {'202': 29977, '429': 23}}
+        self.assertGreaterEqual(load['firstAccepted']/load['scheduled'], .999)
+        self.assertFalse(qualified_load(load))
+        load['throttled'] = 0
+        self.assertFalse(qualified_load(load))
+        load['statuses'] = {'202': 30000}
+        self.assertTrue(qualified_load(load))
 
 
 class LauncherEvidence(unittest.TestCase):

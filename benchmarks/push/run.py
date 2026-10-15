@@ -29,6 +29,7 @@ def save(path, value):
 
 def qualified_load(load):
     return (load['generatorBusy'] == 0 and load['unconfirmed'] == 0 and load['rejected'] == 0
+            and load.get('throttled', 0) == 0 and load.get('statuses', {}).get('429', 0) == 0
             and not load.get('clockDiscontinuity', False))
 
 
