@@ -62,7 +62,7 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
     if pg:
         env['DING_TEST_POSTGRES_FILE'] = str(pg.connections)
     database_start = sample_database(pg)
-    timeout = config['Seconds'] + config.get('Preload', 0) / 100 + 900
+    timeout = config['Seconds'] + config.get('Preload', 0) / 25 + 900
     receiver = LocalReceiver(binary,output,config['Receiver'],environment,
                              pg.container if pg and environment=='container' else None,timeout) if config.get('ReceiverProcess') and config.get('Receiver') else None
     if receiver:

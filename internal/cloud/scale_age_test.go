@@ -52,14 +52,16 @@ func scalePreload(t *testing.T, lab *scaleLab, c scaleConfig, out string) PushBe
 	t.Logf("preload actual=%d target=%d", r.Accepted, c.Preload)
 	accepted := r.Accepted
 	// A rejected preload is not an aged-store fixture. Fill at a lower rate,
-	// retain every round's ledger/result, and bound the extra work to 16 rounds.
-	for round := 0; accepted < c.Preload && round < 16; round++ {
+	// retain every round's ledger/result, and bound the extra work to 64 rounds.
+	// Start below observed accepted throughput, then approach a useful fill
+	// rate. A fixed 100/s can repeatedly reject on a constrained backend.
+	fillRate := max(1, min(100, int(float64(r.Accepted)/max(.001, r.DurationSeconds)*.8)))
+	for round := 0; accepted < c.Preload && round < 64; round++ {
 		for _, path := range []string{lab.root, out} {
 			if free, err := freeDiskBytes(path); err != nil || free < 20<<30 {
 				t.Fatal("preload free-disk floor reached")
 			}
 		}
-		fillRate := min(100, c.Preload)
 		fillSeconds := min(60, (c.Preload-accepted+fillRate-1)/fillRate)
 		fill, err := BenchmarkPush(context.Background(), PushBenchmarkOptions{Producers: lab.producers, Client: lab.http.Client(), Rate: fillRate, Duration: time.Duration(fillSeconds) * time.Second, Workers: c.Workers, Ledger: filepath.Join(out, fmt.Sprintf("preload-fill-%d.jsonl", round+1)), LedgerBatch: 32, CompactLedger: true, NoRetry: true})
 		if err != nil {
@@ -67,6 +69,11 @@ func scalePreload(t *testing.T, lab *scaleLab, c scaleConfig, out string) PushBe
 		}
 		lab.preloadFills = append(lab.preloadFills, fill)
 		accepted += fill.Accepted
+		if fill.Accepted != fill.Offered || fill.GeneratorBusy != 0 || fill.Unconfirmed != 0 {
+			fillRate = max(1, min(fillRate, int(float64(fill.Accepted)/max(.001, fill.DurationSeconds)*.8)))
+		} else if fill.P99MS < 250 {
+			fillRate = min(100, fillRate+max(1, fillRate/4))
+		}
 	}
 	if accepted < c.Preload {
 		t.Fatalf("preload incomplete after bounded fill: actual=%d target=%d", accepted, c.Preload)
