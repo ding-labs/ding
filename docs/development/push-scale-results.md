@@ -72,6 +72,13 @@ of another project's stopped container during the first SQLite sustained run.
 Both that container and its independent retry used about 2% CPU at the initial
 sample. Container quotas do not eliminate shared host or storage interference.
 
+At 15:37 UTC, Docker exhausted its predefined network address pool while creating
+the next fixture, after 78 completed qualification cases. The queue paused before
+new measurement. Six unattached networks from owned, stopped Ding fixtures were
+released with their volumes, containers and evidence preserved. Remaining cases
+resumed with the same cached application and producer binaries. This setup
+failure supplies no application capacity result.
+
 Resource samples report container working memory, not process RSS or exact CPU
 seconds. PostgreSQL quota bytes are logical usage; table/index/TOAST allocation
 and WAL are separate physical costs. Repeated padding can compress heavily, so
