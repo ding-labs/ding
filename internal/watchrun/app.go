@@ -481,7 +481,7 @@ func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch so
 			return err
 		}
 		receipt.First, receipt.Last = sequences[0], sequences[len(sequences)-1]
-		states := newAcceptanceEntities(tx, id)
+		states := newAcceptanceEntities(tx, id, current.Plan.Revision, now)
 		if err := states.preload(evaluator, observations); err != nil {
 			return err
 		}
@@ -536,9 +536,6 @@ func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch so
 				if err != nil {
 					return err
 				}
-				if err := tx.SaveEntity(id, key, current.Plan.Revision, result.State, now); err != nil {
-					return err
-				}
 				if current.Plan.Definition.Spec.Condition.MissingFor != "" && (o.Health == "ok" || o.Health == "unchanged") {
 					if err := tx.SaveTimer(store.Timer{WatchID: id, Entity: key, Kind: "missing", Generation: current.Generation, Due: result.State.MissingAt}); err != nil {
 						return err
@@ -556,6 +553,9 @@ func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch so
 				}
 
 			}
+		}
+		if err := states.flush(); err != nil {
+			return err
 		}
 		bytes, err := tx.QuotaBytes()
 		if err != nil {

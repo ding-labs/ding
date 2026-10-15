@@ -3,6 +3,7 @@ package watchrun
 import (
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/ding-labs/ding/internal/condition"
 	"github.com/ding-labs/ding/internal/store"
@@ -12,16 +13,31 @@ import (
 // This cache belongs to one acceptance transaction. Healthy observations load
 // touched entities; source-health inputs retain the evaluator's full fanout.
 type acceptanceEntities struct {
-	tx     *store.Tx
-	id     string
-	states map[string]json.RawMessage
-	known  map[string]bool
-	all    bool
-	n      int
+	tx       *store.Tx
+	id       string
+	revision string
+	now      time.Time
+	states   map[string]json.RawMessage
+	pending  map[string]json.RawMessage
+	known    map[string]bool
+	all      bool
+	n        int
 }
 
-func newAcceptanceEntities(tx *store.Tx, id string) *acceptanceEntities {
-	return &acceptanceEntities{tx: tx, id: id, states: map[string]json.RawMessage{}, known: map[string]bool{}, n: -1}
+func newAcceptanceEntities(tx *store.Tx, id, revision string, now time.Time) *acceptanceEntities {
+	return &acceptanceEntities{tx: tx, id: id, revision: revision, now: now,
+		states: map[string]json.RawMessage{}, pending: map[string]json.RawMessage{}, known: map[string]bool{}, n: -1}
+}
+
+func (s *acceptanceEntities) flush() error {
+	if len(s.pending) == 0 {
+		return nil
+	}
+	if err := s.tx.SaveEntities(s.id, s.revision, s.pending, s.now); err != nil {
+		return err
+	}
+	clear(s.pending)
+	return nil
 }
 
 func (s *acceptanceEntities) preload(e *condition.Evaluator, observations []watch.Observation) error {
@@ -80,6 +96,11 @@ func (s *acceptanceEntities) route(e *condition.Evaluator, o watch.Observation) 
 		}
 	} else if o.Health != "timer" || o.Entity == "" {
 		if !s.all {
+			// A source-health input must fan out over earlier writes in this
+			// same batch, including newly created groups.
+			if err := s.flush(); err != nil {
+				return nil, false, err
+			}
 			states, err := s.tx.Entities(s.id)
 			if err != nil {
 				return nil, false, err
@@ -109,6 +130,7 @@ func (s *acceptanceEntities) saved(key string, data json.RawMessage) {
 		s.n++
 	}
 	s.states[key], s.known[key] = data, true
+	s.pending[key] = data
 }
 
 func (s *acceptanceEntities) removed(key string) {
@@ -116,5 +138,6 @@ func (s *acceptanceEntities) removed(key string) {
 		s.n--
 	}
 	delete(s.states, key)
+	delete(s.pending, key)
 	s.known[key] = true
 }
