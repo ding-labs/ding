@@ -115,3 +115,6 @@ and identify the cancelled case. The
 [implementation plan](../../docs/development/push-scale-plan.md) covers Go runtime
 changes, an experimental PostgreSQL backend, fair database comparisons and the
 matrix to rerun after implementation.
+
+The [implementation results](../../docs/development/push-scale-results.md) record
+the candidate/control revisions, resource budgets and qualification limits.
