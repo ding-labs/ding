@@ -14,8 +14,9 @@ import (
 
 	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/store"
-	"github.com/ding-labs/ding/internal/watchrun"
 )
+
+const scaleLedgerChunkEntries = 4096
 
 type scaleAccounting struct {
 	Watermark int64
@@ -85,16 +86,17 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 	}
 	problems := []string{}
 	committed, acknowledged := 0, 0
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 4096), 2<<20)
-	for scanner.Scan() {
-		var e pushLedgerEntry
-		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
+	producerWorkspaces := make([]int, len(lab.producers))
+	digests := make([]string, len(lab.producers))
+	for index, p := range lab.producers {
+		i, err := strconv.Atoi(strings.TrimPrefix(p.TokenEnv, "DING_LOCAL_SCALE_"))
+		if err != nil {
 			t.Fatal(err)
 		}
-		if e.Stage != "offered" && e.Receipt == nil {
-			continue
-		}
+		producerWorkspaces[index] = i
+		digests[index] = fmt.Sprintf("%x", sha256.Sum256(p.Body))
+	}
+	consume := func(tx *store.Tx, i int, current map[string]store.WatchRecord, e pushLedgerEntry) {
 		if e.Stage == "offered" {
 			hash := sha256.Sum256([]byte(e.Key))
 			if seen[hash] {
@@ -103,21 +105,31 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 			seen[hash] = true
 		}
 		p := lab.producers[e.Producer]
-		i, err := strconv.Atoi(strings.TrimPrefix(p.TokenEnv, "DING_LOCAL_SCALE_"))
-		if err != nil {
-			t.Fatal(err)
+		watchID := scaleProducerWatch(p)
+		rc, known := current[watchID]
+		if !known {
+			var err error
+			rc, err = tx.Watch(watchID)
+			if err != nil {
+				problems = append(problems, err.Error())
+				return
+			}
+			current[watchID] = rc
 		}
-		input := watchrun.NewPushInput(grants[i].ID, e.Key, p.Body, 1000000, 24*60*60*1000000000)
-		r, err := lab.tenants[i].App.ReplayPush(context.Background(), records[i][scaleProducerWatch(p)], input)
+		if rc.Status == "deleted" || rc.Lifetime != records[i][watchID].Lifetime {
+			problems = append(problems, store.ErrStale.Error())
+			return
+		}
+		r, err := tx.PushReceipt(rc.Lifetime, grants[i].ID, e.Key, digests[e.Producer], lab.tenants[i].App.Now())
 		if errors.Is(err, store.ErrNotFound) {
 			if e.Receipt != nil {
 				problems = append(problems, "acknowledged receipt absent")
 			}
-			continue
+			return
 		}
 		if err != nil {
 			problems = append(problems, err.Error())
-			continue
+			return
 		}
 		if e.Stage == "offered" {
 			id := sha256.Sum256([]byte(r.AcceptanceID))
@@ -130,7 +142,7 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 			expected[i].Bytes += int64(len(p.Body))
 			expected[i].Observations += r.Last - r.First + 1
 			spans[i] = append(spans[i], scaleSpan{r.First, r.Last})
-			if err := scaleVerifyReceipt(lab.tenants[i], r, c.Outputs); err != nil {
+			if err := scaleVerifyReceiptTx(tx, r, c.Outputs); err != nil {
 				problems = append(problems, err.Error())
 			}
 		} else {
@@ -141,9 +153,53 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 			}
 		}
 	}
+	// Keep every key/provenance check, but amortize transaction setup within a
+	// bounded tenant snapshot. Per-key transactions can outlast the load itself
+	// when many idle tenants contend for a small PostgreSQL query pool.
+	chunk := map[int][]pushLedgerEntry{}
+	flush := func() {
+		for i, tenant := range lab.tenants {
+			entries := chunk[i]
+			if len(entries) == 0 {
+				continue
+			}
+			if err := tenant.App.Store.View(context.Background(), func(tx *store.Tx) error {
+				current := map[string]store.WatchRecord{}
+				for _, entry := range entries {
+					consume(tx, i, current, entry)
+				}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		chunk = map[int][]pushLedgerEntry{}
+	}
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 4096), 2<<20)
+	lines := 0
+	for scanner.Scan() {
+		var e pushLedgerEntry
+		if err := json.Unmarshal(scanner.Bytes(), &e); err != nil {
+			t.Fatal(err)
+		}
+		if e.Stage == "offered" || e.Receipt != nil {
+			if e.Producer < 0 || e.Producer >= len(lab.producers) {
+				t.Fatal("ledger producer is outside the fixture")
+			}
+			i := producerWorkspaces[e.Producer]
+			chunk[i] = append(chunk[i], e)
+		}
+		lines++
+		if lines == scaleLedgerChunkEntries {
+			flush()
+			lines = 0
+		}
+	}
 	if err := scanner.Err(); err != nil {
 		t.Fatal(err)
 	}
+	flush()
 	resolved := committed - acknowledged
 	if resolved < 0 {
 		problems = append(problems, "more acknowledgments than durable offers")
@@ -186,5 +242,71 @@ func TestScaleReconcilesFullPushLedger(t *testing.T) {
 	}
 	if errs := scaleChecks(t, lab, c, path); len(errs) > 0 {
 		t.Fatal(errs)
+	}
+}
+
+func TestScaleReconcileRetainsChecksAcrossChunks(t *testing.T) {
+	for _, backend := range []string{"sqlite", "postgres"} {
+		t.Run(backend, func(t *testing.T) {
+			c := scaleConfig{Name: "chunks", Backend: backend, PoolLimit: 1, Rate: 2, Seconds: 1, Workspaces: 2}
+			if err := c.validate(); err != nil {
+				t.Fatal(err)
+			}
+			lab := newScaleLab(t, c)
+			before := scaleAccounts(t, lab)
+			path := t.TempDir() + "/ledger"
+			result, err := BenchmarkPush(context.Background(), PushBenchmarkOptions{Producers: lab.producers, Client: lab.http.Client(), Duration: 1000000000, Rate: 2, Ledger: path, LedgerBatch: 1, CompactLedger: true, NoRetry: true})
+			if err != nil || result.Accepted != 2 {
+				t.Fatal(result, err)
+			}
+			if resolved, problems := scaleReconcile(t, lab, c, path, before); resolved != 0 || len(problems) != 0 {
+				t.Fatal(resolved, problems)
+			}
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var offered, ack pushLedgerEntry
+			for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
+				var entry pushLedgerEntry
+				if err := json.Unmarshal([]byte(line), &entry); err != nil {
+					t.Fatal(err)
+				}
+				if entry.Stage == "offered" {
+					offered = entry
+				}
+				if entry.Receipt != nil {
+					ack = entry
+				}
+			}
+			// Corrupt only the private evidence, across a bounded snapshot edge.
+			// No synthetic rows or acceptances are added to the service.
+			file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0600)
+			if err != nil {
+				t.Fatal(err)
+			}
+			encoder := json.NewEncoder(file)
+			for range scaleLedgerChunkEntries {
+				if err = encoder.Encode(pushLedgerEntry{Stage: "diagnostic"}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err = encoder.Encode(offered); err != nil {
+				t.Fatal(err)
+			}
+			ack.Receipt.First++
+			ack.Receipt.Last++
+			if err = encoder.Encode(ack); err != nil {
+				t.Fatal(err)
+			}
+			if err = file.Close(); err != nil {
+				t.Fatal(err)
+			}
+			_, problems := scaleReconcile(t, lab, c, path, before)
+			joined := strings.Join(problems, "\n")
+			if !strings.Contains(joined, "duplicate offered key") || !strings.Contains(joined, "response and durable receipt differ") {
+				t.Fatal("chunk boundary hid evidence corruption", problems)
+			}
+		})
 	}
 }

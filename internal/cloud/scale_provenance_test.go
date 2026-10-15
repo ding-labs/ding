@@ -17,30 +17,34 @@ type scaleSpan struct{ first, last int64 }
 
 func scaleVerifyReceipt(tenant *Tenant, r store.PushReceipt, outputs int) error {
 	return tenant.App.Store.View(context.Background(), func(tx *store.Tx) error {
-		rows, err := tx.ObservationRange(r.WatchID, r.First, r.Last)
-		if err != nil {
-			return err
-		}
-		if int64(len(rows)) != r.Last-r.First+1 {
-			return fmt.Errorf("receipt observation range is incomplete")
-		}
-		healthy := 0
-		for index, row := range rows {
-			expected := r.AcceptanceID + ":" + strconv.Itoa(index) + ":" + strconv.FormatInt(r.AcceptedAt.UnixNano(), 10)
-			if row.Sequence != r.First+int64(index) || row.InputID != expected || !row.AcceptedAt.Equal(r.AcceptedAt) {
-				return fmt.Errorf("observation provenance differs from receipt")
-			}
-			if row.Health == "ok" {
-				healthy++
-			} else if index != 0 || row.Health != "gap" || row.Detail != "backpressure_gap" {
-				return fmt.Errorf("unexpected observation inside push receipt")
-			}
-		}
-		if healthy != outputs {
-			return fmt.Errorf("projected output count differs from receipt")
-		}
-		return nil
+		return scaleVerifyReceiptTx(tx, r, outputs)
 	})
+}
+
+func scaleVerifyReceiptTx(tx *store.Tx, r store.PushReceipt, outputs int) error {
+	rows, err := tx.ObservationRange(r.WatchID, r.First, r.Last)
+	if err != nil {
+		return err
+	}
+	if int64(len(rows)) != r.Last-r.First+1 {
+		return fmt.Errorf("receipt observation range is incomplete")
+	}
+	healthy := 0
+	for index, row := range rows {
+		expected := r.AcceptanceID + ":" + strconv.Itoa(index) + ":" + strconv.FormatInt(r.AcceptedAt.UnixNano(), 10)
+		if row.Sequence != r.First+int64(index) || row.InputID != expected || !row.AcceptedAt.Equal(r.AcceptedAt) {
+			return fmt.Errorf("observation provenance differs from receipt")
+		}
+		if row.Health == "ok" {
+			healthy++
+		} else if index != 0 || row.Health != "gap" || row.Detail != "backpressure_gap" {
+			return fmt.Errorf("unexpected observation inside push receipt")
+		}
+	}
+	if healthy != outputs {
+		return fmt.Errorf("projected output count differs from receipt")
+	}
+	return nil
 }
 
 func scaleReadSpan(tenant *Tenant, first, last int64) ([]watch.Observation, error) {
