@@ -9,12 +9,12 @@ import (
 // updates its local count as it creates or removes entities in the transaction.
 func (t *Tx) EntityCount(id string) (int, error) {
 	var n int
-	err := t.sql.QueryRowContext(t.ctx, "SELECT count(*) FROM entities WHERE watch_id=?", id).Scan(&n)
+	err := t.sql.QueryRowContext(t.ctx, t.query(qEntityCount), id).Scan(&n)
 	return n, err
 }
 
 func (t *Tx) Entities(id string) (map[string]json.RawMessage, error) {
-	rows, err := t.sql.QueryContext(t.ctx, "SELECT entity_key,state FROM entities WHERE watch_id=? ORDER BY entity_key", id)
+	rows, err := t.sql.QueryContext(t.ctx, t.query(qEntities), id)
 	if err != nil {
 		return nil, err
 	}

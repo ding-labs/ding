@@ -168,15 +168,11 @@ func (t *Tx) AppendObservation(id, revision string, generation int64, o watch.Ob
 	if err != nil {
 		return 0, err
 	}
-	result, err := t.sql.ExecContext(t.ctx, `INSERT INTO observations(watch_id,revision,generation,input_id,accepted_at,body) VALUES(?,?,?,?,?,?)`, id, revision, generation, o.InputID, timestamp(o.AcceptedAt), data)
-	if err != nil {
-		return 0, err
-	}
-	return result.LastInsertId()
+	return t.insertID(qAppendObservation, id, revision, generation, o.InputID, timestamp(o.AcceptedAt), data)
 }
 func (t *Tx) Entity(id, key string) (json.RawMessage, error) {
 	var data []byte
-	err := t.sql.QueryRowContext(t.ctx, `SELECT state FROM entities WHERE watch_id=? AND entity_key=?`, id, key).Scan(&data)
+	err := t.sql.QueryRowContext(t.ctx, t.query(qEntity), id, key).Scan(&data)
 	return data, missing(err)
 }
 func (t *Tx) SaveEntity(id, key, revision string, state any, now time.Time) error {
@@ -184,7 +180,7 @@ func (t *Tx) SaveEntity(id, key, revision string, state any, now time.Time) erro
 	if err != nil {
 		return err
 	}
-	_, err = t.sql.ExecContext(t.ctx, `INSERT INTO entities(watch_id,entity_key,revision,state,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(watch_id,entity_key) DO UPDATE SET revision=excluded.revision,state=excluded.state,updated_at=excluded.updated_at`, id, key, revision, data, timestamp(now))
+	_, err = t.exec(qSaveEntity, id, key, revision, data, timestamp(now))
 	return err
 }
 func (t *Tx) AppendEvent(e watch.Event) (int64, error) {
@@ -241,11 +237,11 @@ func (t *Tx) Events(id string, after int64, limit int) ([]watch.Event, error) {
 	return result, rows.Err()
 }
 func (t *Tx) Receipt(id string, generation int64, inputID string, now time.Time) (first, last int64, err error) {
-	err = t.sql.QueryRowContext(t.ctx, `SELECT first_sequence,last_sequence FROM input_receipts WHERE watch_id=? AND generation=? AND input_id=? AND expires_at>?`, id, generation, inputID, timestamp(now)).Scan(&first, &last)
+	err = t.sql.QueryRowContext(t.ctx, t.query(qReceipt), id, generation, inputID, timestamp(now)).Scan(&first, &last)
 	return first, last, missing(err)
 }
 func (t *Tx) SaveReceipt(id string, generation int64, inputID string, first, last int64, expires time.Time) error {
-	_, err := t.sql.ExecContext(t.ctx, `INSERT INTO input_receipts(watch_id,generation,input_id,first_sequence,last_sequence,expires_at) VALUES(?,?,?,?,?,?) ON CONFLICT(watch_id,generation,input_id) DO UPDATE SET first_sequence=excluded.first_sequence,last_sequence=excluded.last_sequence,expires_at=excluded.expires_at`, id, generation, inputID, first, last, timestamp(expires))
+	_, err := t.exec(qSaveReceipt, id, generation, inputID, first, last, timestamp(expires))
 	return err
 }
 
@@ -263,6 +259,6 @@ func (t *Tx) SaveTimer(timer Timer) error {
 	if !json.Valid(timer.Body) {
 		return fmt.Errorf("invalid timer body")
 	}
-	_, err := t.sql.ExecContext(t.ctx, `INSERT INTO timers(watch_id,entity_key,kind,generation,due_at,body) VALUES(?,?,?,?,?,?) ON CONFLICT(watch_id,entity_key,kind) DO UPDATE SET generation=excluded.generation,due_at=excluded.due_at,body=excluded.body`, timer.WatchID, timer.Entity, timer.Kind, timer.Generation, timestamp(timer.Due), []byte(timer.Body))
+	_, err := t.exec(qSaveTimer, timer.WatchID, timer.Entity, timer.Kind, timer.Generation, timestamp(timer.Due), []byte(timer.Body))
 	return err
 }
