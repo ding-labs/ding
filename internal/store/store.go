@@ -56,8 +56,9 @@ type Store struct {
 	closed bool
 }
 type Tx struct {
-	ctx context.Context
-	sql *sql.Tx
+	ctx      context.Context
+	sql      *sql.Tx
+	writable bool
 }
 
 func Open(ctx context.Context, dir string) (s *Store, err error) {
@@ -151,7 +152,7 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 			return err
 		}
 	}
-	if err = fn(&Tx{ctx: ctx, sql: tx}); err != nil {
+	if err = fn(&Tx{ctx: ctx, sql: tx, writable: true}); err != nil {
 		return err
 	}
 	if attributed {
