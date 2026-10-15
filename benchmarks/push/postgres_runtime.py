@@ -78,6 +78,11 @@ class LocalPostgres:
                     'blocksRead',sum(blks_read),'blocksHit',sum(blks_hit),
                     'readMS',sum(blk_read_time),'writeMS',sum(blk_write_time),
                     'tempBytes',sum(temp_bytes),'deadlocks',sum(deadlocks),
+                    'checkpoints',(SELECT row_to_json(c) FROM pg_stat_checkpointer c),
+                    'appLockWaiters',(SELECT count(*) FROM pg_stat_activity
+                        WHERE usename='ding_app' AND wait_event_type='Lock'),
+                    'oldestAppTransactionSeconds',(SELECT coalesce(max(extract(epoch FROM clock_timestamp()-xact_start)),0)
+                        FROM pg_stat_activity WHERE usename='ding_app'),
                     'wal',(SELECT row_to_json(w) FROM pg_stat_wal w))
                     FROM pg_stat_database"""),
                 'storage': self.sql("""SELECT json_build_object(
