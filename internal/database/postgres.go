@@ -47,15 +47,17 @@ func postgresConfig(dsn string) (*pgx.ConnConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid PostgreSQL DSN")
 	}
-	local := strings.HasPrefix(cfg.Host, "/") || net.ParseIP(cfg.Host).IsLoopback() || cfg.Host == "localhost"
-	if !local {
-		if cfg.TLSConfig == nil || cfg.TLSConfig.InsecureSkipVerify {
-			return nil, fmt.Errorf("remote PostgreSQL requires verified TLS (sslmode=verify-full)")
-		}
-		for _, fallback := range cfg.Fallbacks {
-			if fallback.TLSConfig == nil || fallback.TLSConfig.InsecureSkipVerify {
-				return nil, fmt.Errorf("PostgreSQL TLS downgrade fallback is forbidden")
-			}
+	localHost := func(host string) bool {
+		return strings.HasPrefix(host, "/") || net.ParseIP(host).IsLoopback() || host == "localhost"
+	}
+	if !localHost(cfg.Host) && (cfg.TLSConfig == nil || cfg.TLSConfig.InsecureSkipVerify) {
+		return nil, fmt.Errorf("remote PostgreSQL requires verified TLS (sslmode=verify-full)")
+	}
+	// Every fallback is a separate destination. A local first host must not
+	// permit a later remote host to receive credentials without verified TLS.
+	for _, fallback := range cfg.Fallbacks {
+		if !localHost(fallback.Host) && (fallback.TLSConfig == nil || fallback.TLSConfig.InsecureSkipVerify) {
+			return nil, fmt.Errorf("remote PostgreSQL fallback requires verified TLS")
 		}
 	}
 	cfg.ConnectTimeout = 5 * time.Second
