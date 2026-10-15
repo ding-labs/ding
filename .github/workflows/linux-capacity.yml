@@ -39,6 +39,10 @@ on:
         default: initial
         type: choice
         options: [initial, more_app, more_database, larger_pair, sqlite_matched]
+      profiles:
+        description: Diagnostic profiling only (excluded from capacity qualification)
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -79,6 +83,7 @@ jobs:
           POOL: ${{ matrix.pool }}
           QUERY_MODE: ${{ inputs.query_mode || 'exec' }}
           PROFILE: ${{ inputs.profile || 'initial' }}
+          PROFILES: ${{ inputs.profiles || 'false' }}
         run: |
           app_cpus=1; app_memory=1024
           db_cpus=1; db_memory=2048
@@ -91,6 +96,9 @@ jobs:
           extra=()
           if [ "$BACKEND" = postgres ]; then
             extra=(--database-cpus "$db_cpus" --database-memory-mib "$db_memory")
+          fi
+          if [ "$PROFILES" = true ]; then
+            extra+=(--profiles)
           fi
           python3 benchmarks/push/run.py --environment container --generator-placement container \
             --backend "$BACKEND" --app-cpus "$app_cpus" --app-memory-mib "$app_memory" "${extra[@]}" \
