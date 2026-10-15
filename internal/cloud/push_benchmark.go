@@ -5,8 +5,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -205,15 +207,8 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 						if delay, e := time.ParseDuration(response.Header.Get("Retry-After") + "s"); e == nil && delay > retryAfter {
 							retryAfter = min(delay, 30*time.Second)
 						}
-						mu.Lock()
 						code = envelope.Error.Code
-						if len(code) > 128 || (len(result.ErrorCodes) >= 100 && result.ErrorCodes[code] == 0) {
-							code = "other"
-						}
-						if code != "" {
-							result.ErrorCodes[code]++
-						}
-						result.Statuses[status]++
+						mu.Lock()
 						if status == 202 && decode == nil && envelope.Data.AcceptanceID != "" {
 							receipt = &envelope.Data
 							accepted = true
@@ -233,14 +228,19 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 						mu.Unlock()
 					}
 					lastStatus = status
+					if err != nil {
+						code = pushTransportCode(err)
+					}
 					mu.Lock()
+					if code != "" && (len(code) > 128 || (len(result.ErrorCodes) >= 100 && result.ErrorCodes[code] == 0)) {
+						code = "other"
+					}
+					if code != "" {
+						result.ErrorCodes[code]++
+					}
+					result.Statuses[status]++
 					httpHistogram[min(int(time.Since(begin).Milliseconds()), len(httpHistogram)-1)]++
 					mu.Unlock()
-					if err != nil {
-						mu.Lock()
-						result.Statuses[0]++
-						mu.Unlock()
-					}
 					if err := record(pushLedgerEntry{Key: key, Producer: i, Stage: "response", Status: status, At: time.Now().UTC(), Receipt: receipt, ErrorCode: code}); err != nil {
 						fail(err)
 						break
@@ -312,6 +312,24 @@ schedule:
 		return result, ctx.Err()
 	}
 	return result, nil
+}
+
+// Error strings may contain URLs or credential material. Persist fixed classes.
+func pushTransportCode(err error) string {
+	if errors.Is(err, context.Canceled) {
+		return "transport_cancelled"
+	}
+	var network net.Error
+	if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &network) && network.Timeout()) {
+		return "transport_timeout"
+	}
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return "transport_eof"
+	}
+	if errors.Is(err, net.ErrClosed) {
+		return "transport_closed"
+	}
+	return "transport_error"
 }
 
 func histogramPercentile(histogram []int, percentile int) float64 {

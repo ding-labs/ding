@@ -2,6 +2,7 @@ package cloud
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -35,6 +36,27 @@ func TestPushBenchmarkNoRetryAccountsThrottle(t *testing.T) {
 	}
 	if strings.Contains(string(raw), "private failure text") {
 		t.Fatal("recorded error text")
+	}
+}
+
+type pushBenchmarkFailure struct{ err error }
+
+func (f pushBenchmarkFailure) RoundTrip(*http.Request) (*http.Response, error) { return nil, f.err }
+
+func TestPushBenchmarkClassifiesTransportWithoutErrorText(t *testing.T) {
+	t.Setenv("DING_LOAD_TEST", "test")
+	ledger := t.TempDir() + "/ledger"
+	client := &http.Client{Transport: pushBenchmarkFailure{errors.Join(context.DeadlineExceeded, errors.New("private failure text"))}}
+	r, err := BenchmarkPush(context.Background(), PushBenchmarkOptions{
+		Producers: []PushProducer{{URL: "https://example.invalid/v1/ingest/ci", TokenEnv: "DING_LOAD_TEST", Body: []byte(`{}`)}},
+		Duration:  time.Second, Rate: 10, Workers: 4, NoRetry: true, Ledger: ledger, Client: client, LedgerBatch: 8,
+	})
+	if err != nil || r.Unconfirmed != 10 || r.Statuses[0] != 10 || r.ErrorCodes["transport_timeout"] != 10 {
+		t.Fatal(r, err)
+	}
+	raw, err := os.ReadFile(ledger)
+	if err != nil || strings.Contains(string(raw), "private failure text") || strings.Count(string(raw), `"errorCode":"transport_timeout"`) != 10 {
+		t.Fatal("transport ledger classification or privacy failed", err)
 	}
 }
 
