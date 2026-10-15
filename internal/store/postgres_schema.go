@@ -10,7 +10,7 @@ import (
 
 // PostgreSQL migrations have their own version stream. SQLite user_version and
 // existing on-disk migrations are independent.
-const PostgresSchemaVersion = 14
+const PostgresSchemaVersion = 15
 
 //go:embed postgres/001_records.sql
 var postgresRecordsSchema string
@@ -54,6 +54,9 @@ var postgresActiveDeliveryStreamsSchema string
 //go:embed postgres/014_stream_activity.sql
 var postgresStreamActivitySchema string
 
+//go:embed postgres/015_observation_accounting.sql
+var postgresObservationAccountingSchema string
+
 func MigratePostgres(ctx context.Context, migrationDB *sql.DB, appRole string) error {
-	return database.Migrate(ctx, migrationDB, "runtime", []string{postgresRecordsSchema, postgresStateSchema, postgresEventsSchema, postgresPushSchema, postgresIntegrationsSchema, postgresStorageSchema, postgresCanonicalAccountingSchema, postgresDeliveryStreamsSchema, postgresEntityPinsSchema, postgresRetentionIndexesSchema, postgresRetentionSweepIndexesSchema, postgresLogSweepIndexSchema, postgresActiveDeliveryStreamsSchema, postgresStreamActivitySchema}, appRole)
+	return database.Migrate(ctx, migrationDB, "runtime", []string{postgresRecordsSchema, postgresStateSchema, postgresEventsSchema, postgresPushSchema, postgresIntegrationsSchema, postgresStorageSchema, postgresCanonicalAccountingSchema, postgresDeliveryStreamsSchema, postgresEntityPinsSchema, postgresRetentionIndexesSchema, postgresRetentionSweepIndexesSchema, postgresLogSweepIndexSchema, postgresActiveDeliveryStreamsSchema, postgresStreamActivitySchema, postgresObservationAccountingSchema}, appRole)
 }
