@@ -97,10 +97,10 @@ The retained-padding cases distinguish repeated `x` bytes from deterministic
 high-entropy strings. PostgreSQL TOAST can compress repeated strings heavily;
 that result is not representative of arbitrary retained JSON. `nested18-600k`
 adds bounded nested objects and arrays around an 18-output payload.
-The original batch controls repeat one group. `batch100-groups100` and
-`nested18-groups18-600k` exercise distinct groups within each batch; report these
-separately when describing observation throughput. Extend `window` to at least
-180 seconds to measure expiry after its one-minute window has matured.
+The original `batch100-100` and `nested18-600k` controls already use 100 and 18
+distinct groups per batch: an omitted group count defaults to the output count.
+Extend `window` to at least 180 seconds to measure expiry after its one-minute
+window has matured.
 
 The receipt microbenchmark seeds only the receipt table. Its timings measure
 query cost, not complete ingestion capacity. The cloud soak and its credentials

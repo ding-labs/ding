@@ -154,6 +154,7 @@ observations-per-CPU-second figure was collected.
 
 The original workload screens and selected boundary repeats are complete.
 Sustained hot-workspace and 100-workspace cases, mature rolling-window repeats,
-distinct-group batch controls, longer paired aged-store checks and the repeated
-ten-workspace control are pending. Final tables and the sanitized aggregate will
+longer paired aged-store checks and the repeated ten-workspace control are
+pending. Existing 100-output and nested 18-output screens already use distinct
+groups within each batch, verified against their recorded producer bodies. Final tables and the sanitized aggregate will
 be added after those runs finish.
