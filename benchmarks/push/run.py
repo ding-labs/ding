@@ -12,6 +12,8 @@ import signal
 import subprocess
 import time
 
+from postgres_runtime import LocalPostgres
+
 REPO = Path(__file__).resolve().parents[2]
 
 
@@ -39,20 +41,27 @@ def capture_failed_state(volume, output):
     return archive.name
 
 
-def execute(binary, driver, config, output, environment):
+def execute(binary, driver, config, output, environment, pg=None, units=1):
     env = dict(os.environ, DING_SCALE_CONFIG=str(output / 'config.json'),
                DING_SCALE_OUTPUT=str(output), DING_SCALE_EXTERNAL=environment)
     fixture_tmp = output/'fixture-tmp'
     fixture_tmp.mkdir(mode=0o700)
     env['TMPDIR'] = str(fixture_tmp)
+    if pg:
+        env['DING_TEST_POSTGRES_FILE'] = str(pg.connections)
+    database_start = pg.sample() if pg else None
     timeout = config['Seconds'] + config.get('Preload', 0) / 100 + 900
     container = 'ding-scale-' + output.parent.name.lower() + '-' + output.name.lower()
     volume = container + '-data'
     args = [str(binary), '-test.run=^TestLocalPushScale$', '-test.v', '-test.timeout='+str(int(timeout))+'s']
     if environment == 'container':
         command(['docker', 'volume', 'create', volume])
-        args = ['docker', 'run', '--name', container, '--cpus=1', '--memory=1g', '--memory-swap=1g',
-                '-p', '127.0.0.1::8443', '--mount', 'type=volume,source='+volume+',target=/lab',
+        app_cpus = units/2 if pg else units
+        app_memory = str(units*512 if pg else units*1024)+'m'
+        network = ['--network', 'container:'+pg.container] if pg else ['-p', '127.0.0.1::8443']
+        fixture = ['--mount', 'type=bind,source='+str(pg.connections)+',target=/postgres-fixture.json,readonly',
+                   '-e', 'DING_TEST_POSTGRES_FILE=/postgres-fixture.json'] if pg else []
+        args = ['docker', 'run', '--name', container, '--cpus='+str(app_cpus), '--memory='+app_memory, '--memory-swap='+app_memory] + network + fixture + [ '--mount', 'type=volume,source='+volume+',target=/lab',
                 '--mount', 'type=bind,source='+str(binary)+',target=/scale.test,readonly',
                 '--mount', 'type=bind,source='+str(output)+',target=/evidence',
                 '-e', 'DING_SCALE_CONFIG=/evidence/config.json', '-e', 'DING_SCALE_OUTPUT=/evidence',
@@ -76,7 +85,7 @@ def execute(binary, driver, config, output, environment):
                         time.sleep(.1)
                         continue
                     if environment == 'container':
-                        endpoint = 'https://'+command(['docker','port',container,'8443/tcp'])
+                        endpoint = pg.endpoint() if pg else 'https://'+command(['docker','port',container,'8443/tcp'])
                     generator = subprocess.Popen([str(driver),'-bootstrap',str(bootstrap),'-url',endpoint,
                         '-output',str(output),'-seconds',str(config['Seconds']),'-rate',str(config['Rate']),
                         '-workers',str(config.get('Workers',512))],cwd=REPO,stdout=generator_log,stderr=subprocess.STDOUT)
@@ -87,7 +96,8 @@ def execute(binary, driver, config, output, environment):
                         value = (command(['docker','stats','--no-stream','--format','{{json .}}',container])
                             if environment == 'container' else command(['ps','-o','rss=,%cpu=','-p',str(process.pid)]))
                         producer = command(['ps','-o','rss=,%cpu=','-p',str(generator.pid)]) if generator.poll() is None else None
-                        samples.append({'elapsed':time.monotonic()-started,'server':value,'generator':producer})
+                        samples.append({'elapsed':time.monotonic()-started,'server':value,'generator':producer,
+                                        'database':pg.sample() if pg else None})
                     except subprocess.CalledProcessError:
                         pass
                 time.sleep(1 if generator is None else 5)
@@ -111,7 +121,10 @@ def execute(binary, driver, config, output, environment):
                 subprocess.run(['docker','kill',container],capture_output=True)
     metadata = {'exitCode':code,'generatorExitCode':generator_code,
                 'wallSeconds':time.monotonic()-started,'resources':samples,'failure':failure,
-                'cancelledByUser':cancelled}
+                'cancelledByUser':cancelled, 'databaseStart':database_start,
+                'databaseEnd':pg.sample() if pg else None,
+                'appCPULimit':(units/2 if pg else units) if environment=='container' else None,
+                'appMemoryBytes':(units*512 if pg else units*1024)*1024**2 if environment=='container' else None}
     if environment == 'native' and (code != 0 or failure):
         for directory in [output/'failed-state', fixture_tmp]:
             if any(directory.rglob('ding.db')):
@@ -160,6 +173,12 @@ def main():
     signal.signal(signal.SIGTERM, cancel_run)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--environment', choices=['native','container'], default='native')
+    parser.add_argument('--backend', choices=['sqlite','postgres'], default='sqlite')
+    parser.add_argument('--resource-units', type=int, choices=[1,2,4], default=1,
+                        help='total CPU cores and GiB; PostgreSQL splits app/database equally')
+    parser.add_argument('--pool-limit', type=int, choices=[1,2,4,8,16], default=8)
+    parser.add_argument('--credential-readers', type=int, choices=[1,2,4,8], default=4)
+    parser.add_argument('--rate', type=int, help='override planned requests per second')
     parser.add_argument('--cases', required=True, help='comma-separated names from cases.json')
     parser.add_argument('--seconds', type=int, help='override measured interval')
     parser.add_argument('--repeat', type=int, default=1)
@@ -167,6 +186,8 @@ def main():
     parser.add_argument('--stop-file', type=Path, help='finish the active case and defer queued cases when this file exists')
     parser.add_argument('--output', type=Path, default=Path.home()/'.config/ding-cloud/local-scale/runs')
     args = parser.parse_args()
+    if args.rate is not None and not 1 <= args.rate <= 100000:
+        parser.error('rate outside local bounds')
     if not 1 <= args.repeat <= 10 or (args.seconds is not None and not 1 <= args.seconds <= 3600):
         parser.error('repeat or duration outside local bounds')
     cases = {c['Name']:c for c in json.loads((REPO/'benchmarks/push/cases.json').read_text())}
@@ -174,7 +195,7 @@ def main():
     if any(name not in cases for name in requested):
         parser.error('unknown case name')
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
-    root = args.output.resolve()/(stamp+'-'+args.environment)
+    root = args.output.resolve()/(stamp+'-'+args.environment+'-'+args.backend)
     root.mkdir(mode=0o700, parents=True)
     binary = root/'scale.test'
     driver = root/'load'
@@ -184,12 +205,19 @@ def main():
         build_env.update(GOOS='linux',CGO_ENABLED='0')
         command(['docker','pull','debian:bookworm-slim'])
     subprocess.run(['go','test','-c','-o',str(binary),'./internal/cloud'],cwd=REPO,env=build_env,check=True)
-    save(root/'manifest.json',{'revision':command(['git','rev-parse','HEAD']),
+    pg = LocalPostgres(root/'postgres-lab', args.environment, args.resource_units) if args.backend=='postgres' else None
+    save(root/'manifest.json',{'backend':args.backend,'poolLimit':args.pool_limit,
+         'credentialReaders':args.credential_readers,'resourceUnits':args.resource_units,
+         'totalCPULimit':args.resource_units if args.environment=='container' else None,
+         'totalMemoryBytes':args.resource_units*1024**3 if args.environment=='container' else None,
+         'postgres':pg.metadata if pg else None,
+         'pgx':command(['go','list','-m','github.com/jackc/pgx/v5']),
+         'revision':command(['git','rev-parse','HEAD']),
          'dirty':bool(command(['git','status','--porcelain'])), 'platform':platform.platform(),
          'environment':args.environment,'binarySHA256':hashlib.sha256(binary.read_bytes()).hexdigest(),
          'createdAt':stamp,'cases':requested,'repeat':args.repeat,'secondsOverride':args.seconds,
          'profiles':args.profiles,
-         'note':'Separate host generator. Only the server is CPU/memory constrained. Container databases use a Docker local volume; ledgers use the host filesystem.'})
+         'note':'Separate host generator. Linux app and database share the declared total CPU/RAM budget with no swap. Native exploration has an unlimited app. Owned Docker volumes preserve database files; ledgers use the host filesystem.'})
     results = []
     stop_file = args.stop_file.resolve() if args.stop_file else root/'STOP'
     print('Evidence: '+str(root),flush=True)
@@ -202,17 +230,20 @@ def main():
                 raise SystemExit('Host free-disk floor reached; preserve evidence and stop.')
             config = dict(cases[name])
             config['Profiles'] = args.profiles
+            config.update(Backend=args.backend, PoolLimit=args.pool_limit, CredentialReaders=args.credential_readers)
+            if args.rate is not None:
+                config['Rate']=args.rate
             if args.seconds is not None:
                 config['Seconds']=args.seconds
             output = root/(name+'-'+str(repeat+1));output.mkdir(mode=0o700)
             save(output/'config.json',config)
             print('Starting '+output.name,flush=True)
-            result = execute(binary,driver,config,output,args.environment)
+            result = execute(binary,driver,config,output,args.environment,pg,args.resource_units)
             results.append(result)
             with (root/'summary.json').open('w') as f:
                 json.dump(results,f,indent=2)
             print(json.dumps(result),flush=True)
-            if result.get('cancelledByUser'):
+            if result.get('cancelledByUser') or result['exitCode'] != 0:
                 stop_file.touch(mode=0o600)
         if stop_file.exists():
             break
@@ -223,6 +254,8 @@ def main():
     save(root/'run-state.json', {'state':'cancelled' if cancelled else ('deferred' if deferred else 'complete'),
          'completed':[r['case'] for r in results if not r.get('cancelledByUser')],
          'cancelled':cancelled, 'deferred':deferred})
+    if pg:
+        pg.stop()
     print('Completed '+str(len(results))+' cases.',flush=True)
 
 
