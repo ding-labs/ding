@@ -1,7 +1,9 @@
 package store
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -105,7 +107,11 @@ func (t *Tx) SaveWatch(r WatchRecord, now time.Time) error {
 	if err != nil {
 		return err
 	}
-	_, err = t.sql.ExecContext(t.ctx, `INSERT INTO watches(id,revision,generation,status,next_at,cursor,last_input_at,last_error,lifetime) VALUES(?,?,?,?,?,?,?,?,lower(hex(randomblob(32)))) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,generation=excluded.generation,status=excluded.status,next_at=excluded.next_at,cursor=excluded.cursor,last_input_at=excluded.last_input_at,last_error=excluded.last_error,lifetime=CASE WHEN watches.status='deleted' AND excluded.status!='deleted' THEN excluded.lifetime ELSE watches.lifetime END`, c.Definition.Metadata.ID, c.Revision, r.Generation, r.Status, timestamp(r.NextAt), r.Cursor, timestamp(r.LastInputAt), r.LastError)
+	var lifetime [32]byte
+	if _, err := rand.Read(lifetime[:]); err != nil {
+		return err
+	}
+	_, err = t.sql.ExecContext(t.ctx, `INSERT INTO watches(id,revision,generation,status,next_at,cursor,last_input_at,last_error,lifetime) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,generation=excluded.generation,status=excluded.status,next_at=excluded.next_at,cursor=excluded.cursor,last_input_at=excluded.last_input_at,last_error=excluded.last_error,lifetime=CASE WHEN watches.status='deleted' AND excluded.status!='deleted' THEN excluded.lifetime ELSE watches.lifetime END`, c.Definition.Metadata.ID, c.Revision, r.Generation, r.Status, timestamp(r.NextAt), r.Cursor, timestamp(r.LastInputAt), r.LastError, hex.EncodeToString(lifetime[:]))
 	return err
 }
 
