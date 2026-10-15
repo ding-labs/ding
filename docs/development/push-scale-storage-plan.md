@@ -4,7 +4,9 @@ This extends the [performance plan](push-scale-plan.md) with the owner's explici
 requirement to support both databases for open source self-hosting. SQLite stays
 the default. PostgreSQL is an optional backend in the same Go application and
 published server image; it requires no Ding Cloud account or Supabase account.
-The current implementation remains SQLite-only until the adapter work lands.
+The adapter implementation supports fresh PostgreSQL server installations with
+one enforced active owner and direct connections. See the
+[operator guide](../operate/databases.md) for accepted configuration and recovery.
 
 ## Shared domain logic and backend owned SQL
 
@@ -47,7 +49,7 @@ Backend-specific optimizations remain behind the common behavioral contract.
 ## Instance configuration
 
 Add an optional `database` object to the existing owner-only server JSON config.
-The following fragments are proposed configuration, not currently accepted fields.
+The following fragments are accepted server configuration.
 Omitting the object preserves existing SQLite configuration and `dataDir` behavior.
 
 ```json
