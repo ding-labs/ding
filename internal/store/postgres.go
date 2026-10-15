@@ -20,14 +20,8 @@ func OpenPostgres(ctx context.Context, db *sql.DB, workspace string, owners ...*
 	if db == nil || !postgresWorkspaceID.MatchString(workspace) {
 		return nil, fmt.Errorf("invalid PostgreSQL workspace")
 	}
-	var version int
-	if err := db.QueryRowContext(ctx, "SELECT version FROM ding_meta.versions WHERE component='runtime'").Scan(&version); err != nil || version != PostgresSchemaVersion {
-		return nil, fmt.Errorf("PostgreSQL runtime schema is unavailable or incompatible; run server migration")
-	}
-	var unsafe bool
-	err := db.QueryRowContext(ctx, `SELECT r.rolsuper OR r.rolbypassrls OR pg_has_role(current_user,n.nspowner,'MEMBER') OR EXISTS(SELECT 1 FROM pg_class c WHERE c.relnamespace=n.oid AND c.relkind='r' AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity)) FROM pg_roles r JOIN pg_namespace n ON n.nspname='ding_runtime' WHERE r.rolname=current_user`).Scan(&unsafe)
-	if err != nil || unsafe {
-		return nil, fmt.Errorf("PostgreSQL runtime requires a non-owner application role and forced workspace isolation")
+	if err := ValidatePostgres(ctx, db); err != nil {
+		return nil, err
 	}
 	s := &Store{db: db, postgres: true, workspace: workspace, writer: make(chan struct{}, 1)}
 	if len(owners) > 0 {
@@ -135,4 +129,19 @@ func (s *Store) viewPostgres(ctx context.Context, fn func(*Tx) error) error {
 		return err
 	}
 	return s.ownership.Fence(ctx, tx, false)
+}
+
+// ValidatePostgres checks readiness before a server can enroll its first workspace.
+func ValidatePostgres(ctx context.Context, db *sql.DB) error {
+	var version int
+	if err := db.QueryRowContext(ctx, "SELECT version FROM ding_meta.versions WHERE component='runtime'").Scan(&version); err != nil || version != PostgresSchemaVersion {
+		return fmt.Errorf("PostgreSQL runtime schema is unavailable or incompatible; run server migration")
+	}
+	var unsafe bool
+	err := db.QueryRowContext(ctx, `SELECT r.rolsuper OR r.rolbypassrls OR pg_has_role(current_user,n.nspowner,'MEMBER') OR EXISTS(SELECT 1 FROM pg_class c WHERE c.relnamespace=n.oid AND c.relkind='r' AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity)) FROM pg_roles r JOIN pg_namespace n ON n.nspname='ding_runtime' WHERE r.rolname=current_user`).Scan(&unsafe)
+	if err != nil || unsafe {
+		return fmt.Errorf("PostgreSQL runtime requires a non-owner application role and forced workspace isolation")
+	}
+
+	return nil
 }
