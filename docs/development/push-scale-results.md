@@ -2,7 +2,9 @@
 
 **SQLite got faster in the workloads with lots of groups or history. Our current
 PostgreSQL implementation is slower than SQLite in the tested configurations.**
-The results support keeping SQLite as the default and keeping PostgreSQL optional.
+SQLite remains the local default and PostgreSQL is configurable for self-hosting.
+The subsequent [Cloud plan](cloud-postgres-plan.md) targets PostgreSQL after
+optimization and production qualification; these measurements precede that work.
 
 ## What improved versus before?
 
@@ -51,8 +53,8 @@ target. We cannot call that a clean sustained rate.
 
 - **The gains are real for larger group state and receipt history.** They are not
   evidence of a universal throughput increase.
-- **PostgreSQL is currently a portability option, not a performance upgrade.**
-  Keep SQLite for Ding Cloud's current workload.
+- **This PostgreSQL implementation did not establish a performance upgrade.**
+  The revised Cloud plan addresses its bottlenecks before a production migration.
 - Before a PostgreSQL cloud migration, investigate its query/transaction volume
   and background work. At 25 pushes/s across 100 workspaces, we measured about
   647 database transactions/s including authentication, reads and background work.
