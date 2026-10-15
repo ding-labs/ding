@@ -171,7 +171,10 @@ func (t *Tx) SaveEntity(id, key, revision string, state any, now time.Time) erro
 	if err != nil {
 		return err
 	}
-	_, err = t.exec(qSaveEntity, id, key, revision, data, timestamp(now))
+	return t.saveEntityData(id, key, revision, data, now)
+}
+func (t *Tx) saveEntityData(id, key, revision string, data []byte, now time.Time) error {
+	_, err := t.exec(qSaveEntity, id, key, revision, data, timestamp(now))
 	if err != nil {
 		return err
 	}
