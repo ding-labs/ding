@@ -28,6 +28,7 @@ type scaleReport struct {
 	Before, After                      []scaleAccounting
 	Load                               PushBenchmarkResult
 	Resolved                           int
+	InternalObservations               int64
 	Errors                             []string
 	Samples                            []scaleSample
 	Preload                            PushBenchmarkResult
@@ -162,6 +163,7 @@ func TestLocalPushScale(t *testing.T) {
 		report.Errors = append(report.Errors, errs...)
 		report.PostChecksVerified = len(errs) == 0 && report.Load.Accepted > 0
 	}
+	report.InternalObservations = lab.internalObservations
 	report.After = scaleAccounts(t, lab)
 	if lab.receiver != nil {
 		start := time.Now()
@@ -175,6 +177,7 @@ func TestLocalPushScale(t *testing.T) {
 				break
 			}
 			time.Sleep(time.Second)
+			report.InternalObservations = lab.internalObservations
 			report.After = scaleAccounts(t, lab)
 		}
 		report.DeliveryDrainSeconds = time.Since(start).Seconds()

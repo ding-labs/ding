@@ -18,9 +18,10 @@ import (
 )
 
 type scaleAccounting struct {
-	Usage  store.PushUsage
-	Rows   store.Usage
-	Health store.Health
+	Watermark int64
+	Usage     store.PushUsage
+	Rows      store.Usage
+	Health    store.Health
 }
 
 func scaleAccounts(t *testing.T, lab *scaleLab) []scaleAccounting {
@@ -35,6 +36,10 @@ func scaleAccounts(t *testing.T, lab *scaleLab) []scaleAccounting {
 				return err
 			}
 			a.Rows, err = tx.Usage()
+			if err != nil {
+				return err
+			}
+			a.Watermark, err = tx.ObservationWatermark()
 			return err
 		}); err != nil {
 			t.Fatal(err)
@@ -61,6 +66,7 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 	seen := map[[32]byte]bool{}
 	ids := map[[32]byte]bool{}
 	expected := make([]store.PushUsage, len(lab.tenants))
+	spans := make([][]scaleSpan, len(lab.tenants))
 	records := make([]store.WatchRecord, len(lab.tenants))
 	grants := make([]state.Service, len(lab.tenants))
 	for i, tenant := range lab.tenants {
@@ -111,14 +117,18 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 		}
 		if e.Stage == "offered" {
 			id := sha256.Sum256([]byte(r.AcceptanceID))
-			if ids[id] || r.Last-r.First+1 != int64(c.Outputs) {
+			if ids[id] || r.First < 1 || r.Last < r.First || r.Last-r.First+1 > int64(c.Outputs+1) {
 				problems = append(problems, "duplicate key or receipt range/identity mismatch")
 			}
 			ids[id] = true
 			committed++
 			expected[i].Requests++
 			expected[i].Bytes += int64(len(p.Body))
-			expected[i].Observations += int64(c.Outputs)
+			expected[i].Observations += r.Last - r.First + 1
+			spans[i] = append(spans[i], scaleSpan{r.First, r.Last})
+			if err := scaleVerifyReceipt(lab.tenants[i], r, c.Outputs); err != nil {
+				problems = append(problems, err.Error())
+			}
 		} else {
 			ack := e.Receipt
 			acknowledged++
@@ -135,10 +145,16 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 		problems = append(problems, "more acknowledgments than durable offers")
 	}
 	after := scaleAccounts(t, lab)
+	lab.internalObservations = 0
 	for i, a := range after {
 		b := before[i]
 		delta := store.PushUsage{Requests: a.Usage.Requests - b.Usage.Requests, Bytes: a.Usage.Bytes - b.Usage.Bytes, Observations: a.Usage.Observations - b.Usage.Observations}
-		if delta != expected[i] || int64(a.Rows.Observations-b.Rows.Observations) != expected[i].Observations {
+		internal, err := scaleVerifyCoverage(lab.tenants[i], before[i].Watermark, a.Watermark, spans[i])
+		if err != nil {
+			problems = append(problems, err.Error())
+		}
+		lab.internalObservations += internal
+		if delta != expected[i] || int64(a.Rows.Observations-b.Rows.Observations) != expected[i].Observations+internal {
 			problems = append(problems, fmt.Sprintf("workspace %d durable usage/rows differ", i))
 		}
 		if a.Health.Integrity != "ok" {

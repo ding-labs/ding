@@ -25,19 +25,20 @@ import (
 )
 
 type scaleLab struct {
-	storage         *ServerStorage
-	databaseConfig  database.Config
-	fixtureDatabase string
-	server          *Server
-	http            *httptest.Server
-	tenants         []*Tenant
-	producers       []PushProducer
-	root            string
-	receiver        *scaleReceiver
-	key             []byte
-	control         http.Handler
-	controlMu       sync.RWMutex
-	preloadFills    []PushBenchmarkResult
+	internalObservations int64
+	storage              *ServerStorage
+	databaseConfig       database.Config
+	fixtureDatabase      string
+	server               *Server
+	http                 *httptest.Server
+	tenants              []*Tenant
+	producers            []PushProducer
+	root                 string
+	receiver             *scaleReceiver
+	key                  []byte
+	control              http.Handler
+	controlMu            sync.RWMutex
+	preloadFills         []PushBenchmarkResult
 }
 
 func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {

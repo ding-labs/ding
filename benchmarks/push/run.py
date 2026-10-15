@@ -162,8 +162,9 @@ def execute(binary, driver, config, output, environment, pg=None, units=1):
             'generatorBusy':load['generatorBusy'],'statuses':load['statuses'],'resolved':report['Resolved'],
             'reconciliationErrors':report['Errors'],'readP99MS':report['ReadP99MS'],
             'pendingDeliveries':pending,'postChecksVerified':postchecks,
-            'inconclusive': 'producer clock discontinuity' if load.get('clockDiscontinuity') else None,
-            'stable':code==0 and generator_code==0 and qualified_load(load) and fraction>=.999 and load['p99MS']<250 and not report['Errors'] and not report['ReadErrors'] and pending==0 and postchecks}
+            'inconclusive': ('producer clock discontinuity' if load.get('clockDiscontinuity') else
+                             'server clock discontinuity' if report.get('InternalObservations',0) else None),
+            'stable':code==0 and generator_code==0 and qualified_load(load) and fraction>=.999 and load['p99MS']<250 and not report['Errors'] and not report['ReadErrors'] and not report.get('InternalObservations',0) and pending==0 and postchecks}
 
 
 def main():
