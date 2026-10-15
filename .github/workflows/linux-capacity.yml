@@ -144,4 +144,5 @@ jobs:
             ${{ runner.temp }}/capacity/runs/*/*/requests.jsonl
             ${{ runner.temp }}/capacity/runs/*/*/run.log
             ${{ runner.temp }}/capacity/runs/*/*/generator.log
+            ${{ runner.temp }}/capacity/runs/*/*/*.pprof
           retention-days: 14
