@@ -15,13 +15,15 @@ Run from the repository root with Go, Python 3, and Docker for container cases:
 python3 benchmarks/push/run.py --environment native --cases generator-2500,one-100,one-500 --seconds 30
 python3 benchmarks/push/run.py --environment container --generator-placement container --cases generator-2500,one-100,one-500 --seconds 30
 python3 benchmarks/push/run.py --environment native --cases one-250,one-500 --repeat 3
-python3 benchmarks/push/run.py --environment container --generator-placement container --backend postgres --receiver-process --cases sustain-many
+python3 benchmarks/push/run.py --environment container --generator-placement container --backend postgres --pool-limit 2 --cases sustain-one --rate 50 --seconds 1800
 ```
 
 `cases.json` contains payload, batch, group, receipt-aging, rolling-window,
 concurrent-read, noisy-workspace, destination, and restart scenarios. Screen
 briefly, then repeat boundary cases for three minutes and stable cases for thirty
-minutes. Mature rolling-window measurements need more than one minute.
+minutes. Mature rolling-window measurements need more than one minute. The PostgreSQL
+command above repeats the qualified hot-workspace profile; consult the results
+before choosing a sustained cohort rate.
 
 SQLite is the default; `--backend postgres` owns a pinned local PostgreSQL lab.
 Container comparisons default to **1 CPU and 1 GiB total for app plus database**.
