@@ -78,6 +78,16 @@ Ordinary Go test failures close the active workers/stores before moving fixture
 state outside testing's cleanup directory. Native failures keep it in the case's
 `failed-state` directory; container archives include the preserved directory.
 
+`business-mixed` and `business-mixed100` use a declared synthetic mix across
+10/100 workspaces: 80% 10 KB/one-output webhooks, 15% 100 KB/18-output batches,
+and 5% 600 KB/100-output batches. Bodies include nested workflow/job metadata and
+deterministic high-entropy padding; padding is parsed but not retained. This is a
+representative shape test, not a captured customer trace. Payload weights are
+explicit, and the report records per-class accepted counts, bytes, observation
+counts and p99. Each 20 arrivals represents 1.06 MB and 170 observations. Reads
+and graceful restart reconciliation are enabled. Run retained-padding, alert
+and HTTP-polling scenarios separately before claiming a complete business mix.
+
 ## Interpret evidence
 
 Private evidence defaults to `~/.config/ding-cloud/local-scale/runs/`. Each run

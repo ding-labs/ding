@@ -17,6 +17,7 @@ type scaleConfig struct {
 	Watches, DeliveryWorkers                                       int
 	ReceiverProcess                                                bool
 	EntropyPadding, Nested                                         bool
+	PayloadMix                                                     bool
 	Rate, Seconds, Workers, Workspaces, Outputs, Groups, BodyBytes int
 	Condition                                                      string // simple, window, or alerts
 	RetainPadding, Defaults, Reads, Restart, Noop, Profiles        bool
@@ -61,6 +62,9 @@ func (c *scaleConfig) validate() error {
 	}
 	if c.Groups == 0 {
 		c.Groups = c.Outputs
+		if c.PayloadMix {
+			c.Groups = 100
+		}
 	}
 	if c.Condition == "" {
 		c.Condition = "simple"
@@ -100,6 +104,21 @@ func (c scaleConfig) manifest() string {
 // Variants rotate through the whole group set. Each body stays immutable in a
 // producer fixture, so retries use exactly the originally offered bytes.
 func (c scaleConfig) bodies() ([]json.RawMessage, error) {
+	if c.PayloadMix {
+		var bodies []json.RawMessage
+		for _, shape := range []struct{ bytes, outputs int }{{10000, 1}, {100000, 18}, {600000, 100}} {
+			part := c
+			part.PayloadMix = false
+			part.BodyBytes, part.Outputs, part.Groups = shape.bytes, shape.outputs, shape.outputs
+			part.Nested, part.EntropyPadding = true, true
+			variants, err := part.bodies()
+			if err != nil {
+				return nil, err
+			}
+			bodies = append(bodies, variants[0])
+		}
+		return bodies, nil
+	}
 	n := (c.Groups + c.Outputs - 1) / c.Outputs
 	out := make([]json.RawMessage, n)
 	for variant := range n {
@@ -145,6 +164,32 @@ func (c scaleConfig) bodies() ([]json.RawMessage, error) {
 		out[variant], _ = json.Marshal(body)
 	}
 	return out, nil
+}
+
+func scaleProducerOutputs(p PushProducer) int {
+	var body struct {
+		Events []json.RawMessage `json:"events"`
+	}
+	if json.Unmarshal(p.Body, &body) != nil {
+		return 0
+	}
+	return len(body.Events)
+}
+
+func TestScaleMixedPayloadShapes(t *testing.T) {
+	c := scaleConfig{Name: "mix", Rate: 20, Seconds: 1, PayloadMix: true}
+	if err := c.validate(); err != nil {
+		t.Fatal(err)
+	}
+	bodies, err := c.bodies()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, shape := range []struct{ bytes, outputs int }{{10000, 1}, {100000, 18}, {600000, 100}} {
+		if len(bodies[i]) != shape.bytes || scaleProducerOutputs(PushProducer{Body: bodies[i]}) != shape.outputs {
+			t.Fatal("wrong mixed shape", i)
+		}
+	}
 }
 
 func TestScaleFixtureSizesAndGroups(t *testing.T) {

@@ -88,12 +88,14 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 	committed, acknowledged := 0, 0
 	producerWorkspaces := make([]int, len(lab.producers))
 	digests := make([]string, len(lab.producers))
+	outputsByProducer := make([]int, len(lab.producers))
 	for index, p := range lab.producers {
 		i, err := strconv.Atoi(strings.TrimPrefix(p.TokenEnv, "DING_LOCAL_SCALE_"))
 		if err != nil {
 			t.Fatal(err)
 		}
 		producerWorkspaces[index] = i
+		outputsByProducer[index] = scaleProducerOutputs(p)
 		digests[index] = fmt.Sprintf("%x", sha256.Sum256(p.Body))
 	}
 	consume := func(tx *store.Tx, i int, current map[string]store.WatchRecord, e pushLedgerEntry) {
@@ -105,6 +107,7 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 			seen[hash] = true
 		}
 		p := lab.producers[e.Producer]
+		outputs := outputsByProducer[e.Producer]
 		watchID := scaleProducerWatch(p)
 		rc, known := current[watchID]
 		if !known {
@@ -133,7 +136,7 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 		}
 		if e.Stage == "offered" || e.Stage == "planned" {
 			id := sha256.Sum256([]byte(r.AcceptanceID))
-			if ids[id] || r.First < 1 || r.Last < r.First || r.Last-r.First+1 > int64(c.Outputs+1) {
+			if ids[id] || r.First < 1 || r.Last < r.First || r.Last-r.First+1 > int64(outputs+1) {
 				problems = append(problems, "duplicate key or receipt range/identity mismatch")
 			}
 			ids[id] = true
@@ -142,7 +145,7 @@ func scaleReconcile(t *testing.T, lab *scaleLab, c scaleConfig, path string, bef
 			expected[i].Bytes += int64(len(p.Body))
 			expected[i].Observations += r.Last - r.First + 1
 			spans[i] = append(spans[i], scaleSpan{r.First, r.Last})
-			if err := scaleVerifyReceiptTx(tx, r, c.Outputs); err != nil {
+			if err := scaleVerifyReceiptTx(tx, r, outputs); err != nil {
 				problems = append(problems, err.Error())
 			}
 		} else {
@@ -330,5 +333,25 @@ func TestScaleReconcileRetainsChecksAcrossChunks(t *testing.T) {
 				t.Fatal("chunk boundary hid evidence corruption", problems)
 			}
 		})
+	}
+}
+
+func TestScaleMixedPayloadsReconcileExactBytesAndOutputs(t *testing.T) {
+	c := scaleConfig{Name: "mixed-reconcile", Rate: 20, Seconds: 1, PayloadMix: true}
+	if err := c.validate(); err != nil {
+		t.Fatal(err)
+	}
+	lab := newScaleLab(t, c)
+	before := scaleAccounts(t, lab)
+	path := t.TempDir() + "/ledger"
+	r, err := BenchmarkPush(context.Background(), PushBenchmarkOptions{Producers: lab.producers, Client: lab.http.Client(), Rate: 20, Duration: 1000000000, Ledger: path, CompactLedger: true, PreplannedLedger: true, NoRetry: true})
+	if err != nil || r.Accepted != 20 || r.AcceptedBytes != 1060000 || r.AcceptedObservations != 170 {
+		t.Fatal(r, err)
+	}
+	if r.Payloads["webhook10k"].Accepted != 16 || r.Payloads["batch18_100k"].Accepted != 3 || r.Payloads["batch100_600k"].Accepted != 1 {
+		t.Fatal(r.Payloads)
+	}
+	if resolved, problems := scaleReconcile(t, lab, c, path, before); resolved != 0 || len(problems) != 0 {
+		t.Fatal(resolved, problems)
 	}
 }

@@ -200,8 +200,13 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 		env := fmt.Sprintf("DING_LOCAL_SCALE_%d", i)
 		t.Setenv(env, grant.Token)
 		for _, watchID := range c.watchIDs() {
-			for _, body := range bodies {
-				lab.producers = append(lab.producers, PushProducer{URL: server.URL + "/v1/ingest/" + watchID, TokenEnv: env, Body: body})
+			for index, body := range bodies {
+				producer := PushProducer{URL: server.URL + "/v1/ingest/" + watchID, TokenEnv: env, Body: body}
+				if c.PayloadMix {
+					producer.Weight = []int{16, 3, 1}[index]
+					producer.Label = []string{"webhook10k", "batch18_100k", "batch100_600k"}[index]
+				}
+				lab.producers = append(lab.producers, producer)
 			}
 		}
 		lab.tenants = append(lab.tenants, tenant)
