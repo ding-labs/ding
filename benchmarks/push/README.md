@@ -1,7 +1,7 @@
 # Local push stress tests
 
 This suite measures Ding's authenticated JSON ingestion through real local TLS,
-workspace SQLite stores, evaluation, receipts, and optional webhook delivery.
+SQLite or PostgreSQL workspace stores, evaluation, receipts, and optional webhook delivery.
 Every offered key is reconciled against durable receipts, usage, and observation
 rows after measurement. Capacity runs leave profiling off. Use `--profiles` for
 diagnostic runs; their profiles exclude setup, warmup, and reconciliation. Compare
@@ -13,9 +13,9 @@ Run from the repository root with Go, Python 3, and Docker for container cases:
 
 ```sh
 python3 benchmarks/push/run.py --environment native --cases generator-2500,one-100,one-500 --seconds 30
-python3 benchmarks/push/run.py --environment container --cases generator-2500,one-100,one-500 --seconds 30
+python3 benchmarks/push/run.py --environment container --generator-placement container --cases generator-2500,one-100,one-500 --seconds 30
 python3 benchmarks/push/run.py --environment native --cases one-250,one-500 --repeat 3
-python3 benchmarks/push/run.py --environment container --cases sustain-many
+python3 benchmarks/push/run.py --environment container --generator-placement container --backend postgres --receiver-process --cases sustain-many
 ```
 
 `cases.json` contains payload, batch, group, receipt-aging, rolling-window,
@@ -23,14 +23,32 @@ concurrent-read, noisy-workspace, destination, and restart scenarios. Screen
 briefly, then repeat boundary cases for three minutes and stable cases for thirty
 minutes. Mature rolling-window measurements need more than one minute.
 
-The producer runs as a separate host process. Only the container server gets the
-1 CPU and 1 GiB RAM limits. Its databases use a Docker local volume; evidence and
-the producer ledger use the host filesystem. The volume has no 1 GiB size cap;
-compare recorded growth with Railway's actual storage allocation separately.
-Native and container filesystem performance cannot establish Railway capacity.
+SQLite is the default; `--backend postgres` owns a pinned local PostgreSQL lab.
+Container comparisons default to **1 CPU and 1 GiB total for app plus database**.
+SQLite receives the whole budget. PostgreSQL splits it equally between the Go app
+and database, with a shared query pool selected by `--pool-limit`. Use
+`--resource-units 2` or `4` for separately labelled expanded-budget comparisons;
+`--credential-readers 1/2/4/8` sweeps the SQLite control read pool.
+
+The producer is always a separate process. `--generator-placement container`
+uses a separate Linux container limited to 2 CPU/512 MiB, outside the server
+budget, with actual limits checked and usage sampled. Traffic uses Linux loopback
+and bypasses Docker Desktop's host port forwarding. The default `host` placement
+remains useful for native exploration and historical comparisons. Keep those
+network families separate; run matched controls before attributing a difference
+to the database. `--receiver-process` similarly puts delivery I/O in a separate
+0.5 CPU/256 MiB local TLS receiver and reconciles its durable acknowledgement log.
+
+Databases use owned Docker volumes; evidence and producer ledgers remain on the
+host filesystem. Volumes have no 1 GiB size cap. Compare growth with Railway's
+actual storage allocation separately. Native apps are unlimited, so their results
+are a separate exploration family. Local filesystem results cannot establish
+Railway capacity.
 Create the run directory's `STOP` file to finish the active case and defer the
 queue, or supply a shared `--stop-file PATH` for orchestration. `run-state.json`
-records exactly which cases completed and which remain deferred.
+records completed, failed, canceled and deferred cases. Lost resource observation
+or an unavailable Docker/database makes the result inconclusive and cannot
+produce a stable-capacity verdict.
 An interrupt cancels the active case, stops the queue and records cancellation.
 Native temporary databases stay under the private case directory so an abrupt
 server exit cannot erase the remaining state needed for diagnosis.
@@ -74,6 +92,11 @@ go tool pprof -top -cum RUN/scale.test RUN/CASE/cpu.pprof
 go tool pprof -top -cum RUN/scale.test RUN/CASE/mutex.pprof
 go test ./internal/store -run '^$' -bench '^BenchmarkPushReceiptCount$' -benchtime=1s
 ```
+
+The retained-padding cases distinguish repeated `x` bytes from deterministic
+high-entropy strings. PostgreSQL TOAST can compress repeated strings heavily;
+that result is not representative of arbitrary retained JSON. `nested18-600k`
+adds bounded nested objects and arrays around an 18-output payload.
 
 The receipt microbenchmark seeds only the receipt table. Its timings measure
 query cost, not complete ingestion capacity. The cloud soak and its credentials
