@@ -69,8 +69,15 @@ The first A/B/A attempt was interrupted because a Bash `SECONDS` variable caused
 later stages to lengthen. Its evidence is retained and excluded. The corrected
 run records exactly 30 seconds in every stage.
 
-Three 180-second repeats at 50 requests/s are in progress for one and 100 workspaces
-on both backends. The initial profile allocates Go 1 CPU/1 GiB and PostgreSQL
+All three 180-second repeats at 50 requests/s passed for both one and 100
+workspaces, on both backends: **54,000 accepted requests per backend**, no
+rejections/uncertainty/read errors, and exact durable reconciliation. SQLite p99
+was 8 ms in every repeat. PostgreSQL p99 was 21–32 ms for one workspace and
+23–43 ms for 100. This is 50 observations/s and 2.75 KB/s of JSON body data.
+
+Thirty-minute hot/many-workspace runs at 35 requests/s (70% of the repeated rate)
+are now running with inspection reads and graceful restart reconciliation. The
+larger database profile is also undergoing three 180-second repeats at 100/s. The initial profile allocates Go 1 CPU/1 GiB and PostgreSQL
 1 CPU/2 GiB, with four query connections. SQLite receives 1 CPU/1 GiB. Generators
 run separately on the same VM; this is a loopback diagnostic topology.
 
