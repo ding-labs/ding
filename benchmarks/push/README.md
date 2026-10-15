@@ -51,7 +51,8 @@ does not make an overloaded workload stable.
 
 Stability requires at least 99.9% of planned requests accepted on their first
 attempt, acceptance p99 below 250 ms, successful reconciliation and postchecks,
-no read errors, and a drained outbox. These are local test targets. Restart is a
+no missed generator arrivals, unexpected rejections, uncertain responses or read
+errors, and a drained outbox. These are local test targets. Restart is a
 graceful store/worker reopen, not a power-loss or physical process-crash test.
 Outbox drain is bounded to one minute; remaining work is reported explicitly.
 

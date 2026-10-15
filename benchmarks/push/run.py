@@ -23,6 +23,10 @@ def save(path, value):
         json.dump(value, f, indent=2)
 
 
+def qualified_load(load):
+    return load['generatorBusy'] == 0 and load['unconfirmed'] == 0 and load['rejected'] == 0
+
+
 def execute(binary, driver, config, output, environment):
     env = dict(os.environ, DING_SCALE_CONFIG=str(output / 'config.json'),
                DING_SCALE_OUTPUT=str(output), DING_SCALE_EXTERNAL=environment)
@@ -108,7 +112,7 @@ def execute(binary, driver, config, output, environment):
             'generatorBusy':load['generatorBusy'],'statuses':load['statuses'],'resolved':report['Resolved'],
             'reconciliationErrors':report['Errors'],'readP99MS':report['ReadP99MS'],
             'pendingDeliveries':pending,'postChecksVerified':postchecks,
-            'stable':code==0 and generator_code==0 and fraction>=.999 and load['p99MS']<250 and not report['Errors'] and not report['ReadErrors'] and pending==0 and postchecks}
+            'stable':code==0 and generator_code==0 and qualified_load(load) and fraction>=.999 and load['p99MS']<250 and not report['Errors'] and not report['ReadErrors'] and pending==0 and postchecks}
 
 
 def main():
