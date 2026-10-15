@@ -20,6 +20,7 @@ class Qualification(unittest.TestCase):
         config = {'Rate':10,'Seconds':30,'Restart':True}
         good = {'exitCode':0,'generatorExitCode':0,'resources':[{}],'generatorResources':[{}],
                 'report':{'Load':{'firstAccepted':300,'scheduleP99MS':2,'p99MS':20},'ReadErrors':0,
+                          'Samples':[{'Metrics':'ding_cloud_ingest_seconds_count 300\n'}],
                           'After':[],'PostChecksVerified':True,'RestartVerified':True}}
         self.assertTrue(qualifies(good,config))
         for key,value in [('firstAccepted',299),('scheduleP99MS',21),('clockDiscontinuity',True),('generatorBusy',1),('throttled',1)]:
@@ -27,3 +28,6 @@ class Qualification(unittest.TestCase):
             self.assertFalse(qualifies(bad,config),key)
         bad=copy.deepcopy(good);bad['report']['RestartVerified']=False
         self.assertFalse(qualifies(bad,config))
+        for samples in ([],[{'Metrics':'metrics collection unavailable\n'}]):
+            bad=copy.deepcopy(good);bad['report']['Samples']=samples
+            self.assertFalse(qualifies(bad,config))

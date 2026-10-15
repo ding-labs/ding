@@ -32,6 +32,8 @@ def qualifies(result, config):
         and not report.get('Errors') and report.get('ReadErrors')==0 and not report.get('InternalObservations')
         and result['resources'] and result['generatorResources']
         and not any(s.get('observerError') for s in result['resources'])
+        and report.get('Samples')
+        and all('ding_cloud_ingest_seconds_count ' in s.get('Metrics','') for s in report['Samples'])
         and not sum(s['Rows']['pending'] for s in report.get('After',[]))
         and (config.get('Noop') or report.get('PostChecksVerified'))
         and (not config.get('Restart') or report.get('RestartVerified')))
