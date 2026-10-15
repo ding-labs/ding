@@ -365,11 +365,12 @@ func TestFiveSecondRestartDemonstration(t *testing.T) {
 		}
 	}))
 	defer endpoint.Close()
-	var accepted atomic.Int64
+	var accepted, rejected atomic.Int64
 	var reject atomic.Bool
 	reject.Store(true)
 	receiver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if reject.Load() {
+			rejected.Add(1)
 			w.Header().Set("Retry-After", "2")
 			w.WriteHeader(429)
 		} else {
@@ -409,13 +410,14 @@ func TestFiveSecondRestartDemonstration(t *testing.T) {
 		}
 	})
 	deadline := time.Now().Add(18 * time.Second)
-	for calls.Load() < 3 && time.Now().Before(deadline) {
+	for (calls.Load() < 3 || rejected.Load() == 0) && time.Now().Before(deadline) {
 		time.Sleep(20 * time.Millisecond)
 	}
-	// Allow the third response to commit and the first attempt to see 429.
-	time.Sleep(500 * time.Millisecond)
-	if calls.Load() < 3 {
-		t.Fatal("did not poll every five seconds")
+	// Reaching the receiver proves firing state and its leased intent were
+	// committed. Counting source calls plus sleeping could kill the child
+	// before acceptance on a slow CI host.
+	if calls.Load() < 3 || rejected.Load() == 0 {
+		t.Fatal("polling did not commit firing state and attempt delivery")
 	}
 	_ = child.Process.Kill()
 	_ = child.Wait()
