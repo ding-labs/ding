@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"path/filepath"
 	"testing"
@@ -95,11 +96,15 @@ func TestScaleReceiverEvidenceIncludesAllDeliveryPages(t *testing.T) {
 		t.Fatal(err)
 	}
 	lab := newScaleLab(t, c)
-	result, err := BenchmarkPush(context.Background(), PushBenchmarkOptions{Producers: lab.producers, Client: lab.http.Client(), Duration: 2e9, Rate: 100, Ledger: t.TempDir() + "/requests", LedgerBatch: 8, CompactLedger: true, NoRetry: true})
-	if err != nil || result.Accepted != 200 {
-		t.Fatal(result, err)
+	// This is pagination correctness, so send a fixed number without a
+	// timed arrival gate that depends on race-detector/CI machine speed.
+	for i := range 200 {
+		p := lab.producers[i%len(lab.producers)]
+		if status, _ := scaleSend(t, lab, p, fmt.Sprintf("page-%d", i), p.Body); status != 202 {
+			t.Fatal("fixture acceptance", status)
+		}
 	}
-	deadline := time.Now().Add(8 * time.Second)
+	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
 		pending := 0
 		for _, a := range scaleAccounts(t, lab) {
