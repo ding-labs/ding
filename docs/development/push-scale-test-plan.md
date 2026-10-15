@@ -86,3 +86,76 @@ SQLite keeps WAL/FULL. PostgreSQL keeps `fsync`, `full_page_writes` and
 autovacuum and buffer configuration. Pooling and durability experiments remain
 separate. A Docker restart or process kill does not qualify physical power loss.
 [PostgreSQL WAL durability](https://www.postgresql.org/docs/current/runtime-config-wal.html).
+
+## T5 Rerun the full workload matrix
+
+Use three application variants: the preserved SQLite control, optimized SQLite,
+and optimized Go with direct PostgreSQL. Add pooled PostgreSQL after T2/G6 pass.
+The current Go lab must gain backend selection and portable accounting/health
+checks; hardcoded workspace files and SQLite checks cannot stand in for that work.
+
+| Dimension | Required cases |
+| --- | --- |
+| Arrival rate | Small-body ramps through 100/250/500/1,000/2,500 planned requests/s; qualify the generator before any higher rate |
+| Tenant distribution | 1/10/100 workspaces, multiple watches in one workspace, independent credentials, and a noisy workspace with quiet peers |
+| Output count | 1/18/100 observations per accepted request; report both requests/s and observations/s |
+| Input bytes and shape | Small, 10 KB, 100 KB, 600 KB and 1 MiB; ignored versus retained padding; bounded realistic nested/array JSON, including an 18-item cloud-soak-shaped batch |
+| State population | 1/100/1,000/10,000 real groups; repeated groups; mature one-minute windows |
+| History | Fresh and 100,000+ receipts; ordinary and pinned history; receipt expiry and retention churn |
+| Reads | Authenticated inspection at a recorded aggregate rate, plus per-workspace fairness; large entity/outbox pages |
+| Delivery | Fast, 100 ms slow and outage/recovery; single versus independent streams; separate receiver resources |
+| Recovery | Graceful reopen; local app/database/pooler process termination; uncertain commit response; counter repair; lease reclaim |
+| Admission | Operator defaults and raised finite lab limits; storage/receipt/pending/pool exhaustion; malformed/deep/oversized input and credential floods |
+
+Expected policy/adversarial rejections use their own assertions; they are not a
+valid-input capacity failure. Keep eventful workloads separate from healthy
+state updates. Prepopulation and clock-controlled expiry logic tests are labelled
+setup/correctness work; measured throughput uses real time and the actual service.
+
+Screen the whole matrix first. Extend qualified operating-range and boundary
+cases to 180 seconds, repeating the meaningful boundary three times. Expected
+overload screens can stop once their cause and recovery are established. Run the
+complete fixed comparison set on the final candidate without profiling.
+
+Then resume the deferred thirty-minute tests at rates established as sustainable:
+one hot workspace and many workspaces with reads and a final reopen/reconcile.
+Choose each backend's qualified operating range and include a common fixed rate
+for direct comparison. The old arbitrary sustained rates are not guaranteed to
+remain appropriate. Add aged-store churn and the separate delivery recovery test
+to the final qualification when their changed paths require sustained evidence.
+
+## T6 Decide from correctness and repeatability
+
+The valid-input local target remains at least 99.9% first-attempt acknowledgement,
+acceptance p99 below 250 ms, zero missed generator arrivals, unexpected rejections,
+uncertain responses or read errors, correct durable reconciliation and verified
+postchecks. Delivery cases additionally need the declared backlog/drain target;
+an intentionally overloaded single stream can pass its overload/recovery test
+without being classified as sustainably drained during input.
+
+Require three qualified boundary repeats and sustained evidence before claiming
+a supported rate. Report p50/p95/p99, accepted fraction, explicit pressure/error
+codes, runtime/heap/RSS, CPU, connection and row-lock waits, queue age, logical and
+physical storage, WAL/checkpoints and restart/recovery outcomes. Reconcile every
+offered key, including uncertain responses, against durable receipts and actual
+usage. A resolved lost response still fails the first-attempt latency/service target.
+
+Publish a sanitized comparison with workload/configuration, exact revisions,
+backend/driver versions, resource splits, missing/cancelled/inconclusive cases and
+untested deployment gates. Preserve private raw evidence. Recommend production
+PostgreSQL based on repeatable gains or demonstrated multi-process/availability
+needs plus recovery and cost, rather than a pooling microbenchmark.
+
+## T7 Keep implementation and evidence reviewable
+
+For R1–R8 and G1–G7, use the source/API preparation, associated regression tests,
+runtime switch/migration and before/after evidence as separate focused commits
+where they are independently coherent. Do not combine a schema port, worker
+coordination, pooler and deployment into one commit or PR. Preserve every small
+commit when pushing.
+
+The release sequence is optimized SQLite, experimental PostgreSQL parity,
+distributed/pooler qualification, final matrix, architecture decision, and tested
+cloud cutover. Leave the existing Cloud soak's worker, credentials, production
+revision and schedule intact throughout local work. Its eventual completion and
+cleanup remain governed by the separate soak runbook.
