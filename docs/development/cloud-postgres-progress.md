@@ -14,7 +14,10 @@ execution owner; multi-server coordination and Cloud migration are separate gate
 | Same 25 pushes/s, SQLite control | p99 7 ms | p99 7–8 ms |
 
 The idle result counts real SQL transactions. It does not mean the database does
-no work: minute maintenance is measured separately. The latency figures came from
+no work: minute maintenance is measured separately, and this idle diagnostic
+excludes SQL-backed metrics scraping. The current operator metrics endpoint still
+reads each workspace; reducing that collection cost remains follow-up work.
+The latency figures came from
 separate GitHub VMs, so they demonstrate progress without establishing a precise
 speedup multiplier. Small requests were **55 bytes with one observation**, not
 600 KB. Each 30-second, 25/s case offered 750 requests and reconciled its receipts.

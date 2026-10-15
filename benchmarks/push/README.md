@@ -11,6 +11,10 @@ fixture. Resource snapshots contain cumulative app-role planning/execution, bloc
 and WAL counters grouped by bounded operation names; subtract snapshots for a
 measurement interval. SQL text, parameters and credential roles are not exported.
 This profiling overhead is excluded from ordinary capacity runs.
+Use the report's `StartedAt`/`EndedAt` and each database counter's timestamp to
+select the measured interval: launcher samples also cover setup and reconciliation.
+`databaseEnd` is after fixture teardown, so a dropped test database can reduce its
+database-wide totals; it is not a final retained-storage measurement.
 
 ## Run cases
 
