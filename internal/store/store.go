@@ -16,6 +16,7 @@ import (
 
 	"github.com/ding-labs/ding/internal/access"
 	"github.com/ding-labs/ding/internal/database"
+	"github.com/ding-labs/ding/internal/runtimeperf"
 	_ "modernc.org/sqlite"
 )
 
@@ -168,6 +169,7 @@ func (s *Store) Close() error {
 	return errors.Join(readErr, checkpointErr, err, unlockErr)
 }
 func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
+	waited := time.Now()
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.closed {
@@ -177,12 +179,16 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 	case s.writer <- struct{}{}:
 		defer func() { <-s.writer }()
 	case <-ctx.Done():
+		runtimeperf.Since(s.PerfBackend(), runtimeperf.WriterWait, waited)
 		return ctx.Err()
 	}
+	runtimeperf.Since(s.PerfBackend(), runtimeperf.WriterWait, waited)
 	if s.postgres {
 		return s.updatePostgres(ctx, fn)
 	}
+	began := time.Now()
 	tx, err := s.db.BeginTx(ctx, nil)
+	runtimeperf.Since(s.PerfBackend(), runtimeperf.Begin, began)
 	if err != nil {
 		return err
 	}
@@ -199,7 +205,10 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 		}
 	}
 	stx := &Tx{ctx: ctx, sql: tx, writable: true}
-	if err = fn(stx); err != nil {
+	callback := time.Now()
+	err = fn(stx)
+	runtimeperf.Since(s.PerfBackend(), runtimeperf.Callback, callback)
+	if err != nil {
 		return err
 	}
 	if attributed {
@@ -216,9 +225,13 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 	if err = check(); err != nil {
 		return err
 	}
-	return tx.Commit()
+	started := time.Now()
+	err = tx.Commit()
+	runtimeperf.Since(s.PerfBackend(), runtimeperf.Commit, started)
+	return err
 }
 func (s *Store) View(ctx context.Context, fn func(*Tx) error) error {
+	defer runtimeperf.Since(s.PerfBackend(), runtimeperf.Snapshot, time.Now())
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.closed {
