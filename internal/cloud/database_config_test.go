@@ -33,3 +33,19 @@ func TestDatabaseConfigPreservesSQLiteDefaultAndFailsWithoutFallback(t *testing.
 		t.Fatal("existing SQLite state implicitly switched backend")
 	}
 }
+
+func TestPostgresCapacityDoesNotInheritSQLiteBackupEnvelope(t *testing.T) {
+	c := Config{Hosting: "self-hosted", PublicURL: "https://ding.example", DataDir: t.TempDir(), KeyFile: filepath.Join(t.TempDir(), "key")}
+	c.Capacity.MaxStoreBytes = 1 << 30
+	if err := c.Validate(); err == nil {
+		t.Fatal("SQLite backup envelope bypassed")
+	}
+	c.Database = database.Config{Backend: "postgres", DSNRef: &database.SecretRef{Env: "DING_TEST_DATABASE_URL"}}
+	if err := c.Validate(); err != nil {
+		t.Fatal("PostgreSQL logical quota was limited by SQLite files", err)
+	}
+	c.Capacity.MaxStoreBytes = (1 << 40) + 1
+	if err := c.Validate(); err == nil {
+		t.Fatal("unbounded logical quota accepted")
+	}
+}

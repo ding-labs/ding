@@ -62,6 +62,9 @@ func (c *Config) Validate() error {
 	if err := c.Capacity.Validate(); err != nil {
 		return err
 	}
+	if c.Database.Effective().Backend == "sqlite" && c.Capacity.Effective().MaxStoreBytes > 128<<20 {
+		return fmt.Errorf("SQLite workspace capacity must fit the 128 MiB offline backup envelope")
+	}
 	if err := c.Push.Validate(c.Capacity.Effective().MaxBodyBytes); err != nil {
 		return err
 	}
