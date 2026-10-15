@@ -81,7 +81,9 @@ func TestOwnershipDetectsTerminatedDatabaseSession(t *testing.T) {
 	}
 	defer admin.Close()
 	var terminated bool
-	if err = admin.QueryRowContext(ctx, "SELECT pg_terminate_backend($1)", pid).Scan(&terminated); err != nil || !terminated {
+	// A positive timeout waits for termination; the one-argument function only
+	// confirms that PostgreSQL sent the signal, while the lock may still exist.
+	if err = admin.QueryRowContext(ctx, "SELECT pg_terminate_backend($1,5000)", pid).Scan(&terminated); err != nil || !terminated {
 		t.Fatal("could not terminate owned test session", err)
 	}
 	tx, err := f.App.BeginTx(ctx, nil)
