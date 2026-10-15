@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/ding-labs/ding/internal/database"
 	state "github.com/ding-labs/ding/internal/serverstate"
@@ -33,16 +34,21 @@ type ServerStorage struct {
 	pool       *sql.DB
 	owner      *database.Ownership
 	ctx        context.Context
+	closeOnce  sync.Once
+	closeErr   error
 }
 
 func (s *ServerStorage) Context() context.Context { return s.ctx }
 func (s *ServerStorage) ConfigurePool(p *Pool)    { p.storage = s.workspaces }
 func (s *ServerStorage) Close() error {
-	var closePool error
-	if s.pool != nil {
-		closePool = s.pool.Close()
-	}
-	return errors.Join(s.Control.Close(), closePool, s.owner.Close())
+	s.closeOnce.Do(func() {
+		var closePool error
+		if s.pool != nil {
+			closePool = s.pool.Close()
+		}
+		s.closeErr = errors.Join(s.Control.Close(), closePool, s.owner.Close())
+	})
+	return s.closeErr
 }
 
 func OpenServerStorage(ctx context.Context, dir string, c database.Config) (*ServerStorage, error) {
