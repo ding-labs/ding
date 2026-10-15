@@ -132,6 +132,10 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 			return
 		}
 		if c.Noop {
+			if _, err := io.Copy(io.Discard, http.MaxBytesReader(w, r.Body, 1<<20)); err != nil {
+				w.WriteHeader(413)
+				return
+			}
 			w.WriteHeader(202)
 			fmt.Fprintf(w, `{"data":{"acceptanceId":%q}}`, r.Header.Get("Idempotency-Key"))
 			return

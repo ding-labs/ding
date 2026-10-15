@@ -38,3 +38,20 @@ func TestScaleEntropyAndNestedFixtures(t *testing.T) {
 		t.Fatal("fixture is not reproducible")
 	}
 }
+
+func TestScaleNoopConsumesBoundedLargeBody(t *testing.T) {
+	c := scaleConfig{Name: "generator-large", Rate: 1, Seconds: 1, BodyBytes: 1 << 20, Noop: true}
+	if err := c.validate(); err != nil {
+		t.Fatal(err)
+	}
+	lab := newScaleLab(t, c)
+	p := lab.producers[0]
+	for _, key := range []string{"large-first", "large-second"} {
+		if status, _ := scaleSend(t, lab, p, key, p.Body); status != 202 {
+			t.Fatal(status)
+		}
+	}
+	if status, _ := scaleSend(t, lab, p, "oversized", append(p.Body, ' ')); status != 413 {
+		t.Fatal("unbounded generator sink", status)
+	}
+}
