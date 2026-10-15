@@ -14,3 +14,20 @@ func TestFixtureRejectsRemoteTransportAndOverrides(t *testing.T) {
 		}
 	}
 }
+
+func TestRailwayFixtureRequiresExactHostAndVerifiedTLS(t *testing.T) {
+	host := "postgres.railway.internal"
+	if err := validateFixtureHost("postgres://u:secret@"+host+"/railway?sslmode=verify-full", host); err != nil {
+		t.Fatal(err)
+	}
+	for _, value := range []string{
+		"postgres://u:secret@other.railway.internal/railway?sslmode=verify-full",
+		"postgres://u:secret@postgres.railway.internal/railway?sslmode=require",
+		"postgres://u:secret@postgres.railway.internal/railway?sslmode=disable",
+		"postgres://u:secret@postgres.railway.internal/railway?host=other.railway.internal&sslmode=verify-full",
+	} {
+		if validateFixtureHost(value, host) == nil {
+			t.Fatal("accepted unsafe fixture")
+		}
+	}
+}

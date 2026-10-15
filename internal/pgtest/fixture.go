@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ding-labs/ding/internal/database"
@@ -42,9 +43,18 @@ func New(t *testing.T) *Fixture {
 		t.Fatal("invalid PostgreSQL fixture")
 	}
 	for _, role := range []string{"admin", "migration", "app"} {
-		if err := validateLocalFixture(values[role]); err != nil {
+		allowed := ""
+		if project := os.Getenv("DING_TEST_RAILWAY_PROJECT"); project != "" && project == os.Getenv("RAILWAY_PROJECT_ID") {
+			allowed = os.Getenv("DING_TEST_POSTGRES_HOST")
+		}
+		if err := validateFixtureHost(values[role], allowed); err != nil {
 			t.Fatal(err)
 		}
+	}
+	adminURL, _ := url.Parse(values["admin"])
+	adminDatabase := strings.TrimPrefix(adminURL.Path, "/")
+	if adminDatabase == "" {
+		t.Fatal("fixture maintenance database is required")
 	}
 	var id [10]byte
 	if _, err = rand.Read(id[:]); err != nil {
@@ -64,7 +74,7 @@ func New(t *testing.T) *Fixture {
 		}
 		return pool
 	}
-	admin := open("admin", "ding")
+	admin := open("admin", adminDatabase)
 	if _, err = admin.Exec("CREATE DATABASE " + name + " OWNER ding_migrator TEMPLATE template0"); err != nil {
 		admin.Close()
 		t.Fatal(database.SafeError("create isolated fixture", err))
@@ -116,7 +126,7 @@ func New(t *testing.T) *Fixture {
 			t.Logf("Failed local PostgreSQL fixture preserved: %s", name)
 			return
 		}
-		admin := open("admin", "ding")
+		admin := open("admin", adminDatabase)
 		defer admin.Close()
 		if _, err := admin.Exec("DROP DATABASE " + name + " WITH (FORCE)"); err != nil {
 			t.Error(database.SafeError("remove owned fixture", err))
@@ -130,17 +140,32 @@ func New(t *testing.T) *Fixture {
 // Test infrastructure cannot follow remote hosts or URL host overrides. The
 // capacity launcher generates these private URLs for its owned local container.
 func validateLocalFixture(value string) error {
+	return validateFixtureHost(value, "")
+}
+
+func validateFixtureHost(value, allowed string) error {
 	cfg, err := pgx.ParseConfig(value)
 	if err != nil {
 		return fmt.Errorf("invalid private PostgreSQL fixture")
 	}
-	local := func(host string) bool { return net.ParseIP(host).IsLoopback() || host == "localhost" }
+	if allowed != "" && (!strings.HasSuffix(allowed, ".railway.internal") || strings.ContainsAny(allowed, "/:@,")) {
+		return fmt.Errorf("fixture requires an exact Railway private hostname")
+	}
+	local := func(host string) bool {
+		return net.ParseIP(host).IsLoopback() || host == "localhost" || (allowed != "" && host == allowed)
+	}
 	if !local(cfg.Host) {
 		return fmt.Errorf("PostgreSQL test fixtures require loopback hosts")
+	}
+	if cfg.Host == allowed && (cfg.TLSConfig == nil || cfg.TLSConfig.InsecureSkipVerify) {
+		return fmt.Errorf("remote fixture requires verified TLS")
 	}
 	for _, fallback := range cfg.Fallbacks {
 		if !local(fallback.Host) {
 			return fmt.Errorf("PostgreSQL test fixtures require loopback fallback hosts")
+		}
+		if fallback.Host == allowed && (fallback.TLSConfig == nil || fallback.TLSConfig.InsecureSkipVerify) {
+			return fmt.Errorf("remote fallback requires verified TLS")
 		}
 	}
 	return nil
