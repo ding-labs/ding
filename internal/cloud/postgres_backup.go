@@ -66,13 +66,6 @@ func postgresTool(ctx context.Context, tool, dsn string, input io.Reader, output
 	} else if !filepath.IsAbs(path) {
 		return fmt.Errorf("PostgreSQL tool override must be an absolute path")
 	}
-	cmd := exec.CommandContext(ctx, path, args...)
-	// Do not inherit PGOPTIONS, PGSERVICE or another connection's defaults.
-	for _, env := range os.Environ() {
-		if !strings.HasPrefix(env, "PG") {
-			cmd.Env = append(cmd.Env, env)
-		}
-	}
 	u, err := url.Parse(dsn)
 	if err != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") {
 		return fmt.Errorf("native PostgreSQL backup tools require a URL DSN reference")
@@ -80,6 +73,17 @@ func postgresTool(ctx context.Context, tool, dsn string, input io.Reader, output
 	cfg, err := pgx.ParseConfig(dsn)
 	if err != nil {
 		return fmt.Errorf("invalid native PostgreSQL connection reference")
+	}
+	// Only the database name is in argv; authentication stays in the environment.
+	if tool == "pg_restore" {
+		args = append(args, "--dbname=dbname='"+strings.NewReplacer("\\", "\\\\", "'", "\\'").Replace(cfg.Database)+"'")
+	}
+	cmd := exec.CommandContext(ctx, path, args...)
+	// Do not inherit PGOPTIONS, PGSERVICE or another connection's defaults.
+	for _, env := range os.Environ() {
+		if !strings.HasPrefix(env, "PG") {
+			cmd.Env = append(cmd.Env, env)
+		}
 	}
 	cmd.Env = append(cmd.Env, "PGHOST="+cfg.Host, "PGPORT="+strconv.Itoa(int(cfg.Port)), "PGUSER="+cfg.User, "PGPASSWORD="+cfg.Password, "PGDATABASE="+cfg.Database, "PGCONNECT_TIMEOUT=5")
 	for key, env := range map[string]string{"sslmode": "PGSSLMODE", "sslrootcert": "PGSSLROOTCERT", "sslcert": "PGSSLCERT", "sslkey": "PGSSLKEY", "sslpassword": "PGSSLPASSWORD", "channel_binding": "PGCHANNELBINDING", "target_session_attrs": "PGTARGETSESSIONATTRS"} {
