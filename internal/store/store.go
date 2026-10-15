@@ -49,12 +49,13 @@ var ErrConflict = errors.New("revision conflict")
 var ErrStale = errors.New("stale generation")
 
 type Store struct {
-	mu     sync.RWMutex
-	writer chan struct{}
-	db     *sql.DB
-	lock   *os.File
-	dir    string
-	closed bool
+	mu      sync.RWMutex
+	writer  chan struct{}
+	db      *sql.DB
+	readers *sql.DB
+	lock    *os.File
+	dir     string
+	closed  bool
 }
 type Tx struct {
 	ctx      context.Context
@@ -121,6 +122,10 @@ func Open(ctx context.Context, dir string) (s *Store, err error) {
 	if err = s.migrate(ctx, SchemaVersion, []string{initialSchema, inspectionSchema, queueIndexSchema, integrationSchema, handoffSchema, auditSchema, pushSchema, pushStatsSchema}); err != nil {
 		return nil, err
 	}
+	s.readers, err = openSnapshotReaders(ctx, uri)
+	if err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 func (s *Store) Close() error {
@@ -130,10 +135,11 @@ func (s *Store) Close() error {
 		return nil
 	}
 	s.closed = true
+	readErr := s.readers.Close()
 	_, checkpointErr := s.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
 	err := s.db.Close()
 	unlockErr := unlockDirectory(s.lock)
-	return errors.Join(checkpointErr, err, unlockErr)
+	return errors.Join(readErr, checkpointErr, err, unlockErr)
 }
 func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 	s.mu.RLock()
@@ -181,7 +187,13 @@ func (s *Store) View(ctx context.Context, fn func(*Tx) error) error {
 	if s.closed {
 		return ErrClosed
 	}
-	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	select {
+	case snapshotSlots <- struct{}{}:
+		defer func() { <-snapshotSlots }()
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	tx, err := s.readers.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return err
 	}
@@ -294,19 +306,20 @@ type Health struct {
 }
 
 func (s *Store) Health(ctx context.Context) (Health, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	var h Health
-	if s.closed {
-		return h, ErrClosed
-	}
-	for _, q := range []struct {
-		query  string
-		target any
-	}{{"SELECT sqlite_version()", &h.SQLite}, {"PRAGMA user_version", &h.Schema}, {"PRAGMA journal_mode", &h.Journal}, {"PRAGMA synchronous", &h.Synchronous}, {"PRAGMA quick_check", &h.Integrity}} {
-		if err := s.db.QueryRowContext(ctx, q.query).Scan(q.target); err != nil {
-			return h, err
+	err := s.View(ctx, func(tx *Tx) error {
+		for _, q := range []struct {
+			query  string
+			target any
+		}{{"SELECT sqlite_version()", &h.SQLite}, {"PRAGMA user_version", &h.Schema}, {"PRAGMA journal_mode", &h.Journal}, {"PRAGMA synchronous", &h.Synchronous}, {"PRAGMA quick_check", &h.Integrity}} {
+			if err := tx.sql.QueryRowContext(ctx, q.query).Scan(q.target); err != nil {
+				return err
+			}
 		}
+		return nil
+	})
+	if err != nil {
+		return h, err
 	}
 	for name, target := range map[string]*int64{"ding.db": &h.DatabaseBytes, "ding.db-wal": &h.WALBytes} {
 		if info, err := os.Stat(filepath.Join(s.dir, name)); err == nil {
