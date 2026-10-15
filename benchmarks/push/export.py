@@ -38,6 +38,8 @@ def measurements(root):
             'environment': manifest['environment'], 'seconds': config['Seconds'],
             'workspaces': config['Workspaces'], 'outputs': config['Outputs'],
             'groups': config['Groups'], 'bodyBytes': config['BodyBytes'],
+            'bodyBytesMin': load.get('bodyBytesMin'), 'bodyBytesMax': load.get('bodyBytesMax'),
+            'clockDiscontinuity': load.get('clockDiscontinuity'),
             'profiles': manifest.get('profiles', True),
             'retainedPadding': config['RetainPadding'], 'condition': config['Condition'],
             'receiver': config['Receiver'], 'noop': config['Noop'],

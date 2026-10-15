@@ -24,7 +24,7 @@ func TestPushBenchmarkNoRetryAccountsThrottle(t *testing.T) {
 		Producers: []PushProducer{{URL: s.URL, TokenEnv: "DING_LOAD_TEST", Body: []byte(`{}`)}},
 		Duration:  time.Second, Rate: 20, Workers: 4, NoRetry: true, Ledger: ledger, Client: s.Client(), LedgerBatch: 8, CompactLedger: true,
 	})
-	if err != nil || r.Offered < 15 || r.Attempts != r.Offered || r.Statuses[429] != r.Offered || r.Throttled != r.Offered || r.Unconfirmed != 0 || r.FirstAccepted != 0 {
+	if err != nil || r.Offered < 15 || r.Attempts != r.Offered || r.Statuses[429] != r.Offered || r.Throttled != r.Offered || r.Unconfirmed != 0 || r.FirstAccepted != 0 || r.BodyBytesMin != 2 || r.BodyBytesMax != 2 || r.WallDurationSeconds <= 0 || r.ClockDiscontinuity {
 		t.Fatal(r, err)
 	}
 	if r.ErrorCodes["ingest_rate"] != r.Offered {
