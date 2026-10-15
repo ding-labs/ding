@@ -32,6 +32,9 @@ If a container exits abnormally or cannot report, its stopped database volume is
 archived privately before removal. If capture fails, that owned volume is retained
 and named in `execution.json`. Failed-state archives can contain local fixture
 secrets and must remain private.
+Ordinary Go test failures close the active workers/stores before moving fixture
+state outside testing's cleanup directory. Native failures keep it in the case's
+`failed-state` directory; container archives include the preserved directory.
 
 ## Interpret evidence
 

@@ -57,6 +57,7 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 	t.Cleanup(closeHTTP)
 	pool := NewPool(ctx, root, db, vault, client)
 	t.Cleanup(func() { pool.Close() })
+
 	// Lab-only expansion bypasses the production 128 MiB backup envelope.
 	// The real store, WAL/FULL durability, auth, and evaluator are retained.
 	if !c.Defaults {
@@ -74,6 +75,28 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 		s.pushGlobal = rate.NewLimiter(100000, 100000)
 	}
 	lab := &scaleLab{server: s, root: root, key: key}
+	t.Cleanup(func() {
+		out := os.Getenv("DING_SCALE_OUTPUT")
+		if !t.Failed() || out == "" {
+			return
+		}
+		lab.server.Pool.Close()
+		lab.server.DB.Close()
+		destination := filepath.Join(out, "failed-state")
+		if os.Getenv("DING_SCALE_EXTERNAL") == "container" {
+			// Move outside testing's temporary parent but stay on the same
+			// volume so the launcher can archive it after the process exits.
+			parent := filepath.Dir(root)
+			destination = filepath.Join(filepath.Dir(parent), "failed-"+filepath.Base(parent))
+		}
+		if _, err := os.Stat(destination); !os.IsNotExist(err) {
+			t.Errorf("failed-state destination already exists or is inaccessible")
+			return
+		}
+		if err := os.Rename(root, destination); err != nil {
+			t.Errorf("preserving failed fixture state: %v", err)
+		}
+	})
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/lab/") {
 			lab.controlMu.RLock()
