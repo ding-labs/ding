@@ -48,6 +48,9 @@ var ErrNotFound = errors.New("not found")
 var ErrConflict = errors.New("revision conflict")
 var ErrStale = errors.New("stale generation")
 
+// ErrQuota is shared by backend admission and the runtime API.
+var ErrQuota = errors.New("resource quota exceeded")
+
 type Store struct {
 	mu      sync.RWMutex
 	writer  chan struct{}

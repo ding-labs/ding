@@ -17,7 +17,7 @@ import (
 	"github.com/ding-labs/ding/internal/watch"
 )
 
-var ErrQuota = errors.New("resource quota exceeded")
+var ErrQuota = store.ErrQuota
 var ErrClosing = errors.New("runtime is shutting down")
 
 type Limits struct {
