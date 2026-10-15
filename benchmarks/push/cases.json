@@ -47,5 +47,8 @@
   {"Name":"retain600k-entropy","Rate":5,"Seconds":180,"BodyBytes":600000,"RetainPadding":true,"EntropyPadding":true},
   {"Name":"generator-mixed","Rate":100,"Seconds":30,"PayloadMix":true,"Noop":true},
   {"Name":"business-mixed","Rate":25,"Seconds":180,"PayloadMix":true,"Workspaces":10,"Reads":true,"Restart":true},
-  {"Name":"business-mixed100","Rate":25,"Seconds":180,"PayloadMix":true,"Workspaces":100,"Reads":true,"Restart":true}
+  {"Name":"business-mixed100","Rate":25,"Seconds":180,"PayloadMix":true,"Workspaces":100,"Reads":true,"Restart":true},
+  {"Name":"webhook10k","Rate":100,"Seconds":180,"BodyBytes":10000,"Nested":true,"EntropyPadding":true,"Workspaces":10,"Reads":true,"Restart":true},
+  {"Name":"batch18-100k","Rate":50,"Seconds":180,"BodyBytes":100000,"Outputs":18,"Nested":true,"EntropyPadding":true,"Workspaces":10,"Reads":true,"Restart":true},
+  {"Name":"batch100-600k","Rate":10,"Seconds":180,"BodyBytes":600000,"Outputs":100,"Nested":true,"EntropyPadding":true,"Workspaces":10,"Reads":true,"Restart":true}
 ]
