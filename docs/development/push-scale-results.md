@@ -223,6 +223,16 @@ focused follow-up before changing the transaction design. Pool sweeps already
 show that more connections alone do not solve the bottleneck. No exact
 observations-per-CPU-second figure was collected.
 
+A read-only counter checkpoint wholly inside the third 100-workspace PostgreSQL
+25/s trial on 4 CPU / 4 GiB observed **35,723 database transactions in 55.18 s**
+(about **647/s**) alongside the input and target 10 inspection reads/s. This
+includes authorization, inspection and background work; it does not attribute all
+extra transactions to one subsystem. Read snapshots normally end with rollback,
+so the rollback counter is not a count of failed writes. No database block reads
+were recorded during that window; WAL flush latency was not collected. Tagged
+query counts and worker scheduling measurements are the next attribution step.
+That trial still missed latency at p99 319 ms after earlier trials at 55 and 51 ms.
+
 ## Qualification status
 
 The screening phase and selected boundary repeats have finished:
