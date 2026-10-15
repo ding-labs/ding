@@ -34,7 +34,7 @@ func (d *DB) Enroll(ctx context.Context, issuer, subject string, limit int) (Enr
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return out, err
 	}
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return out, err
 	}

@@ -27,7 +27,7 @@ func (d *DB) ChangePassword(ctx context.Context, user, old, password string) err
 	if err != nil {
 		return err
 	}
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func (d *DB) RevokeUserSession(ctx context.Context, user, id string) error {
 func (d *DB) DisableUser(ctx context.Context, actor access.Principal, user string, disabled bool) error {
 	d.Access.Lock()
 	defer d.Access.Unlock()
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return err
 	}

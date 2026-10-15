@@ -35,7 +35,7 @@ func (d *DB) NewSession(ctx context.Context, user, workspace, kind string, scope
 	if kind != "browser" && kind != "device" {
 		return s, fmt.Errorf("invalid session kind")
 	}
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return s, err
 	}
@@ -108,7 +108,7 @@ func (v *Vault) BeginLogin(ctx context.Context, state string, login Login, now t
 	}
 	hash := TokenHash(state)
 	encrypted := aead.Seal(nil, nil, data, []byte(hash))
-	tx, err := v.db.sql.BeginTx(ctx, nil)
+	tx, err := v.db.begin(ctx)
 	if err != nil {
 		return err
 	}

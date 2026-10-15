@@ -8,7 +8,7 @@ import (
 // Receipts for external effects deliberately do not expire: dropping their keys
 // could turn an old retry into a fresh delivery. Their explicit quotas bound them.
 func (d *DB) Collect(ctx context.Context, now time.Time) error {
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return err
 	}

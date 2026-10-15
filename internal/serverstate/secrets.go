@@ -53,7 +53,7 @@ func (v *Vault) Put(ctx context.Context, workspace, name, value string) error {
 		return err
 	}
 	encrypted := aead.Seal(nil, nil, []byte(value), []byte(workspace+"\x00"+name))
-	tx, err := v.db.sql.BeginTx(ctx, nil)
+	tx, err := v.db.begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func (v *Vault) Names(ctx context.Context, workspace string) ([]string, error) {
 }
 
 func (v *Vault) Delete(ctx context.Context, workspace, name string) error {
-	tx, err := v.db.sql.BeginTx(ctx, nil)
+	tx, err := v.db.begin(ctx)
 	if err != nil {
 		return err
 	}

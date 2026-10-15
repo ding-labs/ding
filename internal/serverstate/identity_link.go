@@ -23,7 +23,7 @@ func (d *DB) EnableOIDC(ctx context.Context, link IdentityLink) error {
 	}
 	d.Access.Lock()
 	defer d.Access.Unlock()
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func (d *DB) EnableOIDCLogin(ctx context.Context, issuer string) error {
 	}
 	d.Access.Lock()
 	defer d.Access.Unlock()
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func validOIDCIssuer(issuer string) bool {
 	return err == nil && u.Scheme == "https" && u.Hostname() != "" && u.User == nil && u.RawQuery == "" && u.Fragment == "" && len(issuer) <= 1024
 }
 
-func enableOIDCProvider(ctx context.Context, tx *sql.Tx, issuer string) error {
+func enableOIDCProvider(ctx context.Context, tx *transaction, issuer string) error {
 	var methods, current string
 	if err := tx.QueryRowContext(ctx, "SELECT value FROM settings WHERE key='login_methods'").Scan(&methods); err != nil {
 		return err

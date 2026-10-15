@@ -18,7 +18,7 @@ func (d *DB) RotateService(ctx context.Context, p access.Principal, id string, d
 	}
 	d.Access.Lock()
 	defer d.Access.Unlock()
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return out, err
 	}
@@ -86,7 +86,7 @@ func (d *DB) ServiceKeys(ctx context.Context, workspace, id string) ([]ServiceKe
 func (d *DB) RevokeServiceKey(ctx context.Context, p access.Principal, id, key string) error {
 	d.Access.Lock()
 	defer d.Access.Unlock()
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func (d *DB) UpdateService(ctx context.Context, p access.Principal, id, name str
 	}
 	d.Access.Lock()
 	defer d.Access.Unlock()
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return out, err
 	}

@@ -72,7 +72,7 @@ func (v *Vault) BindMCP(ctx context.Context, user, workspace, client string, c m
 		return err
 	}
 	cipher := aead.Seal(nil, nil, raw, []byte(user+"\x00"+workspace+"\x00"+client))
-	tx, err := v.db.sql.BeginTx(ctx, nil)
+	tx, err := v.db.begin(ctx)
 	if err != nil {
 		return err
 	}

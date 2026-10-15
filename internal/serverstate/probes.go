@@ -30,7 +30,7 @@ func (d *DB) BeginProbe(ctx context.Context, workspace, id, digest string) (Prob
 	if !operationID.MatchString(id) || len(digest) != 64 {
 		return p, false, fmt.Errorf("invalid probe identity")
 	}
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return p, false, err
 	}

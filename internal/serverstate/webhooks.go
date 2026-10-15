@@ -62,7 +62,7 @@ func (v *Vault) CreateWebhook(ctx context.Context, p access.Principal, c Webhook
 	}
 	v.db.Access.Lock()
 	defer v.db.Access.Unlock()
-	tx, err := v.db.sql.BeginTx(ctx, nil)
+	tx, err := v.db.begin(ctx)
 	if err != nil {
 		return c, err
 	}
@@ -147,7 +147,7 @@ func (v *Vault) RotateWebhook(ctx context.Context, p access.Principal, id, secre
 	encrypted := cipher.Seal(nil, nil, []byte(secret), []byte("webhook:"+id))
 	v.db.Access.Lock()
 	defer v.db.Access.Unlock()
-	tx, err := v.db.sql.BeginTx(ctx, nil)
+	tx, err := v.db.begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -175,7 +175,7 @@ func (v *Vault) RotateWebhook(ctx context.Context, p access.Principal, id, secre
 func (d *DB) DeleteWebhook(ctx context.Context, p access.Principal, id string) error {
 	d.Access.Lock()
 	defer d.Access.Unlock()
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return err
 	}

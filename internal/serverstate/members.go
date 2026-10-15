@@ -32,7 +32,7 @@ func (d *DB) Members(ctx context.Context, workspace string) ([]Member, error) {
 	return out, rows.Err()
 }
 
-func memberActor(ctx context.Context, tx *sql.Tx, p access.Principal) (access.Principal, error) {
+func memberActor(ctx context.Context, tx *transaction, p access.Principal) (access.Principal, error) {
 	err := tx.QueryRowContext(ctx, `SELECT m.role FROM memberships m JOIN users u ON u.id=m.user JOIN workspaces w ON w.id=m.workspace WHERE m.user=? AND m.workspace=? AND u.disabled=0 AND w.deleting=0`, p.User, p.Workspace).Scan(&p.Role)
 	if err != nil || !p.Allows(access.Members) {
 		return p, fmt.Errorf("member administration denied")
@@ -48,7 +48,7 @@ func (d *DB) ChangeMember(ctx context.Context, actor access.Principal, user stri
 	}
 	d.Access.Lock()
 	defer d.Access.Unlock()
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func (d *DB) ChangeMember(ctx context.Context, actor access.Principal, user stri
 func (d *DB) DeleteUser(ctx context.Context, user string) error {
 	d.Access.Lock()
 	defer d.Access.Unlock()
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ type Audit struct {
 	At        time.Time `json:"at"`
 }
 
-func audit(ctx context.Context, tx *sql.Tx, actor, workspace, action, target string) error {
+func audit(ctx context.Context, tx *transaction, actor, workspace, action, target string) error {
 	if _, err := tx.ExecContext(ctx, "INSERT INTO audit(actor,workspace,action,target,at) VALUES(?,?,?,?,?)", actor, workspace, action, target, time.Now().Unix()); err != nil {
 		return err
 	}

@@ -28,7 +28,7 @@ func (d *DB) Reserve(ctx context.Context, workspace string, delivery bool, now t
 }
 func (d *DB) ReserveBudget(ctx context.Context, workspace string, delivery bool, now time.Time, budget OutboundBudget) (Reservation, error) {
 	r := Reservation{ID: ID(), Workspace: workspace, Period: now.UTC().Format("2006-01")}
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return r, err
 	}
@@ -76,7 +76,7 @@ func (d *DB) Finish(ctx context.Context, r Reservation, used int64) error {
 	if used < 0 || used > RequestReservation {
 		return fmt.Errorf("invalid network charge")
 	}
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return err
 	}

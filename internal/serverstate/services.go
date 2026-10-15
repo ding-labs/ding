@@ -35,7 +35,7 @@ func (d *DB) CreateBoundService(ctx context.Context, p access.Principal, name st
 
 	d.Access.Lock()
 	defer d.Access.Unlock()
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return out, err
 	}
@@ -119,7 +119,7 @@ func (d *DB) ServiceToken(ctx context.Context, token string) (Service, error) {
 func (d *DB) RevokeService(ctx context.Context, p access.Principal, id string) error {
 	d.Access.Lock()
 	defer d.Access.Unlock()
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return err
 	}

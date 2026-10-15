@@ -2,7 +2,6 @@ package state
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -24,7 +23,7 @@ func (d *DB) Bootstrap(ctx context.Context, username, name, password string) (En
 	if err != nil {
 		return out, err
 	}
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return out, err
 	}
@@ -65,7 +64,7 @@ type Activation struct {
 	ExpiresAt time.Time `json:"expiresAt"`
 }
 
-func activation(ctx context.Context, tx *sql.Tx, user, workspace string) (Activation, error) {
+func activation(ctx context.Context, tx *transaction, user, workspace string) (Activation, error) {
 	out := Activation{User: user, Token: ID(), ExpiresAt: time.Now().Add(time.Hour)}
 	if _, err := tx.ExecContext(ctx, "DELETE FROM activations WHERE user=? OR expires_at<=?", user, time.Now().Unix()); err != nil {
 		return out, err
@@ -85,7 +84,7 @@ func (d *DB) Invite(ctx context.Context, actor access.Principal, username, name 
 	}
 	d.Access.Lock()
 	defer d.Access.Unlock()
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return out, err
 	}
@@ -125,7 +124,7 @@ func (d *DB) ResetInvitation(ctx context.Context, actor access.Principal, user s
 	var out Activation
 	d.Access.Lock()
 	defer d.Access.Unlock()
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return out, err
 	}
@@ -165,7 +164,7 @@ func (d *DB) Activate(ctx context.Context, token, password string) error {
 	}
 	d.Access.Lock()
 	defer d.Access.Unlock()
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -186,7 +185,7 @@ func (d *DB) Activate(ctx context.Context, token, password string) error {
 	return tx.Commit()
 }
 
-func revokeUser(ctx context.Context, tx *sql.Tx, user string) error {
+func revokeUser(ctx context.Context, tx *transaction, user string) error {
 	for _, table := range []string{"sessions", "devices", "activations", "mcp_bindings"} {
 		if _, err := tx.ExecContext(ctx, "DELETE FROM "+table+" WHERE user=?", user); err != nil {
 			return err
@@ -206,7 +205,7 @@ func (d *DB) RecoverPassword(ctx context.Context, username, password string) err
 	if err != nil {
 		return err
 	}
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return err
 	}

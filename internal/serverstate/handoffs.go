@@ -22,7 +22,7 @@ func (d *DB) SaveHandoffProof(ctx context.Context, workspace, id string, p Hando
 	if len(raw) > 32<<10 || len(id) != 64 {
 		return fmt.Errorf("invalid handoff proof")
 	}
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return err
 	}

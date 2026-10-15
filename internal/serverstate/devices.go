@@ -15,7 +15,7 @@ func (d *DB) BeginDevice(ctx context.Context, challenge string, now time.Time) (
 	if len(challenge) != 64 {
 		return "", fmt.Errorf("invalid device challenge")
 	}
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -74,7 +74,7 @@ func (d *DB) ClaimDevice(ctx context.Context, id, verifier string, now time.Time
 	if len(id) != 64 || len(verifier) != 64 {
 		return s, false, fmt.Errorf("invalid device proof")
 	}
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return s, false, err
 	}

@@ -22,9 +22,10 @@ import (
 )
 
 type DB struct {
-	sql     *sql.DB
-	readers *sql.DB
-	unlock  func() error
+	postgres bool
+	sql      *sql.DB
+	readers  *sql.DB
+	unlock   func() error
 	// Access serializes permission changes with admitted runtime operations.
 	// Request adapters hold RLock until the operation completes; administration
 	// methods take Lock before rechecking permissions in their transaction.
