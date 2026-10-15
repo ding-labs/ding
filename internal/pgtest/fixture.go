@@ -51,7 +51,10 @@ func New(t *testing.T) *Fixture {
 			t.Fatal(err)
 		}
 	}
-	adminURL, _ := url.Parse(values["admin"])
+	adminURL, err := url.Parse(values["admin"])
+	if err != nil || adminURL.Scheme != "postgres" {
+		t.Fatal("fixture requires PostgreSQL URL references")
+	}
 	adminDatabase := strings.TrimPrefix(adminURL.Path, "/")
 	if adminDatabase == "" {
 		t.Fatal("fixture maintenance database is required")
