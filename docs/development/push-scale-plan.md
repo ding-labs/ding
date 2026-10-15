@@ -12,6 +12,8 @@ on its recorded application revision.
    scheduling and delivery in Go. TypeScript continues to serve client interfaces.
 2. Keep SQLite as Ding's local default. Implement improvements that benefit the
    existing service and can carry over to PostgreSQL.
+   Offer both backends as an instance configuration choice for open source
+   self-hosting and Ding Cloud, using the same Go application and image.
 3. Use an isolated PostgreSQL 17 container for the first comparison, with a
    verified patched version and pinned image digest. Aligning the initial major
    with Supabase's documented PostgreSQL 17 path makes a later compatibility run
@@ -76,6 +78,8 @@ The [PostgreSQL implementation](push-scale-postgres-plan.md) defines the adapter
 tenant schema and transaction guarantees for the database experiment.
 The [test and comparison plan](push-scale-test-plan.md) defines measurement
 qualification, correctness gates and total-resource comparisons.
+The [configurable storage design](push-scale-storage-plan.md) defines separate
+backend SQL/migrations, runtime configuration and open source self-hosting.
 
 ## Behavior that every increment preserves
 
