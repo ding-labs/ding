@@ -19,6 +19,7 @@
   {"Name":"batch18-100","Rate":100,"Seconds":180,"Outputs":18,"BodyBytes":600},
   {"Name":"batch18-500","Rate":500,"Seconds":180,"Outputs":18,"BodyBytes":600,"Workspaces":10},
   {"Name":"batch100-100","Rate":100,"Seconds":180,"Outputs":100,"Workspaces":10},
+  {"Name":"batch100-groups100","Rate":100,"Seconds":180,"Outputs":100,"Groups":100,"Workspaces":10},
   {"Name":"json10k","Rate":500,"Seconds":180,"BodyBytes":10000,"Workspaces":10},
   {"Name":"json100k","Rate":100,"Seconds":180,"BodyBytes":100000,"Workspaces":10},
   {"Name":"json600k","Rate":25,"Seconds":180,"BodyBytes":600000,"Workspaces":10},
@@ -43,6 +44,7 @@
   {"Name":"watches10-250","Rate":250,"Seconds":180,"Watches":10},
   {"Name":"alerts-streams-slow","Rate":25,"Seconds":180,"Watches":4,"DeliveryWorkers":4,"Condition":"alerts","Receiver":"slow"},
   {"Name":"nested18-600k","Rate":25,"Seconds":180,"Outputs":18,"BodyBytes":600000,"Nested":true,"Workspaces":10},
+  {"Name":"nested18-groups18-600k","Rate":25,"Seconds":180,"Outputs":18,"Groups":18,"BodyBytes":600000,"Nested":true,"Workspaces":10},
   {"Name":"retain100k-entropy","Rate":25,"Seconds":180,"BodyBytes":100000,"RetainPadding":true,"EntropyPadding":true},
   {"Name":"retain600k-entropy","Rate":5,"Seconds":180,"BodyBytes":600000,"RetainPadding":true,"EntropyPadding":true}
 ]
