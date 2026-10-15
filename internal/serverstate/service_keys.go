@@ -27,25 +27,25 @@ func (d *DB) RotateService(ctx context.Context, p access.Principal, id string, d
 	if err != nil {
 		return out, err
 	}
-	out, err = scanService(tx.QueryRowContext(ctx, "SELECT id,name,workspace,created_by,scopes,watches,expires_at,lifetimes FROM service_grants WHERE workspace=? AND id=?", p.Workspace, id))
+	out, err = scanService(tx.QueryRowContext(ctx, tx.query(qRotateService1), p.Workspace, id))
 	if err != nil {
 		return out, err
 	}
 	now := time.Now()
 	// Delete older keys before shortening the current key's overlap window.
-	if _, err = tx.ExecContext(ctx, "DELETE FROM service_keys WHERE service=? AND id NOT IN (SELECT id FROM service_keys WHERE service=? ORDER BY created_at DESC,id DESC LIMIT 1)", id, id); err != nil {
+	if _, err = tx.ExecContext(ctx, tx.query(qRotateService2), id, id); err != nil {
 		return out, err
 	}
-	if _, err = tx.ExecContext(ctx, "UPDATE service_keys SET expires_at=min(expires_at,?) WHERE service=?", now.Add(time.Duration(overlapSeconds)*time.Second).Unix(), id); err != nil {
+	if _, err = tx.ExecContext(ctx, tx.query(qRotateService3), now.Add(time.Duration(overlapSeconds)*time.Second).Unix(), id); err != nil {
 		return out, err
 	}
 	out.KeyID = ID()
 	out.Token = "ding_service_" + ID()
 	out.ExpiresAt = now.Add(time.Duration(days) * 24 * time.Hour)
-	if _, err = tx.ExecContext(ctx, "INSERT INTO service_keys(id,service,hash,expires_at,created_at) VALUES(?,?,?,?,?)", out.KeyID, id, TokenHash(out.Token), out.ExpiresAt.Unix(), now.UnixNano()); err != nil {
+	if _, err = tx.ExecContext(ctx, tx.query(qRotateService4), out.KeyID, id, TokenHash(out.Token), out.ExpiresAt.Unix(), now.UnixNano()); err != nil {
 		return out, err
 	}
-	if _, err = tx.ExecContext(ctx, "UPDATE service_grants SET expires_at=?,hash=? WHERE id=?", out.ExpiresAt.Unix(), TokenHash(out.Token), id); err != nil {
+	if _, err = tx.ExecContext(ctx, tx.query(qRotateService5), out.ExpiresAt.Unix(), TokenHash(out.Token), id); err != nil {
 		return out, err
 	}
 	if err = audit(ctx, tx, p.User, p.Workspace, "service:rotate", id); err != nil {
@@ -61,7 +61,7 @@ type ServiceKey struct {
 }
 
 func (d *DB) ServiceKeys(ctx context.Context, workspace, id string) ([]ServiceKey, error) {
-	rows, err := d.sql.QueryContext(ctx, "SELECT k.id,k.expires_at,k.last_used_at FROM service_keys k JOIN service_grants s ON s.id=k.service WHERE s.workspace=? AND s.id=? ORDER BY k.created_at DESC", workspace, id)
+	rows, err := d.sql.QueryContext(ctx, d.query(qServiceKeys1), workspace, id)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (d *DB) RevokeServiceKey(ctx context.Context, p access.Principal, id, key s
 	if err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, "DELETE FROM service_keys WHERE id=? AND service=? AND service IN (SELECT id FROM service_grants WHERE workspace=?)", key, id, p.Workspace); err != nil {
+	if _, err = tx.ExecContext(ctx, tx.query(qRevokeServiceKey1), key, id, p.Workspace); err != nil {
 		return err
 	}
 	if err = audit(ctx, tx, p.User, p.Workspace, "service:key-revoke", key); err != nil {
@@ -125,14 +125,14 @@ func (d *DB) UpdateService(ctx context.Context, p access.Principal, id, name str
 	rawScopes, _ := json.Marshal(scopes)
 	rawWatches, _ := json.Marshal(watches)
 	rawLifetimes, _ := json.Marshal(lifetimes)
-	result, err := tx.ExecContext(ctx, "UPDATE service_grants SET name=?,scopes=?,watches=?,lifetimes=? WHERE id=? AND workspace=?", name, string(rawScopes), string(rawWatches), string(rawLifetimes), id, p.Workspace)
+	result, err := tx.ExecContext(ctx, tx.query(qUpdateService1), name, string(rawScopes), string(rawWatches), string(rawLifetimes), id, p.Workspace)
 	if err != nil {
 		return out, err
 	}
 	if n, _ := result.RowsAffected(); n != 1 {
 		return out, fmt.Errorf("producer unavailable")
 	}
-	out, err = scanService(tx.QueryRowContext(ctx, "SELECT id,name,workspace,created_by,scopes,watches,expires_at,lifetimes FROM service_grants WHERE id=? AND workspace=?", id, p.Workspace))
+	out, err = scanService(tx.QueryRowContext(ctx, tx.query(qUpdateService2), id, p.Workspace))
 	if err != nil {
 		return out, err
 	}
