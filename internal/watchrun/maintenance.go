@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/condition"
+	"github.com/ding-labs/ding/internal/runtimeperf"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watch"
 )
@@ -15,6 +16,7 @@ import (
 // Maintain uses short write batches. Persistent entity references are updated
 // with state, so ingestion can advance safely between every cleanup transaction.
 func (a *App) Maintain(ctx context.Context, now time.Time) error {
+	defer runtimeperf.Since(a.Store.PerfBackend(), runtimeperf.Maintenance, time.Now())
 	const batch = 64
 	for {
 		done := false

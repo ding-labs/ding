@@ -113,7 +113,10 @@ func (s *Store) updatePostgres(ctx context.Context, fn func(*Tx) error) error {
 	// One database row orders workspace evaluation, range allocation and quota
 	// accounting, including callers in another process. Receiver I/O stays outside.
 	var scope string
-	if err = tx.QueryRowContext(ctx, "SELECT workspace_id FROM workspaces WHERE workspace_id=$1 FOR UPDATE", s.workspace).Scan(&scope); err != nil {
+	waited := time.Now()
+	err = tx.QueryRowContext(ctx, "SELECT workspace_id FROM workspaces WHERE workspace_id=$1 FOR UPDATE", s.workspace).Scan(&scope)
+	runtimeperf.Since(s.PerfBackend(), runtimeperf.WorkspaceLock, waited)
+	if err != nil {
 		return err
 	}
 	stx := &Tx{ctx: ctx, sql: tx, postgres: true, writable: true}

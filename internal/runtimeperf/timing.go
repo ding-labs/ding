@@ -30,11 +30,14 @@ const (
 	DeliveryClaim
 	DeliveryIO
 	Authorization
+	ConditionCompile
+	EnqueueFirst
+	WorkspaceLock
 	operationCount
 )
 
 var backends = [...]string{"sqlite", "postgres"}
-var operations = [...]string{"writer_wait", "transaction_begin", "write_callback", "commit", "snapshot", "evaluation", "maintenance", "delivery_claim", "delivery_io", "authorization"}
+var operations = [...]string{"writer_wait", "transaction_begin", "write_callback", "commit", "snapshot", "evaluation", "maintenance", "delivery_claim", "delivery_io", "authorization", "condition_compile", "enqueue_to_first_attempt", "workspace_row_lock"}
 var bounds = [...]time.Duration{time.Millisecond, 10 * time.Millisecond, 100 * time.Millisecond, time.Second, 10 * time.Second}
 var labels = [...]string{"0.001", "0.01", "0.1", "1", "10"}
 
