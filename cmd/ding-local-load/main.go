@@ -21,12 +21,16 @@ import (
 )
 
 func localURL(raw string) bool {
+	return fixtureURL(raw, "")
+}
+
+func fixtureURL(raw, allowed string) bool {
 	u, err := url.Parse(raw)
 	if err != nil || u.Scheme != "https" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 		return false
 	}
 	ip := net.ParseIP(u.Hostname())
-	return ip != nil && ip.IsLoopback()
+	return (ip != nil && ip.IsLoopback()) || (strings.HasSuffix(allowed, ".railway.internal") && u.Hostname() == allowed)
 }
 
 func run() error {
@@ -37,6 +41,10 @@ func run() error {
 	seconds := flag.Int("seconds", 180, "measured seconds")
 	workers := flag.Int("workers", 512, "generator workers")
 	flag.Parse()
+	allowed := os.Getenv("DING_SCALE_PRIVATE_HOST")
+	if allowed != "" && (os.Getenv("DING_TEST_RAILWAY_PROJECT") == "" || os.Getenv("DING_TEST_RAILWAY_PROJECT") != os.Getenv("RAILWAY_PROJECT_ID")) {
+		return fmt.Errorf("private load target requires matching Railway project authorization")
+	}
 	if *output == "" {
 		return fmt.Errorf("output directory required")
 	}
@@ -55,11 +63,11 @@ func run() error {
 	if *endpoint != "" {
 		b.URL = *endpoint
 	}
-	if !localURL(b.URL) {
+	if !fixtureURL(b.URL, allowed) {
 		return fmt.Errorf("only an HTTPS loopback fixture is allowed")
 	}
 	for i := range b.Producers {
-		rebased, err := rebaseProducer(b.URL, b.Producers[i].URL)
+		rebased, err := rebaseFixtureProducer(b.URL, b.Producers[i].URL, allowed)
 		if err != nil {
 			return err
 		}
@@ -113,6 +121,26 @@ func run() error {
 	options.Duration = time.Duration(*seconds) * time.Second
 	options.Ledger = filepath.Join(*output, "requests.jsonl")
 	result, loadErr := cloud.BenchmarkPush(context.Background(), options)
+	if allowed != "" {
+		ledger, err := os.Open(options.Ledger)
+		if err != nil {
+			return err
+		}
+		defer ledger.Close()
+		req, err := http.NewRequest("PUT", b.URL+"/lab/ledger", ledger)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Authorization", "Bearer "+b.Admin)
+		response, err := controlClient.Do(req)
+		if err != nil {
+			return err
+		}
+		response.Body.Close()
+		if response.StatusCode != 204 {
+			return fmt.Errorf("journal transfer returned %d", response.StatusCode)
+		}
+	}
 	if err := control("/lab/finish", result); err != nil {
 		return err
 	}
@@ -130,7 +158,11 @@ func main() {
 }
 
 func rebaseProducer(origin, producer string) (string, error) {
-	if !localURL(origin) || !localURL(producer) {
+	return rebaseFixtureProducer(origin, producer, "")
+}
+
+func rebaseFixtureProducer(origin, producer, allowed string) (string, error) {
+	if !fixtureURL(origin, allowed) || !fixtureURL(producer, allowed) {
 		return "", fmt.Errorf("producer and published origin must be loopback fixtures")
 	}
 	base, _ := url.Parse(origin)

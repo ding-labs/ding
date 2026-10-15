@@ -3,6 +3,7 @@ package cloud
 import (
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -143,7 +144,18 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 		r.Host = "ding.example"
 		h.ServeHTTP(w, r)
 	}))
-	if os.Getenv("DING_SCALE_EXTERNAL") == "container" {
+	privateHost := os.Getenv("DING_SCALE_PRIVATE_HOST")
+	if privateHost != "" {
+		if !strings.HasSuffix(privateHost, ".railway.internal") || os.Getenv("DING_TEST_RAILWAY_PROJECT") == "" || os.Getenv("DING_TEST_RAILWAY_PROJECT") != os.Getenv("RAILWAY_PROJECT_ID") {
+			t.Fatal("private scale fixture requires matching Railway project authorization")
+		}
+		certificate, err := tls.LoadX509KeyPair(os.Getenv("DING_SCALE_TLS_CERT"), os.Getenv("DING_SCALE_TLS_KEY"))
+		if err != nil {
+			t.Fatal("load scale fixture TLS certificate")
+		}
+		server.TLS = &tls.Config{Certificates: []tls.Certificate{certificate}, MinVersion: tls.VersionTLS12}
+	}
+	if os.Getenv("DING_SCALE_EXTERNAL") == "container" || privateHost != "" {
 		server.Listener.Close()
 		server.Listener, err = net.Listen("tcp", ":8443")
 		if err != nil {
@@ -151,6 +163,9 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 		}
 	}
 	server.StartTLS()
+	if privateHost != "" {
+		server.URL = "https://" + privateHost + ":8443"
+	}
 	if os.Getenv("DING_SCALE_EXTERNAL") == "container" {
 		server.URL = "https://127.0.0.1:8443"
 	}
