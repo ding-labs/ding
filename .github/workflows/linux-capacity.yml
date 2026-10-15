@@ -1,4 +1,5 @@
 name: Linux capacity
+run-name: Linux ${{ inputs.backend }} · ${{ inputs.profile }} · ${{ inputs.rate }}/s for ${{ inputs.seconds }}s · ${{ inputs.cases }}
 
 on:
   workflow_dispatch:
