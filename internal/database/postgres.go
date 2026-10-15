@@ -67,6 +67,7 @@ func postgresConfig(dsn string) (*pgx.ConnConfig, error) {
 	cfg.RuntimeParams["lock_timeout"] = "5000"
 	cfg.RuntimeParams["idle_in_transaction_session_timeout"] = "30000"
 	cfg.RuntimeParams["synchronous_commit"] = "on"
+	cfg.RuntimeParams["bytea_output"] = "hex"
 	return cfg, nil
 }
 
