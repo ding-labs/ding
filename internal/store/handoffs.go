@@ -34,7 +34,7 @@ var handoffID = regexp.MustCompile(`^[a-f0-9]{64}$`)
 func (t *Tx) Handoff(id string) (Handoff, error) {
 	var h Handoff
 	var b []byte
-	err := t.sql.QueryRowContext(t.ctx, "SELECT body FROM handoffs WHERE id=?", id).Scan(&b)
+	err := t.sql.QueryRowContext(t.ctx, t.query(qHandoff1), id).Scan(&b)
 	if errors.Is(err, sql.ErrNoRows) {
 		return h, ErrNotFound
 	}
@@ -44,7 +44,7 @@ func (t *Tx) Handoff(id string) (Handoff, error) {
 	return h, json.Unmarshal(b, &h)
 }
 func (t *Tx) Handoffs() ([]Handoff, error) {
-	rows, err := t.sql.QueryContext(t.ctx, "SELECT body FROM handoffs ORDER BY id")
+	rows, err := t.sql.QueryContext(t.ctx, t.query(qHandoffs1))
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (t *Tx) Handoffs() ([]Handoff, error) {
 }
 func (t *Tx) HandoffHold(watchID string) (string, error) {
 	var id string
-	err := t.sql.QueryRowContext(t.ctx, "SELECT id FROM handoffs WHERE watch_id=? AND held=1", watchID).Scan(&id)
+	err := t.sql.QueryRowContext(t.ctx, t.query(qHandoffHold1), watchID).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil
 	}
@@ -83,17 +83,17 @@ func (t *Tx) SaveHandoff(h Handoff) error {
 		return fmt.Errorf("handoff exceeds limit")
 	}
 	var n int
-	if err := t.sql.QueryRowContext(t.ctx, "SELECT COUNT(*) FROM handoffs WHERE id!=?", h.ID).Scan(&n); err != nil {
+	if err := t.sql.QueryRowContext(t.ctx, t.query(qSaveHandoff1), h.ID).Scan(&n); err != nil {
 		return err
 	}
 	if n >= 1000 {
 		return fmt.Errorf("handoff history limit reached")
 	}
-	_, err = t.sql.ExecContext(t.ctx, "INSERT INTO handoffs(id,watch_id,held,body) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET held=excluded.held,body=excluded.body", h.ID, h.WatchID, h.Held, b)
+	_, err = t.exec(qSaveHandoff2, h.ID, h.WatchID, h.Held, b)
 	return err
 }
 func (t *Tx) PendingForWatch(id string) (int, error) {
 	var n int
-	err := t.sql.QueryRowContext(t.ctx, "SELECT count(*) FROM outbox WHERE watch_id=? AND status IN ('pending','leased')", id).Scan(&n)
+	err := t.sql.QueryRowContext(t.ctx, t.query(qPendingForWatch1), id).Scan(&n)
 	return n, err
 }

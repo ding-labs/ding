@@ -33,7 +33,7 @@ func (g IntegrationGrant) Allows(scope string, now time.Time) bool {
 
 func (t *Tx) CreateIntegrationGrant(g IntegrationGrant, hash string) error {
 	var count int
-	if err := t.sql.QueryRowContext(t.ctx, "SELECT count(*) FROM integration_grants").Scan(&count); err != nil {
+	if err := t.sql.QueryRowContext(t.ctx, t.query(qCreateIntegrationGrant1)).Scan(&count); err != nil {
 		return err
 	}
 	if count >= 256 {
@@ -43,14 +43,14 @@ func (t *Tx) CreateIntegrationGrant(g IntegrationGrant, hash string) error {
 	if err != nil {
 		return err
 	}
-	_, err = t.sql.ExecContext(t.ctx, "INSERT INTO integration_grants(id,token_hash,body) VALUES(?,?,?)", g.ID, hash, b)
+	_, err = t.exec(qCreateIntegrationGrant2, g.ID, hash, b)
 	return err
 }
 
 func (t *Tx) IntegrationGrant(id string) (IntegrationGrant, error) {
 	var g IntegrationGrant
 	var raw []byte
-	err := t.sql.QueryRowContext(t.ctx, "SELECT body,revoked FROM integration_grants WHERE id=?", id).Scan(&raw, &g.Revoked)
+	err := t.sql.QueryRowContext(t.ctx, t.query(qIntegrationGrant1), id).Scan(&raw, &g.Revoked)
 	if errors.Is(err, sql.ErrNoRows) {
 		return g, ErrIntegrationDenied
 	}
@@ -65,7 +65,7 @@ func (t *Tx) IntegrationGrant(id string) (IntegrationGrant, error) {
 
 func (t *Tx) IntegrationGrantByHash(hash string) (IntegrationGrant, error) {
 	var id string
-	err := t.sql.QueryRowContext(t.ctx, "SELECT id FROM integration_grants WHERE token_hash=?", hash).Scan(&id)
+	err := t.sql.QueryRowContext(t.ctx, t.query(qIntegrationGrantByHash1), hash).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return IntegrationGrant{}, ErrIntegrationDenied
 	}
@@ -76,7 +76,7 @@ func (t *Tx) IntegrationGrantByHash(hash string) (IntegrationGrant, error) {
 }
 
 func (t *Tx) IntegrationGrants() ([]IntegrationGrant, error) {
-	rows, err := t.sql.QueryContext(t.ctx, "SELECT body,revoked FROM integration_grants ORDER BY id")
+	rows, err := t.sql.QueryContext(t.ctx, t.query(qIntegrationGrants1))
 	if err != nil {
 		return nil, err
 	}
@@ -117,12 +117,12 @@ func (t *Tx) RenewProviderIntegrationGrant(id, consent string, scopes, refs []st
 	if err != nil {
 		return err
 	}
-	_, err = t.sql.ExecContext(t.ctx, "UPDATE integration_grants SET body=? WHERE id=? AND revoked=0", raw, id)
+	_, err = t.exec(qRenewProviderIntegrationGrant1, raw, id)
 	return err
 }
 
 func (t *Tx) RevokeIntegrationGrant(id string) error {
-	r, err := t.sql.ExecContext(t.ctx, "UPDATE integration_grants SET revoked=1 WHERE id=?", id)
+	r, err := t.exec(qRevokeIntegrationGrant1, id)
 	if err != nil {
 		return err
 	}
@@ -142,24 +142,24 @@ type IntegrationPreview struct {
 }
 
 func (t *Tx) SaveIntegrationPreview(p IntegrationPreview, now time.Time) error {
-	if _, err := t.sql.ExecContext(t.ctx, "DELETE FROM integration_previews WHERE expires_at<=?", timestamp(now)); err != nil {
+	if _, err := t.exec(qSaveIntegrationPreview1, timestamp(now)); err != nil {
 		return err
 	}
 	var count int
-	if err := t.sql.QueryRowContext(t.ctx, "SELECT count(*) FROM integration_previews").Scan(&count); err != nil {
+	if err := t.sql.QueryRowContext(t.ctx, t.query(qSaveIntegrationPreview2)).Scan(&count); err != nil {
 		return err
 	}
 	if count >= 64 {
 		return ErrIntegrationLimit
 	}
-	_, err := t.sql.ExecContext(t.ctx, "INSERT INTO integration_previews(id,grant_id,manifest,review,expires_at) VALUES(?,?,?,?,?)", p.ID, p.GrantID, p.Manifest, p.Review, timestamp(p.ExpiresAt))
+	_, err := t.exec(qSaveIntegrationPreview3, p.ID, p.GrantID, p.Manifest, p.Review, timestamp(p.ExpiresAt))
 	return err
 }
 
 func (t *Tx) IntegrationPreview(grant, id string, now time.Time) (IntegrationPreview, error) {
 	p := IntegrationPreview{ID: id, GrantID: grant}
 	var at int64
-	err := t.sql.QueryRowContext(t.ctx, "SELECT manifest,review,expires_at FROM integration_previews WHERE id=? AND grant_id=?", id, grant).Scan(&p.Manifest, &p.Review, &at)
+	err := t.sql.QueryRowContext(t.ctx, t.query(qIntegrationPreview1), id, grant).Scan(&p.Manifest, &p.Review, &at)
 	if errors.Is(err, sql.ErrNoRows) {
 		return p, ErrPreviewExpired
 	}
@@ -184,7 +184,7 @@ type IntegrationOperation struct {
 func (t *Tx) IntegrationOperation(grant, key string) (IntegrationOperation, error) {
 	o := IntegrationOperation{Key: key}
 	var at int64
-	err := t.sql.QueryRowContext(t.ctx, "SELECT action,digest,result,created_at FROM integration_operations WHERE grant_id=? AND operation_key=?", grant, key).Scan(&o.Action, &o.Digest, &o.Result, &at)
+	err := t.sql.QueryRowContext(t.ctx, t.query(qIntegrationOperation1), grant, key).Scan(&o.Action, &o.Digest, &o.Result, &at)
 	if errors.Is(err, sql.ErrNoRows) {
 		return o, ErrNotFound
 	}
@@ -196,12 +196,12 @@ func (t *Tx) SaveIntegrationOperation(grant string, o IntegrationOperation) erro
 	// Admission control is inside the mutation transaction: hitting this bound
 	// rolls back the action rather than committing without a durable receipt.
 	var count int
-	if err := t.sql.QueryRowContext(t.ctx, "SELECT count(*) FROM integration_operations").Scan(&count); err != nil {
+	if err := t.sql.QueryRowContext(t.ctx, t.query(qSaveIntegrationOperation1)).Scan(&count); err != nil {
 		return err
 	}
 	if count >= 10000 {
 		return ErrIntegrationLimit
 	}
-	_, err := t.sql.ExecContext(t.ctx, "INSERT INTO integration_operations(grant_id,operation_key,action,digest,result,created_at) VALUES(?,?,?,?,?,?)", grant, o.Key, o.Action, o.Digest, o.Result, timestamp(o.CreatedAt))
+	_, err := t.exec(qSaveIntegrationOperation2, grant, o.Key, o.Action, o.Digest, o.Result, timestamp(o.CreatedAt))
 	return err
 }
