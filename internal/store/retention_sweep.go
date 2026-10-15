@@ -9,6 +9,7 @@ import (
 )
 
 type retentionFamily struct {
+	prefixArgs                []any
 	name                      string
 	numeric, secondKey        bool
 	selectQuery, deletePrefix statement
@@ -55,7 +56,8 @@ func (t *Tx) scanRetentionFamily(f retentionFamily, pass string, cutoff int64, l
 			firstKey = n
 		}
 	}
-	args := []any{cutoff, cursor.At, firstKey}
+	args := append([]any{}, f.prefixArgs...)
+	args = append(args, cutoff, cursor.At, firstKey)
 	if f.secondKey {
 		args = append(args, cursor.Extra)
 	}

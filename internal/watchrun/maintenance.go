@@ -85,7 +85,7 @@ func (a *App) Maintain(ctx context.Context, now time.Time) error {
 				var changed int64
 				err := a.Store.Update(ctx, func(tx *store.Tx) error {
 					var err error
-					changed, err = tx.RetainLogSummariesBatch(r.Plan.Definition.Metadata.ID, now.Add(-retention), batch)
+					changed, err = tx.RetainLogSummariesBatch(r.Plan.Definition.Metadata.ID, now.Add(-retention), batch, pass)
 					return err
 				})
 				if err != nil {
