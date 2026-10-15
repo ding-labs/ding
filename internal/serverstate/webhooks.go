@@ -72,13 +72,13 @@ func (v *Vault) CreateWebhook(ctx context.Context, p access.Principal, c Webhook
 		return c, err
 	}
 	var n int
-	if err = tx.QueryRowContext(ctx, "SELECT count(*) FROM webhook_connections WHERE workspace=?", p.Workspace).Scan(&n); err != nil {
+	if err = tx.QueryRowContext(ctx, tx.query(qCreateWebhook1), p.Workspace).Scan(&n); err != nil {
 		return c, err
 	}
 	if n >= 100 {
 		return c, fmt.Errorf("connection capacity reached")
 	}
-	if _, err = tx.ExecContext(ctx, "INSERT INTO webhook_connections(id,workspace,lifetime,body,secret,previous,previous_until) VALUES(?,?,?,?,?,NULL,0)", c.ID, c.Workspace, c.Lifetime, raw, encrypted); err != nil {
+	if _, err = tx.ExecContext(ctx, tx.query(qCreateWebhook2), c.ID, c.Workspace, c.Lifetime, raw, encrypted); err != nil {
 		return c, err
 	}
 	if err = audit(ctx, tx, p.User, p.Workspace, "webhook:create", c.ID); err != nil {
@@ -90,7 +90,7 @@ func (v *Vault) Webhook(ctx context.Context, id string) (WebhookConnection, erro
 	var c WebhookConnection
 	var raw, secret, previous []byte
 	var until int64
-	err := v.db.sql.QueryRowContext(ctx, "SELECT h.body,h.lifetime,h.secret,h.previous,h.previous_until FROM webhook_connections h JOIN workspaces w ON w.id=h.workspace WHERE h.id=? AND w.deleting=0", id).Scan(&raw, &c.Lifetime, &secret, &previous, &until)
+	err := v.db.sql.QueryRowContext(ctx, v.db.query(qWebhook1), id).Scan(&raw, &c.Lifetime, &secret, &previous, &until)
 	if err != nil {
 		return c, err
 	}
@@ -117,7 +117,7 @@ func (v *Vault) Webhook(ctx context.Context, id string) (WebhookConnection, erro
 	return c, nil
 }
 func (d *DB) Webhooks(ctx context.Context, workspace string) ([]WebhookConnection, error) {
-	rows, err := d.sql.QueryContext(ctx, "SELECT body FROM webhook_connections WHERE workspace=? ORDER BY id", workspace)
+	rows, err := d.sql.QueryContext(ctx, d.query(qWebhooks1), workspace)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func (v *Vault) RotateWebhook(ctx context.Context, p access.Principal, id, secre
 	if err != nil {
 		return err
 	}
-	result, err := tx.ExecContext(ctx, "UPDATE webhook_connections SET previous=secret,previous_until=?,secret=? WHERE id=? AND workspace=?", time.Now().Add(time.Duration(overlap)*time.Second).Unix(), encrypted, id, p.Workspace)
+	result, err := tx.ExecContext(ctx, tx.query(qRotateWebhook1), time.Now().Add(time.Duration(overlap)*time.Second).Unix(), encrypted, id, p.Workspace)
 	if err != nil {
 		return err
 	}
@@ -184,7 +184,7 @@ func (d *DB) DeleteWebhook(ctx context.Context, p access.Principal, id string) e
 	if err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, "DELETE FROM webhook_connections WHERE id=? AND workspace=?", id, p.Workspace); err != nil {
+	if _, err = tx.ExecContext(ctx, tx.query(qDeleteWebhook1), id, p.Workspace); err != nil {
 		return err
 	}
 	if err = audit(ctx, tx, p.User, p.Workspace, "webhook:delete", id); err != nil {
