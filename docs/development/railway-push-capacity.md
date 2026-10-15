@@ -157,6 +157,8 @@ The existing `postgres` and `railway` databases and PostgreSQL volume remain.
 PostgreSQL's resource limits were returned to the **lab baseline** of 1 CPU/2 GB;
 the original pre-lab allocation was not recorded, so this is not described as
 restoring that unknown allocation. The 54 request-ledger archives were checked
-and preserved privately (about 211 MB compressed). Temporary service deletion is
-pending Railway's approval confirmation. The production soak remains independent
-and running on its original commit.
+and preserved privately (about 211 MB compressed). Both temporary deployments are
+confirmed `REMOVED`; their saved control/database access variables were cleared.
+The user approved permanent service deletion, but the Railway connector continued
+to cancel it. Two inactive service records therefore remain. The production soak
+remains independent and running on its original commit.
