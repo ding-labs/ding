@@ -321,6 +321,10 @@ export interface StoreEventSummaryPage {
 }
 
 export interface StoreHealth {
+  backend: string;
+  postgres?: string;
+  durability?: string;
+  logicalBytes?: number;
   sqlite: string;
   schema: number;
   journal: string;
