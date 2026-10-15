@@ -27,6 +27,10 @@ func (d *DB) RotateService(ctx context.Context, p access.Principal, id string, d
 	if err != nil {
 		return out, err
 	}
+	if err = tx.lockService(ctx, p.Workspace, id); err != nil {
+		return out, err
+	}
+
 	out, err = scanService(tx.QueryRowContext(ctx, tx.query(qRotateService1), p.Workspace, id))
 	if err != nil {
 		return out, err
@@ -95,6 +99,10 @@ func (d *DB) RevokeServiceKey(ctx context.Context, p access.Principal, id, key s
 	if err != nil {
 		return err
 	}
+	if err = tx.lockService(ctx, p.Workspace, id); err != nil {
+		return err
+	}
+
 	if _, err = tx.ExecContext(ctx, tx.query(qRevokeServiceKey1), key, id, p.Workspace); err != nil {
 		return err
 	}
@@ -122,6 +130,10 @@ func (d *DB) UpdateService(ctx context.Context, p access.Principal, id, name str
 	if err != nil {
 		return out, err
 	}
+	if err = tx.lockService(ctx, p.Workspace, id); err != nil {
+		return out, err
+	}
+
 	rawScopes, _ := json.Marshal(scopes)
 	rawWatches, _ := json.Marshal(watches)
 	rawLifetimes, _ := json.Marshal(lifetimes)

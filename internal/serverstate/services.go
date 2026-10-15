@@ -128,6 +128,10 @@ func (d *DB) RevokeService(ctx context.Context, p access.Principal, id string) e
 	if err != nil {
 		return err
 	}
+	if err = tx.lockService(ctx, p.Workspace, id); err != nil {
+		return err
+	}
+
 	if _, err = tx.ExecContext(ctx, tx.query(qRevokeService1), p.Workspace, id); err != nil {
 		return err
 	}
