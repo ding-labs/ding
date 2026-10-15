@@ -128,6 +128,10 @@ Copy private run artifacts before redeploying either ephemeral service. Record
 actual cgroup limits, pinned revision, database settings and resource samples
 for every case. Resource observations include setup and reconciliation; select
 only the report's measurement timestamps when calculating CPU and I/O rates.
+The collector records a 100-query database RTT baseline and app deployment ID
+before each case. Keep deployments fixed during resource comparisons: a
+redeploy can change network placement within the same Railway region. Do not
+attribute a cross-deployment latency change to CPU alone.
 Calibrate the generator at or above each intended rate before accepting a
 capacity result. Railway qualification requires every planned first attempt
 accepted, scheduling p99 at most 20 ms and acceptance p99 below 250 ms, plus
@@ -139,7 +143,15 @@ and 4 CPU/4 GB, holding PostgreSQL fixed. Test the best combined configuration
 and repeat a previous size as a control. Report throughput per allocated CPU and
 memory as well as absolute throughput. Keep database settings constant for the
 resource-only comparison; label any tuning separately. Connection-pool sweeps
-(2/4/8/16) are separate experiments, not silent changes between sizes.
+(2/4/8/16/32) are separate experiments, not silent changes between sizes. Pass
+`--workspaces 100` to compare the same payload across a larger tenant cohort.
+
+Alert fixtures use separate receiver paths for each workspace, because event
+IDs are workspace-scoped. Both request and receiver journals are exported.
+The synthetic receiver bypasses the production destination-host rate limiter
+before and after restart; this tests expanded lab capacity, not default policy.
+Restart row comparisons happen while workers are stopped on both sides, followed
+by resumed delivery and receipt checks.
 
 Screen rates briefly, repeat promising boundaries three times for 180 seconds,
 then sustain an operating rate with headroom for 30 minutes. Include 10/100
