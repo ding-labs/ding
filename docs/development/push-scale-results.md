@@ -109,7 +109,7 @@ Other controls do not support a universal speedup: the 30-second one-workspace
 those candidate screens failed the latency target. Earlier candidate screens were
 faster, so these differences require repeated controls before attribution.
 The 100,000-receipt paired screen similarly measured 15 ms versus 433 ms, while
-the primary candidate screen measured 15 ms. Its longer paired check is pending.
+the primary candidate screen measured 15 ms. Its longer paired check is recorded below.
 The approximately 1.23 ms to 7.3–7.7 microsecond receipt-count query improvement
 is a query microbenchmark; it cannot establish an end-to-end throughput gain.
 
@@ -206,6 +206,16 @@ PostgreSQL used pool 2 at 25/s and acknowledged all 4,500 per trial, with p99
 errors. Real time advanced beyond the window; source-health fanout and missing-data
 transitions at large group counts remain separate performance gates.
 
+## Aged-store paired check
+
+The 180-second SQLite pair used 1 CPU / 1 GiB, 100 requests/s and real receipt
+history. Starting durable request counts were **100,559 control / 100,560
+candidate**. Both acknowledged all **18,000** measured inputs and passed
+reconciliation/postchecks. Control p99 was **118 ms**, candidate **26 ms**.
+This pair improved the observed tail, while the earlier short controls varied
+substantially. It does not establish a uniform aged-store speedup or a higher
+supported throughput rate; the receipt-count query microbenchmark is separate.
+
 ## Delivery screens
 
 At 25 requests/s for 30 seconds, both backends acknowledged every input with a
@@ -271,8 +281,8 @@ The screening phase and 80-case main qualification stage have finished:
 - Three 30-minute runs completed; the PostgreSQL cohort long run could not pass
   its preceding qualification gate and was skipped, as recorded above.
 
-The paired aged-store check and repeated ten-workspace control remain in
-progress; all six mature rolling-window repeats have passed. Existing 100-output and nested
+The six paired ten-workspace trials remain in progress. All six mature
+rolling-window repeats and the aged-store pair have passed. Existing 100-output and nested
 18-output screens already use distinct groups within each batch, verified
 against their recorded producer bodies. The sanitized aggregate follows when
 those final runs finish.
