@@ -45,7 +45,7 @@ func (d *DB) IngestGuard(token, producer, workspace, watch, lifetime string) dat
 		if err != nil {
 			return nil, unavailable(err)
 		}
-		if !slices.Contains(grant.Scopes, "ingest") || grant.Lifetimes[watch] != lifetime {
+		if !slices.Contains(grant.Scopes, "ingest") || !slices.Contains(grant.Watches, watch) || grant.Lifetimes[watch] != lifetime {
 			return nil, ErrServiceRevoked
 		}
 		var expiry int64
