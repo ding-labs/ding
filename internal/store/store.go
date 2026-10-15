@@ -52,13 +52,15 @@ var ErrStale = errors.New("stale generation")
 var ErrQuota = errors.New("resource quota exceeded")
 
 type Store struct {
-	mu      sync.RWMutex
-	writer  chan struct{}
-	db      *sql.DB
-	readers *sql.DB
-	lock    *os.File
-	dir     string
-	closed  bool
+	postgres  bool
+	workspace string
+	mu        sync.RWMutex
+	writer    chan struct{}
+	db        *sql.DB
+	readers   *sql.DB
+	lock      *os.File
+	dir       string
+	closed    bool
 }
 type Tx struct {
 	postgres bool
@@ -140,6 +142,9 @@ func (s *Store) Close() error {
 		return nil
 	}
 	s.closed = true
+	if s.postgres {
+		return nil
+	}
 	readErr := s.readers.Close()
 	_, checkpointErr := s.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
 	err := s.db.Close()
@@ -157,6 +162,9 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 		defer func() { <-s.writer }()
 	case <-ctx.Done():
 		return ctx.Err()
+	}
+	if s.postgres {
+		return s.updatePostgres(ctx, fn)
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -192,6 +200,9 @@ func (s *Store) View(ctx context.Context, fn func(*Tx) error) error {
 	defer s.mu.RUnlock()
 	if s.closed {
 		return ErrClosed
+	}
+	if s.postgres {
+		return s.viewPostgres(ctx, fn)
 	}
 	select {
 	case snapshotSlots <- struct{}{}:
@@ -245,6 +256,9 @@ func (s *Store) Backup(ctx context.Context, path string) error {
 	defer s.mu.Unlock()
 	if s.closed {
 		return ErrClosed
+	}
+	if s.postgres {
+		return fmt.Errorf("PostgreSQL requires an instance-level backup")
 	}
 	return s.backup(ctx, path)
 }
