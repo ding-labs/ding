@@ -2,6 +2,7 @@
 import hmac
 import json
 import os
+import socket
 from pathlib import Path
 import subprocess
 import threading
@@ -14,6 +15,10 @@ from railway_db import bootstrap, sample
 ROOT = Path('/data/ding-lab')
 JOBS = {}
 LOCK = threading.Lock()
+
+
+class PrivateHTTPServer(ThreadingHTTPServer):
+    address_family = socket.AF_INET6
 
 
 def resources():
@@ -132,4 +137,4 @@ if __name__ == '__main__':
                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except Exception:
         raise SystemExit('Lab bootstrap failed; verify private configuration')
-    ThreadingHTTPServer(('0.0.0.0',8080),Handler).serve_forever()
+    PrivateHTTPServer(('::',8080),Handler).serve_forever()

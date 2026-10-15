@@ -105,7 +105,7 @@ Both services require a shared private `DING_LAB_CONTROL` secret and
 `DING_TEST_RAILWAY_PROJECT` equal to Railway's injected `RAILWAY_PROJECT_ID`.
 Set `DING_SCALE_PRIVATE_HOST=ding-scale-app.railway.internal`. The app additionally
 requires `PGADMIN_URL` referencing the dedicated Postgres service,
-`DING_LAB_PG_CA` containing its public certificate, and `DING_SCALE_TLS_CERT` /
+`DING_LAB_PG_CA` containing its issuing CA certificate, and `DING_SCALE_TLS_CERT` /
 `DING_SCALE_TLS_KEY` under `/data/ding-lab`. PostgreSQL uses verified TLS with
 fsync, synchronous commits and full-page writes enabled. The launcher creates
 only random `dingtest_*` databases and verifies ownership of its two test roles;
