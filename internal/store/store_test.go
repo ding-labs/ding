@@ -212,7 +212,9 @@ func TestBackupAndFailedMigration(t *testing.T) {
 	if count(t, restored, "events") != 1 || count(t, restored, "outbox") != 1 {
 		t.Fatal("incomplete backup")
 	}
-	err = s.migrate(context.Background(), SchemaVersion+1, []string{initialSchema, inspectionSchema, queueIndexSchema, integrationSchema, handoffSchema, auditSchema, pushSchema, pushStatsSchema, "CREATE TABLE failed_migration(id INTEGER); THIS IS NOT SQL;"})
+	steps := make([]string, SchemaVersion+1)
+	steps[SchemaVersion] = "CREATE TABLE failed_migration(id INTEGER); THIS IS NOT SQL;"
+	err = s.migrate(context.Background(), SchemaVersion+1, steps)
 	if err == nil {
 		t.Fatal("migration should fail")
 	}

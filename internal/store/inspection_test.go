@@ -206,7 +206,7 @@ func TestWatchInspectionPagesBoundLargeStateAndPayloads(t *testing.T) {
 	if err := s.Update(ctx, func(tx *Tx) error {
 		for n := 1; n <= 101; n++ {
 			key := fmt.Sprintf("entity-%03d", n)
-			if err := tx.SaveEntity("health", key, p.Revision, map[string]any{"open": true, "sourceUnhealthy": true, "matches": 2, "lastSequence": n, "samples": []int{1, 2}, "baseline": strings.Repeat("x", 10000)}, testNow); err != nil {
+			if err := tx.SaveEntity("health", key, p.Revision, map[string]any{"open": true, "sourceUnhealthy": true, "matches": 2, "lastSequence": n, "samples": []map[string]any{{"sequence": 1}, {"sequence": 2}}, "baseline": strings.Repeat("x", 10000)}, testNow); err != nil {
 				return err
 			}
 			if err := transition(tx, p, d, key, testNow); err != nil {
