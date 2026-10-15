@@ -60,13 +60,17 @@ func TestQueueIndexesAndSchemaTwoUpgrade(t *testing.T) {
 
 func TestRetentionBatchesUseTimeIndexes(t *testing.T) {
 	s := openTest(t, t.TempDir())
-	for _, item := range []struct {
-		query statement
-		index string
-	}{
-		{qRetainBatchOutbox, "outbox_retention"}, {qRetainBatchObservations, "observations_retention"}, {qRetainBatchEvents, "events_retention"}, {qRetainBatchWatchRevisions, "watch_revision_retention"}, {qRetainBatchDestinationRevisions, "destination_revision_retention"},
-	} {
-		rows, err := s.db.Query("EXPLAIN QUERY PLAN "+item.query.sqlite, 0, 64)
+	indexes := map[string]string{"events": "events_retention", "observations": "observations_retention", "watches": "watches_deleted_retention", "watch_revisions": "watch_revision_retention", "destination_revisions": "destination_revision_retention"}
+	for _, family := range retentionFamilies {
+		args := []any{int64(100), int64(-1), any("")}
+		if family.numeric {
+			args[2] = int64(0)
+		}
+		if family.secondKey {
+			args = append(args, "")
+		}
+		args = append(args, 64)
+		rows, err := s.db.Query("EXPLAIN QUERY PLAN "+family.selectQuery.sqlite, args...)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -85,7 +89,7 @@ func TestRetentionBatchesUseTimeIndexes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(details.String(), item.index) || strings.Contains(details.String(), "TEMP B-TREE") {
+		if !strings.Contains(details.String(), indexes[family.name]) || strings.Contains(details.String(), "TEMP B-TREE") {
 			t.Fatal("retention scans or sorts history", details.String())
 		}
 	}

@@ -2,6 +2,7 @@ package watchrun
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"runtime"
@@ -18,6 +19,7 @@ import (
 func (a *App) Maintain(ctx context.Context, now time.Time) error {
 	defer runtimeperf.Since(a.Store.PerfBackend(), runtimeperf.Maintenance, time.Now())
 	const batch = 64
+	pass := rand.Text()
 	for {
 		done := false
 		err := a.Store.Update(ctx, func(tx *store.Tx) error {
@@ -58,7 +60,7 @@ func (a *App) Maintain(ctx context.Context, now time.Time) error {
 		var changed int64
 		err := a.Store.Update(ctx, func(tx *store.Tx) error {
 			var err error
-			changed, err = tx.RetainBatch(now.Add(-a.Limits.Retention), now, batch)
+			changed, err = tx.RetainBatch(now.Add(-a.Limits.Retention), now, batch, pass)
 			return err
 		})
 		if err != nil {

@@ -8,8 +8,10 @@ import (
 // RetainBatch checks current persistent references inside every write batch.
 // No pins computed in an earlier snapshot are used for deletion. The row bound
 // applies to each history family; dependent evidence/attempts cascade with it.
-func (t *Tx) RetainBatch(cutoff, now time.Time, limit int) (int64, error) {
-	if limit < 1 || limit > 256 {
+// The result counts examined candidates plus direct deletions as progress.
+// Use the same nonempty pass identity until progress is zero.
+func (t *Tx) RetainBatch(cutoff, now time.Time, limit int, pass string) (int64, error) {
+	if limit < 1 || limit > 256 || pass == "" || len(pass) > 128 {
 		return 0, fmt.Errorf("invalid retention batch limit")
 	}
 	var changed int64
@@ -18,14 +20,20 @@ func (t *Tx) RetainBatch(cutoff, now time.Time, limit int) (int64, error) {
 		at    time.Time
 	}{
 		{qRetainBatchInputReceipts, now}, {qRetainBatchPushReceipts, now}, {qRetainBatchBackoff, now},
-		{qRetainBatchOutbox, cutoff}, {qRetainBatchEvents, cutoff}, {qRetainBatchObservations, cutoff},
-		{qRetainBatchWatches, cutoff}, {qRetainBatchWatchRevisions, cutoff}, {qRetainBatchDestinationRevisions, cutoff},
+		{qRetainBatchOutbox, cutoff},
 	} {
 		result, err := t.exec(item.query, timestamp(item.at), limit)
 		if err != nil {
 			return 0, err
 		}
 		n, err := result.RowsAffected()
+		if err != nil {
+			return 0, err
+		}
+		changed += n
+	}
+	for _, family := range retentionFamilies {
+		n, err := t.scanRetentionFamily(family, pass, timestamp(cutoff), limit)
 		if err != nil {
 			return 0, err
 		}
