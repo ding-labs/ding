@@ -32,18 +32,18 @@ func (d *DB) EnableOIDC(ctx context.Context, link IdentityLink) error {
 		return err
 	}
 	var workspace string
-	if err := tx.QueryRowContext(ctx, `SELECT w.id FROM users u JOIN memberships m ON m.user=u.id JOIN workspaces w ON w.id=m.workspace WHERE u.id=? AND u.disabled=0 AND w.deleting=0 ORDER BY w.id LIMIT 1`, link.User).Scan(&workspace); err != nil {
+	if err := tx.QueryRowContext(ctx, tx.query(qEnableOIDC1), link.User).Scan(&workspace); err != nil {
 		return fmt.Errorf("existing active user with a workspace required")
 	}
 	var current string
-	err = tx.QueryRowContext(ctx, "SELECT user FROM identities WHERE issuer=? AND subject=?", link.Issuer, link.Subject).Scan(&current)
+	err = tx.QueryRowContext(ctx, tx.query(qEnableOIDC2), link.Issuer, link.Subject).Scan(&current)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
 	if err == nil && current != link.User {
 		return fmt.Errorf("identity is already linked to another user")
 	}
-	if _, err := tx.ExecContext(ctx, "INSERT INTO identities(issuer,subject,user) VALUES(?,?,?) ON CONFLICT(issuer,subject) DO NOTHING", link.Issuer, link.Subject, link.User); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.query(qEnableOIDC3), link.Issuer, link.Subject, link.User); err != nil {
 		return err
 	}
 	if err := audit(ctx, tx, "operator", workspace, "identity.link", link.User); err != nil {
@@ -82,22 +82,22 @@ func validOIDCIssuer(issuer string) bool {
 
 func enableOIDCProvider(ctx context.Context, tx *transaction, issuer string) error {
 	var methods, current string
-	if err := tx.QueryRowContext(ctx, "SELECT value FROM settings WHERE key='login_methods'").Scan(&methods); err != nil {
+	if err := tx.QueryRowContext(ctx, tx.query(qenableOIDCProvider1)).Scan(&methods); err != nil {
 		return err
 	}
 	if methods != "password" && methods != "oidc,password" {
 		return fmt.Errorf("this operation extends an initialized password login profile")
 	}
-	if _, err := tx.ExecContext(ctx, "INSERT INTO settings(key,value) VALUES('oidc_issuer',?) ON CONFLICT(key) DO NOTHING", issuer); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.query(qenableOIDCProvider2), issuer); err != nil {
 		return err
 	}
-	if err := tx.QueryRowContext(ctx, "SELECT value FROM settings WHERE key='oidc_issuer'").Scan(&current); err != nil {
+	if err := tx.QueryRowContext(ctx, tx.query(qenableOIDCProvider3)).Scan(&current); err != nil {
 		return err
 	}
 	if current != issuer {
 		return fmt.Errorf("issuer differs from the pinned identity provider")
 	}
-	_, err := tx.ExecContext(ctx, "UPDATE settings SET value='oidc,password' WHERE key='login_methods'")
+	_, err := tx.ExecContext(ctx, tx.query(qenableOIDCProvider4))
 	return err
 }
 
@@ -105,11 +105,11 @@ func (d *DB) ConfigureOIDCIssuer(ctx context.Context, issuer string) error {
 	if issuer == "" {
 		return fmt.Errorf("OIDC issuer required")
 	}
-	if _, err := d.sql.ExecContext(ctx, "INSERT INTO settings(key,value) VALUES('oidc_issuer',?) ON CONFLICT(key) DO NOTHING", issuer); err != nil {
+	if _, err := d.exec(ctx, qConfigureOIDCIssuer1, issuer); err != nil {
 		return err
 	}
 	var saved string
-	if err := d.sql.QueryRowContext(ctx, "SELECT value FROM settings WHERE key='oidc_issuer'").Scan(&saved); err != nil {
+	if err := d.sql.QueryRowContext(ctx, d.query(qConfigureOIDCIssuer2)).Scan(&saved); err != nil {
 		return err
 	}
 	if saved != issuer {

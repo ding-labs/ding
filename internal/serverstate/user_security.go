@@ -13,7 +13,7 @@ func (d *DB) ChangePassword(ctx context.Context, user, old, password string) err
 	d.Access.Lock()
 	defer d.Access.Unlock()
 	var hash string
-	if err := d.sql.QueryRowContext(ctx, "SELECT password FROM users WHERE id=? AND disabled=0 AND password IS NOT NULL", user).Scan(&hash); err != nil {
+	if err := d.sql.QueryRowContext(ctx, d.query(qChangePassword1), user).Scan(&hash); err != nil {
 		return fmt.Errorf("password unavailable")
 	}
 	valid, err := identity.VerifyPassword(hash, old)
@@ -32,7 +32,7 @@ func (d *DB) ChangePassword(ctx context.Context, user, old, password string) err
 		return err
 	}
 	defer tx.Rollback()
-	if _, err = tx.ExecContext(ctx, "UPDATE users SET password=? WHERE id=?", hash, user); err != nil {
+	if _, err = tx.ExecContext(ctx, tx.query(qChangePassword2), hash, user); err != nil {
 		return err
 	}
 	if err = revokeUser(ctx, tx, user); err != nil {
@@ -53,7 +53,7 @@ type SessionInfo struct {
 }
 
 func (d *DB) Sessions(ctx context.Context, user, token string) ([]SessionInfo, error) {
-	rows, err := d.sql.QueryContext(ctx, "SELECT hash,workspace,kind,expires_at FROM sessions WHERE user=? AND expires_at>? ORDER BY expires_at DESC LIMIT 20", user, time.Now().Unix())
+	rows, err := d.sql.QueryContext(ctx, d.query(qSessions1), user, time.Now().Unix())
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (d *DB) Sessions(ctx context.Context, user, token string) ([]SessionInfo, e
 func (d *DB) RevokeUserSession(ctx context.Context, user, id string) error {
 	d.Access.Lock()
 	defer d.Access.Unlock()
-	_, err := d.sql.ExecContext(ctx, "DELETE FROM sessions WHERE user=? AND hash=?", user, id)
+	_, err := d.exec(ctx, qRevokeUserSession1, user, id)
 	return err
 }
 
@@ -92,24 +92,24 @@ func (d *DB) DisableUser(ctx context.Context, actor access.Principal, user strin
 	}
 	var role access.Role
 	var count int
-	if err = tx.QueryRowContext(ctx, "SELECT role FROM memberships WHERE user=? AND workspace=?", user, actor.Workspace).Scan(&role); err != nil {
+	if err = tx.QueryRowContext(ctx, tx.query(qDisableUser1), user, actor.Workspace).Scan(&role); err != nil {
 		return err
 	}
-	if err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM memberships WHERE user=?", user).Scan(&count); err != nil {
+	if err = tx.QueryRowContext(ctx, tx.query(qDisableUser2), user).Scan(&count); err != nil {
 		return err
 	}
 	if count != 1 || ((role == access.Owner || role == access.Administrator) && !actor.Allows(access.Owners)) {
 		return fmt.Errorf("host recovery required for this user")
 	}
 	if disabled && role == access.Owner {
-		if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM memberships m JOIN users u ON u.id=m.user WHERE m.workspace=? AND m.user!=? AND m.role='owner' AND u.disabled=0 AND (u.password IS NOT NULL OR EXISTS(SELECT 1 FROM identities i WHERE i.user=u.id))`, actor.Workspace, user).Scan(&count); err != nil {
+		if err = tx.QueryRowContext(ctx, tx.query(qDisableUser3), actor.Workspace, user).Scan(&count); err != nil {
 			return err
 		}
 		if count == 0 {
 			return fmt.Errorf("assign another owner first")
 		}
 	}
-	if _, err = tx.ExecContext(ctx, "UPDATE users SET disabled=? WHERE id=?", disabled, user); err != nil {
+	if _, err = tx.ExecContext(ctx, tx.query(qDisableUser4), disabled, user); err != nil {
 		return err
 	}
 	if disabled {
