@@ -151,3 +151,12 @@ The [Railway measurement table](../../benchmarks/push/results/2026-10-15-railway
 preserves failed and inconclusive cases alongside passing screens.
 Changes continue in [PR #58](https://github.com/ding-labs/ding/pull/58), on the
 existing PR stack, with the small commits preserved.
+
+Cleanup verified zero `dingtest_*` databases and removed the two lab roles.
+The existing `postgres` and `railway` databases and PostgreSQL volume remain.
+PostgreSQL's resource limits were returned to the **lab baseline** of 1 CPU/2 GB;
+the original pre-lab allocation was not recorded, so this is not described as
+restoring that unknown allocation. The 54 request-ledger archives were checked
+and preserved privately (about 211 MB compressed). Temporary service deletion is
+pending Railway's approval confirmation. The production soak remains independent
+and running on its original commit.
