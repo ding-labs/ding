@@ -26,7 +26,7 @@ def save(path, value):
 def execute(binary, driver, config, output, environment):
     env = dict(os.environ, DING_SCALE_CONFIG=str(output / 'config.json'),
                DING_SCALE_OUTPUT=str(output), DING_SCALE_EXTERNAL=environment)
-    timeout = config['Seconds'] + config.get('Preload', 0) / 500 + 900
+    timeout = config['Seconds'] + config.get('Preload', 0) / 100 + 900
     container = 'ding-scale-' + output.parent.name.lower() + '-' + output.name.lower()
     volume = container + '-data'
     args = [str(binary), '-test.run=^TestLocalPushScale$', '-test.v', '-test.timeout='+str(int(timeout))+'s']

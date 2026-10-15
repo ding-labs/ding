@@ -38,7 +38,8 @@ def measurements(root):
             'rejected': load['rejected'], 'unconfirmed': load['unconfirmed'],
             'resolved': report['Resolved'], 'reconciliationErrors': len(report['Errors'] or []),
             'readCount': report['ReadCount'], 'readErrors': report['ReadErrors'],
-            'readP99MS': report['ReadP99MS'], 'preloadAccepted': report['Preload']['accepted'],
+            'readP99MS': report['ReadP99MS'], 'preloadAccepted': report['Preload']['accepted']
+                + sum(r['accepted'] for r in report.get('PreloadFills') or []),
             'beforeObservations': sum(a['Rows']['observations'] for a in before),
             'beforeGroups': sum(a['Rows']['entities'] for a in before),
             'databaseGrowthBytes': sum(a['Health']['databaseBytes'] for a in after)

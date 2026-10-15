@@ -30,6 +30,7 @@ type scaleReport struct {
 	Errors                             []string
 	Samples                            []scaleSample
 	Preload                            PushBenchmarkResult
+	PreloadFills                       []PushBenchmarkResult
 	ReadCount, ReadErrors              int
 	ReadP99MS                          float64
 	ReceiverAttempts, ReceiverAccepted int
@@ -75,6 +76,7 @@ func TestLocalPushScale(t *testing.T) {
 		}
 	}
 	report.Preload = scalePreload(t, lab, c, out)
+	report.PreloadFills = lab.preloadFills
 	var waitStart func()
 	var waitFinish func(context.Context) PushBenchmarkResult
 	if os.Getenv("DING_SCALE_EXTERNAL") != "" {

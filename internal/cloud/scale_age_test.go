@@ -48,6 +48,28 @@ func scalePreload(t *testing.T, lab *scaleLab, c scaleConfig, out string) PushBe
 		t.Fatal(err)
 	}
 	t.Logf("preload actual=%d target=%d", r.Accepted, c.Preload)
+	accepted := r.Accepted
+	// A rejected preload is not an aged-store fixture. Fill at a lower rate,
+	// retain every round's ledger/result, and bound the extra work to 16 rounds.
+	for round := 0; accepted < c.Preload && round < 16; round++ {
+		for _, path := range []string{lab.root, out} {
+			if free, err := freeDiskBytes(path); err != nil || free < 20<<30 {
+				t.Fatal("preload free-disk floor reached")
+			}
+		}
+		fillRate := min(100, c.Preload)
+		fillSeconds := min(60, (c.Preload-accepted+fillRate-1)/fillRate)
+		fill, err := BenchmarkPush(context.Background(), PushBenchmarkOptions{Producers: lab.producers, Client: lab.http.Client(), Rate: fillRate, Duration: time.Duration(fillSeconds) * time.Second, Workers: c.Workers, Ledger: filepath.Join(out, fmt.Sprintf("preload-fill-%d.jsonl", round+1)), LedgerBatch: 32, CompactLedger: true, NoRetry: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		lab.preloadFills = append(lab.preloadFills, fill)
+		accepted += fill.Accepted
+	}
+	if accepted < c.Preload {
+		t.Fatalf("preload incomplete after bounded fill: actual=%d target=%d", accepted, c.Preload)
+	}
+	t.Logf("preload complete actual=%d target=%d fillRounds=%d", accepted, c.Preload, len(lab.preloadFills))
 	return r
 }
 
@@ -117,5 +139,26 @@ func TestScaleGroupSeedPopulatesEveryConfiguredGroup(t *testing.T) {
 	a := scaleAccounts(t, lab)
 	if r.Accepted != 10 || a[0].Rows.Entities != 1000 || a[0].Rows.Observations != 1000 {
 		t.Fatal(r, a)
+	}
+}
+
+func TestScalePreloadFillsRejectedAttempts(t *testing.T) {
+	c := scaleConfig{Name: "preload-fill", Rate: 10, Seconds: 1, Preload: 40, Defaults: true}
+	if err := c.validate(); err != nil {
+		t.Fatal(err)
+	}
+	lab := newScaleLab(t, c)
+	out := t.TempDir()
+	r := scalePreload(t, lab, c, out)
+	accepted := r.Accepted
+	for i, fill := range lab.preloadFills {
+		accepted += fill.Accepted
+		if _, err := os.Stat(filepath.Join(out, fmt.Sprintf("preload-fill-%d.jsonl", i+1))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	actual := scaleAccounts(t, lab)[0].Usage.Requests
+	if len(lab.preloadFills) == 0 || accepted < c.Preload || actual != int64(accepted) {
+		t.Fatal(r, lab.preloadFills, actual)
 	}
 }
