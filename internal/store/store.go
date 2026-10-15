@@ -173,6 +173,10 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 		return err
 	}
 	defer tx.Rollback()
+	check, err := database.LockTransactionGuard(ctx, tx, s.db)
+	if err != nil {
+		return err
+	}
 	p, attributed := access.FromContext(ctx)
 	var before int64
 	if attributed {
@@ -194,6 +198,9 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 				return err
 			}
 		}
+	}
+	if err = check(); err != nil {
+		return err
 	}
 	return tx.Commit()
 }

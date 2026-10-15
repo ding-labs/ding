@@ -87,6 +87,10 @@ func (s *Store) updatePostgres(ctx context.Context, fn func(*Tx) error) error {
 		return err
 	}
 	defer tx.Rollback()
+	check, err := database.LockTransactionGuard(ctx, tx, s.db)
+	if err != nil {
+		return err
+	}
 	// One database row orders workspace evaluation, range allocation and quota
 	// accounting, including callers in another process. Receiver I/O stays outside.
 	var scope string
@@ -111,6 +115,9 @@ func (s *Store) updatePostgres(ctx context.Context, fn func(*Tx) error) error {
 	}
 	if limit > 0 && bytes > limit {
 		return ErrQuota
+	}
+	if err = check(); err != nil {
+		return err
 	}
 	if err = s.ownership.Fence(ctx, tx, true); err != nil {
 		return err
