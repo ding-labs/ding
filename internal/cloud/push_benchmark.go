@@ -43,7 +43,8 @@ type PushBenchmarkOptions struct {
 	NoRetry          bool
 	LedgerBatch      int
 	CompactLedger    bool
-	PreplannedLedger bool // Persist every possible key before the measured clock starts.
+	PreplannedLedger bool         // Persist every possible key before the measured clock starts.
+	BeforeStart      func() error // Coordinate snapshots after journal preparation.
 }
 type PushBenchmarkResult struct {
 	BodyBytesMin         int                           `json:"bodyBytesMin"`
@@ -222,6 +223,11 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 	}
 	run, cancel := context.WithCancel(ctx)
 	defer cancel()
+	if o.BeforeStart != nil {
+		if err := o.BeforeStart(); err != nil {
+			return result, err
+		}
+	}
 	start := time.Now()
 	var mu sync.Mutex
 	var failure error

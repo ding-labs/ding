@@ -108,9 +108,7 @@ func run() error {
 	if _, err := cloud.BenchmarkPush(context.Background(), options); err != nil {
 		return err
 	}
-	if err := control("/lab/start", nil); err != nil {
-		return err
-	}
+	options.BeforeStart = func() error { return control("/lab/start", nil) }
 	options.Rate = *rate
 	options.Duration = time.Duration(*seconds) * time.Second
 	options.Ledger = filepath.Join(*output, "requests.jsonl")
