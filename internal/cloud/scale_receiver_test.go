@@ -33,6 +33,15 @@ type scaleDeliveryTransport struct {
 	next     http.RoundTripper
 }
 
+type scaleReceiverRecord struct {
+	Workspace string `json:"workspace"`
+	Data      struct {
+		ID string `json:"id"`
+	} `json:"data"`
+}
+
+func scaleReceiverKey(workspace, event string) string { return workspace + ":" + event }
+
 func (s scaleDeliveryTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	if r.URL.Scheme == "https" && "https://"+r.URL.Host == s.receiver.endpoint {
 		return s.receiver.client.Transport.RoundTrip(r)
@@ -88,12 +97,15 @@ func newScaleReceiver(t *testing.T, mode string, seconds int, path string) *scal
 			w.WriteHeader(503)
 			return
 		}
-		var event struct {
-			Data struct {
-				ID string `json:"id"`
-			} `json:"data"`
-		}
+		var event scaleReceiverRecord
 		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&event); err != nil || event.Data.ID == "" {
+			w.WriteHeader(400)
+			return
+		}
+		// Event IDs are workspace-scoped. Separate receiver paths represent
+		// independent customer destinations without changing production payloads.
+		event.Workspace = strings.TrimPrefix(r.URL.Path, "/workspace/")
+		if !accountID.MatchString(event.Workspace) {
 			w.WriteHeader(400)
 			return
 		}
@@ -105,7 +117,7 @@ func newScaleReceiver(t *testing.T, mode string, seconds int, path string) *scal
 			w.WriteHeader(503)
 			return
 		}
-		s.ids[event.Data.ID] = true
+		s.ids[scaleReceiverKey(event.Workspace, event.Data.ID)] = true
 		s.accepted++
 		w.WriteHeader(204)
 	})
