@@ -47,9 +47,8 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: linux-capacity-${{ github.ref }}
-  cancel-in-progress: false
+# Each dispatch owns a separate VM and randomly named fixtures. Do not serialize
+# independent experiments: GitHub concurrency groups discard older pending runs.
 
 jobs:
   single-server:
