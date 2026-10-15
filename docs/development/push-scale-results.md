@@ -269,6 +269,33 @@ were recorded during that window; WAL flush latency was not collected. Tagged
 query counts and worker scheduling measurements are the next attribution step.
 That trial still missed latency at p99 319 ms after earlier trials at 55 and 51 ms.
 
+## Correctness and release checks
+
+Implementation verification included the full local tagged Go race suite
+(`go test -race -tags console,mcpui -count=1 ./...`), vet, real PostgreSQL
+store/control/HTTP/evaluator contracts, concurrency and ownership-loss tests,
+native encrypted backup/restore and CLI roundtrips, both frontend builds and
+44 frontend unit tests. Later surgical fixes passed focused race/real-database
+regressions; CI passed whole-repository race tests and its PostgreSQL contract job
+on the current production Go code. Final report/data commits receive CI separately.
+
+Pressure tests exposed two error-classification issues that were fixed:
+projection cancellation/deadline errors and unavailable credential storage now
+produce retryable 503 responses. Malformed JSON, invalid credentials and revoked
+access retain their appropriate rejection behavior. Original failed attempts and
+source revisions remain in the aggregate. The PostgreSQL 600 KB retry and the
+actual canceled-authorization regression verified the corrected paths.
+
+SQLite remains the default. PostgreSQL is an explicit option for fresh self-hosted
+installations with one active server and direct connections. These experiments
+do not qualify populated SQLite-to-PostgreSQL transfer, transaction poolers,
+horizontal servers, physical power-loss recovery, managed PITR or a cloud cutover.
+Native encrypted restore/quarantine tests cover their documented local path.
+The live cloud soak uses one account and no notification destination; production
+multi-user deployment and external delivery still need their own release gates.
+Its actual producer sends 18 events in roughly 599–611 bytes each minute, with
+replay/conflict probes; large payloads belong to this independent local matrix.
+
 ## Qualification status
 
 The screening phase and 80-case main qualification stage have finished:
