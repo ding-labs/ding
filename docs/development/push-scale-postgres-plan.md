@@ -67,6 +67,11 @@ for the existing receipt-range contract. Allocate ranges for actual appended
 observations, including internal observations where required. Reconcile after
 concurrent writes and rollback.
 
+Preserve nanosecond timestamp/expiry behavior with explicit integer storage where
+needed. Keep canonical definitions, receipt/provenance bytes and identifier inputs
+unchanged where hashing or replay depends on them; choose JSONB only for fields
+whose semantics and query needs justify it.
+
 Use transaction-local workspace context and RLS for tenant runtime tables with a
 non-owner, non-superuser, non-bypass application role. Migration/backup roles are
 separate. Keep schemas outside Supabase's exposed Data API; existing Ding HTTP/Go
@@ -106,3 +111,86 @@ and qualify each backend's quota behavior separately before cloud release.
 **Exit:** batch atomicity, exact usage, duplicate/conflict, revoked/expired keys,
 lifecycle races, fault rollback and uncertain commits pass through real HTTPS on
 both backends. Cloud admission cannot enable until quota semantics are reviewed.
+
+## G5 Coordinate workers across application processes
+
+Replace filesystem/process ownership assumptions with database-backed leases and
+fencing tokens for acquisition, timers, retention and delivery. Use database time
+for distributed lease expiry. A worker that lost ownership cannot commit stale
+evaluation, cancel a new owner's work or acknowledge a reclaimed delivery.
+
+Claim outbox work transactionally. `SKIP LOCKED` can distribute eligible work,
+but the eligibility/stream-claim protocol must prevent claiming a later event
+while an earlier event in the same ordered stream is leased or awaiting retry.
+Perform receiver I/O outside the transaction and update results only with the
+current lease token. Independently scoped streams can run concurrently.
+
+**Tests:** two separate Go processes sharing the same database; identical and
+different keys at the same time; revoke credentials from one while the other
+accepts; terminate a worker mid-poll, mid-timer, mid-maintenance and mid-delivery;
+delay lease renewal; reconnect after a database/network interruption. Verify one
+durable acceptance, correct sequences and no concurrent ownership of ordered work.
+Retain stable IDs for potentially duplicated external notifications.
+
+**Exit:** distributed correctness passes before any horizontal capacity claim.
+Compare one versus two processes under the same total CPU/RAM budget, then report
+additional-resource scaling separately.
+
+## G6 Evaluate the connection pooler separately
+
+Start with Go's bounded direct SQL pool. Sweep a small connection range with
+1/10/100 workspaces and one/two processes, recording acquisition waits, actual
+database connections, row-lock waits, throughput, CPU and memory.
+
+Then add a pinned PgBouncer fixture and repeat the selected cases in transaction
+pooling mode. Avoid session-dependent settings/locks and preserved temporary
+tables. Use transaction-local workspace context; convert retention's SQLite
+temporary-table assumptions to safe backend-specific operations. Verify driver
+prepared-statement behavior against the chosen pooler settings. Current PgBouncer
+supports protocol prepared plans when configured; SQL `PREPARE` and session
+features have different restrictions. [PgBouncer feature matrix](https://www.pgbouncer.org/features.html).
+
+**Tests:** reused connections across workspaces, rollback and cancellation,
+statement preparation, pool exhaustion, pooler restart, database restart and
+connection churn. Resolve uncertain acceptance with the original key.
+
+**Exit:** add the pooler to the proposed deployment only if measured connection
+pressure or process count warrants its extra configuration and failure surface.
+For a later Supabase comparison, qualify that deployment's actual pooler/driver
+combination independently; do not transfer PgBouncer results automatically.
+
+## G7 Select the cloud backend and rehearse migration
+
+Produce a decision record comparing optimized SQLite, direct PostgreSQL and
+pooled PostgreSQL. Include workload-specific stable capacity, tail latency,
+accepted observations per CPU-second, total app/database/pooler memory, retained
+storage, recovery time and expected operating complexity/cost. Select PostgreSQL
+when it meets correctness/recovery gates and supplies needed capacity or
+availability that justifies the added service. Keep local SQLite independently.
+
+Before cloud cutover:
+
+1. Implement a versioned backend-aware export/import format. Import control and
+   workspace records consistently, preserving workspace/watch lifetimes, logical
+   producers, receipts, ranges, event IDs, evidence, transfers and encrypted vault
+   bindings. Handle sessions and recovery identity under existing restore policy.
+2. Rehearse on synthetic populated databases, then on a privately restored copy.
+   Restore starts in quarantine with watches paused and old access invalidated;
+   validate safe recovery before enabling execution or delivery.
+3. Verify a complete PostgreSQL backup/restore, including control metadata,
+   runtime state and encryption keys kept separately. Measure recovery time and
+   the data-loss window; managed snapshots/PITR require their own tested procedure.
+4. Adapt startup, readiness, maintenance and Doctor to explicit backend selection.
+   Refuse a failed PostgreSQL configuration rather than silently opening empty
+   SQLite state. Qualify production SQL TLS and secret handling.
+5. Plan a bounded maintenance cutover with admissions stopped, workers quiesced,
+   a consistent encrypted export, import verification and one enabled destination
+   backend. Record producer retry expectations and actual downtime. Reconcile all
+   acknowledged receipts before accepting new inputs.
+6. Test rollback before PostgreSQL accepts new writes. After new acceptance,
+   returning to an old SQLite snapshot would lose data: require reverse transfer
+   and reconciliation or a forward repair. Avoid an unqualified dual-write phase.
+
+**Exit:** migration and recovery are reviewable and tested. Complete the existing
+Cloud soak and its separate cleanup before scheduling a production cutover.
+Production adoption is a later deployment decision, not an outcome of this plan.
