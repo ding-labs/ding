@@ -3,7 +3,9 @@ package watchcli
 import (
 	"bytes"
 	"encoding/json"
+	"filippo.io/age"
 	"fmt"
+	"github.com/ding-labs/ding/internal/cloud"
 	"os"
 	"path/filepath"
 	"testing"
@@ -62,6 +64,52 @@ func TestPostgresSharedServerMigrateBootstrapAndRecovery(t *testing.T) {
 	if _, err = os.Stat(filepath.Join(dir, "state", "control.db")); !os.IsNotExist(err) {
 		t.Fatal("PostgreSQL CLI created SQLite control state")
 	}
+
+	t.Run("native-backup-restore-commands", func(t *testing.T) {
+		if os.Getenv("DING_PG_DUMP") == "" || os.Getenv("DING_PG_RESTORE") == "" {
+			t.Skip("requires matching native clients")
+		}
+		fixture.SetAdminEnvironment(t, "DING_SELFHOST_BACKUP_ADMIN")
+		identity, err := age.GenerateX25519Identity()
+		if err != nil {
+			t.Fatal(err)
+		}
+		archive := filepath.Join(dir, "backup.age")
+		identityFile := filepath.Join(dir, "backup-identity")
+		if err = os.WriteFile(identityFile, []byte(identity.String()), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err = run("backup", "--database-admin-env", "DING_SELFHOST_BACKUP_ADMIN", "--output", archive, "--recipient", identity.Recipient().String()); err != nil {
+			t.Fatal(err)
+		}
+		destination := pgtest.New(t)
+		destination.SetAppEnvironment(t, "DING_SELFHOST_RESTORE_APP")
+		destination.SetAdminEnvironment(t, "DING_SELFHOST_RESTORE_ADMIN")
+		var target cloud.Config
+		if err = json.Unmarshal(body, &target); err != nil {
+			t.Fatal(err)
+		}
+		target.DataDir = filepath.Join(dir, "restored-state")
+		target.Database.DSNRef = &database.SecretRef{Env: "DING_SELFHOST_RESTORE_APP"}
+		targetConfig := filepath.Join(dir, "restore.json")
+		raw, err := json.Marshal(target)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = os.WriteFile(targetConfig, raw, 0600); err != nil {
+			t.Fatal(err)
+		}
+		targetRun := func(args ...string) {
+			t.Helper()
+			var out bytes.Buffer
+			if err := Execute("test", append([]string{"server", "--config", targetConfig}, args...), &out, &out); err != nil {
+				t.Fatal(err)
+			}
+		}
+		targetRun("restore", "--database-admin-env", "DING_SELFHOST_RESTORE_ADMIN", "--input", archive, "--identity-file", identityFile)
+		targetRun("release-restore", "--confirm-other-runners-stopped")
+		targetRun("recover", "--username", "operator", "--password-file", password)
+	})
 	var output bytes.Buffer
 	if err = Execute("test", []string{"--state-dir", filepath.Join(dir, "state"), "daemon"}, &output, &output); err == nil {
 		t.Fatal("personal daemon opened PostgreSQL server artifacts")
