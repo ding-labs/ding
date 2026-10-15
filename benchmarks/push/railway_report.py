@@ -23,7 +23,13 @@ def cpu_window(samples):
 def summarize(path):
     result = json.loads(path.read_text())
     summary = json.loads((path.parent/'summary.json').read_text())
-    report = result['report']; load = report['Load']
+    report = result.get('report')
+    if report is None:
+        return {'label':path.parent.name, 'pass':False, 'case':summary['case'],
+                'rate':summary['rate'], 'seconds':summary['seconds'],
+                'harnessFailure':True, 'exitCode':result.get('exitCode'),
+                'generatorExitCode':result.get('generatorExitCode')}
+    load = report['Load']
     stamp = re.sub(r'(\.\d{6})\d+', r'\1', report['StartedAt']).replace('Z','+00:00')
     start = datetime.datetime.fromisoformat(stamp).timestamp()
     end = start+load['durationSeconds']
