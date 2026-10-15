@@ -1,6 +1,13 @@
 """Explicit app/database allocations, independent of the legacy equal split."""
 import math
+import os
 import subprocess
+
+
+def container_user():
+    # Linux bind mounts retain ownership. Match the evidence directory's operator
+    # instead of creating root-only bootstrap/ledger files on the host.
+    return str(os.getuid())+':'+str(os.getgid())
 
 
 def cgroup_sample(container):

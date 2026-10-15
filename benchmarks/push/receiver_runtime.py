@@ -5,6 +5,7 @@ import os
 import subprocess
 import time
 from pathlib import Path
+from resources import container_user
 
 
 class LocalReceiver:
@@ -23,7 +24,7 @@ class LocalReceiver:
         args = [str(binary)] + tail
         if self.container:
             network = ['--network', 'container:'+namespace] if namespace else ['-p', '127.0.0.1::8443']
-            args = ['docker','run','--name',self.container,'--cpus=0.5','--memory=256m','--memory-swap=256m'] + network + [
+            args = ['docker','run','--name',self.container,'--user',container_user(),'--cpus=0.5','--memory=256m','--memory-swap=256m'] + network + [
                 '--mount','type=bind,source='+str(binary)+',target=/scale.test,readonly',
                 '--mount','type=bind,source='+str(output)+',target=/evidence',
                 '-e','DING_SCALE_RECEIVER_ONLY=1','-e','DING_SCALE_RECEIVER_OUTPUT=/evidence/receiver',

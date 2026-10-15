@@ -77,4 +77,7 @@ jobs:
             ${{ runner.temp }}/capacity/runs/*/run-state.json
             ${{ runner.temp }}/capacity/runs/*/*/report.json
             ${{ runner.temp }}/capacity/runs/*/*/execution.json
+            ${{ runner.temp }}/capacity/runs/*/*/requests.jsonl
+            ${{ runner.temp }}/capacity/runs/*/*/run.log
+            ${{ runner.temp }}/capacity/runs/*/*/generator.log
           retention-days: 14

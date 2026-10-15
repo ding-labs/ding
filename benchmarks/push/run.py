@@ -14,7 +14,7 @@ import time
 
 from postgres_runtime import LocalPostgres
 from receiver_runtime import LocalReceiver
-from resources import cgroup_sample, resource_limits
+from resources import cgroup_sample, container_user, resource_limits
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -36,7 +36,7 @@ def qualified_load(load):
 
 def capture_failed_state(volume, output):
     archive = output / 'failed-state.tar.gz'
-    command(['docker', 'run', '--rm',
+    command(['docker', 'run', '--rm', '--user', container_user(),
              '--mount', 'type=volume,source='+volume+',target=/lab,readonly',
              '--mount', 'type=bind,source='+str(output)+',target=/evidence',
              'debian:bookworm-slim', 'tar', '-C', '/lab', '-czf', '/evidence/'+archive.name, '.'])
@@ -75,6 +75,8 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
     args = [str(binary), '-test.run=^TestLocalPushScale$', '-test.v', '-test.timeout='+str(int(timeout))+'s']
     if environment == 'container':
         command(['docker', 'volume', 'create', volume])
+        command(['docker', 'run', '--rm', '--mount', 'type=volume,source='+volume+',target=/lab',
+                 'debian:bookworm-slim', 'chown', container_user(), '/lab'])
         app_cpus = resources['appCPUs']
         app_memory = str(resources['appMemoryMiB'])+'m'
         network = ['--network', 'container:'+pg.container] if pg else (['--network','container:'+receiver.container] if receiver else ['-p','127.0.0.1::8443'])
@@ -82,7 +84,7 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
                    '-e', 'DING_TEST_POSTGRES_FILE=/postgres-fixture.json'] if pg else []
         if receiver:
             fixture += ['-e','DING_SCALE_RECEIVER_FILE=/evidence/receiver/bootstrap.json']
-        args = ['docker', 'run', '--name', container, '--cpus='+str(app_cpus), '--memory='+app_memory, '--memory-swap='+app_memory] + network + fixture + [ '--mount', 'type=volume,source='+volume+',target=/lab',
+        args = ['docker', 'run', '--name', container, '--user', container_user(), '--cpus='+str(app_cpus), '--memory='+app_memory, '--memory-swap='+app_memory] + network + fixture + [ '--mount', 'type=volume,source='+volume+',target=/lab',
                 '--mount', 'type=bind,source='+str(binary)+',target=/scale.test,readonly',
                 '--mount', 'type=bind,source='+str(output)+',target=/evidence',
                 '-e', 'DING_SCALE_CONFIG=/evidence/config.json', '-e', 'DING_SCALE_OUTPUT=/evidence',
@@ -117,7 +119,7 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
                     if generator_placement == 'container':
                         generator_container = container+'-generator'
                         namespace = pg.container if pg else (receiver.container if receiver else container)
-                        generator_args = ['docker','run','--name',generator_container,'--cpus=2',
+                        generator_args = ['docker','run','--name',generator_container,'--user',container_user(),'--cpus=2',
                             '--memory=512m','--memory-swap=512m','--network','container:'+namespace,
                             '--mount','type=bind,source='+str(driver)+',target=/load,readonly',
                             '--mount','type=bind,source='+str(output)+',target=/evidence',
@@ -147,8 +149,8 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
             if code != 0 and generator is not None and generator.poll() is None:
                 generator.kill()
             generator_code = generator.wait() if generator is not None else None
-        except (subprocess.CalledProcessError, OSError):
-            failure = 'Local test infrastructure became unavailable.'
+        except (subprocess.CalledProcessError, OSError) as error:
+            failure = 'Local test infrastructure became unavailable ('+type(error).__name__+').'
         except (RuntimeError, TimeoutError) as error:
             failure = str(error)
         except KeyboardInterrupt:
