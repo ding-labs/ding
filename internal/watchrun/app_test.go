@@ -421,20 +421,27 @@ func TestFiveSecondRestartDemonstration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer s.Close()
 	a = New(s)
 	i, err := a.Inspect(ctx, "api")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !state(t, a).Open || len(i.Deliveries) != 1 || i.Deliveries[0].Status != "pending" || i.Deliveries[0].Attempts < 1 {
+	if !state(t, a).Open || len(i.Deliveries) != 1 || (i.Deliveries[0].Status != "pending" && i.Deliveries[0].Status != "leased") || i.Deliveries[0].Attempts < 1 {
 		t.Fatalf("lost firing/retry: %+v", i)
+	}
+	// Process death can interrupt Finish after the receiver rejected the call.
+	// That durable lease must be reclaimed with the same event identity too.
+	recoveryWait := 18 * time.Second
+	if i.Deliveries[0].Status == "leased" {
+		recoveryWait = 40 * time.Second
 	}
 	eventID := i.Deliveries[0].EventID
 	s.Close()
 	healthy.Store(true)
 	reject.Store(false)
 	child = launch()
-	deadline = time.Now().Add(18 * time.Second)
+	deadline = time.Now().Add(recoveryWait)
 	for accepted.Load() < 2 && time.Now().Before(deadline) {
 		time.Sleep(20 * time.Millisecond)
 	}
