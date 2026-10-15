@@ -50,7 +50,7 @@ def run():
     parser.add_argument('--case',required=True)
     parser.add_argument('--rate',type=int,required=True)
     parser.add_argument('--seconds',type=int,required=True)
-    parser.add_argument('--pool',type=int,choices=(2,4,8,16),default=4)
+    parser.add_argument('--pool',type=int,choices=(2,4,8,16,32),default=4)
     parser.add_argument('--seed',type=int,default=0)
     args = parser.parse_args()
     os.umask(0o077)

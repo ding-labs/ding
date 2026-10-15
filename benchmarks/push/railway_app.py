@@ -48,7 +48,7 @@ def start_case(request):
         raise ValueError('unknown case or option')
     config.update(Rate=int(request.get('rate',config['Rate'])), Seconds=int(request.get('seconds',config['Seconds'])),
                   Backend='postgres', PoolLimit=int(request.get('pool',4)), QueryMode='exec', Profiles=False)
-    if config['PoolLimit'] not in (2,4,8,16):
+    if config['PoolLimit'] not in (2,4,8,16,32):
         raise ValueError('unsupported connection pool size')
     config['ShuffleSeed'] = int(request.get('seed',0))
     if not 0 <= config['ShuffleSeed'] < 2**63:
