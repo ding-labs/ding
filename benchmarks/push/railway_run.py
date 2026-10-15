@@ -1,0 +1,93 @@
+"""Run a bounded case from the separate private Railway generator service."""
+import argparse
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import threading
+import time
+from urllib.request import Request, urlopen
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+from railway_app import resources
+
+
+def control(path, value=None):
+    request = Request('http://ding-scale-app.railway.internal:8080'+path,
+                      data=json.dumps(value).encode() if value is not None else None,
+                      headers={'Authorization':'Bearer '+os.environ['DING_LAB_CONTROL'], 'Content-Type':'application/json'})
+    with urlopen(request,timeout=240) as response:
+        return json.load(response)
+
+
+def run():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--case',required=True)
+    parser.add_argument('--rate',type=int,required=True)
+    parser.add_argument('--seconds',type=int,required=True)
+    args = parser.parse_args()
+    os.umask(0o077)
+    job = control('/case',vars(args))
+    identity = job['id']
+    root = Path('/data/ding-lab/runs')/identity
+    root.mkdir(parents=True,mode=0o700)
+    (root/'bootstrap.json').write_text(json.dumps(job['bootstrap']))
+    (root/'config.json').write_text(json.dumps(job['config']))
+    stop = threading.Event()
+    def observe():
+        with (root/'generator-resources.jsonl').open('x') as file:
+            while not stop.is_set():
+                file.write(json.dumps(resources())+'\n'); file.flush(); stop.wait(5)
+    observer = threading.Thread(target=observe,daemon=True); observer.start()
+    try:
+        with (root/'generator.log').open('x') as log:
+            process = subprocess.run(['/opt/ding-local-load','--bootstrap',str(root/'bootstrap.json'),
+                                      '--output',str(root),'--rate',str(args.rate),'--seconds',str(args.seconds)],
+                                     stdout=log,stderr=subprocess.STDOUT,timeout=args.seconds+600)
+        if process.returncode:
+            control('/abort/'+identity,{})
+        deadline = time.monotonic()+600
+        while True:
+            result = control('/result/'+identity)
+            if not result['running']: break
+            if time.monotonic() > deadline:
+                control('/abort/'+identity,{})
+                raise RuntimeError('reconciliation deadline exceeded')
+            time.sleep(5)
+        result['generatorExitCode'] = process.returncode
+        result['id'] = identity
+        result['generatorResources'] = [json.loads(line) for line in (root/'generator-resources.jsonl').read_text().splitlines()]
+        (root/'result.json').write_text(json.dumps(result))
+        report = result['report'] or {}
+        load = report.get('Load',{})
+        passed = (result['exitCode']==0 and process.returncode==0 and load.get('firstAccepted')==args.rate*args.seconds
+                  and load.get('scheduleP99MS',999)>-1 and load.get('scheduleP99MS',999)<=20
+                  and load.get('p99MS',999)<250 and not report.get('Errors') and report.get('ReadErrors')==0
+                  and not any(s.get('observerError') for s in result['resources'])
+                  and (job['config'].get('Noop') or report.get('PostChecksVerified')))
+        summary = {'id':identity,'case':args.case,'rate':args.rate,'seconds':args.seconds,
+                   'pass':bool(passed),'load':load,'readCount':report.get('ReadCount'),
+                   'readP99MS':report.get('ReadP99MS'),'readErrors':report.get('ReadErrors'),
+                   'restartVerified':report.get('RestartVerified'),'errors':report.get('Errors'),
+                   'artifact':str(root/'result.json')}
+        (root/'summary.json').write_text(json.dumps(summary,indent=2))
+        print(json.dumps(summary),flush=True)
+        return 0 if passed else 1
+    finally:
+        stop.set(); observer.join()
+        (root/'bootstrap.json').unlink(missing_ok=True)
+
+
+class Health(BaseHTTPRequestHandler):
+    def log_message(self,*_): pass
+    def do_GET(self):
+        self.send_response(200 if self.path=='/health' else 404); self.end_headers()
+
+
+if __name__=='__main__':
+    if len(sys.argv)==1:
+        HTTPServer(('0.0.0.0',8080),Health).serve_forever()
+    else:
+        try: sys.exit(run())
+        except Exception: raise SystemExit('Private lab run failed; inspect its retained evidence')

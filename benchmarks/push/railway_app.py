@@ -102,6 +102,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if not self.authorized(): return self.respond(401,{})
+        if self.path.startswith('/abort/'):
+            job = JOBS.get(self.path.removeprefix('/abort/'))
+            if job is None: return self.respond(404,{})
+            if job['process'].poll() is None: job['process'].terminate()
+            return self.respond(200,{'aborted':True})
         if self.path != '/case': return self.respond(404,{})
         length = int(self.headers.get('Content-Length','0'))
         if length < 1 or length > 4096: return self.respond(400,{})
