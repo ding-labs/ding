@@ -20,7 +20,8 @@ test('Workers runtime enforces authorization, one-time start, warmup gate and in
  try {
   const headers={Authorization:'Bearer admin','Content-Type':'application/json'};
   assert.equal((await mf.dispatchFetch('https://test/admin/status')).status,404);
-  const epoch=Math.ceil(Date.now()/MINUTE)*MINUTE,c={runId:'push-0123456789abcdef',watchId:'push-soak-20261012',mode:'warmup',epoch,applicationRevision:'a'.repeat(40),observerRevision:'b'.repeat(40)};
+  // Keep a full minute of margin while runtime assertions cross a wall-clock minute.
+  const epoch=Math.ceil((Date.now()+MINUTE)/MINUTE)*MINUTE,c={runId:'push-0123456789abcdef',watchId:'push-soak-20261012',mode:'warmup',epoch,applicationRevision:'a'.repeat(40),observerRevision:'b'.repeat(40)};
   const start=cfg=>mf.dispatchFetch('https://test/admin/start',{method:'PUT',headers,body:JSON.stringify(cfg)});
   assert.equal((await start({...c,mode:'measure'})).status,409);
   const race=await Promise.all([start(c),start({...c,runId:'push-1111111111111111'})]);

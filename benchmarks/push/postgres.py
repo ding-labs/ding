@@ -41,12 +41,18 @@ GRANT CONNECT, CREATE, TEMPORARY ON DATABASE ding TO ding_migrator;
         if not manifest.exists():
             parser.error("no owned lab at this root")
         project = json.loads(manifest.read_text())["project"]
-    env = dict(os.environ, DING_PG_INIT_FILE=str(root / "roles.sql"),
-               DING_PG_PASSWORD_FILE=str(root / "admin-password"))
+    env = dict(os.environ, DING_PG_PASSWORD_FILE=str(root / "admin-password"))
     command = ["docker", "compose", "-p", project, "-f", str(COMPOSE)]
     if args.action == "start":
         subprocess.run(command + ["up", "-d", "--wait"], env=env, check=True)
         cid = subprocess.check_output(command + ["ps", "-q", "postgres"], env=env, text=True).strip()
+        # Keep the host role file private. Linux bind mounts preserve its host
+        # UID/mode, which the image's postgres UID cannot read during initdb.
+        # Bootstrap the owned ready database through stdin, never argv or logs.
+        subprocess.run(["docker", "exec", "-i", cid, "psql", "-U", "postgres",
+                        "-d", "ding", "-v", "ON_ERROR_STOP=1"],
+                       input=(root / "roles.sql").read_text(), text=True,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         info = json.loads(subprocess.check_output(["docker", "inspect", cid], text=True))[0]
         port = info["NetworkSettings"]["Ports"]["5432/tcp"][0]["HostPort"]
         urls = {"app": f"postgres://ding_app:{app}@127.0.0.1:{port}/ding?sslmode=disable",
