@@ -8,7 +8,7 @@ from export import measurements
 
 
 class ExportMeasurements(unittest.TestCase):
-    def row(self, *, noop=False, backend='sqlite', throttles=0):
+    def row(self, *, noop=False, backend='sqlite', throttles=0, profiles=False):
         config = dict(Rate=1000, Seconds=30, Workspaces=1, Outputs=100,
                       Groups=1, BodyBytes=55, RetainPadding=False,
                       Condition='average', Receiver='', Noop=noop, Backend=backend)
@@ -25,7 +25,7 @@ class ExportMeasurements(unittest.TestCase):
                       DeliveryDrainSeconds=0, Samples=[])
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory); case=root/'case';case.mkdir()
-            files = {root/'manifest.json': dict(revision='fixture', environment='container', profiles=False),
+            files = {root/'manifest.json': dict(revision='fixture', environment='container', profiles=profiles),
                      root/'summary.json': [dict(case='case', stable=True)],
                      case/'report.json': report,
                      case/'execution.json': dict(exitCode=0, generatorExitCode=0)}
@@ -50,3 +50,8 @@ class ExportMeasurements(unittest.TestCase):
         self.assertGreaterEqual(row['firstAcceptedFraction'], .999)
         self.assertFalse(row['stable'])
         self.assertTrue(self.row()['stable'])
+
+    def test_profiled_diagnostics_cannot_qualify_capacity(self):
+        row = self.row(profiles=True)
+        self.assertTrue(row['reportedStable'])
+        self.assertFalse(row['stable'])

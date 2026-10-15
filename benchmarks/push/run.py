@@ -242,8 +242,9 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
             'inconclusive': ('producer clock discontinuity' if load.get('clockDiscontinuity') else
                              'producer scheduling p99 exceeded 20 ms' if load.get('scheduleP99MS', 0) > 20 else
                              'server clock discontinuity' if report.get('InternalObservations',0) else
-                             'local resource observation unavailable' if observer_errors or failure else None),
-            'stable':code==0 and generator_code==0 and not failure and not observer_errors and qualified_load(load) and fraction>=.999 and load['p99MS']<250 and not report['Errors'] and not report['ReadErrors'] and not report.get('InternalObservations',0) and pending==0 and postchecks}
+                             'local resource observation unavailable' if observer_errors or failure else
+                             'diagnostic profiling enabled' if config.get('Profiles', False) else None),
+            'stable':not config.get('Profiles',False) and code==0 and generator_code==0 and not failure and not observer_errors and qualified_load(load) and fraction>=.999 and load['p99MS']<250 and not report['Errors'] and not report['ReadErrors'] and not report.get('InternalObservations',0) and pending==0 and postchecks}
 
 
 def main():
