@@ -134,8 +134,8 @@ requests, then acceptance p99. They are not sustained rate recommendations.
 | 3,115 bytes, 100 distinct-group outputs | 100 | 3,000 / 3,000; 25 ms | 92 / 3,000; 20,190 ms |
 | Nested 600,000 bytes, 18 distinct-group outputs | 25 | 750 / 750; 50 ms | 750 / 750; 2,010 ms |
 
-The SQLite 100-output screen represents 10,000 projected observations/s while
-input lasts, rather than 10,000 HTTP requests/s. Incoming padding is discarded
+The SQLite 100-output screen represents 100 HTTP requests/s × 100 outputs/request
+= 10,000 projected observations/s while input lasts. Incoming padding is discarded
 unless a retained-padding case explicitly projects it. PostgreSQL's later
 600 KB / 25/s single-output retry passed all 750 inputs at p99 189 ms after the
 timeout error-classification fix; its original failed attempt remains preserved.
@@ -161,6 +161,15 @@ The SQLite allocated database grew by approximately **660 MB** over the accepted
 449,929 requests, roughly 1.47 KB per request for this tiny-body workload including
 its durable receipt/state/index costs. The run uses the raised lab storage cap;
 the production default 128 MiB envelope would bind much earlier.
+
+The 100-workspace SQLite run **qualified** on **4 CPU / 4 GiB total** at
+250 aggregate requests/s: **450,000 / 450,000** first acknowledgements, p95
+**11 ms**, p99 **65 ms**, zero rejections/uncertain responses/missed arrivals or
+clock errors. All receipts and usage reconciled, 17,948 authenticated reads
+completed without errors (read p99 **7 ms**), and reopen/postchecks passed.
+Its three preceding 180-second trials all acknowledged 45,000 inputs, with p99
+47 / 33 / 16 ms. Lower-budget 250/s trials did not pass consistently; this result
+does not qualify that rate on a 1 CPU or 2 CPU configuration.
 
 ## Delivery screens
 
