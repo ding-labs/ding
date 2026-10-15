@@ -57,3 +57,36 @@ func TestQueueIndexesAndSchemaTwoUpgrade(t *testing.T) {
 		t.Fatal("queue scans and sorts all candidates", plan.String())
 	}
 }
+
+func TestRetentionBatchesUseTimeIndexes(t *testing.T) {
+	s := openTest(t, t.TempDir())
+	for _, item := range []struct {
+		query statement
+		index string
+	}{
+		{qRetainBatchOutbox, "outbox_retention"}, {qRetainBatchObservations, "observations_retention"}, {qRetainBatchEvents, "events_retention"}, {qRetainBatchWatchRevisions, "watch_revision_retention"}, {qRetainBatchDestinationRevisions, "destination_revision_retention"},
+	} {
+		rows, err := s.db.Query("EXPLAIN QUERY PLAN "+item.query.sqlite, 0, 64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var details strings.Builder
+		for rows.Next() {
+			var id, parent, unused int
+			var detail string
+			if err = rows.Scan(&id, &parent, &unused, &detail); err != nil {
+				t.Fatal(err)
+			}
+			details.WriteString(detail)
+			details.WriteByte('\n')
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(details.String(), item.index) || strings.Contains(details.String(), "TEMP B-TREE") {
+			t.Fatal("retention scans or sorts history", details.String())
+		}
+	}
+}
