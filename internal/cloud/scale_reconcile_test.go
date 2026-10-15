@@ -233,7 +233,7 @@ func TestScaleReconcilesFullPushLedger(t *testing.T) {
 	before := scaleAccounts(t, lab)
 	path := t.TempDir() + "/ledger"
 	r, err := BenchmarkPush(context.Background(), PushBenchmarkOptions{Producers: lab.producers, Client: lab.http.Client(), Duration: 1000000000, Rate: 10, Ledger: path, LedgerBatch: 8, CompactLedger: true, PreplannedLedger: true, NoRetry: true})
-	if err != nil || r.Accepted != 10 {
+	if err != nil || r.Accepted != 10 || r.AcceptedObservations != 180 || r.AcceptedBytes != int64(10*len(lab.producers[0].Body)) || r.Payloads[""].Accepted != 10 {
 		t.Fatal(r, err)
 	}
 	resolved, errs := scaleReconcile(t, lab, c, path, before)
