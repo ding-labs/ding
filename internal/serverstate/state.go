@@ -40,6 +40,9 @@ type Workspace struct {
 }
 
 func Open(ctx context.Context, dir string) (*DB, error) {
+	if err := database.CheckDirectory(dir, "sqlite"); err != nil {
+		return nil, err
+	}
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
