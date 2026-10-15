@@ -235,6 +235,14 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 // Configure limits before workers start; changing App.Limits on a running
 // production Pool tenant would race with retention and acquisition workers.
 func scaleTenant(pool *Pool, w state.Workspace, defaults bool, deliveryWorkers ...int) (*Tenant, error) {
+	tenant, err := prepareScaleTenant(pool, w, defaults, deliveryWorkers...)
+	if err == nil {
+		startScaleTenant(tenant)
+	}
+	return tenant, err
+}
+
+func prepareScaleTenant(pool *Pool, w state.Workspace, defaults bool, deliveryWorkers ...int) (*Tenant, error) {
 	db, err := pool.workspaceStorage().Open(pool.ctx, w.ID)
 	if err != nil {
 		return nil, err
@@ -262,8 +270,15 @@ func scaleTenant(pool *Pool, w state.Workspace, defaults bool, deliveryWorkers .
 	pool.mu.Lock()
 	pool.tenants[w.ID] = tenant
 	pool.mu.Unlock()
-	go func() { tenant.err = app.Run(run); tenant.failed.Store(true); close(tenant.done) }()
 	return tenant, nil
+}
+
+func startScaleTenant(tenant *Tenant) {
+	go func() {
+		tenant.err = tenant.App.Run(tenant.ctx)
+		tenant.failed.Store(true)
+		close(tenant.done)
+	}()
 }
 
 func TestScaleLabUsesIsolatedHostedPath(t *testing.T) {
