@@ -14,7 +14,6 @@ services:
       - admin_password
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - '${DING_PG_INIT_FILE}:/docker-entrypoint-initdb.d/roles.sql:ro'
     ports:
       - '127.0.0.1::5432'
       # The app can share this namespace while retaining a separate cgroup.
