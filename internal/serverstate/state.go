@@ -140,6 +140,9 @@ func Open(ctx context.Context, dir string) (*DB, error) {
 }
 
 func (d *DB) Close() error {
+	if d.postgres {
+		return nil
+	}
 	var readErr error
 	if d.readers != nil {
 		readErr = d.readers.Close()

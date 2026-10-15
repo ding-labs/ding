@@ -55,6 +55,7 @@ func Migrate(ctx context.Context, db *sql.DB, component string, steps []string, 
 		"GRANT USAGE ON SCHEMA ding_meta," + schema + " TO " + role,
 		"GRANT SELECT ON ding_meta.versions TO " + role,
 		"GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA " + schema + " TO " + role,
+		"GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA " + schema + " TO " + role,
 	} {
 		if _, err = tx.ExecContext(ctx, query); err != nil {
 			return SafeError("grant application access", err)
