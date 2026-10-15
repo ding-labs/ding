@@ -38,7 +38,7 @@ on:
         description: Independent app and database sizing
         default: initial
         type: choice
-        options: [initial, more_app, more_database, larger_pair, sqlite_matched]
+        options: [initial, more_app, more_database, larger_pair, sqlite_matched, database_control]
       profiles:
         description: Diagnostic profiling only (excluded from capacity qualification)
         default: false
@@ -85,9 +85,15 @@ jobs:
           PROFILE: ${{ inputs.profile || 'initial' }}
           PROFILES: ${{ inputs.profiles || 'false' }}
         run: |
+          profiles=("$PROFILE")
+          if [ "$PROFILE" = database_control ]; then
+            # A/B/A on one VM distinguishes database sizing from runner speed.
+            profiles=(initial more_database initial)
+          fi
+          for allocation in "${profiles[@]}"; do
           app_cpus=1; app_memory=1024
           db_cpus=1; db_memory=2048
-          case "$PROFILE" in
+          case "$allocation" in
             more_app) app_cpus=2; app_memory=2048 ;;
             more_database) db_cpus=2; db_memory=4096 ;;
             larger_pair) app_cpus=2; app_memory=2048; db_cpus=2; db_memory=4096 ;;
@@ -104,6 +110,7 @@ jobs:
             --backend "$BACKEND" --app-cpus "$app_cpus" --app-memory-mib "$app_memory" "${extra[@]}" \
             --query-mode "$QUERY_MODE" --pool-limit "$POOL" --cases "$CASES" --rate "$RATE" --seconds "$SECONDS" --repeat "$REPEATS" \
             --output "$RUNNER_TEMP/capacity/runs"
+          done
       - name: Export public comparison
         if: always()
         run: |
