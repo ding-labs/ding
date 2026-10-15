@@ -35,7 +35,7 @@ func Migrate(ctx context.Context, db *sql.DB, component string, steps []string, 
 		return SafeError("lock migration", err)
 	}
 	var unsafe bool
-	err = tx.QueryRowContext(ctx, `SELECT rolsuper OR rolbypassrls OR rolname=current_user OR pg_has_role(rolname,current_user,'MEMBER') FROM pg_roles WHERE rolname=$1`, appRole).Scan(&unsafe)
+	err = tx.QueryRowContext(ctx, `SELECT rolsuper OR rolbypassrls OR rolname=current_user OR pg_has_role(rolname,current_user,'MEMBER') OR pg_has_role(rolname,(SELECT datdba FROM pg_database WHERE datname=current_database()),'MEMBER') FROM pg_roles WHERE rolname=$1`, appRole).Scan(&unsafe)
 	if err != nil || unsafe {
 		return fmt.Errorf("PostgreSQL application role must exist and cannot own or bypass migration security")
 	}

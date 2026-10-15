@@ -172,7 +172,7 @@ func ValidatePostgres(ctx context.Context, db *sql.DB) error {
 		return fmt.Errorf("PostgreSQL runtime schema is unavailable or incompatible; run server migration")
 	}
 	var unsafe bool
-	err := db.QueryRowContext(ctx, `SELECT r.rolsuper OR r.rolbypassrls OR pg_has_role(current_user,n.nspowner,'MEMBER') OR EXISTS(SELECT 1 FROM pg_class c WHERE c.relnamespace=n.oid AND c.relkind='r' AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity)) FROM pg_roles r JOIN pg_namespace n ON n.nspname='ding_runtime' WHERE r.rolname=current_user`).Scan(&unsafe)
+	err := db.QueryRowContext(ctx, `SELECT r.rolsuper OR r.rolbypassrls OR pg_has_role(current_user,n.nspowner,'MEMBER') OR pg_has_role(current_user,(SELECT datdba FROM pg_database WHERE datname=current_database()),'MEMBER') OR EXISTS(SELECT 1 FROM pg_class c WHERE c.relnamespace=n.oid AND c.relkind='r' AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity)) FROM pg_roles r JOIN pg_namespace n ON n.nspname='ding_runtime' WHERE r.rolname=current_user`).Scan(&unsafe)
 	if err != nil || unsafe {
 		return fmt.Errorf("PostgreSQL runtime requires a non-owner application role and forced workspace isolation")
 	}

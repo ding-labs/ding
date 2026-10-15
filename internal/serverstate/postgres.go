@@ -26,7 +26,7 @@ func OpenPostgres(ctx context.Context, pool *sql.DB, owners ...*database.Ownersh
 		return nil, fmt.Errorf("PostgreSQL control schema is unavailable or incompatible; run server migration")
 	}
 	var unsafe bool
-	err := pool.QueryRowContext(ctx, `SELECT r.rolsuper OR r.rolbypassrls OR pg_has_role(current_user,n.nspowner,'MEMBER') FROM pg_roles r JOIN pg_namespace n ON n.nspname='ding_control' WHERE r.rolname=current_user`).Scan(&unsafe)
+	err := pool.QueryRowContext(ctx, `SELECT r.rolsuper OR r.rolbypassrls OR pg_has_role(current_user,n.nspowner,'MEMBER') OR pg_has_role(current_user,(SELECT datdba FROM pg_database WHERE datname=current_database()),'MEMBER') FROM pg_roles r JOIN pg_namespace n ON n.nspname='ding_control' WHERE r.rolname=current_user`).Scan(&unsafe)
 	if err != nil || unsafe {
 		return nil, fmt.Errorf("PostgreSQL control requires a separate non-owner application role")
 	}
