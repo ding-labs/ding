@@ -40,18 +40,18 @@ func (d *DB) NewSession(ctx context.Context, user, workspace, kind string, scope
 		return s, err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, "DELETE FROM sessions WHERE expires_at<=?", now.Unix()); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.query(qNewSession1), now.Unix()); err != nil {
 		return s, err
 	}
 	var count int
-	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM sessions WHERE user=?", user).Scan(&count); err != nil {
+	if err := tx.QueryRowContext(ctx, tx.query(qNewSession2), user).Scan(&count); err != nil {
 		return s, err
 	}
 	if count >= 20 {
 		return s, fmt.Errorf("too many active sessions; revoke an existing connection")
 	}
 	var active int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM memberships m JOIN users u ON u.id=m.user JOIN workspaces w ON w.id=m.workspace WHERE m.user=? AND m.workspace=? AND u.disabled=0 AND w.deleting=0`, user, workspace).Scan(&active); err != nil {
+	if err := tx.QueryRowContext(ctx, tx.query(qNewSession3), user, workspace).Scan(&active); err != nil {
 		return s, err
 	}
 	if active != 1 {
@@ -62,7 +62,7 @@ func (d *DB) NewSession(ctx context.Context, user, workspace, kind string, scope
 	}
 	rawScopes, _ := json.Marshal(scopes)
 	s.csrfHash = TokenHash(s.CSRF)
-	if _, err := tx.ExecContext(ctx, "INSERT INTO sessions(hash,user,workspace,scopes,csrf,kind,expires_at) VALUES(?,?,?,?,?,?,?)", TokenHash(s.Token), user, workspace, string(rawScopes), s.csrfHash, kind, s.ExpiresAt.Unix()); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.query(qNewSession4), TokenHash(s.Token), user, workspace, string(rawScopes), s.csrfHash, kind, s.ExpiresAt.Unix()); err != nil {
 		return s, err
 	}
 	if err := audit(ctx, tx, user, workspace, "session:"+kind, TokenHash(s.Token)); err != nil {
@@ -78,7 +78,7 @@ func (d *DB) Session(ctx context.Context, token string, now time.Time) (Session,
 		return s, fmt.Errorf("invalid session")
 	}
 	var raw string
-	err := d.sql.QueryRowContext(ctx, "SELECT user,workspace,scopes,kind,csrf,expires_at FROM sessions WHERE hash=? AND expires_at>? AND user IN (SELECT id FROM users WHERE disabled=0) AND ((kind='browser' AND EXISTS(SELECT 1 FROM memberships m JOIN workspaces w ON w.id=m.workspace WHERE m.user=sessions.user AND w.deleting=0)) OR (kind!='browser' AND workspace IN (SELECT id FROM workspaces WHERE deleting=0)))", TokenHash(token), now.Unix()).Scan(&s.User, &s.Workspace, &raw, &s.Kind, &s.csrfHash, &expiry)
+	err := d.sql.QueryRowContext(ctx, d.query(qSession1), TokenHash(token), now.Unix()).Scan(&s.User, &s.Workspace, &raw, &s.Kind, &s.csrfHash, &expiry)
 	if err == nil {
 		err = json.Unmarshal([]byte(raw), &s.Scopes)
 	}
@@ -88,7 +88,7 @@ func (d *DB) Session(ctx context.Context, token string, now time.Time) (Session,
 }
 
 func (d *DB) RevokeSession(ctx context.Context, token string) error {
-	_, err := d.sql.ExecContext(ctx, "DELETE FROM sessions WHERE hash=?", TokenHash(token))
+	_, err := d.exec(ctx, qRevokeSession1, TokenHash(token))
 	return err
 }
 
@@ -113,17 +113,17 @@ func (v *Vault) BeginLogin(ctx context.Context, state string, login Login, now t
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, "DELETE FROM logins WHERE expires_at<=?", now.Unix()); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.query(qBeginLogin1), now.Unix()); err != nil {
 		return err
 	}
 	var count int
-	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM logins").Scan(&count); err != nil {
+	if err := tx.QueryRowContext(ctx, tx.query(qBeginLogin2)).Scan(&count); err != nil {
 		return err
 	}
 	if count >= 1000 {
 		return fmt.Errorf("login capacity reached; try later")
 	}
-	if _, err := tx.ExecContext(ctx, "INSERT INTO logins(hash,ciphertext,expires_at) VALUES(?,?,?)", hash, encrypted, now.Add(10*time.Minute).Unix()); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.query(qBeginLogin3), hash, encrypted, now.Add(10*time.Minute).Unix()); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -138,7 +138,7 @@ func (v *Vault) ConsumeLogin(ctx context.Context, state string, now time.Time) (
 		return login, fmt.Errorf("invalid login state")
 	}
 	hash := TokenHash(state)
-	err := v.db.sql.QueryRowContext(ctx, "DELETE FROM logins WHERE hash=? AND expires_at>? RETURNING ciphertext", hash, now.Unix()).Scan(&encrypted)
+	err := v.db.sql.QueryRowContext(ctx, v.db.query(qConsumeLogin1), hash, now.Unix()).Scan(&encrypted)
 	if err != nil {
 		return login, err
 	}
