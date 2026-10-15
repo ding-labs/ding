@@ -78,7 +78,7 @@ jobs:
           BACKEND: ${{ matrix.backend }}
           CASES: ${{ inputs.cases || 'one-100,hundred-1000' }}
           RATE: ${{ inputs.rate || '25' }}
-          SECONDS: ${{ inputs.seconds || '30' }}
+          MEASURE_SECONDS: ${{ inputs.seconds || '30' }}
           REPEATS: ${{ inputs.repeat || '1' }}
           POOL: ${{ matrix.pool }}
           QUERY_MODE: ${{ inputs.query_mode || 'exec' }}
@@ -108,7 +108,7 @@ jobs:
           fi
           python3 benchmarks/push/run.py --environment container --generator-placement container \
             --backend "$BACKEND" --app-cpus "$app_cpus" --app-memory-mib "$app_memory" "${extra[@]}" \
-            --query-mode "$QUERY_MODE" --pool-limit "$POOL" --cases "$CASES" --rate "$RATE" --seconds "$SECONDS" --repeat "$REPEATS" \
+            --query-mode "$QUERY_MODE" --pool-limit "$POOL" --cases "$CASES" --rate "$RATE" --seconds "$MEASURE_SECONDS" --repeat "$REPEATS" \
             --output "$RUNNER_TEMP/capacity/runs"
           done
       - name: Export public comparison
