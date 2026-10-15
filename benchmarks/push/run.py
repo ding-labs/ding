@@ -42,6 +42,15 @@ def capture_failed_state(volume, output):
     return archive.name
 
 
+def sample_database(pg):
+    if pg is None:
+        return None
+    try:
+        return pg.sample()
+    except (subprocess.CalledProcessError, OSError, json.JSONDecodeError):
+        return {'unavailable': True}
+
+
 def execute(binary, driver, config, output, environment, pg=None, units=1):
     env = dict(os.environ, DING_SCALE_CONFIG=str(output / 'config.json'),
                DING_SCALE_OUTPUT=str(output), DING_SCALE_EXTERNAL=environment)
@@ -50,7 +59,7 @@ def execute(binary, driver, config, output, environment, pg=None, units=1):
     env['TMPDIR'] = str(fixture_tmp)
     if pg:
         env['DING_TEST_POSTGRES_FILE'] = str(pg.connections)
-    database_start = pg.sample() if pg else None
+    database_start = sample_database(pg)
     timeout = config['Seconds'] + config.get('Preload', 0) / 100 + 900
     receiver = LocalReceiver(binary,output,config['Receiver'],environment,
                              pg.container if pg and environment=='container' else None,timeout) if config.get('ReceiverProcess') and config.get('Receiver') else None
@@ -78,6 +87,7 @@ def execute(binary, driver, config, output, environment, pg=None, units=1):
     bootstrap = output/'bootstrap.json'
     generator = None
     code, generator_code, failure = 124, None, None
+    observer_errors = 0
     cancelled = False
     with (output/'run.log').open('x') as log, (output/'generator.log').open('x') as generator_log:
         process = subprocess.Popen(args, cwd=REPO, env=env, stdout=log, stderr=subprocess.STDOUT)
@@ -106,13 +116,16 @@ def execute(binary, driver, config, output, environment, pg=None, units=1):
                         samples.append({'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'elapsed':time.monotonic()-started,'server':value,'generator':producer,
                                         'database':pg.sample() if pg else None,
                                         'receiver':receiver.sample() if receiver else None})
-                    except subprocess.CalledProcessError:
-                        pass
+                    except (subprocess.CalledProcessError, OSError, json.JSONDecodeError):
+                        if process.poll() is None and generator.poll() is None:
+                            observer_errors += 1
                 time.sleep(1 if generator is None else 5)
             code = process.wait()
             if code != 0 and generator is not None and generator.poll() is None:
                 generator.kill()
             generator_code = generator.wait() if generator is not None else None
+        except (subprocess.CalledProcessError, OSError):
+            failure = 'Local test infrastructure became unavailable.'
         except (RuntimeError, TimeoutError) as error:
             failure = str(error)
         except KeyboardInterrupt:
@@ -127,11 +140,16 @@ def execute(binary, driver, config, output, environment, pg=None, units=1):
             bootstrap.unlink(missing_ok=True)
             if environment == 'container':
                 subprocess.run(['docker','kill',container],capture_output=True)
+    database_end = sample_database(pg)
+    if any(snapshot and snapshot.get('unavailable') for snapshot in (database_start, database_end)):
+        failure = failure or 'Local database observation became unavailable.'
+        if code == 0:
+            code = 125
     metadata = {'exitCode':code,'generatorExitCode':generator_code,
                 'wallSeconds':time.monotonic()-started,'resources':samples,'failure':failure,
                 'cancelledByUser':cancelled, 'receiver':receiver.metadata if receiver else {'placement':'cohosted' if config.get('Receiver') else 'none'},
                 'databaseStart':database_start,
-                'databaseEnd':pg.sample() if pg else None,
+                'databaseEnd':database_end, 'observerErrors':observer_errors, 'serverExitCode':process.returncode,
                 'appCPULimit':(units/2 if pg else units) if environment=='container' else None,
                 'appMemoryBytes':(units*512 if pg else units*1024)*1024**2 if environment=='container' else None}
     if environment == 'native' and (code != 0 or failure):
@@ -160,6 +178,8 @@ def execute(binary, driver, config, output, environment, pg=None, units=1):
     save(output/'execution.json',metadata)
     report_path = output/'report.json'
     if cancelled or not report_path.exists():
+        if code == 0:
+            code = 125
         return {'case':output.name,'exitCode':code,'stable':False,
                 'reportMissing':not report_path.exists(),'cancelledByUser':cancelled}
     report = json.loads(report_path.read_text())
@@ -174,8 +194,9 @@ def execute(binary, driver, config, output, environment, pg=None, units=1):
             'reconciliationErrors':report['Errors'],'readP99MS':report['ReadP99MS'],
             'pendingDeliveries':pending,'postChecksVerified':postchecks,
             'inconclusive': ('producer clock discontinuity' if load.get('clockDiscontinuity') else
-                             'server clock discontinuity' if report.get('InternalObservations',0) else None),
-            'stable':code==0 and generator_code==0 and qualified_load(load) and fraction>=.999 and load['p99MS']<250 and not report['Errors'] and not report['ReadErrors'] and not report.get('InternalObservations',0) and pending==0 and postchecks}
+                             'server clock discontinuity' if report.get('InternalObservations',0) else
+                             'local resource observation unavailable' if observer_errors or failure else None),
+            'stable':code==0 and generator_code==0 and not failure and not observer_errors and qualified_load(load) and fraction>=.999 and load['p99MS']<250 and not report['Errors'] and not report['ReadErrors'] and not report.get('InternalObservations',0) and pending==0 and postchecks}
 
 
 def main():
@@ -265,7 +286,9 @@ def main():
     deferred = [name+'-'+str(i+1) for name in requested for i in range(args.repeat)
                 if name+'-'+str(i+1) not in completed]
     cancelled = [r['case'] for r in results if r.get('cancelledByUser')]
-    save(root/'run-state.json', {'state':'cancelled' if cancelled else ('deferred' if deferred else 'complete'),
+    failed = [r['case'] for r in results if r['exitCode'] != 0 and not r.get('cancelledByUser')]
+    save(root/'run-state.json', {'state':'cancelled' if cancelled else ('failed' if failed else ('deferred' if deferred else 'complete')),
+         'failed':failed,
          'completed':[r['case'] for r in results if not r.get('cancelledByUser')],
          'cancelled':cancelled, 'deferred':deferred})
     if pg:
