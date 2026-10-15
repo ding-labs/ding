@@ -152,7 +152,14 @@ observations-per-CPU-second figure was collected.
 
 ## Qualification status
 
-The original workload screens and selected boundary repeats are complete.
+The screening phase and selected boundary repeats have finished:
+
+- SQLite completed all 46 catalog screens.
+- PostgreSQL completed 43 distinct catalog screens. Its 100-workspace 1,000/s
+  case lacked a final report; subsequent bounded retries remain inconclusive.
+  The higher 2,500/s and original 500/s sustained-cohort screens were deferred.
+  Lower rates and larger resource budgets are measured separately.
+
 Sustained hot-workspace and 100-workspace cases, mature rolling-window repeats,
 longer paired aged-store checks and the repeated ten-workspace control are
 pending. Existing 100-output and nested 18-output screens already use distinct
