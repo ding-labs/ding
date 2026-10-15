@@ -29,6 +29,11 @@ on:
         default: exec
         type: choice
         options: [exec, cache_statement]
+      profile:
+        description: Independent app and database sizing
+        default: initial
+        type: choice
+        options: [initial, more_app, more_database, larger_pair, sqlite_matched]
 
 permissions:
   contents: read
@@ -67,13 +72,22 @@ jobs:
           REPEATS: ${{ inputs.repeat || '1' }}
           POOL: ${{ inputs.pool || '4' }}
           QUERY_MODE: ${{ inputs.query_mode || 'exec' }}
+          PROFILE: ${{ inputs.profile || 'initial' }}
         run: |
+          app_cpus=1; app_memory=1024
+          db_cpus=1; db_memory=2048
+          case "$PROFILE" in
+            more_app) app_cpus=2; app_memory=2048 ;;
+            more_database) db_cpus=2; db_memory=4096 ;;
+            larger_pair) app_cpus=2; app_memory=2048; db_cpus=2; db_memory=4096 ;;
+            sqlite_matched) app_cpus=2; app_memory=3072 ;;
+          esac
           extra=()
           if [ "$BACKEND" = postgres ]; then
-            extra=(--database-cpus 1 --database-memory-mib 2048)
+            extra=(--database-cpus "$db_cpus" --database-memory-mib "$db_memory")
           fi
           python3 benchmarks/push/run.py --environment container --generator-placement container \
-            --backend "$BACKEND" --app-cpus 1 --app-memory-mib 1024 "${extra[@]}" \
+            --backend "$BACKEND" --app-cpus "$app_cpus" --app-memory-mib "$app_memory" "${extra[@]}" \
             --query-mode "$QUERY_MODE" --pool-limit "$POOL" --cases "$CASES" --rate "$RATE" --seconds "$SECONDS" --repeat "$REPEATS" \
             --output "$RUNNER_TEMP/capacity/runs"
       - name: Export public comparison
