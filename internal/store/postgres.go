@@ -88,9 +88,7 @@ func (s *Store) beginPostgres(ctx context.Context, readOnly bool) (*sql.Tx, erro
 		tx.Rollback()
 		return nil, err
 	}
-	if _, err = tx.ExecContext(ctx, "SET LOCAL search_path=ding_runtime,pg_catalog"); err == nil {
-		_, err = tx.ExecContext(ctx, "SELECT set_config('ding.workspace',$1,true)", s.workspace)
-	}
+	_, err = tx.ExecContext(ctx, "SELECT set_config('search_path','ding_runtime,pg_catalog',true),set_config('ding.workspace',$1,true)", s.workspace)
 	if err != nil {
 		tx.Rollback()
 		return nil, err
