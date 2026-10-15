@@ -22,13 +22,14 @@ func Run(args []string, out io.Writer) (bool, error) {
 		return false, nil
 	}
 	switch args[0] {
-	case "enable-oidc", "enable-oidc-login", "init", "recover", "backup", "restore", "release-restore", "backup-keygen", "delete-workspace":
+	case "migrate", "enable-oidc", "enable-oidc-login", "init", "recover", "backup", "restore", "release-restore", "backup-keygen", "delete-workspace":
 	default:
 		return false, nil
 	}
 	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	flags.SetOutput(out)
 	config := flags.String("config", "", "owner-only configuration JSON")
+	databaseAdminEnv := flags.String("database-admin-env", "", "environment variable containing the PostgreSQL migration DSN")
 	username := flags.String("username", "", "built-in username")
 	name := flags.String("name", "Owner", "owner display name")
 	passwordFile := flags.String("password-file", "", "owner-only file containing a password")
@@ -51,6 +52,12 @@ func Run(args []string, out io.Writer) (bool, error) {
 	started := time.Now()
 	var err error
 	switch args[0] {
+	case "migrate":
+		var c cloud.Config
+		if err := mcpconfig.ReadPrivateJSON(*config, &c, true); err != nil {
+			return true, err
+		}
+		err = cloud.MigrateDatabase(ctx, c, *databaseAdminEnv)
 	case "enable-oidc-login":
 		if *linkFile != "" {
 			return true, fmt.Errorf("enable-oidc-login does not link identities; use enable-oidc for identity linking")

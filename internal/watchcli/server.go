@@ -49,6 +49,21 @@ func serverCommand(version string) *cobra.Command {
 	}}
 	run.Flags().BoolVar(&check, "check-config", false, "validate configuration without starting services")
 	root.AddCommand(run)
+	var databaseAdminEnv string
+	migrate := &cobra.Command{Use: "migrate", Short: "Apply database migrations while the server is stopped", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+		c, err := read()
+		if err != nil {
+			return err
+		}
+		if err = cloud.MigrateDatabase(cmd.Context(), c, databaseAdminEnv); err != nil {
+			return err
+		}
+		_, err = fmt.Fprintln(cmd.OutOrStdout(), "Server database migrations complete.")
+		return err
+	}}
+	migrate.Flags().StringVar(&databaseAdminEnv, "database-admin-env", "", "environment variable containing the separate PostgreSQL migration DSN")
+	root.AddCommand(migrate)
+
 	for _, name := range []string{"init", "recover"} {
 		var username, displayName, passwordFile string
 		command := &cobra.Command{Use: name, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {

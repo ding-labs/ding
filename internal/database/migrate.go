@@ -75,3 +75,15 @@ func Migrate(ctx context.Context, db *sql.DB, component string, steps []string, 
 	}
 	return SafeError("commit migration", tx.Commit())
 }
+
+// AllowMetadataRead lets the application prove that its DSN identifies the same
+// database as an offline migration connection, before domain migrations run.
+func AllowMetadataRead(ctx context.Context, db *sql.DB, role string) error {
+	identifier := pgx.Identifier{role}.Sanitize()
+	for _, q := range []string{"GRANT USAGE ON SCHEMA ding_meta TO " + identifier, "GRANT SELECT ON ding_meta.owner TO " + identifier} {
+		if _, err := db.ExecContext(ctx, q); err != nil {
+			return SafeError("grant metadata probe", err)
+		}
+	}
+	return nil
+}

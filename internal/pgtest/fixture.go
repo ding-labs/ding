@@ -16,10 +16,11 @@ import (
 )
 
 type Fixture struct {
-	SetAppEnvironment func(*testing.T, string)
-	NewAppPool        func(int) *sql.DB
-	App, Migration    *sql.DB
-	Name              string
+	SetMigrationEnvironment func(*testing.T, string)
+	SetAppEnvironment       func(*testing.T, string)
+	NewAppPool              func(int) *sql.DB
+	App, Migration          *sql.DB
+	Name                    string
 }
 
 func New(t *testing.T) *Fixture {
@@ -62,6 +63,14 @@ func New(t *testing.T) *Fixture {
 	fixture := &Fixture{Name: name}
 	fixture.SetAppEnvironment = func(test *testing.T, key string) {
 		u, err := url.Parse(values["app"])
+		if err != nil {
+			test.Fatal("invalid private fixture URL")
+		}
+		u.Path = "/" + name
+		test.Setenv(key, u.String())
+	}
+	fixture.SetMigrationEnvironment = func(test *testing.T, key string) {
+		u, err := url.Parse(values["migration"])
 		if err != nil {
 			test.Fatal("invalid private fixture URL")
 		}
