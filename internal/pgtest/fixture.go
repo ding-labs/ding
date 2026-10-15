@@ -7,12 +7,15 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/ding-labs/ding/internal/database"
+	"github.com/jackc/pgx/v5"
 )
 
 type Fixture struct {
@@ -37,6 +40,11 @@ func New(t *testing.T) *Fixture {
 	var values map[string]string
 	if json.Unmarshal(data, &values) != nil || values["admin"] == "" || values["app"] == "" || values["migration"] == "" {
 		t.Fatal("invalid PostgreSQL fixture")
+	}
+	for _, role := range []string{"admin", "migration", "app"} {
+		if err := validateLocalFixture(values[role]); err != nil {
+			t.Fatal(err)
+		}
 	}
 	var id [10]byte
 	if _, err = rand.Read(id[:]); err != nil {
@@ -117,4 +125,23 @@ func New(t *testing.T) *Fixture {
 	fixture.Migration = open("migration", name)
 	fixture.App = open("app", name)
 	return fixture
+}
+
+// Test infrastructure cannot follow remote hosts or URL host overrides. The
+// capacity launcher generates these private URLs for its owned local container.
+func validateLocalFixture(value string) error {
+	cfg, err := pgx.ParseConfig(value)
+	if err != nil {
+		return fmt.Errorf("invalid private PostgreSQL fixture")
+	}
+	local := func(host string) bool { return net.ParseIP(host).IsLoopback() || host == "localhost" }
+	if !local(cfg.Host) {
+		return fmt.Errorf("PostgreSQL test fixtures require loopback hosts")
+	}
+	for _, fallback := range cfg.Fallbacks {
+		if !local(fallback.Host) {
+			return fmt.Errorf("PostgreSQL test fixtures require loopback fallback hosts")
+		}
+	}
+	return nil
 }
