@@ -61,7 +61,7 @@ and generator scheduling p99 above 20 ms are excluded from capacity qualificatio
 
 Race-enabled real PostgreSQL database, store, server-state, HTTP and CLI contracts
 passed after the final quota-read change. SQLite's complete watch runtime race
-suite and targeted PostgreSQL runtime tests passed. All 16 Python harness tests
+suite and targeted PostgreSQL runtime tests passed. All 17 Python harness tests
 passed. Disposable local PostgreSQL volumes and credentials were deleted after
 verification; private measurements remain available.
 
@@ -77,7 +77,13 @@ was 8 ms in every repeat. PostgreSQL p99 was 21–32 ms for one workspace and
 
 Thirty-minute hot/many-workspace runs at 35 requests/s (70% of the repeated rate)
 are now running with inspection reads and graceful restart reconciliation. The
-larger database profile is also undergoing three 180-second repeats at 100/s. The initial profile allocates Go 1 CPU/1 GiB and PostgreSQL
+larger database profile completed its three 180-second repeats at 100/s, but did
+**not qualify**: all six cases had late generators (p99 134–219 ms), two returned
+81 and 122 throttling responses, and acknowledgement p99 was 653–3,587 ms. Every
+accepted receipt reconciled. Host I/O wait was 4.7–10.6%; database WAL syncs averaged
+0.6–1.5 ms, versus 0.16–0.27 ms in the earlier 50/s run. These are different VMs
+and rates, so this is diagnostic evidence of I/O pressure, not a controlled cause
+or a PostgreSQL capacity ceiling. No further repeat at this rate is scheduled. The initial profile allocates Go 1 CPU/1 GiB and PostgreSQL
 1 CPU/2 GiB, with four query connections. SQLite receives 1 CPU/1 GiB. Generators
 run separately on the same VM; this is a loopback diagnostic topology.
 
@@ -104,7 +110,8 @@ Evidence: [baseline](https://github.com/ding-labs/ding/actions/runs/38787585777)
 [idle](https://github.com/ding-labs/ding/actions/runs/38792417789),
 [SQL diagnostic](https://github.com/ding-labs/ding/actions/runs/38795250725),
 [resource control](https://github.com/ding-labs/ding/actions/runs/38796772072),
-[longer repeats](https://github.com/ding-labs/ding/actions/runs/38796901012).
+[longer repeats](https://github.com/ding-labs/ding/actions/runs/38796901012),
+[larger-database repeats](https://github.com/ding-labs/ding/actions/runs/38799865988).
 The [allowlisted measurements](../../benchmarks/push/results/2026-10-15-linux.csv)
 retain passing, failed and inconclusive screens, including source revisions and
 actual request sizes. The [qualification specification](cloud-postgres-linux-tests.md) defines the

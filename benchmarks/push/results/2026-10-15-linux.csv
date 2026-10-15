@@ -1,70 +1,76 @@
-experiment,actionRun,revision,backend,case,appCPUs,databaseCPUs,pool,queryMode,workspaces,outputs,bodyBytesMin,bodyBytesMax,seconds,rate,planned,accepted,p99MS,scheduleP99MS,rejections,throttles,uncertain,readErrors,reconciliationErrors,restartVerified,postChecksVerified,pending,profiles,verdict,exclusion
-linux-baseline,38787585777,475f0d505ad0b24122f6ca2dad8c0c0d422ba76b,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,25,750,750,3320,4,0,0,0,0,0,False,True,0,False,fail,
-linux-baseline,38787585777,475f0d505ad0b24122f6ca2dad8c0c0d422ba76b,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,25,750,750,21,3,0,0,0,0,0,False,True,0,False,pass,
-linux-baseline,38787585777,475f0d505ad0b24122f6ca2dad8c0c0d422ba76b,sqlite,hundred-1000-1,1.0,0,4,exec,100,1,55,55,30,25,750,750,7,3,0,0,0,0,0,False,True,0,False,pass,
-linux-baseline,38787585777,475f0d505ad0b24122f6ca2dad8c0c0d422ba76b,sqlite,one-100-1,1.0,0,4,exec,1,1,55,55,30,25,750,750,7,4,0,0,0,0,0,False,True,0,False,pass,
-linux-workers,38788432903,e3714ee40c33b4f43ae3e6cf7e157ebbab6138c2,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,25,750,750,113,5,0,0,0,0,0,False,True,0,False,pass,
-linux-workers,38788432903,e3714ee40c33b4f43ae3e6cf7e157ebbab6138c2,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,25,750,750,25,4,0,0,0,0,0,False,True,0,False,pass,
-linux-workers,38788432903,e3714ee40c33b4f43ae3e6cf7e157ebbab6138c2,sqlite,hundred-1000-1,1.0,0,4,exec,100,1,55,55,30,25,750,750,8,4,0,0,0,0,0,False,True,0,False,pass,
-linux-workers,38788432903,e3714ee40c33b4f43ae3e6cf7e157ebbab6138c2,sqlite,one-100-1,1.0,0,4,exec,1,1,55,55,30,25,750,750,8,4,0,0,0,0,0,False,True,0,False,pass,
-linux-queries,38789220528,0e887daa38387e0d809b8038c2fdff7d8b3a0474,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,25,750,750,25,3,0,0,0,0,0,False,True,0,False,pass,
-linux-queries,38789220528,0e887daa38387e0d809b8038c2fdff7d8b3a0474,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,25,750,750,14,3,0,0,0,0,0,False,True,0,False,pass,
-linux-queries,38789220528,0e887daa38387e0d809b8038c2fdff7d8b3a0474,sqlite,hundred-1000-1,1.0,0,4,exec,100,1,55,55,30,25,750,750,8,4,0,0,0,0,0,False,True,0,False,pass,
-linux-queries,38789220528,0e887daa38387e0d809b8038c2fdff7d8b3a0474,sqlite,one-100-1,1.0,0,4,exec,1,1,55,55,30,25,750,750,7,4,0,0,0,0,0,False,True,0,False,pass,
-linux-batch-baseline,38789631585,9b8ddb6d13a99103d5d0fd950a997dcf8fc196d1,postgres,batch100-100-1,1.0,1.0,4,exec,10,100,3115,3115,30,25,750,311,18987,239,0,127,312,0,0,False,True,0,False,inconclusive,late generator
-linux-batch-baseline,38789631585,9b8ddb6d13a99103d5d0fd950a997dcf8fc196d1,postgres,batch18-100-1,1.0,1.0,4,exec,1,18,600,600,30,25,750,750,3077,221,0,0,0,0,0,False,True,0,False,inconclusive,late generator
-linux-batch-baseline,38789631585,9b8ddb6d13a99103d5d0fd950a997dcf8fc196d1,sqlite,batch100-100-1,1.0,0,4,exec,10,100,3115,3115,30,25,750,750,32,18,0,0,0,0,0,False,True,0,False,pass,
-linux-batch-baseline,38789631585,9b8ddb6d13a99103d5d0fd950a997dcf8fc196d1,sqlite,batch18-100-1,1.0,0,4,exec,1,18,600,600,30,25,750,750,21,18,0,0,0,0,0,False,True,0,False,pass,
-linux-batch-after,38790184804,833a6c16c76eb65d3fc42f31654f4726ff29e72b,postgres,batch100-100-1,1.0,1.0,4,exec,10,100,3115,3115,30,25,750,247,18881,4,0,130,373,0,0,False,True,0,False,fail,
-linux-batch-after,38790184804,833a6c16c76eb65d3fc42f31654f4726ff29e72b,postgres,batch18-100-1,1.0,1.0,4,exec,1,18,600,600,30,25,750,750,220,4,0,0,0,0,0,False,True,0,False,pass,
-linux-batch-after,38790184804,833a6c16c76eb65d3fc42f31654f4726ff29e72b,sqlite,batch100-100-1,1.0,0,4,exec,10,100,3115,3115,30,25,750,750,36,3,0,0,0,0,0,False,True,0,False,pass,
-linux-batch-after,38790184804,833a6c16c76eb65d3fc42f31654f4726ff29e72b,sqlite,batch18-100-1,1.0,0,4,exec,1,18,600,600,30,25,750,750,14,3,0,0,0,0,0,False,True,0,False,pass,
-linux-rate100-exec,38791045004,ee37ed3d85ae0d826977034b2d5315986b11a737,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,100,3000,3000,254,4,0,0,0,0,0,False,True,0,False,fail,
-linux-rate100-exec,38791045004,ee37ed3d85ae0d826977034b2d5315986b11a737,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,100,3000,3000,84,4,0,0,0,0,0,False,True,0,False,pass,
-linux-rate100-exec,38791045004,ee37ed3d85ae0d826977034b2d5315986b11a737,sqlite,hundred-1000-1,1.0,0,4,exec,100,1,55,55,30,100,3000,3000,8,4,0,0,0,0,0,False,True,0,False,pass,
-linux-rate100-exec,38791045004,ee37ed3d85ae0d826977034b2d5315986b11a737,sqlite,one-100-1,1.0,0,4,exec,1,1,55,55,30,100,3000,3000,8,4,0,0,0,0,0,False,True,0,False,pass,
-linux-rate100-cached,38791528115,a6b6c67ab77a368bf54689e2208aba851f9f2c63,postgres,batch18-100-1,1.0,1.0,4,cache_statement,1,18,600,600,30,100,3000,1776,5277,5,0,1224,0,0,0,False,True,0,False,fail,
-linux-rate100-cached,38791528115,a6b6c67ab77a368bf54689e2208aba851f9f2c63,postgres,hundred-1000-1,1.0,1.0,4,cache_statement,100,1,55,55,30,100,3000,3000,249,5,0,0,0,0,0,False,True,0,False,pass,
-linux-rate100-cached,38791528115,a6b6c67ab77a368bf54689e2208aba851f9f2c63,postgres,one-100-1,1.0,1.0,4,cache_statement,1,1,55,55,30,100,3000,3000,166,5,0,0,0,0,0,False,True,0,False,pass,
-linux-rate100-cached,38791528115,a6b6c67ab77a368bf54689e2208aba851f9f2c63,sqlite,batch18-100-1,1.0,0,4,cache_statement,1,18,600,600,30,100,3000,3000,13,4,0,0,0,0,0,False,True,0,False,pass,
-linux-rate100-cached,38791528115,a6b6c67ab77a368bf54689e2208aba851f9f2c63,sqlite,hundred-1000-1,1.0,0,4,cache_statement,100,1,55,55,30,100,3000,3000,8,4,0,0,0,0,0,False,True,0,False,pass,
-linux-rate100-cached,38791528115,a6b6c67ab77a368bf54689e2208aba851f9f2c63,sqlite,one-100-1,1.0,0,4,cache_statement,1,1,55,55,30,100,3000,3000,8,4,0,0,0,0,0,False,True,0,False,pass,
-linux-batch-subset,38791892970,e9eb8010d0ad2ec645b667fed6e291ba22978ad7,postgres,batch100-100-1,1.0,1.0,4,cache_statement,10,100,3115,3115,30,25,750,750,10417,163,0,0,0,0,0,False,True,0,False,inconclusive,late generator
-linux-batch-subset,38791892970,e9eb8010d0ad2ec645b667fed6e291ba22978ad7,postgres,batch18-100-1,1.0,1.0,4,cache_statement,1,18,600,600,30,25,750,750,233,167,0,0,0,0,0,False,True,0,False,inconclusive,late generator
-linux-batch-subset,38791892970,e9eb8010d0ad2ec645b667fed6e291ba22978ad7,sqlite,batch100-100-1,1.0,0,4,cache_statement,10,100,3115,3115,30,25,750,750,197,134,0,0,0,0,0,False,True,0,False,inconclusive,late generator
-linux-batch-subset,38791892970,e9eb8010d0ad2ec645b667fed6e291ba22978ad7,sqlite,batch18-100-1,1.0,0,4,cache_statement,1,18,600,600,30,25,750,750,71,56,0,0,0,0,0,False,True,0,False,inconclusive,late generator
-linux-pool-matrix,38792658857,9e9a3b53d3c8953d7d604e93b3014bbd2bea77e8,postgres,hundred-1000-1,1.0,1.0,16,exec,100,1,55,55,30,100,3000,3000,322,4,0,0,0,0,0,False,True,0,False,fail,
-linux-pool-matrix,38792658857,9e9a3b53d3c8953d7d604e93b3014bbd2bea77e8,postgres,one-100-1,1.0,1.0,16,exec,1,1,55,55,30,100,3000,3000,46,19,0,0,0,0,0,False,True,0,False,pass,
-linux-pool-matrix,38792658857,9e9a3b53d3c8953d7d604e93b3014bbd2bea77e8,postgres,hundred-1000-1,1.0,1.0,2,exec,100,1,55,55,30,100,3000,2648,7231,4,0,352,0,0,0,False,True,0,False,fail,
-linux-pool-matrix,38792658857,9e9a3b53d3c8953d7d604e93b3014bbd2bea77e8,postgres,one-100-1,1.0,1.0,2,exec,1,1,55,55,30,100,3000,3000,1470,4,0,0,0,0,0,False,True,0,False,fail,
-linux-pool-matrix,38792658857,9e9a3b53d3c8953d7d604e93b3014bbd2bea77e8,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,100,3000,2632,7684,4,0,368,0,0,0,False,True,0,False,fail,
-linux-pool-matrix,38792658857,9e9a3b53d3c8953d7d604e93b3014bbd2bea77e8,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,100,3000,3000,347,4,0,0,0,0,0,False,True,0,False,fail,
-linux-pool-matrix,38792658857,9e9a3b53d3c8953d7d604e93b3014bbd2bea77e8,postgres,hundred-1000-1,1.0,1.0,8,exec,100,1,55,55,30,100,3000,2426,8425,4,0,574,0,0,0,False,True,0,False,fail,
-linux-pool-matrix,38792658857,9e9a3b53d3c8953d7d604e93b3014bbd2bea77e8,postgres,one-100-1,1.0,1.0,8,exec,1,1,55,55,30,100,3000,3000,361,4,0,0,0,0,0,False,True,0,False,fail,
-linux-pin-revert,38793892963,584758958c1ec39d73733b2ee33fd4cd7bf2e01d,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,100,3000,2384,8323,4,0,616,0,0,0,False,True,0,False,fail,
-linux-pin-revert,38793892963,584758958c1ec39d73733b2ee33fd4cd7bf2e01d,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,100,3000,3000,2534,4,0,0,0,0,0,False,True,0,False,fail,
-linux-more-database,38794913104,584758958c1ec39d73733b2ee33fd4cd7bf2e01d,postgres,hundred-1000-1,1.0,2.0,4,exec,100,1,55,55,30,100,3000,3000,20,4,0,0,0,0,0,False,True,0,False,pass,
-linux-more-database,38794913104,584758958c1ec39d73733b2ee33fd4cd7bf2e01d,postgres,one-100-1,1.0,2.0,4,exec,1,1,55,55,30,100,3000,3000,40,22,0,0,0,0,0,False,True,0,False,inconclusive,late generator
-linux-sql-profile,38795250725,aa68cd6093368bb1b1ef5e600c66fa3f59994b67,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,50,1500,1500,113,3,0,0,0,0,0,False,True,0,True,inconclusive,profiling
-linux-sql-profile,38795250725,aa68cd6093368bb1b1ef5e600c66fa3f59994b67,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,50,1500,1500,74,3,0,0,0,0,0,False,True,0,True,inconclusive,profiling
-linux-resource-control-invalid,38795464228,8690b6e09fc2efa87028e3ddffcee27d023ada1b,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,100,3000,2424,8357,6,0,576,0,0,0,False,True,0,False,inconclusive,duration control bug; interrupted
-linux-resource-control-invalid,38795464228,8690b6e09fc2efa87028e3ddffcee27d023ada1b,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,100,3000,3000,1668,4,0,0,0,0,0,False,True,0,False,inconclusive,observer unavailable; duration control bug; interrupted
-linux-resource-control-invalid,38795464228,8690b6e09fc2efa87028e3ddffcee27d023ada1b,postgres,one-100-1,1.0,2.0,4,exec,1,1,55,55,165,100,16500,16500,68,5,0,0,0,0,0,False,True,0,False,inconclusive,duration control bug; interrupted
-linux-resource-control,38796772072,b05e1f8cd3314ee584efc479d6cd2de8793ecae9,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,100,3000,3000,108,9,0,0,0,0,0,False,True,0,False,pass,
-linux-resource-control,38796772072,b05e1f8cd3314ee584efc479d6cd2de8793ecae9,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,100,3000,3000,37,8,0,0,0,0,0,False,True,0,False,pass,
-linux-resource-control,38796772072,b05e1f8cd3314ee584efc479d6cd2de8793ecae9,postgres,hundred-1000-1,1.0,2.0,4,exec,100,1,55,55,30,100,3000,3000,18,4,0,0,0,0,0,False,True,0,False,pass,
-linux-resource-control,38796772072,b05e1f8cd3314ee584efc479d6cd2de8793ecae9,postgres,one-100-1,1.0,2.0,4,exec,1,1,55,55,30,100,3000,3000,25,8,0,0,0,0,0,False,True,0,False,pass,
-linux-resource-control,38796772072,b05e1f8cd3314ee584efc479d6cd2de8793ecae9,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,100,3000,3000,128,4,0,0,0,0,0,False,True,0,False,pass,
-linux-resource-control,38796772072,b05e1f8cd3314ee584efc479d6cd2de8793ecae9,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,100,3000,3000,332,77,0,0,0,0,0,False,True,0,False,inconclusive,late generator
-linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,180,50,9000,9000,23,4,0,0,0,0,0,False,True,0,False,pass,
-linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,postgres,hundred-1000-2,1.0,1.0,4,exec,100,1,55,55,180,50,9000,9000,43,7,0,0,0,0,0,False,True,0,False,pass,
-linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,postgres,hundred-1000-3,1.0,1.0,4,exec,100,1,55,55,180,50,9000,9000,30,4,0,0,0,0,0,False,True,0,False,pass,
-linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,180,50,9000,9000,26,7,0,0,0,0,0,False,True,0,False,pass,
-linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,postgres,one-100-2,1.0,1.0,4,exec,1,1,55,55,180,50,9000,9000,32,14,0,0,0,0,0,False,True,0,False,pass,
-linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,postgres,one-100-3,1.0,1.0,4,exec,1,1,55,55,180,50,9000,9000,21,4,0,0,0,0,0,False,True,0,False,pass,
-linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,sqlite,hundred-1000-1,1.0,0,4,exec,100,1,55,55,180,50,9000,9000,8,5,0,0,0,0,0,False,True,0,False,pass,
-linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,sqlite,hundred-1000-2,1.0,0,4,exec,100,1,55,55,180,50,9000,9000,8,4,0,0,0,0,0,False,True,0,False,pass,
-linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,sqlite,hundred-1000-3,1.0,0,4,exec,100,1,55,55,180,50,9000,9000,8,4,0,0,0,0,0,False,True,0,False,pass,
-linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,sqlite,one-100-1,1.0,0,4,exec,1,1,55,55,180,50,9000,9000,8,4,0,0,0,0,0,False,True,0,False,pass,
-linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,sqlite,one-100-2,1.0,0,4,exec,1,1,55,55,180,50,9000,9000,8,4,0,0,0,0,0,False,True,0,False,pass,
-linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,sqlite,one-100-3,1.0,0,4,exec,1,1,55,55,180,50,9000,9000,8,4,0,0,0,0,0,False,True,0,False,pass,
+experiment,actionRun,revision,backend,case,appCPUs,databaseCPUs,pool,queryMode,workspaces,outputs,bodyBytesMin,bodyBytesMax,seconds,rate,planned,accepted,p99MS,scheduleP99MS,rejections,throttles,uncertain,readCount,readP99MS,readErrors,reconciliationErrors,restartVerified,postChecksVerified,pending,profiles,verdict,exclusion
+linux-baseline,38787585777,475f0d505ad0b24122f6ca2dad8c0c0d422ba76b,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,25,750,750,3320,4,0,0,0,0,0,0,0,False,True,0,False,fail,
+linux-baseline,38787585777,475f0d505ad0b24122f6ca2dad8c0c0d422ba76b,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,25,750,750,21,3,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-baseline,38787585777,475f0d505ad0b24122f6ca2dad8c0c0d422ba76b,sqlite,hundred-1000-1,1.0,0,4,exec,100,1,55,55,30,25,750,750,7,3,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-baseline,38787585777,475f0d505ad0b24122f6ca2dad8c0c0d422ba76b,sqlite,one-100-1,1.0,0,4,exec,1,1,55,55,30,25,750,750,7,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-workers,38788432903,e3714ee40c33b4f43ae3e6cf7e157ebbab6138c2,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,25,750,750,113,5,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-workers,38788432903,e3714ee40c33b4f43ae3e6cf7e157ebbab6138c2,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,25,750,750,25,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-workers,38788432903,e3714ee40c33b4f43ae3e6cf7e157ebbab6138c2,sqlite,hundred-1000-1,1.0,0,4,exec,100,1,55,55,30,25,750,750,8,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-workers,38788432903,e3714ee40c33b4f43ae3e6cf7e157ebbab6138c2,sqlite,one-100-1,1.0,0,4,exec,1,1,55,55,30,25,750,750,8,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-queries,38789220528,0e887daa38387e0d809b8038c2fdff7d8b3a0474,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,25,750,750,25,3,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-queries,38789220528,0e887daa38387e0d809b8038c2fdff7d8b3a0474,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,25,750,750,14,3,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-queries,38789220528,0e887daa38387e0d809b8038c2fdff7d8b3a0474,sqlite,hundred-1000-1,1.0,0,4,exec,100,1,55,55,30,25,750,750,8,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-queries,38789220528,0e887daa38387e0d809b8038c2fdff7d8b3a0474,sqlite,one-100-1,1.0,0,4,exec,1,1,55,55,30,25,750,750,7,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-batch-baseline,38789631585,9b8ddb6d13a99103d5d0fd950a997dcf8fc196d1,postgres,batch100-100-1,1.0,1.0,4,exec,10,100,3115,3115,30,25,750,311,18987,239,0,127,312,0,0,0,0,False,True,0,False,inconclusive,late generator
+linux-batch-baseline,38789631585,9b8ddb6d13a99103d5d0fd950a997dcf8fc196d1,postgres,batch18-100-1,1.0,1.0,4,exec,1,18,600,600,30,25,750,750,3077,221,0,0,0,0,0,0,0,False,True,0,False,inconclusive,late generator
+linux-batch-baseline,38789631585,9b8ddb6d13a99103d5d0fd950a997dcf8fc196d1,sqlite,batch100-100-1,1.0,0,4,exec,10,100,3115,3115,30,25,750,750,32,18,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-batch-baseline,38789631585,9b8ddb6d13a99103d5d0fd950a997dcf8fc196d1,sqlite,batch18-100-1,1.0,0,4,exec,1,18,600,600,30,25,750,750,21,18,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-batch-after,38790184804,833a6c16c76eb65d3fc42f31654f4726ff29e72b,postgres,batch100-100-1,1.0,1.0,4,exec,10,100,3115,3115,30,25,750,247,18881,4,0,130,373,0,0,0,0,False,True,0,False,fail,
+linux-batch-after,38790184804,833a6c16c76eb65d3fc42f31654f4726ff29e72b,postgres,batch18-100-1,1.0,1.0,4,exec,1,18,600,600,30,25,750,750,220,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-batch-after,38790184804,833a6c16c76eb65d3fc42f31654f4726ff29e72b,sqlite,batch100-100-1,1.0,0,4,exec,10,100,3115,3115,30,25,750,750,36,3,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-batch-after,38790184804,833a6c16c76eb65d3fc42f31654f4726ff29e72b,sqlite,batch18-100-1,1.0,0,4,exec,1,18,600,600,30,25,750,750,14,3,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-rate100-exec,38791045004,ee37ed3d85ae0d826977034b2d5315986b11a737,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,100,3000,3000,254,4,0,0,0,0,0,0,0,False,True,0,False,fail,
+linux-rate100-exec,38791045004,ee37ed3d85ae0d826977034b2d5315986b11a737,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,100,3000,3000,84,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-rate100-exec,38791045004,ee37ed3d85ae0d826977034b2d5315986b11a737,sqlite,hundred-1000-1,1.0,0,4,exec,100,1,55,55,30,100,3000,3000,8,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-rate100-exec,38791045004,ee37ed3d85ae0d826977034b2d5315986b11a737,sqlite,one-100-1,1.0,0,4,exec,1,1,55,55,30,100,3000,3000,8,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-rate100-cached,38791528115,a6b6c67ab77a368bf54689e2208aba851f9f2c63,postgres,batch18-100-1,1.0,1.0,4,cache_statement,1,18,600,600,30,100,3000,1776,5277,5,0,1224,0,0,0,0,0,False,True,0,False,fail,
+linux-rate100-cached,38791528115,a6b6c67ab77a368bf54689e2208aba851f9f2c63,postgres,hundred-1000-1,1.0,1.0,4,cache_statement,100,1,55,55,30,100,3000,3000,249,5,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-rate100-cached,38791528115,a6b6c67ab77a368bf54689e2208aba851f9f2c63,postgres,one-100-1,1.0,1.0,4,cache_statement,1,1,55,55,30,100,3000,3000,166,5,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-rate100-cached,38791528115,a6b6c67ab77a368bf54689e2208aba851f9f2c63,sqlite,batch18-100-1,1.0,0,4,cache_statement,1,18,600,600,30,100,3000,3000,13,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-rate100-cached,38791528115,a6b6c67ab77a368bf54689e2208aba851f9f2c63,sqlite,hundred-1000-1,1.0,0,4,cache_statement,100,1,55,55,30,100,3000,3000,8,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-rate100-cached,38791528115,a6b6c67ab77a368bf54689e2208aba851f9f2c63,sqlite,one-100-1,1.0,0,4,cache_statement,1,1,55,55,30,100,3000,3000,8,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-batch-subset,38791892970,e9eb8010d0ad2ec645b667fed6e291ba22978ad7,postgres,batch100-100-1,1.0,1.0,4,cache_statement,10,100,3115,3115,30,25,750,750,10417,163,0,0,0,0,0,0,0,False,True,0,False,inconclusive,late generator
+linux-batch-subset,38791892970,e9eb8010d0ad2ec645b667fed6e291ba22978ad7,postgres,batch18-100-1,1.0,1.0,4,cache_statement,1,18,600,600,30,25,750,750,233,167,0,0,0,0,0,0,0,False,True,0,False,inconclusive,late generator
+linux-batch-subset,38791892970,e9eb8010d0ad2ec645b667fed6e291ba22978ad7,sqlite,batch100-100-1,1.0,0,4,cache_statement,10,100,3115,3115,30,25,750,750,197,134,0,0,0,0,0,0,0,False,True,0,False,inconclusive,late generator
+linux-batch-subset,38791892970,e9eb8010d0ad2ec645b667fed6e291ba22978ad7,sqlite,batch18-100-1,1.0,0,4,cache_statement,1,18,600,600,30,25,750,750,71,56,0,0,0,0,0,0,0,False,True,0,False,inconclusive,late generator
+linux-pool-matrix,38792658857,9e9a3b53d3c8953d7d604e93b3014bbd2bea77e8,postgres,hundred-1000-1,1.0,1.0,16,exec,100,1,55,55,30,100,3000,3000,322,4,0,0,0,0,0,0,0,False,True,0,False,fail,
+linux-pool-matrix,38792658857,9e9a3b53d3c8953d7d604e93b3014bbd2bea77e8,postgres,one-100-1,1.0,1.0,16,exec,1,1,55,55,30,100,3000,3000,46,19,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-pool-matrix,38792658857,9e9a3b53d3c8953d7d604e93b3014bbd2bea77e8,postgres,hundred-1000-1,1.0,1.0,2,exec,100,1,55,55,30,100,3000,2648,7231,4,0,352,0,0,0,0,0,False,True,0,False,fail,
+linux-pool-matrix,38792658857,9e9a3b53d3c8953d7d604e93b3014bbd2bea77e8,postgres,one-100-1,1.0,1.0,2,exec,1,1,55,55,30,100,3000,3000,1470,4,0,0,0,0,0,0,0,False,True,0,False,fail,
+linux-pool-matrix,38792658857,9e9a3b53d3c8953d7d604e93b3014bbd2bea77e8,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,100,3000,2632,7684,4,0,368,0,0,0,0,0,False,True,0,False,fail,
+linux-pool-matrix,38792658857,9e9a3b53d3c8953d7d604e93b3014bbd2bea77e8,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,100,3000,3000,347,4,0,0,0,0,0,0,0,False,True,0,False,fail,
+linux-pool-matrix,38792658857,9e9a3b53d3c8953d7d604e93b3014bbd2bea77e8,postgres,hundred-1000-1,1.0,1.0,8,exec,100,1,55,55,30,100,3000,2426,8425,4,0,574,0,0,0,0,0,False,True,0,False,fail,
+linux-pool-matrix,38792658857,9e9a3b53d3c8953d7d604e93b3014bbd2bea77e8,postgres,one-100-1,1.0,1.0,8,exec,1,1,55,55,30,100,3000,3000,361,4,0,0,0,0,0,0,0,False,True,0,False,fail,
+linux-pin-revert,38793892963,584758958c1ec39d73733b2ee33fd4cd7bf2e01d,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,100,3000,2384,8323,4,0,616,0,0,0,0,0,False,True,0,False,fail,
+linux-pin-revert,38793892963,584758958c1ec39d73733b2ee33fd4cd7bf2e01d,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,100,3000,3000,2534,4,0,0,0,0,0,0,0,False,True,0,False,fail,
+linux-more-database,38794913104,584758958c1ec39d73733b2ee33fd4cd7bf2e01d,postgres,hundred-1000-1,1.0,2.0,4,exec,100,1,55,55,30,100,3000,3000,20,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-more-database,38794913104,584758958c1ec39d73733b2ee33fd4cd7bf2e01d,postgres,one-100-1,1.0,2.0,4,exec,1,1,55,55,30,100,3000,3000,40,22,0,0,0,0,0,0,0,False,True,0,False,inconclusive,late generator
+linux-more-db-repeat100,38799865988,7200de8825e6a314c8b2f947f29732c33829a4b6,postgres,hundred-1000-1,1.0,2.0,4,exec,100,1,55,55,180,100,18000,18000,732,183,0,0,0,0,0,0,0,False,True,0,False,inconclusive,late generator
+linux-more-db-repeat100,38799865988,7200de8825e6a314c8b2f947f29732c33829a4b6,postgres,hundred-1000-2,1.0,2.0,4,exec,100,1,55,55,180,100,18000,17878,3587,211,0,122,0,0,0,0,0,False,True,0,False,inconclusive,late generator
+linux-more-db-repeat100,38799865988,7200de8825e6a314c8b2f947f29732c33829a4b6,postgres,hundred-1000-3,1.0,2.0,4,exec,100,1,55,55,180,100,18000,18000,653,219,0,0,0,0,0,0,0,False,True,0,False,inconclusive,late generator
+linux-more-db-repeat100,38799865988,7200de8825e6a314c8b2f947f29732c33829a4b6,postgres,one-100-1,1.0,2.0,4,exec,1,1,55,55,180,100,18000,17919,2730,173,0,81,0,0,0,0,0,False,True,0,False,inconclusive,late generator; observer unavailable
+linux-more-db-repeat100,38799865988,7200de8825e6a314c8b2f947f29732c33829a4b6,postgres,one-100-2,1.0,2.0,4,exec,1,1,55,55,180,100,18000,18000,2246,134,0,0,0,0,0,0,0,False,True,0,False,inconclusive,late generator
+linux-more-db-repeat100,38799865988,7200de8825e6a314c8b2f947f29732c33829a4b6,postgres,one-100-3,1.0,2.0,4,exec,1,1,55,55,180,100,18000,18000,839,138,0,0,0,0,0,0,0,False,True,0,False,inconclusive,late generator
+linux-sql-profile,38795250725,aa68cd6093368bb1b1ef5e600c66fa3f59994b67,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,50,1500,1500,113,3,0,0,0,0,0,0,0,False,True,0,True,inconclusive,profiling
+linux-sql-profile,38795250725,aa68cd6093368bb1b1ef5e600c66fa3f59994b67,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,50,1500,1500,74,3,0,0,0,0,0,0,0,False,True,0,True,inconclusive,profiling
+linux-resource-control-invalid,38795464228,8690b6e09fc2efa87028e3ddffcee27d023ada1b,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,100,3000,2424,8357,6,0,576,0,0,0,0,0,False,True,0,False,inconclusive,duration control bug; interrupted
+linux-resource-control-invalid,38795464228,8690b6e09fc2efa87028e3ddffcee27d023ada1b,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,100,3000,3000,1668,4,0,0,0,0,0,0,0,False,True,0,False,inconclusive,observer unavailable; duration control bug; interrupted
+linux-resource-control-invalid,38795464228,8690b6e09fc2efa87028e3ddffcee27d023ada1b,postgres,one-100-1,1.0,2.0,4,exec,1,1,55,55,165,100,16500,16500,68,5,0,0,0,0,0,0,0,False,True,0,False,inconclusive,duration control bug; interrupted
+linux-resource-control,38796772072,b05e1f8cd3314ee584efc479d6cd2de8793ecae9,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,100,3000,3000,108,9,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-resource-control,38796772072,b05e1f8cd3314ee584efc479d6cd2de8793ecae9,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,100,3000,3000,37,8,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-resource-control,38796772072,b05e1f8cd3314ee584efc479d6cd2de8793ecae9,postgres,hundred-1000-1,1.0,2.0,4,exec,100,1,55,55,30,100,3000,3000,18,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-resource-control,38796772072,b05e1f8cd3314ee584efc479d6cd2de8793ecae9,postgres,one-100-1,1.0,2.0,4,exec,1,1,55,55,30,100,3000,3000,25,8,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-resource-control,38796772072,b05e1f8cd3314ee584efc479d6cd2de8793ecae9,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,30,100,3000,3000,128,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-resource-control,38796772072,b05e1f8cd3314ee584efc479d6cd2de8793ecae9,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,30,100,3000,3000,332,77,0,0,0,0,0,0,0,False,True,0,False,inconclusive,late generator
+linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,postgres,hundred-1000-1,1.0,1.0,4,exec,100,1,55,55,180,50,9000,9000,23,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,postgres,hundred-1000-2,1.0,1.0,4,exec,100,1,55,55,180,50,9000,9000,43,7,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,postgres,hundred-1000-3,1.0,1.0,4,exec,100,1,55,55,180,50,9000,9000,30,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,postgres,one-100-1,1.0,1.0,4,exec,1,1,55,55,180,50,9000,9000,26,7,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,postgres,one-100-2,1.0,1.0,4,exec,1,1,55,55,180,50,9000,9000,32,14,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,postgres,one-100-3,1.0,1.0,4,exec,1,1,55,55,180,50,9000,9000,21,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,sqlite,hundred-1000-1,1.0,0,4,exec,100,1,55,55,180,50,9000,9000,8,5,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,sqlite,hundred-1000-2,1.0,0,4,exec,100,1,55,55,180,50,9000,9000,8,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,sqlite,hundred-1000-3,1.0,0,4,exec,100,1,55,55,180,50,9000,9000,8,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,sqlite,one-100-1,1.0,0,4,exec,1,1,55,55,180,50,9000,9000,8,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,sqlite,one-100-2,1.0,0,4,exec,1,1,55,55,180,50,9000,9000,8,4,0,0,0,0,0,0,0,False,True,0,False,pass,
+linux-repeat50,38796901012,475639da2463612fb0b2b9c4fdfb4e6fde0a28df,sqlite,one-100-3,1.0,0,4,exec,1,1,55,55,180,50,9000,9000,8,4,0,0,0,0,0,0,0,False,True,0,False,pass,
