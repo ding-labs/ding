@@ -51,7 +51,7 @@ def sample_database(pg):
         return {'unavailable': True}
 
 
-def execute(binary, driver, config, output, environment, pg=None, units=1, generator_placement="host"):
+def execute(binary, driver, config, output, environment, pg=None, units=1, generator_placement="host", database_cpu_share=.5):
     if generator_placement not in ("host", "container") or (generator_placement == "container" and environment != "container"):
         raise ValueError("container generator requires the Linux container environment")
     env = dict(os.environ, DING_SCALE_CONFIG=str(output / 'config.json'),
@@ -72,7 +72,7 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
     args = [str(binary), '-test.run=^TestLocalPushScale$', '-test.v', '-test.timeout='+str(int(timeout))+'s']
     if environment == 'container':
         command(['docker', 'volume', 'create', volume])
-        app_cpus = units/2 if pg else units
+        app_cpus = units*(1-database_cpu_share) if pg else units
         app_memory = str(units*512 if pg else units*1024)+'m'
         network = ['--network', 'container:'+pg.container] if pg else (['--network','container:'+receiver.container] if receiver else ['-p','127.0.0.1::8443'])
         fixture = ['--mount', 'type=bind,source='+str(pg.connections)+',target=/postgres-fixture.json,readonly',
@@ -181,7 +181,7 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
                 'cancelledByUser':cancelled, 'generator':generator_metadata, 'receiver':receiver.metadata if receiver else {'placement':'cohosted' if config.get('Receiver') else 'none'},
                 'databaseStart':database_start,
                 'databaseEnd':database_end, 'observerErrors':observer_errors, 'serverExitCode':process.returncode,
-                'appCPULimit':(units/2 if pg else units) if environment=='container' else None,
+                'appCPULimit':(units*(1-database_cpu_share) if pg else units) if environment=='container' else None,
                 'appMemoryBytes':(units*512 if pg else units*1024)*1024**2 if environment=='container' else None}
     if environment == 'native' and (code != 0 or failure):
         for directory in [output/'failed-state', fixture_tmp]:
@@ -243,6 +243,8 @@ def main():
     parser.add_argument('--backend', choices=['sqlite','postgres'], default='sqlite')
     parser.add_argument('--resource-units', type=int, choices=[1,2,4], default=1,
                         help='total CPU cores and GiB; PostgreSQL splits app/database equally')
+    parser.add_argument('--database-cpu-share', type=float, choices=[.25,.5,.75], default=.5,
+                        help='PostgreSQL fraction of total CPU; memory stays evenly split')
     parser.add_argument('--pool-limit', type=int, choices=[1,2,4,8,16], default=8)
     parser.add_argument('--credential-readers', type=int, choices=[1,2,4,8], default=4)
     parser.add_argument('--rate', type=int, help='override planned requests per second')
@@ -255,6 +257,8 @@ def main():
     args = parser.parse_args()
     if args.generator_placement == "container" and args.environment != "container":
         parser.error("container generator requires --environment container")
+    if args.backend != "postgres" and args.database_cpu_share != .5:
+        parser.error("database CPU split requires PostgreSQL")
     if args.rate is not None and not 1 <= args.rate <= 100000:
         parser.error('rate outside local bounds')
     if not 1 <= args.repeat <= 10 or (args.seconds is not None and not 1 <= args.seconds <= 3600):
@@ -275,10 +279,11 @@ def main():
     subprocess.run(['go','build','-o',str(driver),'./cmd/ding-local-load'],cwd=REPO,
                    env=build_env if args.generator_placement=='container' else None,check=True)
     subprocess.run(['go','test','-c','-o',str(binary),'./internal/cloud'],cwd=REPO,env=build_env,check=True)
-    pg = LocalPostgres(root/'postgres-lab', args.environment, args.resource_units) if args.backend=='postgres' else None
+    pg = LocalPostgres(root/'postgres-lab', args.environment, args.resource_units,args.database_cpu_share) if args.backend=='postgres' else None
     save(root/'manifest.json',{'backend':args.backend,'poolLimit':args.pool_limit,
          'credentialReaders':args.credential_readers,'resourceUnits':args.resource_units,
          'receiverProcess':args.receiver_process,'generatorPlacement':args.generator_placement,
+         'databaseCPUShare':args.database_cpu_share if pg else None,
          'driverSHA256':hashlib.sha256(driver.read_bytes()).hexdigest(),
          'runnerImage':command(['docker','image','inspect','--format','{{.Id}}','debian:bookworm-slim']) if args.environment=='container' else None,
          'totalCPULimit':args.resource_units if args.environment=='container' else None,
@@ -311,7 +316,7 @@ def main():
             output = root/(name+'-'+str(repeat+1));output.mkdir(mode=0o700)
             save(output/'config.json',config)
             print('Starting '+output.name,flush=True)
-            result = execute(binary,driver,config,output,args.environment,pg,args.resource_units,args.generator_placement)
+            result = execute(binary,driver,config,output,args.environment,pg,args.resource_units,args.generator_placement,args.database_cpu_share)
             results.append(result)
             with (root/'summary.json').open('w') as f:
                 json.dump(results,f,indent=2)

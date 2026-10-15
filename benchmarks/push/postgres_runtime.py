@@ -15,10 +15,10 @@ def output(args):
 
 
 class LocalPostgres:
-    def __init__(self, root, environment, units):
+    def __init__(self, root, environment, units, cpu_share=.5):
         self.root = root
         self.root.mkdir(mode=0o700)
-        self.env = dict(os.environ, DING_PG_CPUS=str(units/2),
+        self.env = dict(os.environ, DING_PG_CPUS=str(units*cpu_share),
                         DING_PG_MEMORY=str(units*512)+'m')
         self.stopped = False
         with (root/'setup.log').open('x') as log:
@@ -40,9 +40,9 @@ class LocalPostgres:
                 json.dump(values, f)
         info = json.loads(output(['docker', 'inspect', self.container]))[0]
         limits = info['HostConfig']
-        if limits['NanoCpus'] != int(units/2*1e9) or limits['Memory'] != units*512*1024**2 or limits['MemorySwap'] != limits['Memory']:
+        if limits['NanoCpus'] != int(units*cpu_share*1e9) or limits['Memory'] != units*512*1024**2 or limits['MemorySwap'] != limits['Memory']:
             raise RuntimeError('PostgreSQL resource limits do not match the declared budget')
-        self.metadata = dict(self.manifest, cpuLimit=units/2, memoryBytes=limits['Memory'],
+        self.metadata = dict(self.manifest, cpuLimit=units*cpu_share, memoryBytes=limits['Memory'],
                              memorySwapBytes=limits['MemorySwap'], settings=self.sql("""SELECT json_build_object(
                 'version',version(),'fsync',current_setting('fsync'),
                 'fullPageWrites',current_setting('full_page_writes'),
