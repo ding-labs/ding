@@ -23,7 +23,8 @@ def measurements(root):
                 'cancelledByUser': execution.get('cancelledByUser', False),
                 'serverExitCode': execution['exitCode'], 'generatorExitCode': execution['generatorExitCode'],
                 'oomKilled': execution.get('container', {}).get('OOMKilled', False),
-                'failedStatePreserved': bool(execution.get('failedStateArchive') or execution.get('preservedVolume')),
+                'failedStatePreserved': bool(execution.get('failedStateArchive') or execution.get('preservedVolume')
+                    or execution.get('failedStateDirectory')),
                 'stable': False,
             }
             continue

@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import platform
 import shutil
+import signal
 import subprocess
 import time
 
@@ -40,6 +41,9 @@ def capture_failed_state(volume, output):
 def execute(binary, driver, config, output, environment):
     env = dict(os.environ, DING_SCALE_CONFIG=str(output / 'config.json'),
                DING_SCALE_OUTPUT=str(output), DING_SCALE_EXTERNAL=environment)
+    fixture_tmp = output/'fixture-tmp'
+    fixture_tmp.mkdir(mode=0o700)
+    env['TMPDIR'] = str(fixture_tmp)
     timeout = config['Seconds'] + config.get('Preload', 0) / 100 + 900
     container = 'ding-scale-' + output.parent.name.lower() + '-' + output.name.lower()
     volume = container + '-data'
@@ -57,6 +61,7 @@ def execute(binary, driver, config, output, environment):
     bootstrap = output/'bootstrap.json'
     generator = None
     code, generator_code, failure = 124, None, None
+    cancelled = False
     with (output/'run.log').open('x') as log, (output/'generator.log').open('x') as generator_log:
         process = subprocess.Popen(args, cwd=REPO, env=env, stdout=log, stderr=subprocess.STDOUT)
         try:
@@ -91,16 +96,26 @@ def execute(binary, driver, config, output, environment):
             generator_code = generator.wait() if generator is not None else None
         except (RuntimeError, TimeoutError) as error:
             failure = str(error)
+        except KeyboardInterrupt:
+            cancelled, code, failure = True, 130, 'Local case cancelled by operator.'
         finally:
             if process.poll() is None:
                 process.kill();process.wait()
             if generator is not None and generator.poll() is None:
                 generator.kill();generator.wait()
+            if generator is not None:
+                generator_code = generator.returncode
             bootstrap.unlink(missing_ok=True)
             if environment == 'container':
                 subprocess.run(['docker','kill',container],capture_output=True)
     metadata = {'exitCode':code,'generatorExitCode':generator_code,
-                'wallSeconds':time.monotonic()-started,'resources':samples,'failure':failure}
+                'wallSeconds':time.monotonic()-started,'resources':samples,'failure':failure,
+                'cancelledByUser':cancelled}
+    if environment == 'native' and (code != 0 or failure):
+        for directory in [output/'failed-state', fixture_tmp]:
+            if any(directory.rglob('ding.db')):
+                metadata['failedStateDirectory'] = directory.name
+                break
     if environment == 'container':
         remove_volume = True
         try:
@@ -119,8 +134,9 @@ def execute(binary, driver, config, output, environment):
             subprocess.run(['docker','volume','rm',volume],check=False,capture_output=True)
     save(output/'execution.json',metadata)
     report_path = output/'report.json'
-    if not report_path.exists():
-        return {'case':output.name,'exitCode':code,'stable':False,'reportMissing':True}
+    if cancelled or not report_path.exists():
+        return {'case':output.name,'exitCode':code,'stable':False,
+                'reportMissing':not report_path.exists(),'cancelledByUser':cancelled}
     report = json.loads(report_path.read_text())
     load = report['Load']
     fraction = load['firstAccepted']/max(1,config['Rate']*config['Seconds'])
@@ -137,6 +153,9 @@ def execute(binary, driver, config, output, environment):
 
 def main():
     os.umask(0o077)
+    def cancel_run(_signal, _frame):
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM, cancel_run)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--environment', choices=['native','container'], default='native')
     parser.add_argument('--cases', required=True, help='comma-separated names from cases.json')
@@ -191,13 +210,17 @@ def main():
             with (root/'summary.json').open('w') as f:
                 json.dump(results,f,indent=2)
             print(json.dumps(result),flush=True)
+            if result.get('cancelledByUser'):
+                stop_file.touch(mode=0o600)
         if stop_file.exists():
             break
     completed = {r['case'] for r in results}
     deferred = [name+'-'+str(i+1) for name in requested for i in range(args.repeat)
                 if name+'-'+str(i+1) not in completed]
-    save(root/'run-state.json', {'state':'deferred' if deferred else 'complete',
-         'completed':list(r['case'] for r in results), 'deferred':deferred})
+    cancelled = [r['case'] for r in results if r.get('cancelledByUser')]
+    save(root/'run-state.json', {'state':'cancelled' if cancelled else ('deferred' if deferred else 'complete'),
+         'completed':[r['case'] for r in results if not r.get('cancelledByUser')],
+         'cancelled':cancelled, 'deferred':deferred})
     print('Completed '+str(len(results))+' cases.',flush=True)
 
 
