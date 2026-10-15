@@ -77,6 +77,11 @@ func Open(ctx context.Context, dir string) (s *Store, err error) {
 	if err != nil {
 		return nil, err
 	}
+	if _, e := os.Lstat(filepath.Join(dir, database.BindingFile)); e == nil {
+		return nil, fmt.Errorf("server data directory cannot be used as personal watch state")
+	} else if !os.IsNotExist(e) {
+		return nil, e
+	}
 	if err = os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
