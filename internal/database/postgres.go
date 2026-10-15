@@ -28,6 +28,10 @@ func OpenPostgres(ctx context.Context, c Config, lookup func(string) (string, bo
 	if err != nil {
 		return nil, err
 	}
+	if c.Effective().QueryMode == "cache_statement" {
+		cfg.DefaultQueryExecMode = pgx.QueryExecModeCacheStatement
+		cfg.StatementCacheCapacity = 512
+	}
 	db := stdlib.OpenDB(*cfg)
 	db.SetMaxOpenConns(c.Effective().MaxOpenConns)
 	// Keep the bounded pool reusable between worker bursts. Closing all but two
