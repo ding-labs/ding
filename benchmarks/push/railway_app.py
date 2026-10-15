@@ -62,6 +62,7 @@ def start_case(request):
     deadline = time.monotonic()+180
     while not (directory/'bootstrap.json').exists():
         if process.poll() is not None or time.monotonic() >= deadline:
+            if process.poll() is None: process.terminate()
             raise RuntimeError('fixture setup failed; inspect its private run log')
         time.sleep(.2)
     # bootstrap is written by Go before it accepts start. Retry partial JSON.
@@ -95,6 +96,7 @@ class Handler(BaseHTTPRequestHandler):
         if job is None: return self.respond(404,{})
         if job['process'].poll() is None: return self.respond(200,{'running':True})
         directory = job['directory']; report = directory/'report.json'
+        (directory/'bootstrap.json').unlink(missing_ok=True)
         self.respond(200,{'running':False, 'exitCode':job['process'].returncode,
                          'report':json.loads(report.read_text()) if report.exists() else None,
                          'resources':[json.loads(line) for line in (directory/'resources.jsonl').read_text().splitlines()],

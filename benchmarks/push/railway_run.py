@@ -13,6 +13,21 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from railway_app import resources
 
 
+def qualifies(result, config):
+    report = result.get('report') or {}
+    load = report.get('Load',{})
+    return bool(result['exitCode']==0 and result['generatorExitCode']==0
+        and load.get('firstAccepted')==config['Rate']*config['Seconds']
+        and load.get('scheduleP99MS',999)<=20 and load.get('p99MS',999)<250
+        and not any(load.get(k) for k in ('generatorBusy','unconfirmed','rejected','throttled','clockDiscontinuity'))
+        and not report.get('Errors') and report.get('ReadErrors')==0 and not report.get('InternalObservations')
+        and result['resources'] and result['generatorResources']
+        and not any(s.get('observerError') for s in result['resources'])
+        and not sum(s['Rows']['pending'] for s in report.get('After',[]))
+        and (config.get('Noop') or report.get('PostChecksVerified'))
+        and (not config.get('Restart') or report.get('RestartVerified')))
+
+
 def control(path, value=None):
     request = Request('http://ding-scale-app.railway.internal:8080'+path,
                       data=json.dumps(value).encode() if value is not None else None,
@@ -61,11 +76,7 @@ def run():
         (root/'result.json').write_text(json.dumps(result))
         report = result['report'] or {}
         load = report.get('Load',{})
-        passed = (result['exitCode']==0 and process.returncode==0 and load.get('firstAccepted')==args.rate*args.seconds
-                  and load.get('scheduleP99MS',999)>-1 and load.get('scheduleP99MS',999)<=20
-                  and load.get('p99MS',999)<250 and not report.get('Errors') and report.get('ReadErrors')==0
-                  and not any(s.get('observerError') for s in result['resources'])
-                  and (job['config'].get('Noop') or report.get('PostChecksVerified')))
+        passed = qualifies(result,job['config'])
         summary = {'id':identity,'case':args.case,'rate':args.rate,'seconds':args.seconds,
                    'pass':bool(passed),'load':load,'readCount':report.get('ReadCount'),
                    'readP99MS':report.get('ReadP99MS'),'readErrors':report.get('ReadErrors'),
@@ -74,6 +85,9 @@ def run():
         (root/'summary.json').write_text(json.dumps(summary,indent=2))
         print(json.dumps(summary),flush=True)
         return 0 if passed else 1
+    except Exception:
+        control('/abort/'+identity,{})
+        raise
     finally:
         stop.set(); observer.join()
         (root/'bootstrap.json').unlink(missing_ok=True)
