@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/access"
+	"github.com/ding-labs/ding/internal/database"
 	_ "modernc.org/sqlite"
 )
 
@@ -52,6 +53,7 @@ var ErrStale = errors.New("stale generation")
 var ErrQuota = errors.New("resource quota exceeded")
 
 type Store struct {
+	ownership *database.Ownership
 	postgres  bool
 	workspace string
 	mu        sync.RWMutex

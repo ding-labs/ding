@@ -138,8 +138,16 @@ func (v *Vault) ConsumeLogin(ctx context.Context, state string, now time.Time) (
 		return login, fmt.Errorf("invalid login state")
 	}
 	hash := TokenHash(state)
-	err := v.db.sql.QueryRowContext(ctx, v.db.query(qConsumeLogin1), hash, now.Unix()).Scan(&encrypted)
+	tx, err := v.db.begin(ctx)
 	if err != nil {
+		return login, err
+	}
+	defer tx.Rollback()
+	err = tx.QueryRowContext(ctx, tx.query(qConsumeLogin1), hash, now.Unix()).Scan(&encrypted)
+	if err != nil {
+		return login, err
+	}
+	if err = tx.Commit(); err != nil {
 		return login, err
 	}
 	aead, err := v.aead("_login")

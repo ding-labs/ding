@@ -16,16 +16,18 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ding-labs/ding/internal/database"
 	"github.com/ding-labs/ding/internal/install"
 	"github.com/ding-labs/ding/internal/mcpconfig"
 	_ "modernc.org/sqlite"
 )
 
 type DB struct {
-	postgres bool
-	sql      *sql.DB
-	readers  *sql.DB
-	unlock   func() error
+	ownership *database.Ownership
+	postgres  bool
+	sql       *sql.DB
+	readers   *sql.DB
+	unlock    func() error
 	// Access serializes permission changes with admitted runtime operations.
 	// Request adapters hold RLock until the operation completes; administration
 	// methods take Lock before rechecking permissions in their transaction.

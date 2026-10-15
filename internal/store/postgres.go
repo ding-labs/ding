@@ -9,13 +9,14 @@ import (
 	"regexp"
 
 	"github.com/ding-labs/ding/internal/access"
+	"github.com/ding-labs/ding/internal/database"
 )
 
 var postgresWorkspaceID = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 // OpenPostgres borrows the instance pool. Closing this tenant facade does not
 // close that pool. Migration and instance ownership belong to the server root.
-func OpenPostgres(ctx context.Context, db *sql.DB, workspace string) (*Store, error) {
+func OpenPostgres(ctx context.Context, db *sql.DB, workspace string, owners ...*database.Ownership) (*Store, error) {
 	if db == nil || !postgresWorkspaceID.MatchString(workspace) {
 		return nil, fmt.Errorf("invalid PostgreSQL workspace")
 	}
@@ -29,6 +30,9 @@ func OpenPostgres(ctx context.Context, db *sql.DB, workspace string) (*Store, er
 		return nil, fmt.Errorf("PostgreSQL runtime requires a non-owner application role and forced workspace isolation")
 	}
 	s := &Store{db: db, postgres: true, workspace: workspace, writer: make(chan struct{}, 1)}
+	if len(owners) > 0 {
+		s.ownership = owners[0]
+	}
 	tx, err := s.beginPostgres(ctx, false)
 	if err != nil {
 		return nil, err
@@ -48,6 +52,9 @@ func OpenPostgres(ctx context.Context, db *sql.DB, workspace string) (*Store, er
  INSERT INTO push_receipt_stats(singleton,total,expired,checked_at,earliest) VALUES(1,0,0,0,0) ON CONFLICT DO NOTHING;`); err != nil {
 		return nil, err
 	}
+	if err = s.ownership.Fence(ctx, tx, true); err != nil {
+		return nil, err
+	}
 	return s, tx.Commit()
 }
 
@@ -58,6 +65,10 @@ func (s *Store) beginPostgres(ctx context.Context, readOnly bool) (*sql.Tx, erro
 	}
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: readOnly, Isolation: isolation})
 	if err != nil {
+		return nil, err
+	}
+	if err = s.ownership.Fence(ctx, tx, !readOnly); err != nil {
+		tx.Rollback()
 		return nil, err
 	}
 	if _, err = tx.ExecContext(ctx, "SET LOCAL search_path=ding_runtime,pg_catalog"); err == nil {
@@ -101,6 +112,9 @@ func (s *Store) updatePostgres(ctx context.Context, fn func(*Tx) error) error {
 	if limit > 0 && bytes > limit {
 		return ErrQuota
 	}
+	if err = s.ownership.Fence(ctx, tx, true); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 
@@ -110,5 +124,8 @@ func (s *Store) viewPostgres(ctx context.Context, fn func(*Tx) error) error {
 		return err
 	}
 	defer tx.Rollback()
-	return fn(&Tx{ctx: ctx, sql: tx, postgres: true})
+	if err = fn(&Tx{ctx: ctx, sql: tx, postgres: true}); err != nil {
+		return err
+	}
+	return s.ownership.Fence(ctx, tx, false)
 }

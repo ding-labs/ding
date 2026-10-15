@@ -20,7 +20,7 @@ func MigratePostgres(ctx context.Context, migration *sql.DB, appRole string) err
 
 // OpenPostgres borrows the instance pool. The composition root owns shutdown
 // and the instance execution fence; no per-workspace control pool is created.
-func OpenPostgres(ctx context.Context, pool *sql.DB) (*DB, error) {
+func OpenPostgres(ctx context.Context, pool *sql.DB, owners ...*database.Ownership) (*DB, error) {
 	var version int
 	if err := pool.QueryRowContext(ctx, "SELECT version FROM ding_meta.versions WHERE component='control'").Scan(&version); err != nil || version != PostgresSchemaVersion {
 		return nil, fmt.Errorf("PostgreSQL control schema is unavailable or incompatible; run server migration")
@@ -30,5 +30,9 @@ func OpenPostgres(ctx context.Context, pool *sql.DB) (*DB, error) {
 	if err != nil || unsafe {
 		return nil, fmt.Errorf("PostgreSQL control requires a separate non-owner application role")
 	}
-	return &DB{sql: pool, postgres: true}, nil
+	d := &DB{sql: pool, postgres: true}
+	if len(owners) > 0 {
+		d.ownership = owners[0]
+	}
+	return d, nil
 }
