@@ -1,8 +1,15 @@
 import unittest
-from resources import resource_limits
+from unittest.mock import patch
+from resources import cgroup_sample, resource_limits
 
 
 class ResourceProfiles(unittest.TestCase):
+    def test_throttling_counters_preserve_microseconds(self):
+        with patch('resources.subprocess.check_output', return_value='usage_usec 123\nnr_periods 10\nnr_throttled 2\nthrottled_usec 456\n'):
+            result = cgroup_sample('owned-fixture')
+        self.assertEqual(result['throttled_usec'], 456)
+        self.assertEqual(result['nr_throttled'], 2)
+
     def test_legacy_budgets_remain_comparable(self):
         self.assertEqual(resource_limits('postgres', 2, .5), {
             'appCPUs': 1, 'appMemoryMiB': 1024, 'databaseCPUs': 1, 'databaseMemoryMiB': 1024})

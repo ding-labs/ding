@@ -14,7 +14,7 @@ import time
 
 from postgres_runtime import LocalPostgres
 from receiver_runtime import LocalReceiver
-from resources import resource_limits
+from resources import cgroup_sample, resource_limits
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -136,6 +136,7 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
                         producer = (command(['docker','stats','--no-stream','--format','{{json .}}',generator_container]) if generator_container else
                                     command(['ps','-o','rss=,%cpu=','-p',str(generator.pid)])) if generator is not None and generator.poll() is None else None
                         samples.append({'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'elapsed':time.monotonic()-started,'phase':'setup' if generator is None else 'producer','server':value,'generator':producer,
+                                        'appCPUStat':cgroup_sample(container) if environment == 'container' else None,
                                         'database':pg.sample() if pg else None,
                                         'receiver':receiver.sample() if receiver else None})
                     except (subprocess.CalledProcessError, OSError, json.JSONDecodeError):

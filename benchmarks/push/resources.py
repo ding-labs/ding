@@ -1,5 +1,13 @@
 """Explicit app/database allocations, independent of the legacy equal split."""
 import math
+import subprocess
+
+
+def cgroup_sample(container):
+    """Read Linux cgroup v2 counters; an unavailable sample invalidates a run."""
+    raw = subprocess.check_output(['docker', 'exec', container, 'cat',
+                                   '/sys/fs/cgroup/cpu.stat'], text=True, stderr=subprocess.DEVNULL)
+    return {key: int(value) for key, value in (line.split() for line in raw.splitlines())}
 
 
 def resource_limits(backend, units, share, app_cpus=None, app_memory_mib=None,

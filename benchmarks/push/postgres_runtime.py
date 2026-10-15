@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 from urllib.parse import urlsplit, urlunsplit
+from resources import cgroup_sample
 
 HERE = Path(__file__).resolve().parent
 
@@ -49,6 +50,8 @@ class LocalPostgres:
                 'version',version(),'fsync',current_setting('fsync'),
                 'fullPageWrites',current_setting('full_page_writes'),
                 'synchronousCommit',current_setting('synchronous_commit'),
+                'trackIOTiming',current_setting('track_io_timing'),
+                'trackWALIOTiming',current_setting('track_wal_io_timing'),
                 'sharedBuffers',current_setting('shared_buffers'),
                 'maxConnections',current_setting('max_connections'))"""))
         settings = self.metadata['settings']
@@ -63,6 +66,14 @@ class LocalPostgres:
 
     def sample(self):
         return {'runtime': json.loads(output(['docker', 'stats', '--no-stream', '--format', '{{json .}}', self.container])),
+                'cpuStat': cgroup_sample(self.container),
+                'counters': self.sql("""SELECT json_build_object(
+                    'at',clock_timestamp(),'commits',sum(xact_commit),'rollbacks',sum(xact_rollback),
+                    'blocksRead',sum(blks_read),'blocksHit',sum(blks_hit),
+                    'readMS',sum(blk_read_time),'writeMS',sum(blk_write_time),
+                    'tempBytes',sum(temp_bytes),'deadlocks',sum(deadlocks),
+                    'wal',(SELECT row_to_json(w) FROM pg_stat_wal w))
+                    FROM pg_stat_database"""),
                 'storage': self.sql("""SELECT json_build_object(
                     'databaseBytes',sum(pg_database_size(oid)),
                     'walBytes',(SELECT sum(size) FROM pg_ls_waldir()),
