@@ -557,11 +557,11 @@ func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch so
 
 			}
 		}
-		usage, err = tx.Budget()
+		bytes, err := tx.QuotaBytes()
 		if err != nil {
 			return err
 		}
-		if usage.Bytes > a.Limits.MaxBytes {
+		if bytes > a.Limits.MaxBytes {
 			return ErrQuota
 		}
 		if push != nil {
@@ -572,11 +572,11 @@ func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch so
 			if err := tx.SavePushReceipt(current.Lifetime, push.Producer, push.Key, push.Digest, push.Receipt, push.Bytes, len(batch.Observations)); err != nil {
 				return err
 			}
-			usage, err := tx.Budget()
+			bytes, err := tx.QuotaBytes()
 			if err != nil {
 				return err
 			}
-			if usage.Bytes > a.Limits.MaxBytes {
+			if bytes > a.Limits.MaxBytes {
 				return ErrQuota
 			}
 			return nil
