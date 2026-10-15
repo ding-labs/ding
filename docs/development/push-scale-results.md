@@ -118,6 +118,37 @@ attempts and reconciled identities, digests, observation provenance and durable
 usage. One additional committed request had lost its HTTP response. These audits
 do not replace the failed live observer or upgrade the capacity verdict.
 
+## Sustained measurements
+
+The first 1,800-second run used one SQLite workspace, 250 planned requests/s,
+concurrent inspection and final reopen. It acknowledged **449,929 / 450,000**
+requests (99.9842%), with p95 **12 ms**, p99 **163 ms**, 17,978 completed reads
+and read p99 **6 ms**. Every acknowledged input reconciled; there were no read or
+clock errors, and reopen/postchecks passed.
+
+It **did not qualify** under the zero-rejection rule: 70 requests were throttled
+at 13:30 UTC and one returned temporary `acceptance_uncertain` at 13:40 UTC.
+The uncertain response had no durable receipt; reconciliation found no missing
+acknowledged input. All throttles occurred about 24 seconds after the other
+project's container restart. That temporal overlap is a confounder, not proof of
+causation. This run cannot establish an uncontended sustained 250/s service rate.
+
+The SQLite allocated database grew by approximately **660 MB** over the accepted
+449,929 requests, roughly 1.47 KB per request for this tiny-body workload including
+its durable receipt/state/index costs. The run uses the raised lab storage cap;
+the production default 128 MiB envelope would bind much earlier.
+
+## Delivery screens
+
+At 25 requests/s for 30 seconds, both backends acknowledged every input with a
+separate slow local receiver. One ordered stream still had 2 SQLite / 7 PostgreSQL
+pending deliveries after the one-minute drain bound. Four independent streams
+with four workers drained completely in about one second after input ended
+(SQLite p99 23 ms; PostgreSQL p99 156 ms). Receiver journals reconciled durable
+delivery identities, including warmup and postcheck deliveries. Fast and local
+outage/recovery screens also drained on both backends. These are local webhook
+experiments; external provider delivery remains a separate release gate.
+
 ## Storage and remaining costs
 
 Retaining arbitrary JSON needs a separate storage budget from parsing and then
