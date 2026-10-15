@@ -1,0 +1,29 @@
+# Opt-in, disposable local PostgreSQL lab. Start through postgres.py so generated
+# credentials, ownership metadata and evidence remain in the private run root.
+services:
+  postgres:
+    image: postgres:17.11-bookworm@sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826
+    cpus: '${DING_PG_CPUS:-1}'
+    mem_limit: '${DING_PG_MEMORY:-1g}'
+    environment:
+      POSTGRES_DB: ding
+      POSTGRES_PASSWORD_FILE: /run/secrets/admin_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    secrets:
+      - admin_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - '${DING_PG_INIT_FILE}:/docker-entrypoint-initdb.d/roles.sql:ro'
+    ports:
+      - '127.0.0.1::5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d ding']
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    command: ['postgres', '-c', 'fsync=on', '-c', 'synchronous_commit=on', '-c', 'full_page_writes=on', '-c', 'max_connections=40']
+secrets:
+  admin_password:
+    file: '${DING_PG_PASSWORD_FILE}'
+volumes:
+  pgdata:
