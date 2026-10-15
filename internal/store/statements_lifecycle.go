@@ -36,7 +36,7 @@ var qRetain7 = statement{sqlite: `DELETE FROM input_receipts WHERE expires_at<=?
 
 var qRetain8 = statement{sqlite: `DELETE FROM push_receipts WHERE expires_at<=?`, postgres: `DELETE FROM push_receipts WHERE workspace_id=current_setting('ding.workspace') AND expires_at<=$1`}
 
-var qRetain9 = statement{sqlite: `DELETE FROM metadata WHERE key LIKE 'delivery_backoff:%' AND CAST(value AS INTEGER)<=?`, postgres: `DELETE FROM metadata WHERE workspace_id=current_setting('ding.workspace') AND key LIKE 'delivery_backoff:%' AND CAST(value AS BIGINT)<=$1`}
+var qRetain9 = statement{sqlite: `DELETE FROM metadata WHERE key LIKE 'delivery_backoff:%' AND CAST(value AS INTEGER)<=?`, postgres: `DELETE FROM metadata WHERE workspace_id=current_setting('ding.workspace') AND key LIKE 'delivery_backoff:%' AND CASE WHEN key LIKE 'delivery_backoff:%' THEN CAST(value AS BIGINT) ELSE 0 END<=$1`}
 
 var qRetain10 = statement{sqlite: `DELETE FROM outbox WHERE created_at<? AND status NOT IN ('pending','leased')`, postgres: `DELETE FROM outbox WHERE workspace_id=current_setting('ding.workspace') AND created_at<$1 AND status NOT IN ('pending','leased')`}
 

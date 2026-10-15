@@ -32,11 +32,11 @@ func (t *Tx) EventPage(id, cursor string, limit int) (EventPage, error) {
 		return page, ErrCursor
 	}
 	var identity string
-	if err := t.sql.QueryRowContext(t.ctx, "SELECT value FROM metadata WHERE key='store_id'").Scan(&identity); err != nil {
+	if err := t.sql.QueryRowContext(t.ctx, t.query(qEventPage1)).Scan(&identity); err != nil {
 		return page, err
 	}
 	var high int64
-	if err := t.sql.QueryRowContext(t.ctx, "SELECT COALESCE((SELECT seq FROM sqlite_sequence WHERE name='events'),0)").Scan(&high); err != nil {
+	if err := t.sql.QueryRowContext(t.ctx, t.query(qEventPage2)).Scan(&high); err != nil {
 		return page, err
 	}
 	c := eventCursor{Version: 1, Store: identity, Watch: id}
@@ -49,7 +49,7 @@ func (t *Tx) EventPage(id, cursor string, limit int) (EventPage, error) {
 			return page, ErrCursor
 		}
 		var floor int64
-		if err := t.sql.QueryRowContext(t.ctx, "SELECT COALESCE((SELECT CAST(value AS INTEGER) FROM metadata WHERE key=?),0)", "event_floor:"+id).Scan(&floor); err != nil {
+		if err := t.sql.QueryRowContext(t.ctx, t.query(qEventPage3), "event_floor:"+id).Scan(&floor); err != nil {
 			return page, err
 		}
 		if c.After < floor {
@@ -89,7 +89,7 @@ func (t *Tx) Event(id string) (watch.Event, error) {
 	var e watch.Event
 	var raw []byte
 	var sequence int64
-	if err := t.sql.QueryRowContext(t.ctx, "SELECT sequence,body FROM events WHERE id=?", id).Scan(&sequence, &raw); err != nil {
+	if err := t.sql.QueryRowContext(t.ctx, t.query(qEvent1), id).Scan(&sequence, &raw); err != nil {
 		return e, missing(err)
 	}
 	if err := json.Unmarshal(raw, &e); err != nil {
@@ -101,7 +101,7 @@ func (t *Tx) Event(id string) (watch.Event, error) {
 func (t *Tx) Definition(id, revision string) (watch.Definition, error) {
 	var d watch.Definition
 	var raw []byte
-	if err := t.sql.QueryRowContext(t.ctx, "SELECT definition FROM watch_revisions WHERE watch_id=? AND revision=?", id, revision).Scan(&raw); err != nil {
+	if err := t.sql.QueryRowContext(t.ctx, t.query(qDefinition1), id, revision).Scan(&raw); err != nil {
 		return d, missing(err)
 	}
 	return d, json.Unmarshal(raw, &d)
@@ -111,12 +111,12 @@ func (t *Tx) SaveReplay(id string, checkpoint any) error {
 	if err != nil {
 		return err
 	}
-	_, err = t.sql.ExecContext(t.ctx, "INSERT INTO event_replays(event_id,body) VALUES(?,?)", id, raw)
+	_, err = t.exec(qSaveReplay1, id, raw)
 	return err
 }
 func (t *Tx) Replay(id string) (json.RawMessage, error) {
 	var raw []byte
-	err := t.sql.QueryRowContext(t.ctx, "SELECT body FROM event_replays WHERE event_id=?", id).Scan(&raw)
+	err := t.sql.QueryRowContext(t.ctx, t.query(qReplay1), id).Scan(&raw)
 	return raw, missing(err)
 }
 
@@ -143,7 +143,7 @@ func (t *Tx) Delivery(id, before int64) (DeliveryInspection, error) {
 	if before == 0 {
 		before = 1<<63 - 1
 	}
-	rows, err := t.sql.QueryContext(t.ctx, "SELECT id,attempt,at,outcome,detail FROM delivery_attempts WHERE outbox_id=? AND id<? ORDER BY id DESC LIMIT 100", id, before)
+	rows, err := t.sql.QueryContext(t.ctx, t.query(qDelivery1), id, before)
 	if err != nil {
 		return out, err
 	}
@@ -167,15 +167,15 @@ func (t *Tx) Retry(id int64, now time.Time) error {
 	if i.Status != "permanent" && i.Status != "exhausted" && i.Status != "canceled" {
 		return ErrConflict
 	}
-	if _, err = t.sql.ExecContext(t.ctx, "INSERT INTO delivery_attempts(outbox_id,attempt,at,outcome,detail) VALUES(?,?,?,'manual_retry','new delivery policy cycle')", id, i.Attempts, timestamp(now)); err != nil {
+	if _, err = t.exec(qRetry1, id, i.Attempts, timestamp(now)); err != nil {
 		return err
 	}
-	_, err = t.sql.ExecContext(t.ctx, "UPDATE outbox SET status='pending',attempts=0,next_at=?,retry_started_at=?,last_error='' WHERE id=?", timestamp(now), timestamp(now), id)
+	_, err = t.exec(qRetry2, timestamp(now), timestamp(now), id)
 	return err
 }
 func (t *Tx) DeliveryCounts() (map[string]int, error) {
 	counts := map[string]int{}
-	rows, err := t.sql.QueryContext(t.ctx, "SELECT status,count(*) FROM outbox GROUP BY status")
+	rows, err := t.sql.QueryContext(t.ctx, t.query(qDeliveryCounts1))
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +191,7 @@ func (t *Tx) DeliveryCounts() (map[string]int, error) {
 	return counts, rows.Err()
 }
 func (t *Tx) Destinations() ([]watch.Destination, error) {
-	rows, err := t.sql.QueryContext(t.ctx, "SELECT DISTINCT r.definition FROM destination_revisions r WHERE EXISTS(SELECT 1 FROM destinations d WHERE d.id=r.destination_id AND d.revision=r.revision) OR EXISTS(SELECT 1 FROM outbox o WHERE o.destination_id=r.destination_id AND o.destination_revision=r.revision AND o.status IN ('pending','leased'))")
+	rows, err := t.sql.QueryContext(t.ctx, t.query(qDestinations1))
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +222,7 @@ func (t *Tx) EvidenceInputs(event string, after int64) (ObservationPage, error) 
 	if _, err := t.Event(event); err != nil {
 		return out, err
 	}
-	rows, err := t.sql.QueryContext(t.ctx, "SELECT o.sequence,o.body FROM observations o JOIN event_evidence e ON e.observation_sequence=o.sequence WHERE e.event_id=? AND o.sequence>? ORDER BY o.sequence LIMIT 100", event, after)
+	rows, err := t.sql.QueryContext(t.ctx, t.query(qEvidenceInputs1), event, after)
 	if err != nil {
 		return out, err
 	}
@@ -294,7 +294,7 @@ func (t *Tx) InspectSummary(id, after string, before int64) (WatchSummary, error
 	if out.Watch.Plan.Definition.Spec.Source.Type == "logs" {
 		var body []byte
 		var sequence int64
-		err := t.sql.QueryRowContext(t.ctx, "SELECT sequence,body FROM observations WHERE watch_id=? AND generation=? ORDER BY sequence DESC LIMIT 1", id, out.Watch.Generation).Scan(&sequence, &body)
+		err := t.sql.QueryRowContext(t.ctx, t.query(qInspectSummary1), id, out.Watch.Generation).Scan(&sequence, &body)
 		if err != nil && err != sql.ErrNoRows {
 			return out, err
 		}
@@ -306,7 +306,7 @@ func (t *Tx) InspectSummary(id, after string, before int64) (WatchSummary, error
 			out.LogObservation.Sequence = sequence
 		}
 	}
-	rows, err := t.sql.QueryContext(t.ctx, `SELECT entity_key,COALESCE(json_extract(state,'$.open'),0),COALESCE(json_extract(state,'$.sourceUnhealthy'),0),COALESCE(json_extract(state,'$.matches'),0),COALESCE(json_extract(state,'$.recoveries'),0),COALESCE(json_extract(state,'$.lastSequence'),0),COALESCE(json_array_length(state,'$.samples'),0),COALESCE(json_extract(state,'$.waitingReason'),'') FROM entities WHERE watch_id=? AND entity_key>? ORDER BY entity_key LIMIT 101`, id, after)
+	rows, err := t.sql.QueryContext(t.ctx, t.query(qInspectSummary2), id, after)
 	if err != nil {
 		return out, err
 	}
@@ -331,7 +331,7 @@ func (t *Tx) InspectSummary(id, after string, before int64) (WatchSummary, error
 	if before == 0 {
 		before = 1<<63 - 1
 	}
-	rows, err = t.sql.QueryContext(t.ctx, `SELECT id,event_id,destination_id,destination_revision,status,attempts,next_at,last_error FROM outbox WHERE watch_id=? AND id<? ORDER BY id DESC LIMIT 101`, id, before)
+	rows, err = t.sql.QueryContext(t.ctx, t.query(qInspectSummary3), id, before)
 	if err != nil {
 		return out, err
 	}
@@ -353,6 +353,6 @@ func (t *Tx) InspectSummary(id, after string, before int64) (WatchSummary, error
 	return out, rows.Err()
 }
 func (t *Tx) EntityHealth(id string) (unhealthy, open int, err error) {
-	err = t.sql.QueryRowContext(t.ctx, `SELECT COALESCE(SUM(CASE WHEN json_extract(state,'$.sourceUnhealthy') THEN 1 ELSE 0 END),0),COALESCE(SUM(CASE WHEN json_extract(state,'$.open') THEN 1 ELSE 0 END),0) FROM entities WHERE watch_id=?`, id).Scan(&unhealthy, &open)
+	err = t.sql.QueryRowContext(t.ctx, t.query(qEntityHealth1), id).Scan(&unhealthy, &open)
 	return
 }
