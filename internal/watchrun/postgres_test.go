@@ -94,7 +94,7 @@ func TestPostgresApplicationPushReplayAndQuota(t *testing.T) {
 	}
 }
 
-func TestPostgresConcurrentReceiptsAcrossFacades(t *testing.T) {
+func TestPostgresConcurrentPushReceipts(t *testing.T) {
 	a, _ := postgresSetup(t)
 	if _, err := a.Apply(ctx, ApplyRequest{Manifest: receiptFixture}); err != nil {
 		t.Fatal(err)
