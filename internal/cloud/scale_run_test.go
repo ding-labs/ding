@@ -21,6 +21,7 @@ type scaleSample struct {
 }
 type scaleReport struct {
 	Config                             scaleConfig
+	FixtureDatabase                    string
 	StartedAt, EndedAt                 time.Time
 	Runtime                            string
 	GOMAXPROCS                         int
@@ -68,6 +69,7 @@ func TestLocalPushScale(t *testing.T) {
 	}
 	report := scaleReport{Config: c, Runtime: runtime.Version() + " " + runtime.GOOS + "/" + runtime.GOARCH, GOMAXPROCS: runtime.GOMAXPROCS(0)}
 	lab := newScaleLab(t, c)
+	report.FixtureDatabase = lab.fixtureDatabase
 	if c.Noisy > 0 {
 		first := lab.producers[0]
 		n := (len(lab.producers) - 1) * c.Noisy / (100 - c.Noisy)

@@ -9,6 +9,8 @@ import (
 
 type scaleConfig struct {
 	Name                                                           string
+	Backend                                                        string
+	PoolLimit, CredentialReaders                                   int
 	Rate, Seconds, Workers, Workspaces, Outputs, Groups, BodyBytes int
 	Condition                                                      string // simple, window, or alerts
 	RetainPadding, Defaults, Reads, Restart, Noop, Profiles        bool
@@ -18,6 +20,18 @@ type scaleConfig struct {
 }
 
 func (c *scaleConfig) validate() error {
+	if c.Backend == "" {
+		c.Backend = "sqlite"
+	}
+	if c.PoolLimit == 0 {
+		c.PoolLimit = 8
+	}
+	if c.CredentialReaders == 0 {
+		c.CredentialReaders = 4
+	}
+	if (c.Backend != "sqlite" && c.Backend != "postgres") || c.PoolLimit < 1 || c.PoolLimit > 16 || c.CredentialReaders < 1 || c.CredentialReaders > 8 {
+		return fmt.Errorf("invalid scale backend or pool bounds")
+	}
 	if c.Workers == 0 {
 		c.Workers = 512
 	}

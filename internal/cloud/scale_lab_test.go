@@ -16,35 +16,55 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/cloud/egress"
+	"github.com/ding-labs/ding/internal/database"
 	"github.com/ding-labs/ding/internal/integrationpolicy"
+	"github.com/ding-labs/ding/internal/pgtest"
 	state "github.com/ding-labs/ding/internal/serverstate"
-	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watchrun"
 	"golang.org/x/time/rate"
 )
 
 type scaleLab struct {
-	server       *Server
-	http         *httptest.Server
-	tenants      []*Tenant
-	producers    []PushProducer
-	root         string
-	receiver     *scaleReceiver
-	key          []byte
-	control      http.Handler
-	controlMu    sync.RWMutex
-	preloadFills []PushBenchmarkResult
+	storage         *ServerStorage
+	databaseConfig  database.Config
+	fixtureDatabase string
+	server          *Server
+	http            *httptest.Server
+	tenants         []*Tenant
+	producers       []PushProducer
+	root            string
+	receiver        *scaleReceiver
+	key             []byte
+	control         http.Handler
+	controlMu       sync.RWMutex
+	preloadFills    []PushBenchmarkResult
 }
 
 func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 	t.Helper()
 	ctx := context.Background()
 	root := t.TempDir()
-	db, err := state.Open(ctx, root)
+	dbConfig := database.Config{}
+	fixtureName := ""
+	if c.Backend == "postgres" {
+		f := pgtest.New(t)
+		f.SetAppEnvironment(t, "DING_SCALE_DATABASE_APP")
+		f.SetMigrationEnvironment(t, "DING_SCALE_DATABASE_MIGRATION")
+		dbConfig = database.Config{Backend: "postgres", DSNRef: &database.SecretRef{Env: "DING_SCALE_DATABASE_APP"}, MaxOpenConns: c.PoolLimit}
+		if err := MigrateDatabase(ctx, Config{DataDir: root, Database: dbConfig}, "DING_SCALE_DATABASE_MIGRATION"); err != nil {
+			t.Fatal(err)
+		}
+		fixtureName = f.Name
+		f.App.Close()
+		f.Migration.Close()
+	}
+	storage, err := openScaleStorage(ctx, root, dbConfig, c.CredentialReaders)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { db.Close() })
+	t.Cleanup(func() { storage.Close() })
+	ctx = storage.Context()
+	db := storage.Control
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
 		t.Fatal(err)
@@ -56,6 +76,7 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 	client, closeHTTP := (egress.Guard{}).Client()
 	t.Cleanup(closeHTTP)
 	pool := NewPool(ctx, root, db, vault, client)
+	storage.ConfigurePool(pool)
 	t.Cleanup(func() { pool.Close() })
 
 	// Lab-only expansion bypasses the production 128 MiB backup envelope.
@@ -74,14 +95,14 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 	if !c.Defaults {
 		s.pushGlobal = rate.NewLimiter(100000, 100000)
 	}
-	lab := &scaleLab{server: s, root: root, key: key}
+	lab := &scaleLab{server: s, root: root, key: key, storage: storage, databaseConfig: dbConfig, fixtureDatabase: fixtureName}
 	t.Cleanup(func() {
 		out := os.Getenv("DING_SCALE_OUTPUT")
 		if !t.Failed() || out == "" {
 			return
 		}
 		lab.server.Pool.Close()
-		lab.server.DB.Close()
+		lab.storage.Close()
 		destination := filepath.Join(out, "failed-state")
 		if os.Getenv("DING_SCALE_EXTERNAL") == "container" {
 			// Move outside testing's temporary parent but stay on the same
@@ -183,7 +204,7 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 // Configure limits before workers start; changing App.Limits on a running
 // production Pool tenant would race with retention and acquisition workers.
 func scaleTenant(pool *Pool, w state.Workspace, defaults bool) (*Tenant, error) {
-	db, err := store.Open(pool.ctx, filepath.Join(pool.root, "workspaces", w.ID))
+	db, err := pool.workspaceStorage().Open(pool.ctx, w.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -231,4 +252,15 @@ func TestScaleLabUsesIsolatedHostedPath(t *testing.T) {
 	if filepath.Dir(lab.root) == "/data" {
 		t.Fatal("unexpected production path")
 	}
+}
+
+func openScaleStorage(ctx context.Context, root string, c database.Config, readers int) (*ServerStorage, error) {
+	if c.Effective().Backend == "postgres" {
+		return OpenServerStorage(ctx, root, c)
+	}
+	db, err := state.OpenSQLite(ctx, root, readers)
+	if err != nil {
+		return nil, err
+	}
+	return &ServerStorage{Control: db, workspaces: sqliteWorkspaces{root}, ctx: ctx}, nil
 }
