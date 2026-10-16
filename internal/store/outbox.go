@@ -28,16 +28,12 @@ type Intent struct {
 }
 
 func (t *Tx) Enqueue(i Intent) (int64, error) {
-	result, err := t.sql.ExecContext(t.ctx, `INSERT INTO outbox(event_id,watch_id,destination_id,destination_revision,payload,status,next_at,created_at) VALUES(?,?,?,?,?,'pending',?,?)`, i.EventID, i.WatchID, i.DestinationID, i.DestinationRevision, i.Payload, timestamp(i.NextAt), timestamp(i.CreatedAt))
-	if err != nil {
-		return 0, err
-	}
-	return result.LastInsertId()
+	return t.insertID(qEnqueue, i.EventID, i.WatchID, i.DestinationID, i.DestinationRevision, i.Payload, timestamp(i.NextAt), timestamp(i.CreatedAt))
 }
 func (t *Tx) Intent(id int64) (Intent, error) {
 	var i Intent
 	var next, created, retry int64
-	err := t.sql.QueryRowContext(t.ctx, `SELECT id,event_id,watch_id,destination_id,destination_revision,payload,status,attempts,next_at,created_at,lease_token,retry_started_at FROM outbox WHERE id=?`, id).Scan(&i.ID, &i.EventID, &i.WatchID, &i.DestinationID, &i.DestinationRevision, &i.Payload, &i.Status, &i.Attempts, &next, &created, &i.LeaseToken, &retry)
+	err := t.sql.QueryRowContext(t.ctx, t.query(qIntent), id).Scan(&i.ID, &i.EventID, &i.WatchID, &i.DestinationID, &i.DestinationRevision, &i.Payload, &i.Status, &i.Attempts, &next, &created, &i.LeaseToken, &retry)
 	if err != nil {
 		return i, missing(err)
 	}
@@ -59,7 +55,7 @@ func (s *Store) Claim(ctx context.Context, now time.Time, lease time.Duration) (
 	var intent *Intent
 	err := s.Update(ctx, func(t *Tx) error {
 		var id int64
-		err := t.sql.QueryRowContext(ctx, claimQuery, timestamp(now), timestamp(now), timestamp(now), timestamp(now)).Scan(&id)
+		err := t.sql.QueryRowContext(ctx, t.query(qClaim), timestamp(now), timestamp(now), timestamp(now), timestamp(now)).Scan(&id)
 		if missing(err) == ErrNotFound {
 			return nil
 		}
@@ -70,7 +66,7 @@ func (s *Store) Claim(ctx context.Context, now time.Time, lease time.Duration) (
 		if _, err = rand.Read(token[:]); err != nil {
 			return err
 		}
-		_, err = t.sql.ExecContext(ctx, `UPDATE outbox SET status='leased',lease_token=?,lease_until=?,attempts=attempts+1 WHERE id=?`, hex.EncodeToString(token[:]), timestamp(now.Add(lease)), id)
+		_, err = t.exec(qLeaseIntent, hex.EncodeToString(token[:]), timestamp(now.Add(lease)), id)
 		if err != nil {
 			return err
 		}
@@ -94,7 +90,7 @@ func (s *Store) Finish(ctx context.Context, i Intent, result delivery.Result, ne
 		return fmt.Errorf("invalid delivery outcome")
 	}
 	return s.Update(ctx, func(t *Tx) error {
-		changed, err := t.sql.ExecContext(ctx, `UPDATE outbox SET status=?,next_at=?,lease_token='',lease_until=0,last_error=? WHERE id=? AND status='leased' AND lease_token=?`, status, timestamp(nextAt), result.Detail, i.ID, i.LeaseToken)
+		changed, err := t.exec(qFinishIntent, status, timestamp(nextAt), result.Detail, i.ID, i.LeaseToken)
 		if err != nil {
 			return err
 		}
@@ -110,11 +106,11 @@ func (s *Store) Finish(ctx context.Context, i Intent, result delivery.Result, ne
 			until = nextAt
 		}
 		if until.After(now) {
-			if _, err := t.sql.ExecContext(ctx, `INSERT INTO metadata(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=CAST(MAX(CAST(metadata.value AS INTEGER),CAST(excluded.value AS INTEGER)) AS TEXT)`, "delivery_backoff:"+i.DestinationID+":"+i.DestinationRevision, fmt.Sprint(timestamp(until))); err != nil {
+			if _, err := t.exec(qDeliveryBackoff, "delivery_backoff:"+i.DestinationID+":"+i.DestinationRevision, fmt.Sprint(timestamp(until))); err != nil {
 				return err
 			}
 		}
-		_, err = t.sql.ExecContext(ctx, `INSERT INTO delivery_attempts(outbox_id,attempt,at,outcome,detail) VALUES(?,?,?,?,?)`, i.ID, i.Attempts, timestamp(now), string(result.Outcome), result.Detail)
+		_, err = t.exec(qDeliveryAttempt, i.ID, i.Attempts, timestamp(now), string(result.Outcome), result.Detail)
 		return err
 	})
 }

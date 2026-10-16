@@ -19,6 +19,7 @@ import (
 func publishLogs(parent context.Context, client control.Client, id string, collector *logs.Collector, diagnostics io.Writer, session *watchrun.LogSession) func(*int) {
 	ctx, cancel := context.WithCancel(parent)
 	done := make(chan struct{})
+	finishPublishing := make(chan struct{})
 	epoch := rand.Text()
 	sequence := 0
 	var lastWindow time.Time
@@ -63,6 +64,8 @@ func publishLogs(parent context.Context, client control.Client, id string, colle
 		var reconnectAt time.Time
 		for {
 			select {
+			case <-finishPublishing:
+				return
 			case <-ctx.Done():
 				return
 			case <-tick.C:
@@ -115,8 +118,11 @@ func publishLogs(parent context.Context, client control.Client, id string, colle
 		}
 	}()
 	return func(exitCode *int) {
-		cancel()
+		// EOF stops new ticks while the bounded current acceptance finishes.
+		// Canceling it could leave an uncertain sequence and suppress Ended.
+		close(finishPublishing)
 		<-done
+		cancel()
 		if session != nil && (!connected || permanent) {
 			return
 		}

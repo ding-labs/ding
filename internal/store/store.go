@@ -48,16 +48,23 @@ var ErrNotFound = errors.New("not found")
 var ErrConflict = errors.New("revision conflict")
 var ErrStale = errors.New("stale generation")
 
+// ErrQuota is shared by backend admission and the runtime API.
+var ErrQuota = errors.New("resource quota exceeded")
+
 type Store struct {
-	mu      sync.RWMutex
-	writer  chan struct{}
-	db      *sql.DB
-	readers *sql.DB
-	lock    *os.File
-	dir     string
-	closed  bool
+	postgres  bool
+	workspace string
+	mu        sync.RWMutex
+	writer    chan struct{}
+	db        *sql.DB
+	readers   *sql.DB
+	lock      *os.File
+	dir       string
+	closed    bool
 }
 type Tx struct {
+	postgres bool
+	changed  bool
 	ctx      context.Context
 	sql      *sql.Tx
 	writable bool
@@ -135,6 +142,9 @@ func (s *Store) Close() error {
 		return nil
 	}
 	s.closed = true
+	if s.postgres {
+		return nil
+	}
 	readErr := s.readers.Close()
 	_, checkpointErr := s.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
 	err := s.db.Close()
@@ -153,6 +163,9 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+	if s.postgres {
+		return s.updatePostgres(ctx, fn)
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -165,7 +178,8 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 			return err
 		}
 	}
-	if err = fn(&Tx{ctx: ctx, sql: tx, writable: true}); err != nil {
+	stx := &Tx{ctx: ctx, sql: tx, writable: true}
+	if err = fn(stx); err != nil {
 		return err
 	}
 	if attributed {
@@ -174,7 +188,7 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 			return err
 		}
 		if after > before {
-			if err := auditMutation(ctx, tx, p); err != nil {
+			if err := stx.auditMutation(p); err != nil {
 				return err
 			}
 		}
@@ -186,6 +200,9 @@ func (s *Store) View(ctx context.Context, fn func(*Tx) error) error {
 	defer s.mu.RUnlock()
 	if s.closed {
 		return ErrClosed
+	}
+	if s.postgres {
+		return s.viewPostgres(ctx, fn)
 	}
 	select {
 	case snapshotSlots <- struct{}{}:
@@ -239,6 +256,9 @@ func (s *Store) Backup(ctx context.Context, path string) error {
 	defer s.mu.Unlock()
 	if s.closed {
 		return ErrClosed
+	}
+	if s.postgres {
+		return fmt.Errorf("PostgreSQL requires an instance-level backup")
 	}
 	return s.backup(ctx, path)
 }
@@ -296,6 +316,10 @@ func (s *Store) backup(ctx context.Context, path string) error {
 }
 
 type Health struct {
+	Backend       string `json:"backend"`
+	Postgres      string `json:"postgres,omitempty"`
+	Durability    string `json:"durability,omitempty"`
+	LogicalBytes  int64  `json:"logicalBytes,omitempty"`
 	SQLite        string `json:"sqlite"`
 	Schema        int    `json:"schema"`
 	Journal       string `json:"journal"`
@@ -306,7 +330,10 @@ type Health struct {
 }
 
 func (s *Store) Health(ctx context.Context) (Health, error) {
-	var h Health
+	if s.postgres {
+		return s.healthPostgres(ctx)
+	}
+	h := Health{Backend: "sqlite"}
 	err := s.View(ctx, func(tx *Tx) error {
 		for _, q := range []struct {
 			query  string
