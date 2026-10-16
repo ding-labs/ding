@@ -36,6 +36,11 @@ def bootstrap(root):
                 db.execute(sql.SQL('CREATE ROLE {} LOGIN PASSWORD {}').format(sql.Identifier(role), sql.Literal(password)))
             elif row != (False, False):
                 raise RuntimeError('existing role privileges do not match the lab')
+            # Only the owned lab role enables timing. No cluster-wide setting or
+            # durability policy changes; dropping the role removes these defaults.
+            if kind == 'app':
+                db.execute('ALTER ROLE ding_app SET track_io_timing=on')
+                db.execute('ALTER ROLE ding_app SET track_wal_io_timing=on')
         # Existing roles must authenticate with this lab's deterministic secret;
         # never alter an unrelated role to seize it after a restart.
         with psycopg.connect(urls[kind]):
@@ -69,6 +74,11 @@ def sample(admin):
             'deadlocks',sum(deadlocks),'blocksRead',sum(blks_read),'blocksHit',sum(blks_hit),
             'databaseBytes',(SELECT sum(pg_database_size(oid)) FROM pg_database WHERE NOT datistemplate),
             'wal',(SELECT row_to_json(w) FROM pg_stat_wal w),
+            'io',(SELECT json_agg(i) FROM pg_stat_io i WHERE backend_type='client backend'),
+            'slru',(SELECT json_agg(s) FROM pg_stat_slru s WHERE name LIKE 'MultiXact%'),
             'checkpoints',(SELECT row_to_json(c) FROM pg_stat_checkpointer c),
             'appLockWaiters',(SELECT count(*) FROM pg_stat_activity WHERE usename='ding_app' AND wait_event_type='Lock'),
+            'appWaits',(SELECT json_agg(w) FROM (SELECT state,wait_event_type,wait_event,count(*) count
+                FROM pg_stat_activity WHERE usename='ding_app'
+                GROUP BY state,wait_event_type,wait_event) w),
             'connections',(SELECT count(*) FROM pg_stat_activity)) FROM pg_stat_database""").fetchone()[0]
