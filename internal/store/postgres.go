@@ -104,7 +104,9 @@ func (s *Store) updatePostgres(ctx context.Context, fn func(*Tx) error) error {
 		return err
 	}
 	defer tx.Rollback()
+	guarded := time.Now()
 	check, err := database.LockTransactionGuard(ctx, tx, s.db)
+	runtimeperf.Since(s.PerfBackend(), runtimeperf.TransactionGuard, guarded)
 	if err != nil {
 		return err
 	}
@@ -124,6 +126,7 @@ func (s *Store) updatePostgres(ctx context.Context, fn func(*Tx) error) error {
 	if err != nil {
 		return err
 	}
+	finalized := time.Now()
 	if p, ok := access.FromContext(ctx); ok && stx.changed {
 		if p.Workspace != s.workspace {
 			return access.ErrDenied
@@ -145,6 +148,7 @@ func (s *Store) updatePostgres(ctx context.Context, fn func(*Tx) error) error {
 	if err = s.ownership.Fence(ctx, tx, true); err != nil {
 		return err
 	}
+	runtimeperf.Since(s.PerfBackend(), runtimeperf.PreCommit, finalized)
 	started := time.Now()
 	err = tx.Commit()
 	runtimeperf.Since(s.PerfBackend(), runtimeperf.Commit, started)

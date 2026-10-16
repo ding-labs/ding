@@ -195,6 +195,7 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 		return ctx.Err()
 	}
 	runtimeperf.Since(s.PerfBackend(), runtimeperf.WriterWait, waited)
+	defer runtimeperf.Since(s.PerfBackend(), runtimeperf.WriterHold, time.Now())
 	if s.postgres {
 		return s.updatePostgres(ctx, fn)
 	}
