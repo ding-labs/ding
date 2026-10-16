@@ -48,7 +48,7 @@ func TestPushReceiptSurvivesResetRestartAndExpiresIndependently(t *testing.T) {
 	if err = a.Store.Close(); err != nil {
 		t.Fatal(err)
 	}
-	db, err := store.Open(ctx, dir)
+	db, err := reopenTestStore(ctx, dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +145,7 @@ func TestThousandPushInputsReconcileAcrossRestarts(t *testing.T) {
 			if err := a.Store.Close(); err != nil {
 				t.Fatal(err)
 			}
-			db, err := store.Open(ctx, dir)
+			db, err := reopenTestStore(ctx, dir)
 			if err != nil {
 				t.Fatal(err)
 			}
