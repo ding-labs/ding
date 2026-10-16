@@ -181,7 +181,10 @@ func (t *Tx) SaveEntity(id, key, revision string, state any, now time.Time) erro
 		return err
 	}
 	_, err = t.exec(qSaveEntity, id, key, revision, data, timestamp(now))
-	return err
+	if err != nil {
+		return err
+	}
+	return t.syncEntityPins(id, key, data)
 }
 func (t *Tx) AppendEvent(e watch.Event) (int64, error) {
 	data, err := json.Marshal(e)

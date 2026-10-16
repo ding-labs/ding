@@ -12,6 +12,7 @@ import (
 
 	"github.com/ding-labs/ding/internal/delivery"
 	"github.com/ding-labs/ding/internal/notify"
+	"github.com/ding-labs/ding/internal/runtimeperf"
 	"github.com/ding-labs/ding/internal/source"
 	"github.com/ding-labs/ding/internal/store"
 )
@@ -20,10 +21,16 @@ import (
 // leaves the lease recoverable and can therefore duplicate remote receipt.
 func (a *App) DeliverOne(ctx context.Context) (bool, error) {
 	now := a.Now()
+	claim := time.Now()
 	intent, err := a.Store.Claim(ctx, now, 30*time.Second)
+	runtimeperf.Since(a.Store.PerfBackend(), runtimeperf.DeliveryClaim, claim)
 	if err != nil || intent == nil {
 		return false, err
 	}
+	if intent.Attempts == 1 {
+		runtimeperf.Observe(a.Store.PerfBackend(), runtimeperf.EnqueueFirst, now.Sub(intent.CreatedAt))
+	}
+	attempted := time.Now()
 	d := intent.Destination.Definition.Spec
 	maxAge, _ := time.ParseDuration(d.MaxAge)
 	cycle := intent.CreatedAt
@@ -75,6 +82,7 @@ func (a *App) DeliverOne(ctx context.Context) (bool, error) {
 			}
 		}
 	}
+	runtimeperf.Since(a.Store.PerfBackend(), runtimeperf.DeliveryIO, attempted)
 	finished := a.Now()
 	next := finished
 	if result.Outcome == delivery.Retryable {

@@ -48,12 +48,45 @@ func TestQueueIndexesAndSchemaTwoUpgrade(t *testing.T) {
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
 	}
-	for _, index := range []string{"outbox_live_due", "outbox_live_order", "outbox_live_lease"} {
+	for _, index := range []string{"delivery_stream_turn", "outbox_live_order", "outbox_stream_lease"} {
 		if !strings.Contains(plan.String(), index) {
 			t.Fatalf("queue would scan historical deliveries; missing %s:\n%s", index, plan.String())
 		}
 	}
 	if strings.Contains(plan.String(), "TEMP B-TREE") {
 		t.Fatal("queue scans and sorts all candidates", plan.String())
+	}
+}
+
+func TestRetentionBatchesUseTimeIndexes(t *testing.T) {
+	s := openTest(t, t.TempDir())
+	for _, item := range []struct {
+		query statement
+		index string
+	}{
+		{qRetainBatchOutbox, "outbox_retention"}, {qRetainBatchObservations, "observations_retention"}, {qRetainBatchEvents, "events_retention"}, {qRetainBatchWatchRevisions, "watch_revision_retention"}, {qRetainBatchDestinationRevisions, "destination_revision_retention"},
+	} {
+		rows, err := s.db.Query("EXPLAIN QUERY PLAN "+item.query.sqlite, 0, 64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var details strings.Builder
+		for rows.Next() {
+			var id, parent, unused int
+			var detail string
+			if err = rows.Scan(&id, &parent, &unused, &detail); err != nil {
+				t.Fatal(err)
+			}
+			details.WriteString(detail)
+			details.WriteByte('\n')
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(details.String(), item.index) || strings.Contains(details.String(), "TEMP B-TREE") {
+			t.Fatal("retention scans or sorts history", details.String())
+		}
 	}
 }

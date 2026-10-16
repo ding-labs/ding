@@ -16,6 +16,7 @@ import (
 )
 
 type Fixture struct {
+	SetAdminEnvironment     func(*testing.T, string)
 	SetMigrationEnvironment func(*testing.T, string)
 	SetAppEnvironment       func(*testing.T, string)
 	NewAppPool              func(int) *sql.DB
@@ -61,6 +62,14 @@ func New(t *testing.T) *Fixture {
 		t.Fatal(database.SafeError("create isolated fixture", err))
 	}
 	fixture := &Fixture{Name: name}
+	fixture.SetAdminEnvironment = func(test *testing.T, key string) {
+		u, err := url.Parse(values["admin"])
+		if err != nil {
+			test.Fatal("invalid private fixture URL")
+		}
+		u.Path = "/" + name
+		test.Setenv(key, u.String())
+	}
 	fixture.SetAppEnvironment = func(test *testing.T, key string) {
 		u, err := url.Parse(values["app"])
 		if err != nil {

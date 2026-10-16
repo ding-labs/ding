@@ -29,7 +29,7 @@ func TestEvidenceReproducesFiringRecoveryAcrossRevisionRestartAndRetention(t *te
 	input(t, a, r, 4, 200)
 	input(t, a, r, 5, 200)
 	a.Store.Close()
-	s, err := store.Open(ctx, dir)
+	s, err := reopenTestStore(ctx, dir)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -142,7 +142,7 @@ func TestMissingTimersPersistFenceAndDoNotPoll(t *testing.T) {
 		t.Fatal("early firing")
 	}
 	a.Store.Close()
-	s, err := store.Open(ctx, dir)
+	s, err := reopenTestStore(ctx, dir)
 	if err != nil {
 		t.Fatal(err)
 	}

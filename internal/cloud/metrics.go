@@ -42,6 +42,7 @@ func (p *Pool) Metrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 	w.Header().Set("Cache-Control", "no-store")
 	p.ingest.write(w)
+	p.connectionMetrics(w, list)
 	var memory runtime.MemStats
 	runtime.ReadMemStats(&memory)
 	fmt.Fprintf(w, "ding_cloud_heap_bytes %d\nding_cloud_runtime_reserved_bytes %d\n", memory.HeapAlloc, memory.Sys)

@@ -166,3 +166,10 @@ func ownershipFromContext(ctx context.Context) *Ownership {
 	owner, _ := ctx.Value(ownershipKey{}).(*Ownership)
 	return owner
 }
+
+func (o *Ownership) ConnectionStats() sql.DBStats {
+	if o == nil {
+		return sql.DBStats{}
+	}
+	return o.pool.Stats()
+}

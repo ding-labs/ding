@@ -20,6 +20,7 @@ import (
 	"github.com/ding-labs/ding/internal/notify"
 	"github.com/ding-labs/ding/internal/plan"
 	"github.com/ding-labs/ding/internal/replay"
+	"github.com/ding-labs/ding/internal/runtimeperf"
 	"github.com/ding-labs/ding/internal/source"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watch"
@@ -369,7 +370,9 @@ func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch so
 	if len(batch.Observations) == 0 || len(batch.Observations) > record.Plan.Definition.Spec.Limits.MaxOutputs {
 		return receipt, fmt.Errorf("invalid observation count")
 	}
+	compiled := time.Now()
 	evaluator, err := condition.New(record.Plan.Definition, record.Plan.Revision)
+	runtimeperf.Since(a.Store.PerfBackend(), runtimeperf.ConditionCompile, compiled)
 	if err != nil {
 		return receipt, err
 	}
@@ -523,7 +526,9 @@ func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch so
 						return ErrQuota
 					}
 				}
+				evaluated := time.Now()
 				result, err := evaluator.Evaluate(state, o, now)
+				runtimeperf.Since(a.Store.PerfBackend(), runtimeperf.Evaluate, evaluated)
 				if err != nil {
 					return err
 				}

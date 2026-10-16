@@ -39,7 +39,13 @@ type Workspace struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-func Open(ctx context.Context, dir string) (*DB, error) {
+func Open(ctx context.Context, dir string) (*DB, error) { return OpenSQLite(ctx, dir, 4) }
+
+// OpenSQLite bounds credential snapshot connections separately from its writer.
+func OpenSQLite(ctx context.Context, dir string, credentialReaders int) (*DB, error) {
+	if credentialReaders < 1 || credentialReaders > 8 {
+		return nil, fmt.Errorf("SQLite credential readers must be between 1 and 8")
+	}
 	if err := database.CheckDirectory(dir, "sqlite"); err != nil {
 		return nil, err
 	}
@@ -136,7 +142,7 @@ func Open(ctx context.Context, dir string) (*DB, error) {
 			return nil, err
 		}
 	}
-	readers, err := openControlReaders(ctx, u)
+	readers, err := openControlReaders(ctx, u, credentialReaders)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +162,7 @@ func (d *DB) Close() error {
 	return errors.Join(readErr, checkpoint, d.sql.Close(), d.unlock())
 }
 
-func openControlReaders(ctx context.Context, uri url.URL) (*sql.DB, error) {
+func openControlReaders(ctx context.Context, uri url.URL, limit int) (*sql.DB, error) {
 	q := uri.Query()
 	q.Set("mode", "ro")
 	q.Add("_pragma", "query_only(1)")
@@ -166,7 +172,7 @@ func openControlReaders(ctx context.Context, uri url.URL) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	readers.SetMaxOpenConns(4)
+	readers.SetMaxOpenConns(limit)
 	readers.SetMaxIdleConns(1)
 	readers.SetConnMaxIdleTime(time.Minute)
 	if err := readers.PingContext(ctx); err != nil {

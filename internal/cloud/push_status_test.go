@@ -69,6 +69,11 @@ func TestPushScopeUpdatesDiagnosticsAndPreviewIsolation(t *testing.T) {
 	}
 	metrics := httptest.NewRecorder()
 	s.Pool.Metrics(metrics, httptest.NewRequest("GET", "http://localhost/metrics", nil))
+	for _, name := range []string{"ding_runtime_operation_seconds_bucket", "ding_runtime_sql_connections_limit", "ding_runtime_sql_wait_seconds_total", "ding_runtime_worker_limit"} {
+		if !strings.Contains(metrics.Body.String(), name) {
+			t.Fatalf("missing bounded runtime metric %s", name)
+		}
+	}
 	if !strings.Contains(metrics.Body.String(), `reason="digest_conflict"} 1`) {
 		t.Fatal(metrics.Body.String())
 	}

@@ -56,3 +56,25 @@ func TestCredentialReaderDoesNotWaitForWriterAndSeesCommittedRevocation(t *testi
 		t.Fatal("committed revocation was invisible")
 	}
 }
+
+func TestCredentialReaderBounds(t *testing.T) {
+	for _, limit := range []int{1, 2, 4, 8} {
+		db, err := OpenSQLite(context.Background(), t.TempDir(), limit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, stats := db.ConnectionStats()
+		if stats.MaxOpenConnections != limit {
+			t.Error("reader bound ignored", limit, stats.MaxOpenConnections)
+		}
+		if err = db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, limit := range []int{0, 9} {
+		if db, err := OpenSQLite(context.Background(), t.TempDir(), limit); err == nil {
+			db.Close()
+			t.Fatal("invalid reader limit admitted")
+		}
+	}
+}

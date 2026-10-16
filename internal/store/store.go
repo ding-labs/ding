@@ -16,10 +16,11 @@ import (
 
 	"github.com/ding-labs/ding/internal/access"
 	"github.com/ding-labs/ding/internal/database"
+	"github.com/ding-labs/ding/internal/runtimeperf"
 	_ "modernc.org/sqlite"
 )
 
-const SchemaVersion = 8
+const SchemaVersion = 11
 
 //go:embed schema.sql
 var initialSchema string
@@ -44,6 +45,15 @@ var pushSchema string
 
 //go:embed schema8.sql
 var pushStatsSchema string
+
+//go:embed schema9.sql
+var deliveryStreamsSchema string
+
+//go:embed schema10.sql
+var entityPinsSchema string
+
+//go:embed schema11.sql
+var retentionIndexesSchema string
 var ErrClosed = errors.New("store closed")
 var ErrNotFound = errors.New("not found")
 var ErrConflict = errors.New("revision conflict")
@@ -133,7 +143,7 @@ func Open(ctx context.Context, dir string) (s *Store, err error) {
 		return nil, err
 	}
 	s = &Store{db: db, lock: lock, dir: dir, writer: make(chan struct{}, 1)}
-	if err = s.migrate(ctx, SchemaVersion, []string{initialSchema, inspectionSchema, queueIndexSchema, integrationSchema, handoffSchema, auditSchema, pushSchema, pushStatsSchema}); err != nil {
+	if err = s.migrate(ctx, SchemaVersion, []string{initialSchema, inspectionSchema, queueIndexSchema, integrationSchema, handoffSchema, auditSchema, pushSchema, pushStatsSchema, deliveryStreamsSchema, entityPinsSchema, retentionIndexesSchema}); err != nil {
 		return nil, err
 	}
 	s.readers, err = openSnapshotReaders(ctx, uri)
@@ -159,6 +169,7 @@ func (s *Store) Close() error {
 	return errors.Join(readErr, checkpointErr, err, unlockErr)
 }
 func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
+	waited := time.Now()
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.closed {
@@ -168,12 +179,16 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 	case s.writer <- struct{}{}:
 		defer func() { <-s.writer }()
 	case <-ctx.Done():
+		runtimeperf.Since(s.PerfBackend(), runtimeperf.WriterWait, waited)
 		return ctx.Err()
 	}
+	runtimeperf.Since(s.PerfBackend(), runtimeperf.WriterWait, waited)
 	if s.postgres {
 		return s.updatePostgres(ctx, fn)
 	}
+	began := time.Now()
 	tx, err := s.db.BeginTx(ctx, nil)
+	runtimeperf.Since(s.PerfBackend(), runtimeperf.Begin, began)
 	if err != nil {
 		return err
 	}
@@ -190,7 +205,10 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 		}
 	}
 	stx := &Tx{ctx: ctx, sql: tx, writable: true}
-	if err = fn(stx); err != nil {
+	callback := time.Now()
+	err = fn(stx)
+	runtimeperf.Since(s.PerfBackend(), runtimeperf.Callback, callback)
+	if err != nil {
 		return err
 	}
 	if attributed {
@@ -207,9 +225,13 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 	if err = check(); err != nil {
 		return err
 	}
-	return tx.Commit()
+	started := time.Now()
+	err = tx.Commit()
+	runtimeperf.Since(s.PerfBackend(), runtimeperf.Commit, started)
+	return err
 }
 func (s *Store) View(ctx context.Context, fn func(*Tx) error) error {
+	defer runtimeperf.Since(s.PerfBackend(), runtimeperf.Snapshot, time.Now())
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.closed {

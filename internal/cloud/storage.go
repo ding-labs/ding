@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/ding-labs/ding/internal/database"
 	state "github.com/ding-labs/ding/internal/serverstate"
@@ -33,19 +34,29 @@ type ServerStorage struct {
 	pool       *sql.DB
 	owner      *database.Ownership
 	ctx        context.Context
+	closeOnce  sync.Once
+	closeErr   error
 }
 
 func (s *ServerStorage) Context() context.Context { return s.ctx }
 func (s *ServerStorage) ConfigurePool(p *Pool)    { p.storage = s.workspaces }
 func (s *ServerStorage) Close() error {
-	var closePool error
-	if s.pool != nil {
-		closePool = s.pool.Close()
-	}
-	return errors.Join(s.Control.Close(), closePool, s.owner.Close())
+	s.closeOnce.Do(func() {
+		var closePool error
+		if s.pool != nil {
+			closePool = s.pool.Close()
+		}
+		s.closeErr = errors.Join(s.Control.Close(), closePool, s.owner.Close())
+	})
+	return s.closeErr
 }
 
-func OpenServerStorage(ctx context.Context, dir string, c database.Config) (result *ServerStorage, err error) {
+func OpenServerStorage(ctx context.Context, dir string, c database.Config) (*ServerStorage, error) {
+	return openServerStorage(ctx, dir, c, true)
+}
+
+// Native restore binds only after the source instance identity has been loaded.
+func openServerStorage(ctx context.Context, dir string, c database.Config, bind bool) (result *ServerStorage, err error) {
 	if err = c.Validate(); err != nil {
 		return nil, err
 	}
@@ -108,6 +119,10 @@ func OpenServerStorage(ctx context.Context, dir string, c database.Config) (resu
 		}
 		s.workspaces = postgresWorkspaces{s.pool, s.owner}
 	}
+	if !bind {
+		ok = true
+		return s, nil
+	}
 	instance, err := s.Control.InstanceID(s.ctx)
 	if err != nil {
 		return nil, err
@@ -117,4 +132,18 @@ func OpenServerStorage(ctx context.Context, dir string, c database.Config) (resu
 	}
 	ok = true
 	return s, nil
+}
+
+func (s *ServerStorage) CheckQuarantine(ctx context.Context) error {
+	if s.pool == nil {
+		return nil
+	}
+	quarantined, err := database.Quarantined(ctx, s.pool)
+	if err != nil {
+		return err
+	}
+	if quarantined {
+		return fmt.Errorf("restored PostgreSQL state is quarantined; review and release it with the offline operator command")
+	}
+	return nil
 }

@@ -18,7 +18,7 @@ func TestPostgresConnectionPolicy(t *testing.T) {
 			t.Fatal("missing connection bounds or durability")
 		}
 	}
-	for _, dsn := range []string{"postgres://u:secret@db.example/db?sslmode=disable", "postgres://u:secret@db.example/db?sslmode=require", "postgres://u:secret@db.example/db?sslmode=prefer", "postgres://u:secret@host:not-a-port/db"} {
+	for _, dsn := range []string{"postgres://u:secret@db.example/db?sslmode=disable", "postgres://u:secret@db.example/db?sslmode=require", "postgres://u:secret@db.example/db?sslmode=prefer", "postgres://u:secret@host:not-a-port/db", "host=127.0.0.1,db.example user=u password=secret dbname=db sslmode=disable"} {
 		_, err := postgresConfig(dsn)
 		if err == nil || strings.Contains(err.Error(), "secret") {
 			t.Fatalf("unsafe DSN accepted or exposed: %v", err)

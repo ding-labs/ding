@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ding-labs/ding/internal/access"
+	"github.com/ding-labs/ding/internal/runtimeperf"
 	"slices"
 	"strings"
 	"time"
@@ -103,6 +104,7 @@ func scanService(row interface{ Scan(...any) error }, extra ...any) (Service, er
 	return s, err
 }
 func (d *DB) ServiceToken(ctx context.Context, token string) (Service, error) {
+	defer runtimeperf.Since(d.PerfBackend(), runtimeperf.Authorization, time.Now())
 	if len(token) != len("ding_service_")+64 {
 		return Service{}, fmt.Errorf("invalid service credential")
 	}

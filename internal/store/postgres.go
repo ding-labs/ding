@@ -7,9 +7,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"time"
 
 	"github.com/ding-labs/ding/internal/access"
 	"github.com/ding-labs/ding/internal/database"
+	"github.com/ding-labs/ding/internal/runtimeperf"
 )
 
 var postgresWorkspaceID = regexp.MustCompile(`^[a-f0-9]{64}$`)
@@ -97,7 +99,9 @@ func (s *Store) beginPostgres(ctx context.Context, readOnly bool) (*sql.Tx, erro
 }
 
 func (s *Store) updatePostgres(ctx context.Context, fn func(*Tx) error) error {
+	began := time.Now()
 	tx, err := s.beginPostgres(ctx, false)
+	runtimeperf.Since(s.PerfBackend(), runtimeperf.Begin, began)
 	if err != nil {
 		return err
 	}
@@ -109,11 +113,17 @@ func (s *Store) updatePostgres(ctx context.Context, fn func(*Tx) error) error {
 	// One database row orders workspace evaluation, range allocation and quota
 	// accounting, including callers in another process. Receiver I/O stays outside.
 	var scope string
-	if err = tx.QueryRowContext(ctx, "SELECT workspace_id FROM workspaces WHERE workspace_id=$1 FOR UPDATE", s.workspace).Scan(&scope); err != nil {
+	waited := time.Now()
+	err = tx.QueryRowContext(ctx, "SELECT workspace_id FROM workspaces WHERE workspace_id=$1 FOR UPDATE", s.workspace).Scan(&scope)
+	runtimeperf.Since(s.PerfBackend(), runtimeperf.WorkspaceLock, waited)
+	if err != nil {
 		return err
 	}
 	stx := &Tx{ctx: ctx, sql: tx, postgres: true, writable: true}
-	if err = fn(stx); err != nil {
+	callback := time.Now()
+	err = fn(stx)
+	runtimeperf.Since(s.PerfBackend(), runtimeperf.Callback, callback)
+	if err != nil {
 		return err
 	}
 	if p, ok := access.FromContext(ctx); ok && stx.changed {
@@ -137,7 +147,10 @@ func (s *Store) updatePostgres(ctx context.Context, fn func(*Tx) error) error {
 	if err = s.ownership.Fence(ctx, tx, true); err != nil {
 		return err
 	}
-	return tx.Commit()
+	started := time.Now()
+	err = tx.Commit()
+	runtimeperf.Since(s.PerfBackend(), runtimeperf.Commit, started)
+	return err
 }
 
 func (s *Store) viewPostgres(ctx context.Context, fn func(*Tx) error) error {
