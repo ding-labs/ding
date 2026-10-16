@@ -1,5 +1,6 @@
 """Private control plane for one disposable Go test process at a time."""
 import base64
+import hashlib
 import hmac
 import json
 import os
@@ -16,6 +17,24 @@ from railway_db import bootstrap, sample
 ROOT = Path('/data/ding-lab')
 JOBS = {}
 LOCK = threading.Lock()
+
+
+def selected_binary(request, directory=Path('/opt')):
+    variant = request.get('variant', 'after')
+    backend = request.get('backend', 'postgres')
+    if variant not in ('before', 'after') or backend not in ('sqlite', 'postgres'):
+        raise ValueError('unsupported binary or backend')
+    binary = directory/('baseline.test' if variant == 'before' else 'cloud.test')
+    revision = ((directory/'baseline-revision').read_text().strip() if variant == 'before'
+                else os.environ.get('RAILWAY_GIT_COMMIT_SHA'))
+    digest = hashlib.sha256()
+    with binary.open('rb') as file:
+        for block in iter(lambda: file.read(1024*1024), b''):
+            digest.update(block)
+    identity = {'variant':variant, 'revision':revision,
+                'sha256':digest.hexdigest(),
+                'deployment':os.environ.get('RAILWAY_DEPLOYMENT_ID')}
+    return binary, backend, identity
 
 
 class PrivateHTTPServer(ThreadingHTTPServer):
@@ -44,10 +63,11 @@ def observe(job):
 def start_case(request):
     cases = json.loads((Path(__file__).parent/'cases.json').read_text())
     config = next((c.copy() for c in cases if c['Name'] == request.get('case')), None)
-    if config is None or set(request)-{'case','rate','seconds','pool','seed','workspaces'}:
+    if config is None or set(request)-{'case','rate','seconds','pool','seed','workspaces','variant','backend'}:
         raise ValueError('unknown case or option')
+    binary, backend, build = selected_binary(request)
     config.update(Rate=int(request.get('rate',config['Rate'])), Seconds=int(request.get('seconds',config['Seconds'])),
-                  Backend='postgres', PoolLimit=int(request.get('pool',4)), QueryMode='exec', Profiles=False)
+                  Backend=backend, PoolLimit=int(request.get('pool',4)), QueryMode='exec', Profiles=False)
     if config['PoolLimit'] not in (2,4,8,16,32):
         raise ValueError('unsupported connection pool size')
     config['ShuffleSeed'] = int(request.get('seed',0))
@@ -69,9 +89,9 @@ def start_case(request):
         env = dict(os.environ, DING_SCALE_CONFIG=str(directory/'config.json'), DING_SCALE_OUTPUT=str(directory),
                    DING_SCALE_EXTERNAL='railway', TMPDIR=str(directory))
         with (directory/'run.log').open('x') as log:
-            process = subprocess.Popen(['/opt/cloud.test','-test.run=^TestLocalPushScale$','-test.v','-test.timeout=70m'],
+            process = subprocess.Popen([str(binary),'-test.run=^TestLocalPushScale$','-test.v','-test.timeout=70m'],
                                        env=env, stdout=log, stderr=subprocess.STDOUT)
-        job = {'process':process, 'directory':directory}
+        job = {'process':process, 'directory':directory, 'build':build}
         JOBS[identity] = job
         threading.Thread(target=observe,args=(job,),daemon=True).start()
     deadline = time.monotonic()+180
@@ -89,7 +109,7 @@ def start_case(request):
         except json.JSONDecodeError:
             if time.monotonic() >= deadline: raise
             time.sleep(.1)
-    return {'id':identity, 'config':config, 'bootstrap':base64.b64encode(value).decode('ascii')}
+    return {'id':identity, 'config':config, 'build':build, 'bootstrap':base64.b64encode(value).decode('ascii')}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -114,6 +134,7 @@ class Handler(BaseHTTPRequestHandler):
         directory = job['directory']; report = directory/'report.json'
         (directory/'bootstrap.json').unlink(missing_ok=True)
         self.respond(200,{'running':False, 'exitCode':job['process'].returncode,
+                         'build':job['build'],
                          'report':json.loads(report.read_text()) if report.exists() else None,
                          'resources':[json.loads(line) for line in (directory/'resources.jsonl').read_text().splitlines()],
                          'settings':json.loads((ROOT/'database-settings.json').read_text())})
