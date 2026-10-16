@@ -149,3 +149,18 @@ repetitions do not establish a maximum or long-duration Railway operating rate.
   too. The owned local PostgreSQL container/volume and credentials were removed.
 - The independent production soak was left running on its pinned commit. No
   production faults, migrations, credentials or deployments were changed.
+
+## Cleanup
+
+All owned Railway test databases and both lab roles were removed. Only the
+existing `postgres` and `railway` databases remain. The app and generator
+deployments are confirmed **REMOVED**, their saved control/database/TLS credentials
+are cleared, and the local control token is deleted. PostgreSQL's original lab
+allocation (1 CPU / 2 GB) was restored and verified; this was cleanup, not another
+performance run. Its existing volume and deployment were preserved.
+
+Two inactive service records remain: Railway's approval gate cancelled permanent
+deletion despite the earlier user authorization. Evidence is preserved privately.
+The local PostgreSQL fixture and volume were also removed. The independent Cloud
+soak remains running; the latest read-only check verified 46 new samples and its
+unchanged application commit, with no new failures.
