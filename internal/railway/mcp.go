@@ -84,5 +84,5 @@ func configureMCP(c *cloud.Config, get func(string) string) error {
 }
 
 func SecretEnvironment(name string) bool {
-	return name == "DING_DATA_KEY_BASE64" || strings.HasPrefix(name, "DING_BOOTSTRAP_") || strings.HasPrefix(name, "DING_OIDC_") || strings.HasPrefix(name, "DING_MCP_") || strings.HasPrefix(name, "DING_AUTHKIT_")
+	return strings.HasPrefix(name, "DING_DATABASE_") || name == "DING_DATA_KEY_BASE64" || strings.HasPrefix(name, "DING_BOOTSTRAP_") || strings.HasPrefix(name, "DING_OIDC_") || strings.HasPrefix(name, "DING_MCP_") || strings.HasPrefix(name, "DING_AUTHKIT_")
 }
