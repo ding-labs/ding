@@ -266,3 +266,19 @@ The production GitHub source follows `main` without a commit pin. Merging a PR
 therefore triggers Railway's GitHub deployment automatically. Schema changes
 still require an explicit offline migration; automatic deployment does not grant
 the application DDL privileges or silently migrate a live database.
+
+
+### Automatic Ding Cloud deployment
+
+`.github/workflows/cloud.yml` deploys the exact pushed `main` checkout to the
+cloud service. Its `ding-cloud-production` GitHub environment is restricted to
+`main` and holds `RAILWAY_CLOUD_DEPLOY_TOKEN`, scoped to the destination Railway
+project's production environment. This is the deployment trigger for that
+workspace, whose Railway members cannot currently create a native GitHub branch
+trigger. Attaching the repository alone does not establish such a trigger.
+
+The deployment job is serialized, builds `Dockerfile.railway`, and leaves
+readiness checks and runtime configuration with Railway. A deployment failure
+is visible in Actions and Railway. The separate application pool never receives
+the deployment token or migration credentials. Preserve the environment secret
+when updating infrastructure; it is unrelated to the retired soak's token.

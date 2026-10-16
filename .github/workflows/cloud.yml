@@ -1,0 +1,35 @@
+name: Deploy Ding Cloud
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ding-cloud-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.repository == 'ding-labs/ding' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ding-cloud-production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build and deploy main to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_CLOUD_DEPLOY_TOKEN }}
+        run: >-
+          npx --yes @railway/cli@5.68.0 up --ci
+          --project 707e2eab-8d32-4eca-9e3d-61fd8b155075
+          --environment 3931cfda-b3ae-4db8-8891-3037593e4f40
+          --service 49f8e6f1-551d-4b3a-9b9c-4bcc834fd8c2
