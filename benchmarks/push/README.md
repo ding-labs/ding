@@ -72,3 +72,13 @@ go test ./internal/store -run '^$' -bench '^BenchmarkPushReceiptCount$' -benchti
 The receipt microbenchmark seeds only the receipt table. Its timings measure
 query cost, not complete ingestion capacity. The cloud soak and its credentials
 are independent of this local suite.
+
+## Preserved baseline and next work
+
+The owner deferred the remaining October 14 local runs to prioritize improvements.
+The [baseline record](../../docs/development/push-scale-baseline.md) and
+[aggregate CSV](results/2026-10-14-baseline.csv) preserve completed measurements
+and identify the cancelled case. The
+[implementation plan](../../docs/development/push-scale-plan.md) covers Go runtime
+changes, an experimental PostgreSQL backend, fair database comparisons and the
+matrix to rerun after implementation.

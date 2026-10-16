@@ -5,6 +5,10 @@ These targets come from local stress tests of application commit
 measurement hypotheses for follow-up changes, not implemented optimizations or
 Railway capacity claims. The cloud soak continues independently.
 
+The [implementation plan](push-scale-plan.md) turns these targets into sequenced
+Go changes, a local PostgreSQL experiment and verification gates. The
+[preserved baseline](push-scale-baseline.md) records completed and deferred runs.
+
 | Target | Evidence | Next experiment |
 | --- | --- | --- |
 | Shared credential reads | The control database has `SetMaxOpenConns(1)`. A 30-second, 100-workspace, 1-CPU screen attributed about 67% of aggregate blocking time to `ServiceToken` waiting for a connection. A three-minute native ten-workspace run attributed about 85%. | Compare bounded concurrent credential reads and fewer duplicate lookups. Preserve the authorization fence and prove revocation behavior. |

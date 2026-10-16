@@ -168,6 +168,11 @@ Keep SQLite for this implementation. Preserve the separation between identity/co
 
 When measured load or availability requirements justify it, plan a PostgreSQL store adapter and consider Supabase as the managed provider. A change of database does not by itself require replacing Ding's account model with Supabase Auth. Preserve workspace IDs, permissions, secret binding, delivery identifiers and transaction semantics; test store parity and restore before migrating. That work is outside this milestone.
 
+The October 14 [performance and database implementation plan](push-scale-plan.md)
+now specifies that local experiment using measured bottlenecks. It includes an
+optimized SQLite control, a Go PostgreSQL adapter, multi-process qualification and
+tested migration gates before a future cloud backend decision.
+
 GitHub/OIDC sign-in can be enabled later through the shared identity layer. Public MCP additionally requires an authorization issuer and real-client token/consent qualification. Keep those increments separate from getting the first always-on watch running.
 
 ## Inputs needed when deploying
