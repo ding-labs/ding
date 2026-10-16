@@ -132,14 +132,24 @@ The collector records a 100-query database RTT baseline and app deployment ID
 before each case. Keep deployments fixed during resource comparisons: a
 redeploy can change network placement within the same Railway region. Do not
 attribute a cross-deployment latency change to CPU alone.
+For the write-batching comparison, the image also contains the measured
+`db0594d` baseline, downloaded with a pinned SHA-256 and compiled using the same
+Go toolchain as the candidate. Pass `--variant before` or `--variant after`
+(default) to the collector. Alternate versions without redeploying. Every
+result records the selected binary's revision, SHA-256 and deployment ID.
+Pass `--backend sqlite` for embedded-database controls on the same app placement;
+the default remains `postgres` for this Railway lab. Ding itself still defaults
+to SQLite. Use a unique result label for each case/version/repeat.
+
 Calibrate the generator at or above each intended rate before accepting a
 capacity result. Railway qualification requires every planned first attempt
 accepted, scheduling p99 at most 20 ms and acceptance p99 below 250 ms, plus
 reconciliation, reads, restart and resource-observation gates.
 
-Start with Ding at 1 CPU/1 GB and PostgreSQL at 1 CPU/2 GB. Independently test
-PostgreSQL at 2 CPU/4 GB and 4 CPU/8 GB, holding Ding fixed; then Ding at 2 CPU/2 GB
-and 4 CPU/4 GB, holding PostgreSQL fixed. Test the best combined configuration
+Start with Ding at 2 CPU/2 GB and PostgreSQL at 2 CPU/4 GB. Independently test
+PostgreSQL at 4 CPU/8 GB, holding Ding fixed; then Ding at 4 CPU/4 GB, holding
+PostgreSQL fixed. Increase beyond four CPUs only when measured saturation
+justifies it. Omit one-CPU runs. Test the best combined configuration
 and repeat a previous size as a control. Report throughput per allocated CPU and
 memory as well as absolute throughput. Keep database settings constant for the
 resource-only comparison; label any tuning separately. Connection-pool sweeps
