@@ -37,20 +37,22 @@ func (d *DB) IngestGuard(token, producer, workspace, watch, lifetime string) dat
 			}
 			return err
 		}
-		var scope string
-		if err := tx.QueryRowContext(ctx, "SELECT id FROM ding_control.workspaces WHERE id=$1 AND deleting=false FOR SHARE", workspace).Scan(&scope); err != nil {
-			return nil, unavailable(err)
-		}
-		grant, err := scanService(tx.QueryRowContext(ctx, "SELECT id,name,workspace,created_by,scopes,watches,expires_at,lifetimes FROM ding_control.service_grants WHERE id=$1 AND workspace=$2 FOR SHARE", producer, workspace))
+		// Each materialized stage depends on the preceding locked row. Preserve
+		// lifecycle lock order in one round trip; permission decisions stay in Go.
+		var expiry int64
+		grant, err := scanService(tx.QueryRowContext(ctx, `WITH scope AS MATERIALIZED (
+ SELECT id FROM ding_control.workspaces WHERE id=$1 AND deleting=false FOR SHARE),
+ grant_row AS MATERIALIZED (
+ SELECT g.* FROM scope s JOIN ding_control.service_grants g ON g.workspace=s.id
+ WHERE g.id=$2 FOR SHARE OF g)
+ SELECT g.id,g.name,g.workspace,g.created_by,g.scopes,g.watches,g.expires_at,g.lifetimes,k.expires_at
+ FROM grant_row g JOIN ding_control.service_keys k ON k.service=g.id
+ WHERE k.hash=$3 FOR SHARE OF k`, workspace, producer, TokenHash(token)), &expiry)
 		if err != nil {
 			return nil, unavailable(err)
 		}
 		if !slices.Contains(grant.Scopes, "ingest") || !slices.Contains(grant.Watches, watch) || grant.Lifetimes[watch] != lifetime {
 			return nil, ErrServiceRevoked
-		}
-		var expiry int64
-		if err = tx.QueryRowContext(ctx, "SELECT expires_at FROM ding_control.service_keys WHERE service=$1 AND hash=$2 FOR SHARE", producer, TokenHash(token)).Scan(&expiry); err != nil {
-			return nil, unavailable(err)
 		}
 		check := func() error {
 			if !time.Now().Before(time.Unix(expiry, 0)) {
