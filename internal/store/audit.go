@@ -21,6 +21,10 @@ func (t *Tx) auditMutation(p access.Principal) error {
 	if action == "" {
 		action = "update"
 	}
+	if t.postgres {
+		_, err := t.exec(qAuditMutationRetained, p.User, p.Workspace, p.Grant, action, target, time.Now().Unix())
+		return err
+	}
 	if _, err := t.exec(qauditMutation1, p.User, p.Workspace, p.Grant, action, target, time.Now().Unix()); err != nil {
 		return err
 	}

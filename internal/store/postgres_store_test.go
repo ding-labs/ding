@@ -27,6 +27,42 @@ func openPostgresTestStore(t *testing.T) *Store {
 	return s
 }
 
+func TestPostgresAuditRetentionAndRollback(t *testing.T) {
+	s := openPostgresTestStore(t)
+	if err := s.Update(context.Background(), func(tx *Tx) error {
+		p := access.Principal{User: "before", Workspace: s.workspace}
+		if err := tx.auditMutation(p); err != nil {
+			return err
+		}
+		// Model an old retained row without creating ten thousand rows. Retention
+		// must include the sequence allocated by the new audit insertion.
+		if _, err := tx.sql.Exec("UPDATE workspaces SET audit_sequence=10001"); err != nil {
+			return err
+		}
+		if _, err := tx.sql.Exec("SAVEPOINT audit_test"); err != nil {
+			return err
+		}
+		p.User = "after"
+		if err := tx.auditMutation(p); err != nil {
+			return err
+		}
+		checkPostgresLogicalBytes(t, tx)
+		if rows, err := tx.Audit(0); err != nil || len(rows) != 1 || rows[0].Actor != "after" {
+			t.Fatal("retention used stale sequence", rows, err)
+		}
+		if _, err := tx.sql.Exec("ROLLBACK TO SAVEPOINT audit_test"); err != nil {
+			return err
+		}
+		checkPostgresLogicalBytes(t, tx)
+		if rows, err := tx.Audit(0); err != nil || len(rows) != 1 || rows[0].Actor != "before" {
+			t.Fatal("audit insertion or retention survived rollback", rows, err)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestPostgresStoreFacadeAuditAndPoolOwnership(t *testing.T) {
 	s := openPostgresTestStore(t)
 	ctx := context.Background()

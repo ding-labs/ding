@@ -14,6 +14,14 @@ var qMonitor3 = statement{sqlite: `SELECT count(*) FROM entities WHERE json_extr
 
 var qauditMutation1 = statement{sqlite: `INSERT INTO audit(actor,workspace,grant_id,action,target,at) VALUES(?,?,?,?,?,?)`, postgres: `INSERT INTO audit(actor,workspace,grant_id,action,target,at) VALUES($1,$2,$3,$4,$5,$6)`}
 
+// The new sequence is returned explicitly: sibling statements share a snapshot
+// and a SELECT from audit would not yet see the inserted row.
+var qAuditMutationRetained = statement{postgres: `WITH added AS (
+ INSERT INTO audit(actor,workspace,grant_id,action,target,at) VALUES($1,$2,$3,$4,$5,$6)
+ RETURNING sequence)
+ DELETE FROM audit WHERE workspace_id=current_setting('ding.workspace')
+ AND sequence <= (SELECT sequence-10000 FROM added)`}
+
 var qauditMutation2 = statement{sqlite: `DELETE FROM audit WHERE sequence <= (SELECT COALESCE(MAX(sequence),0)-10000 FROM audit)`, postgres: `DELETE FROM audit WHERE workspace_id=current_setting('ding.workspace') AND sequence <= (SELECT COALESCE(MAX(sequence),0)-10000 FROM audit)`}
 
 var qAudit1 = statement{sqlite: `SELECT sequence,actor,workspace,grant_id,action,target,at FROM audit WHERE (?=0 OR sequence<?) ORDER BY sequence DESC LIMIT 100`, postgres: `SELECT sequence,actor,workspace,grant_id,action,target,at FROM audit WHERE workspace_id=current_setting('ding.workspace') AND ($1=0 OR sequence<$2) ORDER BY sequence DESC LIMIT 100`}
