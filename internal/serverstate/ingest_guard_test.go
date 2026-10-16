@@ -48,6 +48,54 @@ func TestPostgresIngestGuardHoldsRevocationUntilCommit(t *testing.T) {
 			t.Fatal("out-of-scope producer admitted", err)
 		}
 	}
+	// A statement that began before a permission change must recheck the grant
+	// after waiting for its workspace lock, despite the combined query snapshot.
+	modifier := f.NewAppPool(2)
+	blocked, err := modifier.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer blocked.Rollback()
+	if _, err := blocked.ExecContext(ctx, "SELECT id FROM ding_control.workspaces WHERE id=$1 FOR UPDATE", workspace.ID); err != nil {
+		t.Fatal(err)
+	}
+	waiting, err := f.App.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer waiting.Rollback()
+	var pid int
+	if err := waiting.QueryRowContext(ctx, "SELECT pg_backend_pid()").Scan(&pid); err != nil {
+		t.Fatal(err)
+	}
+	denied := make(chan error, 1)
+	go func() {
+		_, err := db.IngestGuard(service.Token, service.ID, workspace.ID, "push", "lifetime").Lock(ctx, waiting)
+		denied <- err
+	}()
+	for {
+		var locked bool
+		if err := modifier.QueryRowContext(ctx, "SELECT cardinality(pg_blocking_pids($1))>0", pid).Scan(&locked); err != nil {
+			t.Fatal(err)
+		}
+		if locked {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if _, err := blocked.ExecContext(ctx, "UPDATE ding_control.service_grants SET watches='[]' WHERE id=$1", service.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := blocked.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-denied; !errors.Is(err, ErrServiceRevoked) {
+		t.Fatal("admitted grant from before lock wait", err)
+	}
+	waiting.Rollback()
+	if _, err := modifier.ExecContext(ctx, `UPDATE ding_control.service_grants SET watches='["push"]' WHERE id=$1`, service.ID); err != nil {
+		t.Fatal(err)
+	}
 	tx, err := f.App.BeginTx(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
