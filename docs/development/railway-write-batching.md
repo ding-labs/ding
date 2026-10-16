@@ -1,7 +1,7 @@
 # Railway write-batching comparison
 
-October 16, 2026 UTC. The resource screens are complete; three-minute repeats are
-in progress. These are measured comparisons, not production capacity promises.
+October 16, 2026 UTC. The resource screens and three-minute repeats are complete.
+These are measured comparisons, not production capacity promises.
 
 ## What changed
 
@@ -11,6 +11,7 @@ writes up to 100 states together, synchronizes their retention references in one
 set operation, and accounts their retained bytes per statement. The entity and
 reference writes need two SQL round trips per chunk; other acceptance, event,
 delivery and inspection queries remain. SQLite keeps its embedded SQL path.
+PostgreSQL requires an offline migration to schema 16; SQLite's schema is unchanged.
 
 ## Two-CPU results
 
@@ -96,12 +97,30 @@ acceptance only 13% at 250/s. Transaction/commit and writer-queue timings remain
 variable. The 100/s candidate run has lower average transaction callback time,
 but higher commit time and writer waiting than its baseline control. More CPU
 alone does not resolve this tail latency. The 100-workspace 50/s pair passes all
-strict gates with similar latency; three-minute repetitions are recorded next.
+strict gates with similar latency; three-minute repetitions are recorded below.
 
 The app was not CPU-throttled in the large-body control (about 1.1 of two cores
 used). Memory was below the configured limits. These observations do not justify
 eight database CPUs or a larger app for the measured bottleneck. RAM's benefit
 for large aged datasets is untested.
+
+## Three-minute repetitions
+
+At **35 requests/s**, 100 workspaces and 10 KB JSON, using the same two-CPU app,
+four-CPU database and pool of 16:
+
+| Run | Accepted / offered | Push p99 | Read p99 | Strict gate |
+| --- | ---: | ---: | ---: | --- |
+| Batched, repeat 1 | 6,300 / 6,300 | 168 ms | 37 ms | Pass |
+| Baseline control | 6,300 / 6,300 | 175 ms | 45 ms | Pass |
+| Batched, repeat 2 | 6,300 / 6,300 | 174 ms | 37 ms | Pass |
+| Batched, repeat 3 | 6,300 / 6,300 | 162 ms | 34 ms | Pass |
+
+All **18,900 candidate requests** were durably reconciled, with no throttling,
+uncertain responses, read errors or correctness failures. Scheduling p99 was 1 ms;
+receipt, usage, replay, authorization and graceful restart checks passed. At this
+rate, single-observation performance is similar to the baseline. Three short
+repetitions do not establish a maximum or long-duration Railway operating rate.
 
 ## Controls and evidence
 
@@ -120,6 +139,10 @@ for large aged datasets is untested.
 - [Aggregate data](../../benchmarks/push/results/2026-10-16-railway-batching.csv).
   Private request/receiver journals, reports, metrics and manifests are preserved
   under `~/.config/ding-cloud/local-scale/railway-batch-20261015/`.
+  All 43 archives (including three generator calibrations) passed configuration,
+  binary identity and planned/response ledger checks: 147,900 planned requests,
+  every response recorded, and 129,881 first-attempt acknowledgments. Overload
+  rejections remain in the results; archive integrity is not a performance pass.
 - [Linux CI passed](https://github.com/ding-labs/ding/actions/runs/38827301962),
   including real PostgreSQL migrations/accounting, buffered acceptance, rollback,
   restart, tenant isolation and race-enabled contracts. Local race suites passed

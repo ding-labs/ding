@@ -3,6 +3,9 @@
 October 15, 2026. These are measurements of the current implementation, not a
 universal limit on PostgreSQL or a production capacity promise.
 
+Follow-up: [write batching and controlled before/after results](railway-write-batching.md)
+records the October 16 implementation and reruns. This page preserves the earlier evidence.
+
 ## What we know
 
 **More resources help, but reducing database calls is the next major opportunity.**
