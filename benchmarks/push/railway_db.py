@@ -75,7 +75,7 @@ def sample(admin):
             'databaseBytes',(SELECT sum(pg_database_size(oid)) FROM pg_database WHERE NOT datistemplate),
             'wal',(SELECT row_to_json(w) FROM pg_stat_wal w),
             'io',(SELECT json_agg(i) FROM pg_stat_io i WHERE backend_type='client backend'),
-            'slru',(SELECT json_agg(s) FROM pg_stat_slru s WHERE name LIKE 'MultiXact%'),
+            'slru',(SELECT json_agg(s) FROM pg_stat_slru s WHERE name ILIKE 'multixact%'),
             'checkpoints',(SELECT row_to_json(c) FROM pg_stat_checkpointer c),
             'appLockWaiters',(SELECT count(*) FROM pg_stat_activity WHERE usename='ding_app' AND wait_event_type='Lock'),
             'appWaits',(SELECT json_agg(w) FROM (SELECT state,wait_event_type,wait_event,count(*) count
