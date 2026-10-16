@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 )
 
@@ -12,7 +13,17 @@ type TransactionGuard struct {
 	Pool *sql.DB
 	Lock func(context.Context, *sql.Tx) (func() error, error)
 }
+
+var ErrAuthorization = errors.New("producer credential expired or unavailable")
+
 type guardKey struct{}
+type commitCheckKey struct{}
+
+// WithCommitCheck validates process-fenced facts such as expiry after a writer
+// wait and immediately before commit. It must not acquire the workspace pool.
+func WithCommitCheck(ctx context.Context, check func() error) context.Context {
+	return context.WithValue(ctx, commitCheckKey{}, check)
+}
 
 func WithTransactionGuard(ctx context.Context, g TransactionGuard) context.Context {
 	if g.Lock == nil {
@@ -22,9 +33,19 @@ func WithTransactionGuard(ctx context.Context, g TransactionGuard) context.Conte
 }
 
 func LockTransactionGuard(ctx context.Context, tx *sql.Tx, pool *sql.DB) (func() error, error) {
+	validate, _ := ctx.Value(commitCheckKey{}).(func() error)
+	checkOnly := func() error {
+		if validate != nil {
+			return validate()
+		}
+		return nil
+	}
 	g, ok := ctx.Value(guardKey{}).(TransactionGuard)
 	if !ok || g.Lock == nil {
-		return func() error { return nil }, nil
+		if err := checkOnly(); err != nil {
+			return nil, err
+		}
+		return checkOnly, nil
 	}
 	if g.Pool != pool {
 		return nil, fmt.Errorf("authorization guard belongs to another database instance")
@@ -36,7 +57,15 @@ func LockTransactionGuard(ctx context.Context, tx *sql.Tx, pool *sql.DB) (func()
 	if check == nil {
 		check = func() error { return nil }
 	}
-	return check, nil
+	if err := checkOnly(); err != nil {
+		return nil, err
+	}
+	return func() error {
+		if err := check(); err != nil {
+			return err
+		}
+		return checkOnly()
+	}, nil
 }
 
 type queryScopeKey struct{}

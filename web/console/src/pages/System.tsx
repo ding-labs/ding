@@ -150,25 +150,35 @@ function Diagnostics() {
               </section>
               <section className="panel">
                 <div className="check-title">
-                  <h3>Storage integrity</h3>
+                  <h3>{d.data.store.backend === "postgres" ? "Storage readiness" : "Storage integrity"}</h3>
                   <Badge
                     value={d.data.store.integrity === "ok" ? "ok" : "error"}
                   >
                     {d.data.store.integrity}
                   </Badge>
                 </div>
-                <p>
-                  SQLite {d.data.store.sqlite} · schema {d.data.store.schema} ·{" "}
-                  {d.data.store.journal} journal
-                </p>
-                <p>
-                  Database {bytes(d.data.store.databaseBytes)} · WAL{" "}
-                  {bytes(d.data.store.walBytes)}
-                </p>
+                {d.data.store.backend === "postgres" ? (
+                  <>
+                    <p>PostgreSQL {d.data.store.postgres} · schema {d.data.store.schema}</p>
+                    <p>Logical workspace storage {bytes(d.data.store.logicalBytes ?? 0)}</p>
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      SQLite {d.data.store.sqlite} · schema {d.data.store.schema} ·{" "}
+                      {d.data.store.journal} journal
+                    </p>
+                    <p>
+                      Database {bytes(d.data.store.databaseBytes)} · WAL{" "}
+                      {bytes(d.data.store.walBytes)}
+                    </p>
+                  </>
+                )}
                 {d.data.store.integrity !== "ok" && (
                   <p>
-                    Preserve a copy of the state directory and inspect the
-                    daemon logs before changing data.
+                    {d.data.store.backend === "postgres"
+                      ? "Inspect database and server diagnostics before changing data."
+                      : "Preserve a copy of the state directory and inspect the daemon logs before changing data."}
                   </p>
                 )}
               </section>

@@ -47,6 +47,11 @@ func postgresOperatorPool(ctx context.Context, c Config, env string, s *ServerSt
 	if err != nil {
 		return nil, "", err
 	}
+	var bypass bool
+	if err = pool.QueryRowContext(ctx, "SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname=current_user").Scan(&bypass); err != nil || !bypass {
+		pool.Close()
+		return nil, "", fmt.Errorf("backup and restore operator role must bypass RLS to inspect every workspace")
+	}
 	tx, err := pool.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err == nil {
 		err = s.owner.Fence(ctx, tx, false)

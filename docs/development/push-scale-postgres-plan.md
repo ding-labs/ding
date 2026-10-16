@@ -1,8 +1,9 @@
 # PostgreSQL backend and cloud architecture
 
-This is P4/P5/P7 of the [performance plan](push-scale-plan.md). Build and test an
-experimental backend locally before choosing a production migration. The shared
-Go evaluator and acceptance contract remain authoritative for both databases.
+This is the original P4/P5/P7 contract in the [performance plan](push-scale-plan.md).
+The October 15 [Cloud PostgreSQL plan](cloud-postgres-plan.md) now defines execution
+order: efficient single-server Cloud first, then multiple servers. The shared Go
+evaluator and acceptance contract below remain authoritative for both databases.
 
 ## G1 Establish a backend contract in Go
 

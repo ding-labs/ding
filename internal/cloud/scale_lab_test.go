@@ -16,35 +16,56 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/cloud/egress"
+	"github.com/ding-labs/ding/internal/database"
 	"github.com/ding-labs/ding/internal/integrationpolicy"
+	"github.com/ding-labs/ding/internal/pgtest"
 	state "github.com/ding-labs/ding/internal/serverstate"
-	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watchrun"
 	"golang.org/x/time/rate"
 )
 
 type scaleLab struct {
-	server       *Server
-	http         *httptest.Server
-	tenants      []*Tenant
-	producers    []PushProducer
-	root         string
-	receiver     *scaleReceiver
-	key          []byte
-	control      http.Handler
-	controlMu    sync.RWMutex
-	preloadFills []PushBenchmarkResult
+	internalObservations int64
+	storage              *ServerStorage
+	databaseConfig       database.Config
+	fixtureDatabase      string
+	server               *Server
+	http                 *httptest.Server
+	tenants              []*Tenant
+	producers            []PushProducer
+	root                 string
+	receiver             *scaleReceiver
+	key                  []byte
+	control              http.Handler
+	controlMu            sync.RWMutex
+	preloadFills         []PushBenchmarkResult
 }
 
 func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 	t.Helper()
 	ctx := context.Background()
 	root := t.TempDir()
-	db, err := state.Open(ctx, root)
+	dbConfig := database.Config{}
+	fixtureName := ""
+	if c.Backend == "postgres" {
+		f := pgtest.New(t)
+		f.SetAppEnvironment(t, "DING_SCALE_DATABASE_APP")
+		f.SetMigrationEnvironment(t, "DING_SCALE_DATABASE_MIGRATION")
+		dbConfig = database.Config{Backend: "postgres", DSNRef: &database.SecretRef{Env: "DING_SCALE_DATABASE_APP"}, MaxOpenConns: c.PoolLimit}
+		if err := MigrateDatabase(ctx, Config{DataDir: root, Database: dbConfig}, "DING_SCALE_DATABASE_MIGRATION"); err != nil {
+			t.Fatal(err)
+		}
+		fixtureName = f.Name
+		f.App.Close()
+		f.Migration.Close()
+	}
+	storage, err := openScaleStorage(ctx, root, dbConfig, c.CredentialReaders)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { db.Close() })
+	t.Cleanup(func() { storage.Close() })
+	ctx = storage.Context()
+	db := storage.Control
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
 		t.Fatal(err)
@@ -56,6 +77,7 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 	client, closeHTTP := (egress.Guard{}).Client()
 	t.Cleanup(closeHTTP)
 	pool := NewPool(ctx, root, db, vault, client)
+	storage.ConfigurePool(pool)
 	t.Cleanup(func() { pool.Close() })
 
 	// Lab-only expansion bypasses the production 128 MiB backup envelope.
@@ -74,14 +96,14 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 	if !c.Defaults {
 		s.pushGlobal = rate.NewLimiter(100000, 100000)
 	}
-	lab := &scaleLab{server: s, root: root, key: key}
+	lab := &scaleLab{server: s, root: root, key: key, storage: storage, databaseConfig: dbConfig, fixtureDatabase: fixtureName}
 	t.Cleanup(func() {
 		out := os.Getenv("DING_SCALE_OUTPUT")
 		if !t.Failed() || out == "" {
 			return
 		}
 		lab.server.Pool.Close()
-		lab.server.DB.Close()
+		lab.storage.Close()
 		destination := filepath.Join(out, "failed-state")
 		if os.Getenv("DING_SCALE_EXTERNAL") == "container" {
 			// Move outside testing's temporary parent but stay on the same
@@ -110,6 +132,10 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 			return
 		}
 		if c.Noop {
+			if _, err := io.Copy(io.Discard, http.MaxBytesReader(w, r.Body, 1<<20)); err != nil {
+				w.WriteHeader(413)
+				return
+			}
 			w.WriteHeader(202)
 			fmt.Fprintf(w, `{"data":{"acceptanceId":%q}}`, r.Header.Get("Idempotency-Key"))
 			return
@@ -144,33 +170,38 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 			t.Fatal(err)
 		}
 		if lab.receiver != nil {
-			if err := vault.Put(ctx, enrolled.Workspace.ID, "SCALE_WEBHOOK", lab.receiver.server.URL); err != nil {
+			if err := vault.Put(ctx, enrolled.Workspace.ID, "SCALE_WEBHOOK", lab.receiver.endpoint); err != nil {
 				t.Fatal(err)
 			}
 		}
-		tenant, err := scaleTenant(pool, enrolled.Workspace, c.Defaults)
+		tenant, err := scaleTenant(pool, enrolled.Workspace, c.Defaults, c.DeliveryWorkers)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := tenant.App.Apply(ctx, watchrun.ApplyRequest{Manifest: c.manifest()}); err != nil {
-			t.Fatal(err)
+		for _, watchID := range c.watchIDs() {
+			manifest := strings.Replace(c.manifest(), "metadata: {id: ci}", "metadata: {id: "+watchID+"}", 1)
+			if _, err := tenant.App.Apply(ctx, watchrun.ApplyRequest{Manifest: manifest}); err != nil {
+				t.Fatal(err)
+			}
 		}
 		principal, err := db.Principal(ctx, enrolled.User, enrolled.Workspace.ID, "browser", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
-		life, err := s.producerLifetimes(ctx, enrolled.Workspace.ID, []string{"ci"})
+		life, err := s.producerLifetimes(ctx, enrolled.Workspace.ID, c.watchIDs())
 		if err != nil {
 			t.Fatal(err)
 		}
-		grant, err := db.CreateBoundService(ctx, principal, "scale", []string{"ingest", "inspect"}, []string{"ci"}, 30, life)
+		grant, err := db.CreateBoundService(ctx, principal, "scale", []string{"ingest", "inspect"}, c.watchIDs(), 30, life)
 		if err != nil {
 			t.Fatal(err)
 		}
 		env := fmt.Sprintf("DING_LOCAL_SCALE_%d", i)
 		t.Setenv(env, grant.Token)
-		for _, body := range bodies {
-			lab.producers = append(lab.producers, PushProducer{URL: server.URL + "/v1/ingest/ci", TokenEnv: env, Body: body})
+		for _, watchID := range c.watchIDs() {
+			for _, body := range bodies {
+				lab.producers = append(lab.producers, PushProducer{URL: server.URL + "/v1/ingest/" + watchID, TokenEnv: env, Body: body})
+			}
 		}
 		lab.tenants = append(lab.tenants, tenant)
 	}
@@ -182,8 +213,8 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 
 // Configure limits before workers start; changing App.Limits on a running
 // production Pool tenant would race with retention and acquisition workers.
-func scaleTenant(pool *Pool, w state.Workspace, defaults bool) (*Tenant, error) {
-	db, err := store.Open(pool.ctx, filepath.Join(pool.root, "workspaces", w.ID))
+func scaleTenant(pool *Pool, w state.Workspace, defaults bool, deliveryWorkers ...int) (*Tenant, error) {
+	db, err := pool.workspaceStorage().Open(pool.ctx, w.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -195,6 +226,9 @@ func scaleTenant(pool *Pool, w state.Workspace, defaults bool) (*Tenant, error) 
 		app.Limits.MaxPending = 100000
 	}
 	app.AcquisitionWorkers, app.DeliveryWorkers = 1, 1
+	if len(deliveryWorkers) > 0 {
+		app.DeliveryWorkers = deliveryWorkers[0]
+	}
 	app.PollInterval = time.Second
 	app.SchedulingJitter = 5 * time.Second
 	app.Lookup = pool.vault.Lookup(w.ID)
@@ -231,4 +265,15 @@ func TestScaleLabUsesIsolatedHostedPath(t *testing.T) {
 	if filepath.Dir(lab.root) == "/data" {
 		t.Fatal("unexpected production path")
 	}
+}
+
+func openScaleStorage(ctx context.Context, root string, c database.Config, readers int) (*ServerStorage, error) {
+	if c.Effective().Backend == "postgres" {
+		return OpenServerStorage(ctx, root, c)
+	}
+	db, err := state.OpenSQLite(ctx, root, readers)
+	if err != nil {
+		return nil, err
+	}
+	return &ServerStorage{Control: db, workspaces: sqliteWorkspaces{root}, ctx: ctx}, nil
 }

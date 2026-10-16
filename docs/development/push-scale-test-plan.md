@@ -1,9 +1,10 @@
 # Performance improvement and database comparison tests
 
-This is P0/P6 of the [performance plan](push-scale-plan.md). Use focused tests
-while changes progress, then run the complete matrix against the selected
-implementation. The current local matrix is deferred; the Cloud soak runs
-independently.
+This is the original P0/P6 contract of the [performance plan](push-scale-plan.md).
+The initial comparison is complete. The October 15
+[Linux qualification specification](cloud-postgres-linux-tests.md) defines the
+next run order, resource profiles and gates; the invariants below still apply.
+The Cloud soak runs independently.
 
 ## T1 Repair measurement qualifications before changing the runtime
 

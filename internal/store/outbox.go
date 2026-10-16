@@ -28,9 +28,6 @@ type Intent struct {
 }
 
 func (t *Tx) Enqueue(i Intent) (int64, error) {
-	if _, err := t.exec(qDeliveryStream, i.WatchID, i.DestinationID); err != nil {
-		return 0, err
-	}
 	return t.insertID(qEnqueue, i.EventID, i.WatchID, i.DestinationID, i.DestinationRevision, i.Payload, timestamp(i.NextAt), timestamp(i.CreatedAt))
 }
 func (t *Tx) Intent(id int64) (Intent, error) {
@@ -47,8 +44,8 @@ func (t *Tx) Intent(id int64) (Intent, error) {
 	return i, err
 }
 
-const claimQuery = `SELECT o.id FROM delivery_streams s INDEXED BY delivery_stream_turn CROSS JOIN outbox o
- WHERE o.id=(SELECT p.id FROM outbox p INDEXED BY outbox_live_order WHERE p.watch_id=s.watch_id AND p.destination_id=s.destination_id AND p.status IN ('pending','leased') ORDER BY p.id LIMIT 1)
+const claimQuery = `SELECT o.id FROM delivery_streams s INDEXED BY delivery_stream_active CROSS JOIN outbox o
+ WHERE s.active=1 AND o.id=(SELECT p.id FROM outbox p INDEXED BY outbox_live_order WHERE p.watch_id=s.watch_id AND p.destination_id=s.destination_id AND p.status IN ('pending','leased') ORDER BY p.id LIMIT 1)
  AND ((o.status='pending' AND o.next_at<=?) OR (o.status='leased' AND o.lease_until<=?))
  AND NOT EXISTS (SELECT 1 FROM metadata m WHERE m.key='delivery_backoff:'||o.destination_id||':'||o.destination_revision AND CAST(m.value AS INTEGER)>?)
  AND NOT EXISTS (SELECT 1 FROM outbox p INDEXED BY outbox_stream_lease WHERE p.watch_id=o.watch_id AND p.destination_id=o.destination_id AND p.destination_revision=o.destination_revision AND p.status='leased' AND p.lease_until>?)

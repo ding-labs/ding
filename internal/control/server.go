@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/ding-labs/ding/internal/access"
+	"github.com/ding-labs/ding/internal/database"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watch"
 	"github.com/ding-labs/ding/internal/watchrun"
@@ -142,6 +143,8 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 		}
 		receipt, err := app.IngestReserved(r.Context(), record, body, r.Header.Get("Idempotency-Key"))
 		switch {
+		case errors.Is(err, database.ErrAuthorization):
+			fail(w, 401, "producer_expired", "Producer credential expired or unavailable.")
 		case errors.Is(err, watchrun.ErrInput):
 			fail(w, 400, "invalid_input", err.Error())
 		case errors.Is(err, store.ErrStale):

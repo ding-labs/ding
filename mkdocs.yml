@@ -81,6 +81,7 @@ nav:
   - Operate:
     - Run a daemon: operate/index.md
     - Always-on self-hosting: operate/always-on.md
+    - Server databases: operate/databases.md
     - Optional cloud preview: operate/cloud-preview.md
     - Cloud operations: operate/cloud-operations.md
     - Cloud data boundaries: operate/cloud-privacy.md

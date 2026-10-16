@@ -1,10 +1,10 @@
 # Ding performance and database implementation plan
 
-Proposed October 14, 2026, Pacific time. Improve the measured Go bottlenecks,
-build an experimental PostgreSQL backend, and compare both databases through the
-same real ingestion service before selecting Ding Cloud's next storage architecture.
-The owner deferred the remaining local runs. The independent Cloud soak continues
-on its recorded application revision.
+Initial plan October 14, 2026; direction revised October 15. SQLite remains the
+local default. PostgreSQL is now the target for Ding Cloud, beginning with one Go
+server and one database server. The [Cloud PostgreSQL plan](cloud-postgres-plan.md)
+defines the next implementation order and release gates. The independent Cloud
+soak continues on its recorded application revision.
 
 ## Decisions
 
@@ -26,9 +26,9 @@ on its recorded application revision.
    Ding Cloud throughput.
 6. Qualify one application process first, then distributed worker and authorization
    coordination before enabling multiple processes against PostgreSQL.
-7. Select a production cloud backend after correctness, sustained performance,
-   recovery and operating-cost evidence. The local experiment creates no cloud
-   database or deployment change.
+7. Optimize and qualify PostgreSQL for Cloud before migration, including sustained
+   performance, recovery and operating cost. Keep SQLite as the local default.
+   Planning and local experiments create no cloud deployment change.
 
 Supabase is a useful later managed PostgreSQL option. Its CLI can run a local
 stack, and its local MCP endpoint is available through that stack. The connected
@@ -55,6 +55,10 @@ still depends on the application's transactions and hot rows.
 [PostgreSQL locking](https://www.postgresql.org/docs/current/explicit-locking.html).
 
 ## Implementation order
+
+This is the original phase inventory. The adapter and initial comparison now
+exist; distributed coordination and backend migration remain unfinished. Follow
+the revised [Cloud sequence](cloud-postgres-plan.md) for subsequent work.
 
 | Phase | Deliverable | Exit condition |
 | --- | --- | --- |
@@ -107,6 +111,6 @@ Preserve commit history when pushing; no squash.
 
 Each performance PR includes its source revision, focused before/after results,
 correctness gates and a clear rollback. Merge verified increments to main without
-redeploying the application used by the active Cloud soak. Once implementation is
-authorized, begin with P0/P1; this document is the implementation plan, not a claim
-that optimizations or a PostgreSQL port have landed.
+redeploying the application used by the active Cloud soak. The
+[initial results](push-scale-results.md) record completed measurements; this phase
+inventory is not a claim that every original milestone is complete.

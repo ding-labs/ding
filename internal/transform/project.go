@@ -92,13 +92,16 @@ func Project(ctx context.Context, raw []byte, expression string, fields map[stri
 	used := 0
 	for {
 		if err := ctx.Err(); err != nil {
-			return nil, fmt.Errorf("transform deadline exceeded")
+			return nil, fmt.Errorf("transform deadline exceeded: %w", err)
 		}
 		value, more := iterator.Next()
 		if !more {
 			break
 		}
 		if _, ok := value.(error); ok {
+			if err := ctx.Err(); err != nil {
+				return nil, fmt.Errorf("transform deadline exceeded: %w", err)
+			}
 			return nil, fmt.Errorf("transform evaluation failed")
 		}
 		if len(outputs) >= maxOutputs {

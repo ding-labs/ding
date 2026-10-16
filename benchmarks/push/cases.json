@@ -1,6 +1,12 @@
 [
   {"Name":"generator-2500","Rate":2500,"Seconds":30,"Noop":true},
   {"Name":"generator-5000","Rate":5000,"Seconds":30,"Noop":true},
+  {"Name":"generator-json10k","Rate":500,"Seconds":30,"BodyBytes":10000,"Noop":true},
+  {"Name":"generator-json100k","Rate":100,"Seconds":30,"BodyBytes":100000,"Noop":true},
+  {"Name":"generator-json600k","Rate":500,"Seconds":30,"BodyBytes":600000,"Noop":true},
+  {"Name":"generator-json1m","Rate":100,"Seconds":30,"BodyBytes":1048576,"Noop":true},
+  {"Name":"generator-batch18","Rate":500,"Seconds":30,"Outputs":18,"Noop":true},
+  {"Name":"generator-batch100","Rate":100,"Seconds":30,"Outputs":100,"Noop":true},
   {"Name":"defaults-100","Rate":100,"Seconds":30,"Defaults":true},
   {"Name":"one-100","Rate":100,"Seconds":180},
   {"Name":"one-250","Rate":250,"Seconds":180},
@@ -33,5 +39,10 @@
   {"Name":"alerts-slow","Rate":25,"Seconds":180,"Condition":"alerts","Receiver":"slow"},
   {"Name":"alerts-outage","Rate":10,"Seconds":180,"Condition":"alerts","Receiver":"outage"},
   {"Name":"sustain-one","Rate":100,"Seconds":1800,"Reads":true,"Restart":true},
-  {"Name":"sustain-many","Rate":500,"Seconds":1800,"Workspaces":100,"Reads":true,"Restart":true}
+  {"Name":"sustain-many","Rate":500,"Seconds":1800,"Workspaces":100,"Reads":true,"Restart":true},
+  {"Name":"watches10-250","Rate":250,"Seconds":180,"Watches":10},
+  {"Name":"alerts-streams-slow","Rate":25,"Seconds":180,"Watches":4,"DeliveryWorkers":4,"Condition":"alerts","Receiver":"slow"},
+  {"Name":"nested18-600k","Rate":25,"Seconds":180,"Outputs":18,"BodyBytes":600000,"Nested":true,"Workspaces":10},
+  {"Name":"retain100k-entropy","Rate":25,"Seconds":180,"BodyBytes":100000,"RetainPadding":true,"EntropyPadding":true},
+  {"Name":"retain600k-entropy","Rate":5,"Seconds":180,"BodyBytes":600000,"RetainPadding":true,"EntropyPadding":true}
 ]

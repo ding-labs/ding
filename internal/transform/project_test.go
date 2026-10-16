@@ -2,6 +2,7 @@ package transform
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -39,6 +40,17 @@ func TestProjectionTypesAndBounds(t *testing.T) {
 	cancel()
 	if _, err := Project(canceled, []byte(`{}`), "", nil, 2, 1024); err == nil {
 		t.Fatal("ignored cancellation")
+	}
+}
+
+func TestProjectionPreservesCancellationAndDeadline(t *testing.T) {
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := Project(canceled, []byte(`{}`), "", nil, 2, 1024); !errors.Is(err, context.Canceled) {
+		t.Fatalf("lost cancellation identity: %v", err)
+	}
+	if _, err := Project(context.Background(), []byte(`{}`), "def forever: forever; forever", nil, 2, 1024); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("lost projection budget expiry: %v", err)
 	}
 }
 func TestProjectionCannotReadEnvironmentOrFiles(t *testing.T) {

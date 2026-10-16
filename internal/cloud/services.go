@@ -2,10 +2,12 @@ package cloud
 
 import (
 	"github.com/ding-labs/ding/internal/access"
+	"github.com/ding-labs/ding/internal/database"
 	state "github.com/ding-labs/ding/internal/serverstate"
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 )
 
 func (s *Server) servicesAPI(w http.ResponseWriter, r *http.Request, p access.Principal) bool {
@@ -131,6 +133,23 @@ func (s *Server) serveService(w http.ResponseWriter, r *http.Request) bool {
 	}
 	r = r.Clone(access.WithOperation(access.WithPrincipal(r.Context(), p), r.Method, r.URL.Path))
 	if action == access.Ingest {
+		watchID := strings.TrimPrefix(r.URL.Path, "/v1/ingest/")
+		life := grant.Lifetimes[watchID]
+		if life != "" {
+			record, err := t.App.Record(r.Context(), watchID)
+			if err != nil || record.Lifetime != life {
+				cloudFail(w, 409, "watch_changed", "Producer watch lifetime changed.")
+				return true
+			}
+		}
+		ctx := database.WithCommitCheck(r.Context(), func() error {
+			if !time.Now().Before(grant.ExpiresAt) {
+				return database.ErrAuthorization
+			}
+			return nil
+		})
+		ctx = database.WithTransactionGuard(ctx, s.DB.IngestGuard("ding_service_"+token, grant.ID, grant.Workspace, watchID, life))
+		r = r.WithContext(ctx)
 		api := s.api(t)
 		r.Header = r.Header.Clone()
 		r.Header.Set("Authorization", "Bearer "+api.ingest)

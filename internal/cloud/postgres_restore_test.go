@@ -76,6 +76,13 @@ func TestPostgresNativeRestorePreservesReceiptsAndQuarantines(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	health, err := tenant.Health(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = tenant.LimitBytes(ctx, health.LogicalBytes); err != nil {
+		t.Fatal(err)
+	}
 	tenant.Close()
 	s.Close()
 	key, _ := age.GenerateX25519Identity()

@@ -2,10 +2,10 @@ name: CI
 
 on:
   pull_request:
-    paths: ['.gitattributes', '**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'web/mcp-app/**', 'design/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'testdata/**', 'scripts/**', 'native/**', 'deploy/**', '.railway/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
+    paths: ['.gitattributes', '**/*.go', 'go.mod', 'go.sum', 'benchmarks/push/**', 'web/console/**', 'web/mcp-app/**', 'design/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'testdata/**', 'scripts/**', 'native/**', 'deploy/**', '.railway/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
   push:
     branches: [main, "codex/**"]
-    paths: ['.gitattributes', '**/*.go', 'go.mod', 'go.sum', 'web/console/**', 'web/mcp-app/**', 'design/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'testdata/**', 'scripts/**', 'native/**', 'deploy/**', '.railway/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
+    paths: ['.gitattributes', '**/*.go', 'go.mod', 'go.sum', 'benchmarks/push/**', 'web/console/**', 'web/mcp-app/**', 'design/**', 'internal/mcpcontract/**', 'internal/mcpui/**', 'testdata/**', 'scripts/**', 'native/**', 'deploy/**', '.railway/**', 'Dockerfile*', '.dockerignore', '.goreleaser.yaml', '.github/workflows/ci.yml', '.github/workflows/release.yml']
   workflow_dispatch:
 
 permissions:
@@ -27,7 +27,25 @@ jobs:
           cache-dependency-path: deploy/soak/worker/package-lock.json
       - run: npm ci --prefix deploy/soak/worker
       - run: npm test --prefix deploy/soak/worker
-      - run: python3 -m py_compile deploy/soak/scripts/*.py
+      - run: python3 -m py_compile deploy/soak/scripts/*.py benchmarks/push/*.py
+      - run: python3 -m unittest discover -s benchmarks/push -p 'test_*.py'
+
+  postgres-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Start isolated PostgreSQL fixture
+        run: python3 benchmarks/push/postgres.py start --root "$RUNNER_TEMP/ding-postgres"
+      - name: Real database and HTTP contracts
+        env:
+          DING_TEST_POSTGRES_FILE: ${{ runner.temp }}/ding-postgres/connections.json
+        run: go test -race -count=1 ./internal/database ./internal/store ./internal/serverstate ./internal/cloud ./internal/watchcli
+      - name: Stop owned PostgreSQL fixture
+        if: always()
+        run: python3 benchmarks/push/postgres.py stop --root "$RUNNER_TEMP/ding-postgres"
 
   test:
     runs-on: ubuntu-latest

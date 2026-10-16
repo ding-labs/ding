@@ -1,14 +1,21 @@
 package cloud
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math/rand/v2"
 	"strings"
 	"testing"
 )
 
 type scaleConfig struct {
 	Name                                                           string
+	Backend                                                        string
+	PoolLimit, CredentialReaders                                   int
+	Watches, DeliveryWorkers                                       int
+	ReceiverProcess                                                bool
+	EntropyPadding, Nested                                         bool
 	Rate, Seconds, Workers, Workspaces, Outputs, Groups, BodyBytes int
 	Condition                                                      string // simple, window, or alerts
 	RetainPadding, Defaults, Reads, Restart, Noop, Profiles        bool
@@ -18,6 +25,27 @@ type scaleConfig struct {
 }
 
 func (c *scaleConfig) validate() error {
+	if c.Watches == 0 {
+		c.Watches = 1
+	}
+	if c.DeliveryWorkers == 0 {
+		c.DeliveryWorkers = 1
+	}
+	if c.Watches < 1 || c.Watches > 16 || c.DeliveryWorkers < 1 || c.DeliveryWorkers > 8 {
+		return fmt.Errorf("invalid watch or delivery worker count")
+	}
+	if c.Backend == "" {
+		c.Backend = "sqlite"
+	}
+	if c.PoolLimit == 0 {
+		c.PoolLimit = 8
+	}
+	if c.CredentialReaders == 0 {
+		c.CredentialReaders = 4
+	}
+	if (c.Backend != "sqlite" && c.Backend != "postgres") || c.PoolLimit < 1 || c.PoolLimit > 16 || c.CredentialReaders < 1 || c.CredentialReaders > 8 {
+		return fmt.Errorf("invalid scale backend or pool bounds")
+	}
 	if c.Workers == 0 {
 		c.Workers = 512
 	}
@@ -80,6 +108,12 @@ func (c scaleConfig) bodies() ([]json.RawMessage, error) {
 				e["value"] = 100
 			}
 		}
+		if c.Nested {
+			for _, event := range events {
+				event["repository"] = map[string]any{"full_name": event["repo"], "private": true}
+				event["workflow_run"] = map[string]any{"status": "completed", "conclusion": "success", "head_branch": "main", "jobs": []any{map[string]any{"name": "test", "steps": []any{map[string]any{"name": "build", "duration_ms": 1234}, map[string]any{"name": "verify", "duration_ms": 4321}}}}}
+			}
+		}
 		body := map[string]any{"events": events}
 		if c.RetainPadding {
 			events[0]["padding"] = ""
@@ -88,7 +122,16 @@ func (c scaleConfig) bodies() ([]json.RawMessage, error) {
 		}
 		raw, _ := json.Marshal(body)
 		if c.BodyBytes > len(raw) {
-			pad := strings.Repeat("x", c.BodyBytes-len(raw))
+			size := c.BodyBytes - len(raw)
+			pad := strings.Repeat("x", size)
+			if c.EntropyPadding {
+				rng := rand.New(rand.NewPCG(123, uint64(variant)+456))
+				data := make([]byte, size)
+				for i := range data {
+					data[i] = byte(rng.Uint32())
+				}
+				pad = base64.RawStdEncoding.EncodeToString(data)[:size]
+			}
 			if c.RetainPadding {
 				events[0]["padding"] = pad
 			} else {
@@ -131,3 +174,12 @@ func TestScaleFixtureSizesAndGroups(t *testing.T) {
 		}
 	}
 }
+
+func (c scaleConfig) watchIDs() []string {
+	ids := []string{"ci"}
+	for i := 1; i < c.Watches; i++ {
+		ids = append(ids, fmt.Sprintf("ci-%d", i+1))
+	}
+	return ids
+}
+func scaleProducerWatch(p PushProducer) string { return p.URL[strings.LastIndexByte(p.URL, '/')+1:] }

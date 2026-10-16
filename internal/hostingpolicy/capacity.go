@@ -7,8 +7,8 @@ import (
 )
 
 // Capacity is operator configuration, separate from source admission switches.
-// Zero values select documented defaults. Bounds fit the backup format and
-// the compiler's supported representation; they are not product tier limits.
+// Zero values select documented defaults. The server additionally checks its
+// backend backup envelope; these are operator bounds, not product tiers.
 type Capacity struct {
 	APIRate            int   `json:"apiRate,omitempty"`
 	APIBurst           int   `json:"apiBurst,omitempty"`
@@ -75,8 +75,8 @@ func (c Capacity) Validate() error {
 	if c.OutboundChecks < 0 || c.OutboundDeliveries < 0 || c.OutboundBytes < 0 {
 		return fmt.Errorf("outbound budgets must be nonnegative; zero disables cumulative quotas")
 	}
-	if c.MaxWatches < 1 || c.MaxWatches > 10000 || c.MaxDestinations < 1 || c.MaxDestinations > 1000 || c.MaxPending < 1 || c.MaxPending > 100000 || c.MaxStoreBytes < 1<<20 || c.MaxStoreBytes > 128<<20 || c.RetentionDays < 1 || c.RetentionDays > 30 || c.MinPollSeconds < 1 || c.MinPollSeconds > 86400 || c.MaxBodyBytes < 1024 || c.MaxBodyBytes > 1<<20 || c.MaxEntities < 1 || c.MaxEntities > 10000 || c.MaxSamples < 1 || c.MaxSamples > 100000 || c.MaxOutputs < 1 || c.MaxOutputs > 100 {
-		return fmt.Errorf("invalid cloud capacity; store must fit the qualified backup format and watch bounds must fit the compiler")
+	if c.MaxWatches < 1 || c.MaxWatches > 10000 || c.MaxDestinations < 1 || c.MaxDestinations > 1000 || c.MaxPending < 1 || c.MaxPending > 100000 || c.MaxStoreBytes < 1<<20 || c.MaxStoreBytes > 1<<40 || c.RetentionDays < 1 || c.RetentionDays > 30 || c.MinPollSeconds < 1 || c.MinPollSeconds > 86400 || c.MaxBodyBytes < 1024 || c.MaxBodyBytes > 1<<20 || c.MaxEntities < 1 || c.MaxEntities > 10000 || c.MaxSamples < 1 || c.MaxSamples > 100000 || c.MaxOutputs < 1 || c.MaxOutputs > 100 {
+		return fmt.Errorf("invalid cloud capacity; storage and watch bounds must fit their supported representation")
 	}
 	return nil
 }

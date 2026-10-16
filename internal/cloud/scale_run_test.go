@@ -21,12 +21,14 @@ type scaleSample struct {
 }
 type scaleReport struct {
 	Config                             scaleConfig
+	FixtureDatabase                    string
 	StartedAt, EndedAt                 time.Time
 	Runtime                            string
 	GOMAXPROCS                         int
 	Before, After                      []scaleAccounting
 	Load                               PushBenchmarkResult
 	Resolved                           int
+	InternalObservations               int64
 	Errors                             []string
 	Samples                            []scaleSample
 	Preload                            PushBenchmarkResult
@@ -68,6 +70,7 @@ func TestLocalPushScale(t *testing.T) {
 	}
 	report := scaleReport{Config: c, Runtime: runtime.Version() + " " + runtime.GOOS + "/" + runtime.GOARCH, GOMAXPROCS: runtime.GOMAXPROCS(0)}
 	lab := newScaleLab(t, c)
+	report.FixtureDatabase = lab.fixtureDatabase
 	if c.Noisy > 0 {
 		first := lab.producers[0]
 		n := (len(lab.producers) - 1) * c.Noisy / (100 - c.Noisy)
@@ -122,9 +125,7 @@ func TestLocalPushScale(t *testing.T) {
 	}
 	report.StartedAt = time.Now().UTC()
 	if lab.receiver != nil && c.Receiver == "outage" {
-		lab.receiver.mu.Lock()
-		lab.receiver.recoverAt = report.StartedAt.Add(time.Duration(c.Seconds/2) * time.Second)
-		lab.receiver.mu.Unlock()
+		lab.receiver.setRecovery(t, report.StartedAt.Add(time.Duration(c.Seconds/2)*time.Second))
 	}
 	if waitFinish != nil {
 		report.Load = waitFinish(ctx)
@@ -160,6 +161,7 @@ func TestLocalPushScale(t *testing.T) {
 		report.Errors = append(report.Errors, errs...)
 		report.PostChecksVerified = len(errs) == 0 && report.Load.Accepted > 0
 	}
+	report.InternalObservations = lab.internalObservations
 	report.After = scaleAccounts(t, lab)
 	if lab.receiver != nil {
 		start := time.Now()
@@ -173,40 +175,14 @@ func TestLocalPushScale(t *testing.T) {
 				break
 			}
 			time.Sleep(time.Second)
+			report.InternalObservations = lab.internalObservations
 			report.After = scaleAccounts(t, lab)
 		}
 		report.DeliveryDrainSeconds = time.Since(start).Seconds()
-		lab.receiver.mu.Lock()
-		report.ReceiverAttempts, report.ReceiverAccepted = lab.receiver.attempts, lab.receiver.accepted
-		report.ReceiverUnique = len(lab.receiver.ids)
-		for _, tenant := range lab.tenants {
-			inspection, err := tenant.App.Inspect(context.Background(), "ci")
-			if err != nil {
-				t.Fatal(err)
-			}
-			for _, d := range inspection.Deliveries {
-				if d.Status == "delivered" && !lab.receiver.ids[d.EventID] {
-					report.Errors = append(report.Errors, "delivered event absent from receiver ledger")
-				}
-			}
-		}
-		data, err := os.ReadFile(filepath.Join(lab.root, "receiver.jsonl"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		f, err := mcpconfig.CreatePrivate(filepath.Join(out, "receiver.jsonl"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = f.Write(data)
-		if err == nil {
-			err = f.Sync()
-		}
-		f.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-		lab.receiver.mu.Unlock()
+		state, problems := scaleReceiverEvidence(t, lab, out)
+		report.ReceiverAttempts, report.ReceiverAccepted = state.Attempts, state.Accepted
+		report.ReceiverUnique = len(state.IDs)
+		report.Errors = append(report.Errors, problems...)
 	}
 	f, err := mcpconfig.CreatePrivate(filepath.Join(out, "report.json"))
 	if err != nil {

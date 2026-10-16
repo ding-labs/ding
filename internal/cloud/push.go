@@ -2,6 +2,7 @@ package cloud
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"io"
 	"mime"
@@ -47,13 +48,13 @@ func (s *Server) servePush(w http.ResponseWriter, r *http.Request) {
 	} else {
 		var ok bool
 		token, ok = strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if !ok || !strings.HasPrefix(token, "ding_service_") {
+		if !ok || !strings.HasPrefix(token, "ding_service_") || len(token) != len("ding_service_")+64 {
 			cloudFail(w, 401, "producer_required", "Use a scoped producer credential.")
 			return
 		}
 		grant, err = s.DB.ServiceToken(r.Context(), token)
 		if err != nil {
-			cloudFail(w, 401, "service_revoked", "Producer credential expired or unavailable.")
+			pushAuthorizationError(w, err)
 			return
 		}
 	}
@@ -162,7 +163,7 @@ func (s *Server) servePush(w http.ResponseWriter, r *http.Request) {
 	err = authorize()
 	if err != nil {
 		s.DB.Access.RUnlock()
-		cloudFail(w, 401, "service_revoked", "Producer credential expired or unavailable.")
+		pushAuthorizationError(w, err)
 		return
 	}
 	var receipt store.PushReceipt
@@ -204,7 +205,7 @@ func (s *Server) servePush(w http.ResponseWriter, r *http.Request) {
 	s.DB.Access.RLock()
 	defer s.DB.Access.RUnlock()
 	if err = authorize(); err != nil {
-		cloudFail(w, 401, "service_revoked", "Producer credential expired or unavailable.")
+		pushAuthorizationError(w, err)
 		return
 	}
 	guard := s.DB.IngestGuard(token, grant.ID, grant.Workspace, id, record.Lifetime)
@@ -226,6 +227,14 @@ func (s *Server) servePush(w http.ResponseWriter, r *http.Request) {
 	cloudWrite(w, 202, receipt)
 }
 
+func pushAuthorizationError(w http.ResponseWriter, err error) {
+	if errors.Is(err, sql.ErrNoRows) || errors.Is(err, access.ErrDenied) || errors.Is(err, state.ErrServiceRevoked) {
+		cloudFail(w, 401, "service_revoked", "Producer credential expired or unavailable.")
+		return
+	}
+	cloudFail(w, 503, "authorization_unavailable", "Cannot verify producer access; retry identical input with the same key.")
+}
+
 func (s *Server) pushError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, watchrun.ErrProducerExpired), errors.Is(err, state.ErrServiceRevoked):
@@ -236,6 +245,8 @@ func (s *Server) pushError(w http.ResponseWriter, err error) {
 		cloudFail(w, 409, "inactive_source", "Watch changed or is not an active push source.")
 	case errors.Is(err, transform.ErrLimit):
 		cloudFail(w, 413, "input_limit", "Projected input exceeds configured limits.")
+	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		cloudFail(w, 503, "acceptance_uncertain", "Acceptance could not be confirmed; retry identical bytes with the same key.")
 	case errors.Is(err, watchrun.ErrInput):
 		cloudFail(w, 400, "invalid_input", err.Error())
 	case errors.Is(err, watchrun.ErrQuota):
