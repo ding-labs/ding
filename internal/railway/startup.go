@@ -27,10 +27,12 @@ const VolumeDir = "/data"
 const UID = 10001
 
 type Settings struct {
-	Config    cloud.Config `json:"config"`
-	Mode      string       `json:"mode"`
-	Username  string       `json:"username,omitempty"`
-	OwnerName string       `json:"ownerName,omitempty"`
+	Config      cloud.Config `json:"config"`
+	Mode        string       `json:"mode"`
+	Username    string       `json:"username,omitempty"`
+	OwnerName   string       `json:"ownerName,omitempty"`
+	DatabaseDSN string       `json:"-"`
+	DatabaseCA  string       `json:"-"`
 }
 
 // FromEnv fixes hosting and admission policy; environment variables cannot turn
@@ -78,7 +80,7 @@ func FromEnv(get func(string) string) (Settings, []byte, string, error) {
 	if err := configureMCP(&s.Config, get); err != nil {
 		return s, nil, "", err
 	}
-	for name, target := range map[string]any{"DING_PUSH_JSON": &s.Config.Push, "DING_CAPACITY_JSON": &s.Config.Capacity} {
+	for name, target := range map[string]any{"DING_PUSH_JSON": &s.Config.Push, "DING_CAPACITY_JSON": &s.Config.Capacity, "DING_DATABASE_JSON": &s.Config.Database} {
 		if raw := get(name); raw != "" {
 			if len(raw) > 16384 {
 				return s, nil, "", fmt.Errorf("%s exceeds 16 KiB", name)
@@ -93,6 +95,9 @@ func FromEnv(get func(string) string) (Settings, []byte, string, error) {
 				return s, nil, "", fmt.Errorf("%s contains trailing data", name)
 			}
 		}
+	}
+	if err := configureDatabase(&s, get); err != nil {
+		return s, nil, "", err
 	}
 	s.Config.OpenAIAppsChallenge = get("DING_OPENAI_APPS_CHALLENGE")
 	return s, key, password, s.Config.Validate()
@@ -146,6 +151,12 @@ func Prepare(s Settings, key []byte, password string) error {
 		return err
 	}
 	files := map[string][]byte{"data.key": key, "config.json": config, "startup.json": settings}
+	if s.Config.Database.Effective().Backend == "postgres" {
+		files["postgres.dsn"] = []byte(s.DatabaseDSN)
+		if s.DatabaseCA != "" {
+			files["postgres-ca.crt"] = []byte(s.DatabaseCA)
+		}
+	}
 	if s.Mode == "init" {
 		files["bootstrap.password"] = []byte(password)
 	}
@@ -182,6 +193,9 @@ func Run(ctx context.Context, out io.Writer) error {
 	}
 	if s.Mode == "maintenance" {
 		return maintenance(ctx, s.Config, out)
+	}
+	if err := restoreDatabaseEnvironment(s.Config.Database, RuntimeDir+"/postgres.dsn"); err != nil {
+		return err
 	}
 	if s.Mode == "init" {
 		password, err := serverops.ReadPassword(RuntimeDir + "/bootstrap.password")
