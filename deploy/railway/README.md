@@ -262,8 +262,8 @@ the same region. Keep the existing PostgreSQL service and volume when changing
 app configuration; the app-only IaC definition does not provision that database.
 Configure database backups independently of the app's small identity volume.
 
-The production GitHub source follows `main` without a commit pin. Merging a PR
-therefore triggers Railway's GitHub deployment automatically. Schema changes
+Production deployments use `main` without a commit pin. The GitHub Actions
+workflow below deploys each merged commit to Railway automatically. Schema changes
 still require an explicit offline migration; automatic deployment does not grant
 the application DDL privileges or silently migrate a live database.
 
