@@ -1,7 +1,7 @@
 # Railway write-batching comparison
 
-October 16, 2026 UTC. The four-CPU comparison is still in progress. These are
-completed 30-second screens, not sustained production capacity claims.
+October 16, 2026 UTC. The resource screens are complete; three-minute repeats are
+in progress. These are measured comparisons, not production capacity promises.
 
 ## What changed
 
@@ -38,9 +38,9 @@ cores; the mixed case from 1.402 to 0.935 cores.
 
 **Single-observation throughput did not improve in these screens.** The new
 version accepted about 4% fewer requests in the 250/s overload case and about 5%
-fewer large bodies at 100/s. These results remain in the comparison. Additional
-CPU and reversed-order controls will distinguish repeatable effects from timing
-variation. All PostgreSQL screens above missed the chosen latency target.
+fewer large bodies at 100/s. These results remain in the comparison. The
+reversed-order four-CPU controls below add evidence about this result.
+All PostgreSQL screens above missed the chosen latency target.
 
 Every accepted request passed receipt, usage, provenance, replay, authorization
 and graceful restart reconciliation. Alert runs each verified **2,361 distinct
@@ -60,6 +60,48 @@ The same Linux Ding service, two CPUs, payloads and reads:
 All six runs passed the strict latency, generator, reconciliation, read and
 restart gates. These short controls show no material latency regression; they do
 not establish SQLite's maximum throughput or end-user disk performance.
+
+## Four database CPUs: substantial bulk gains
+
+Ding stays at **2 CPU / 2 GB**; only PostgreSQL increases to **4 CPU / 8 GB**.
+The same deployment and binaries remain in place. This round runs the candidate
+first, then the baseline, reversing the earlier ordering.
+
+| Workload | Requests/s | First-attempt acknowledgments before → after | p99 before → after |
+| --- | ---: | ---: | ---: |
+| 600 KB, 100 observations | 5 | 150 → 150 / 150 | 1,361 → 284 ms |
+| Mixed JSON and batch sizes | 50 | 1,500 → 1,500 / 1,500 | 1,624 → 325 ms |
+| 600 KB, 100 observations | 25 | 186 → 750 / 750 | 15,002 → 1,067 ms |
+| Mixed JSON and batch sizes | 100 | 1,962 → 3,000 / 3,000 | 7,828 → 1,020 ms |
+| 10 KB, one observation | 100 | 3,000 → 3,000 / 3,000 | 208 → 1,262 ms |
+| 10 KB, one observation, overload | 250 | 3,601 → 3,609 / 7,500 | 4,110 → 4,690 ms |
+| 10 KB, one observation, **100 workspaces** | 50 | 1,500 → 1,500 / 1,500 | 159 → 164 ms |
+
+The 100-observation case at 5/s is **4.8 times faster at p99**, using **71% less
+database CPU** (0.829 → 0.243 cores). The mixed 50/s case is **5 times faster at
+p99**, with 29% less database CPU (1.312 → 0.933 cores).
+
+At 25 batches/s, the candidate acknowledges all **75,000 observations** offered
+in 30 seconds, with zero throttling or uncertainty. The baseline acknowledges
+18,600 observations, throttles 139 requests and returns 425 uncertain responses.
+Reconciliation finds two additional committed requests: **18,800 observations
+durably stored before versus 75,000 after**. The candidate averages 0.56 app and
+0.86 database cores. This establishes complete acceptance at an offered **2,500
+observations/s** in this short test; its 1.07-second p99 fails the 250 ms target.
+It is not a maximum or sustained operating-rate claim.
+
+Small-webhook overload throughput is effectively unchanged between versions.
+Moving the candidate database from two to four CPUs increases first-attempt
+acceptance only 13% at 250/s. Transaction/commit and writer-queue timings remain
+variable. The 100/s candidate run has lower average transaction callback time,
+but higher commit time and writer waiting than its baseline control. More CPU
+alone does not resolve this tail latency. The 100-workspace 50/s pair passes all
+strict gates with similar latency; three-minute repetitions are recorded next.
+
+The app was not CPU-throttled in the large-body control (about 1.1 of two cores
+used). Memory was below the configured limits. These observations do not justify
+eight database CPUs or a larger app for the measured bottleneck. RAM's benefit
+for large aged datasets is untested.
 
 ## Controls and evidence
 
