@@ -1,5 +1,8 @@
 # Railway write-batching comparison
 
+Follow-up: [queue and commit investigation](railway-queue-latency.md) records the
+next focused changes and matched reruns, including the variable small-request tails.
+
 October 16, 2026 UTC. The resource screens and three-minute repeats are complete.
 These are measured comparisons, not production capacity promises.
 
