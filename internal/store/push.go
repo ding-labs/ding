@@ -50,6 +50,13 @@ func (t *Tx) SavePushReceipt(lifetime, producer, key, digest string, receipt Pus
 	if err != nil {
 		return err
 	}
+	if t.postgres {
+		// Persist the receipt, latest receipt and durable usage together without
+		// three network round trips. The caller still commits the whole ingest.
+		_, err = t.exec(qSavePushCompletion, lifetime, producer, key, digest, body,
+			timestamp(receipt.ExpiresAt), receipt.WatchID, bytes, observations)
+		return err
+	}
 	_, err = t.exec(qSavePushReceipt, lifetime, producer, key, digest, body, timestamp(receipt.ExpiresAt))
 	if err != nil {
 		return err
