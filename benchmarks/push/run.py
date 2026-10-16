@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import platform
 import shutil
+import signal
 import subprocess
 import time
 
@@ -24,7 +25,8 @@ def save(path, value):
 
 
 def qualified_load(load):
-    return load['generatorBusy'] == 0 and load['unconfirmed'] == 0 and load['rejected'] == 0
+    return (load['generatorBusy'] == 0 and load['unconfirmed'] == 0 and load['rejected'] == 0
+            and not load.get('clockDiscontinuity', False))
 
 
 def capture_failed_state(volume, output):
@@ -40,6 +42,9 @@ def capture_failed_state(volume, output):
 def execute(binary, driver, config, output, environment):
     env = dict(os.environ, DING_SCALE_CONFIG=str(output / 'config.json'),
                DING_SCALE_OUTPUT=str(output), DING_SCALE_EXTERNAL=environment)
+    fixture_tmp = output/'fixture-tmp'
+    fixture_tmp.mkdir(mode=0o700)
+    env['TMPDIR'] = str(fixture_tmp)
     timeout = config['Seconds'] + config.get('Preload', 0) / 100 + 900
     container = 'ding-scale-' + output.parent.name.lower() + '-' + output.name.lower()
     volume = container + '-data'
@@ -57,6 +62,7 @@ def execute(binary, driver, config, output, environment):
     bootstrap = output/'bootstrap.json'
     generator = None
     code, generator_code, failure = 124, None, None
+    cancelled = False
     with (output/'run.log').open('x') as log, (output/'generator.log').open('x') as generator_log:
         process = subprocess.Popen(args, cwd=REPO, env=env, stdout=log, stderr=subprocess.STDOUT)
         try:
@@ -91,16 +97,26 @@ def execute(binary, driver, config, output, environment):
             generator_code = generator.wait() if generator is not None else None
         except (RuntimeError, TimeoutError) as error:
             failure = str(error)
+        except KeyboardInterrupt:
+            cancelled, code, failure = True, 130, 'Local case cancelled by operator.'
         finally:
             if process.poll() is None:
                 process.kill();process.wait()
             if generator is not None and generator.poll() is None:
                 generator.kill();generator.wait()
+            if generator is not None:
+                generator_code = generator.returncode
             bootstrap.unlink(missing_ok=True)
             if environment == 'container':
                 subprocess.run(['docker','kill',container],capture_output=True)
     metadata = {'exitCode':code,'generatorExitCode':generator_code,
-                'wallSeconds':time.monotonic()-started,'resources':samples,'failure':failure}
+                'wallSeconds':time.monotonic()-started,'resources':samples,'failure':failure,
+                'cancelledByUser':cancelled}
+    if environment == 'native' and (code != 0 or failure):
+        for directory in [output/'failed-state', fixture_tmp]:
+            if any(directory.rglob('ding.db')):
+                metadata['failedStateDirectory'] = directory.name
+                break
     if environment == 'container':
         remove_volume = True
         try:
@@ -119,8 +135,9 @@ def execute(binary, driver, config, output, environment):
             subprocess.run(['docker','volume','rm',volume],check=False,capture_output=True)
     save(output/'execution.json',metadata)
     report_path = output/'report.json'
-    if not report_path.exists():
-        return {'case':output.name,'exitCode':code,'stable':False,'reportMissing':True}
+    if cancelled or not report_path.exists():
+        return {'case':output.name,'exitCode':code,'stable':False,
+                'reportMissing':not report_path.exists(),'cancelledByUser':cancelled}
     report = json.loads(report_path.read_text())
     load = report['Load']
     fraction = load['firstAccepted']/max(1,config['Rate']*config['Seconds'])
@@ -132,17 +149,22 @@ def execute(binary, driver, config, output, environment):
             'generatorBusy':load['generatorBusy'],'statuses':load['statuses'],'resolved':report['Resolved'],
             'reconciliationErrors':report['Errors'],'readP99MS':report['ReadP99MS'],
             'pendingDeliveries':pending,'postChecksVerified':postchecks,
+            'inconclusive': 'producer clock discontinuity' if load.get('clockDiscontinuity') else None,
             'stable':code==0 and generator_code==0 and qualified_load(load) and fraction>=.999 and load['p99MS']<250 and not report['Errors'] and not report['ReadErrors'] and pending==0 and postchecks}
 
 
 def main():
     os.umask(0o077)
+    def cancel_run(_signal, _frame):
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM, cancel_run)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--environment', choices=['native','container'], default='native')
     parser.add_argument('--cases', required=True, help='comma-separated names from cases.json')
     parser.add_argument('--seconds', type=int, help='override measured interval')
     parser.add_argument('--repeat', type=int, default=1)
     parser.add_argument('--profiles', action='store_true', help='collect diagnostic profiles; off for capacity runs')
+    parser.add_argument('--stop-file', type=Path, help='finish the active case and defer queued cases when this file exists')
     parser.add_argument('--output', type=Path, default=Path.home()/'.config/ding-cloud/local-scale/runs')
     args = parser.parse_args()
     if not 1 <= args.repeat <= 10 or (args.seconds is not None and not 1 <= args.seconds <= 3600):
@@ -169,9 +191,13 @@ def main():
          'profiles':args.profiles,
          'note':'Separate host generator. Only the server is CPU/memory constrained. Container databases use a Docker local volume; ledgers use the host filesystem.'})
     results = []
+    stop_file = args.stop_file.resolve() if args.stop_file else root/'STOP'
     print('Evidence: '+str(root),flush=True)
+    print('Stop after current case: create '+str(stop_file),flush=True)
     for name in requested:
         for repeat in range(args.repeat):
+            if stop_file.exists():
+                break
             if shutil.disk_usage(root).free < 20<<30:
                 raise SystemExit('Host free-disk floor reached; preserve evidence and stop.')
             config = dict(cases[name])
@@ -186,6 +212,17 @@ def main():
             with (root/'summary.json').open('w') as f:
                 json.dump(results,f,indent=2)
             print(json.dumps(result),flush=True)
+            if result.get('cancelledByUser'):
+                stop_file.touch(mode=0o600)
+        if stop_file.exists():
+            break
+    completed = {r['case'] for r in results}
+    deferred = [name+'-'+str(i+1) for name in requested for i in range(args.repeat)
+                if name+'-'+str(i+1) not in completed]
+    cancelled = [r['case'] for r in results if r.get('cancelledByUser')]
+    save(root/'run-state.json', {'state':'cancelled' if cancelled else ('deferred' if deferred else 'complete'),
+         'completed':[r['case'] for r in results if not r.get('cancelledByUser')],
+         'cancelled':cancelled, 'deferred':deferred})
     print('Completed '+str(len(results))+' cases.',flush=True)
 
 

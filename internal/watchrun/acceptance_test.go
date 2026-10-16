@@ -53,6 +53,12 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Exercise transaction-time sampling after projection. One hundred timed
+	// projections under the race detector can exhaust their separate CPU budget.
+	batch, err := PreparePush(ctx, r, []byte(`{"value":2}`), 32, 32000)
+	if err != nil {
+		t.Fatal(err)
+	}
 	var clockCalls atomic.Int64
 	a.Now = func() time.Time {
 		now := time.Now().UTC()
@@ -66,7 +72,7 @@ spec:
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			if _, err := a.IngestReserved(ctx, r, []byte(`{"value":2}`), fmt.Sprint(i)); err != nil {
+			if _, err := a.accept(ctx, r, batch, fmt.Sprint(i), a.Now); err != nil {
 				t.Error(err)
 			}
 		}(i)

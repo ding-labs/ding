@@ -23,7 +23,8 @@ def measurements(root):
                 'cancelledByUser': execution.get('cancelledByUser', False),
                 'serverExitCode': execution['exitCode'], 'generatorExitCode': execution['generatorExitCode'],
                 'oomKilled': execution.get('container', {}).get('OOMKilled', False),
-                'failedStatePreserved': bool(execution.get('failedStateArchive') or execution.get('preservedVolume')),
+                'failedStatePreserved': bool(execution.get('failedStateArchive') or execution.get('preservedVolume')
+                    or execution.get('failedStateDirectory')),
                 'stable': False,
             }
             continue
@@ -37,6 +38,8 @@ def measurements(root):
             'environment': manifest['environment'], 'seconds': config['Seconds'],
             'workspaces': config['Workspaces'], 'outputs': config['Outputs'],
             'groups': config['Groups'], 'bodyBytes': config['BodyBytes'],
+            'bodyBytesMin': load.get('bodyBytesMin'), 'bodyBytesMax': load.get('bodyBytesMax'),
+            'clockDiscontinuity': load.get('clockDiscontinuity'),
             'profiles': manifest.get('profiles', True),
             'retainedPadding': config['RetainPadding'], 'condition': config['Condition'],
             'receiver': config['Receiver'], 'noop': config['Noop'],

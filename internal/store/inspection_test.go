@@ -106,7 +106,7 @@ func TestSchemaOneUpgradePreservesDataAndBackup(t *testing.T) {
 	if err := s.db.QueryRow("SELECT value FROM metadata WHERE key='sentinel'").Scan(&value); err != nil || value != "present" {
 		t.Fatal(value, err)
 	}
-	backups, _ := filepath.Glob(filepath.Join(dir, "before-schema-7-*.db"))
+	backups, _ := filepath.Glob(filepath.Join(dir, fmt.Sprintf("before-schema-%d-*.db", SchemaVersion)))
 	if len(backups) != 1 {
 		t.Fatal(backups)
 	}

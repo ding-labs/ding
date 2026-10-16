@@ -22,8 +22,9 @@ import (
 )
 
 type DB struct {
-	sql    *sql.DB
-	unlock func() error
+	sql     *sql.DB
+	readers *sql.DB
+	unlock  func() error
 	// Access serializes permission changes with admitted runtime operations.
 	// Request adapters hold RLock until the operation completes; administration
 	// methods take Lock before rechecking permissions in their transaction.
@@ -129,13 +130,48 @@ func Open(ctx context.Context, dir string) (*DB, error) {
 			return nil, err
 		}
 	}
+	readers, err := openControlReaders(ctx, u)
+	if err != nil {
+		return nil, err
+	}
 	ok = true
-	return &DB{sql: db, unlock: unlock}, nil
+	return &DB{sql: db, readers: readers, unlock: unlock}, nil
 }
 
 func (d *DB) Close() error {
+	var readErr error
+	if d.readers != nil {
+		readErr = d.readers.Close()
+	}
 	_, checkpoint := d.sql.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
-	return errors.Join(checkpoint, d.sql.Close(), d.unlock())
+	return errors.Join(readErr, checkpoint, d.sql.Close(), d.unlock())
+}
+
+func openControlReaders(ctx context.Context, uri url.URL) (*sql.DB, error) {
+	q := uri.Query()
+	q.Set("mode", "ro")
+	q.Add("_pragma", "query_only(1)")
+	q.Add("_pragma", "cache_size(-256)")
+	uri.RawQuery = q.Encode()
+	readers, err := sql.Open("sqlite", uri.String())
+	if err != nil {
+		return nil, err
+	}
+	readers.SetMaxOpenConns(4)
+	readers.SetMaxIdleConns(1)
+	readers.SetConnMaxIdleTime(time.Minute)
+	if err := readers.PingContext(ctx); err != nil {
+		readers.Close()
+		return nil, err
+	}
+	return readers, nil
+}
+
+func (d *DB) credentialDB() *sql.DB {
+	if d.readers != nil {
+		return d.readers
+	}
+	return d.sql
 }
 func ID() string {
 	var b [32]byte

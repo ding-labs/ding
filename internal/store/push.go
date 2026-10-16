@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"time"
@@ -62,9 +63,46 @@ func (t *Tx) SavePushReceipt(lifetime, producer, key, digest string, receipt Pus
 }
 
 func (t *Tx) PushReceiptCount(now time.Time) (int, error) {
-	var n int
-	err := t.sql.QueryRowContext(t.ctx, "SELECT count(*) FROM push_receipts WHERE expires_at>?", timestamp(now)).Scan(&n)
-	return n, err
+	var total, expired, checked, earliest int64
+	err := t.sql.QueryRowContext(t.ctx, "SELECT total,expired,checked_at,earliest FROM push_receipt_stats WHERE singleton=1").Scan(&total, &expired, &checked, &earliest)
+	if err == sql.ErrNoRows {
+		return t.rebuildPushReceiptCount(now)
+	}
+	if err != nil {
+		return 0, err
+	}
+	at := timestamp(now)
+	if total == 0 || at < earliest {
+		return int(total), nil
+	}
+	n := expired
+	if at < checked {
+		// A backward clock jump may make retained receipts active again.
+		err = t.sql.QueryRowContext(t.ctx, "SELECT count(*) FROM push_receipts WHERE expires_at<=?", at).Scan(&n)
+	} else if at > checked {
+		var due int64
+		err = t.sql.QueryRowContext(t.ctx, "SELECT count(*) FROM push_receipts WHERE expires_at>? AND expires_at<=?", checked, at).Scan(&due)
+		n += due
+	}
+	if err != nil {
+		return 0, err
+	}
+	// Readers compute exact counts without mutating their snapshot. Admission
+	// advances the watermark only when expiry changes the cached population.
+	if t.writable && (n != expired || at < checked) {
+		_, err = t.sql.ExecContext(t.ctx, "UPDATE push_receipt_stats SET expired=?,checked_at=? WHERE singleton=1", n, at)
+	}
+	return int(total - n), err
+}
+
+func (t *Tx) rebuildPushReceiptCount(now time.Time) (int, error) {
+	var total, expired, earliest int64
+	at := timestamp(now)
+	err := t.sql.QueryRowContext(t.ctx, `SELECT count(*),coalesce(sum(CASE WHEN expires_at<=? THEN 1 ELSE 0 END),0),coalesce(min(expires_at),0) FROM push_receipts`, at).Scan(&total, &expired, &earliest)
+	if err == nil && t.writable {
+		_, err = t.sql.ExecContext(t.ctx, "INSERT INTO push_receipt_stats(singleton,total,expired,checked_at,earliest) VALUES(1,?,?,?,?)", total, expired, at, earliest)
+	}
+	return int(total - expired), err
 }
 
 func (t *Tx) PushUsage() (PushUsage, error) {

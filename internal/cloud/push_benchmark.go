@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -40,23 +41,27 @@ type PushBenchmarkOptions struct {
 	CompactLedger bool
 }
 type PushBenchmarkResult struct {
-	GeneratorBusy   int            `json:"generatorBusy"`
-	Offered         int            `json:"offered"`
-	Accepted        int            `json:"accepted"`
-	Replayed        int            `json:"replayed"`
-	Rejected        int            `json:"rejected"`
-	Unconfirmed     int            `json:"unconfirmed"`
-	Attempts        int            `json:"attempts"`
-	P95MS           float64        `json:"p95MS"`
-	P99MS           float64        `json:"p99MS"`
-	DurationSeconds float64        `json:"durationSeconds"`
-	FirstAccepted   int            `json:"firstAccepted"`
-	Statuses        map[int]int    `json:"statuses"`
-	Scheduled       int            `json:"scheduled"`
-	ScheduleP99MS   float64        `json:"scheduleP99MS"`
-	HTTPP99MS       float64        `json:"httpP99MS"`
-	Throttled       int            `json:"throttled"`
-	ErrorCodes      map[string]int `json:"errorCodes"`
+	BodyBytesMin        int            `json:"bodyBytesMin"`
+	BodyBytesMax        int            `json:"bodyBytesMax"`
+	WallDurationSeconds float64        `json:"wallDurationSeconds"`
+	ClockDiscontinuity  bool           `json:"clockDiscontinuity"`
+	GeneratorBusy       int            `json:"generatorBusy"`
+	Offered             int            `json:"offered"`
+	Accepted            int            `json:"accepted"`
+	Replayed            int            `json:"replayed"`
+	Rejected            int            `json:"rejected"`
+	Unconfirmed         int            `json:"unconfirmed"`
+	Attempts            int            `json:"attempts"`
+	P95MS               float64        `json:"p95MS"`
+	P99MS               float64        `json:"p99MS"`
+	DurationSeconds     float64        `json:"durationSeconds"`
+	FirstAccepted       int            `json:"firstAccepted"`
+	Statuses            map[int]int    `json:"statuses"`
+	Scheduled           int            `json:"scheduled"`
+	ScheduleP99MS       float64        `json:"scheduleP99MS"`
+	HTTPP99MS           float64        `json:"httpP99MS"`
+	Throttled           int            `json:"throttled"`
+	ErrorCodes          map[string]int `json:"errorCodes"`
 }
 type pushLedgerEntry struct {
 	Key         string             `json:"key"`
@@ -88,6 +93,10 @@ func BenchmarkPush(ctx context.Context, o PushBenchmarkOptions) (PushBenchmarkRe
 	result.ErrorCodes = map[string]int{}
 	tokens := make([]string, len(o.Producers))
 	for i, p := range o.Producers {
+		if i == 0 || len(p.Body) < result.BodyBytesMin {
+			result.BodyBytesMin = len(p.Body)
+		}
+		result.BodyBytesMax = max(result.BodyBytesMax, len(p.Body))
 		u, err := url.Parse(p.URL)
 		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || !json.Valid(p.Body) || len(p.Body) > 1<<20 {
 			return result, fmt.Errorf("producer %d requires an HTTPS URL and bounded JSON", i)
@@ -304,7 +313,10 @@ schedule:
 	result.P99MS = histogramPercentile(histogram, 99)
 	result.ScheduleP99MS = histogramPercentile(scheduleHistogram, 99)
 	result.HTTPP99MS = histogramPercentile(httpHistogram, 99)
-	result.DurationSeconds = time.Since(start).Seconds()
+	end := time.Now()
+	result.DurationSeconds = end.Sub(start).Seconds()
+	result.WallDurationSeconds = end.UTC().Sub(start.UTC()).Seconds()
+	result.ClockDiscontinuity = pushClockDiscontinuity(result.WallDurationSeconds, result.DurationSeconds)
 	if failure != nil {
 		return result, failure
 	}
@@ -312,6 +324,10 @@ schedule:
 		return result, ctx.Err()
 	}
 	return result, nil
+}
+
+func pushClockDiscontinuity(wall, elapsed float64) bool {
+	return math.Abs(wall-elapsed) > 2
 }
 
 // Error strings may contain URLs or credential material. Persist fixed classes.

@@ -5,6 +5,14 @@ import (
 	"time"
 )
 
+// EntityCount checks group admission without loading state blobs. The caller
+// updates its local count as it creates or removes entities in the transaction.
+func (t *Tx) EntityCount(id string) (int, error) {
+	var n int
+	err := t.sql.QueryRowContext(t.ctx, "SELECT count(*) FROM entities WHERE watch_id=?", id).Scan(&n)
+	return n, err
+}
+
 func (t *Tx) Entities(id string) (map[string]json.RawMessage, error) {
 	rows, err := t.sql.QueryContext(t.ctx, "SELECT entity_key,state FROM entities WHERE watch_id=? ORDER BY entity_key", id)
 	if err != nil {
