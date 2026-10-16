@@ -10,10 +10,10 @@ RUN CGO_ENABLED=0 go build -o /ding-local-load ./cmd/ding-local-load
 # Pin the previous measured source by revision AND content digest.
 FROM build AS baseline
 WORKDIR /baseline
-ADD --checksum=sha256:ddb566285602bf84ed4cd962ba96c0ed49ff1252082c858da59e22a072d3f242 https://codeload.github.com/ding-labs/ding/tar.gz/db0594d7d8d8796e3e9b1ac698d5085d4bfed6a1 /baseline-source.tar.gz
+ADD --checksum=sha256:b8db1c1394cec70208af338ed27bcfa27392ee2df9eda58b37322de1dd78ad8c https://codeload.github.com/ding-labs/ding/tar.gz/26bb27dcb96471f1f1d2ecf4b8dfb2b0ce866cb4 /baseline-source.tar.gz
 RUN tar -xzf /baseline-source.tar.gz --strip-components=1 -C /baseline \
     && CGO_ENABLED=0 go test -c -o /baseline.test ./internal/cloud \
-    && printf '%s' db0594d7d8d8796e3e9b1ac698d5085d4bfed6a1 > /baseline-revision
+    && printf '%s' 26bb27dcb96471f1f1d2ecf4b8dfb2b0ce866cb4 > /baseline-revision
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-psycopg postgresql-client openssl ca-certificates && rm -rf /var/lib/apt/lists/*
