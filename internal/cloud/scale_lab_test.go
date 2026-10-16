@@ -3,6 +3,7 @@ package cloud
 import (
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -51,7 +52,7 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 		f := pgtest.New(t)
 		f.SetAppEnvironment(t, "DING_SCALE_DATABASE_APP")
 		f.SetMigrationEnvironment(t, "DING_SCALE_DATABASE_MIGRATION")
-		dbConfig = database.Config{Backend: "postgres", DSNRef: &database.SecretRef{Env: "DING_SCALE_DATABASE_APP"}, MaxOpenConns: c.PoolLimit}
+		dbConfig = database.Config{Backend: "postgres", DSNRef: &database.SecretRef{Env: "DING_SCALE_DATABASE_APP"}, MaxOpenConns: c.PoolLimit, QueryMode: c.QueryMode}
 		if err := MigrateDatabase(ctx, Config{DataDir: root, Database: dbConfig}, "DING_SCALE_DATABASE_MIGRATION"); err != nil {
 			t.Fatal(err)
 		}
@@ -143,7 +144,18 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 		r.Host = "ding.example"
 		h.ServeHTTP(w, r)
 	}))
-	if os.Getenv("DING_SCALE_EXTERNAL") == "container" {
+	privateHost := os.Getenv("DING_SCALE_PRIVATE_HOST")
+	if privateHost != "" {
+		if !strings.HasSuffix(privateHost, ".railway.internal") || os.Getenv("DING_TEST_RAILWAY_PROJECT") == "" || os.Getenv("DING_TEST_RAILWAY_PROJECT") != os.Getenv("RAILWAY_PROJECT_ID") {
+			t.Fatal("private scale fixture requires matching Railway project authorization")
+		}
+		certificate, err := tls.LoadX509KeyPair(os.Getenv("DING_SCALE_TLS_CERT"), os.Getenv("DING_SCALE_TLS_KEY"))
+		if err != nil {
+			t.Fatal("load scale fixture TLS certificate")
+		}
+		server.TLS = &tls.Config{Certificates: []tls.Certificate{certificate}, MinVersion: tls.VersionTLS12}
+	}
+	if os.Getenv("DING_SCALE_EXTERNAL") == "container" || privateHost != "" {
 		server.Listener.Close()
 		server.Listener, err = net.Listen("tcp", ":8443")
 		if err != nil {
@@ -151,6 +163,9 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 		}
 	}
 	server.StartTLS()
+	if privateHost != "" {
+		server.URL = "https://" + privateHost + ":8443"
+	}
 	if os.Getenv("DING_SCALE_EXTERNAL") == "container" {
 		server.URL = "https://127.0.0.1:8443"
 	}
@@ -165,12 +180,13 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 		t.Fatal(err)
 	}
 	for i := range c.Workspaces {
-		enrolled, err := db.Enroll(ctx, "local-scale", fmt.Sprintf("user-%d", i), MaxAccounts)
+		// Lab-only capacity expansion; the production account policy is unchanged.
+		enrolled, err := db.Enroll(ctx, "local-scale", fmt.Sprintf("user-%d", i), max(MaxAccounts, c.Workspaces))
 		if err != nil {
 			t.Fatal(err)
 		}
 		if lab.receiver != nil {
-			if err := vault.Put(ctx, enrolled.Workspace.ID, "SCALE_WEBHOOK", lab.receiver.endpoint); err != nil {
+			if err := vault.Put(ctx, enrolled.Workspace.ID, "SCALE_WEBHOOK", lab.receiver.endpoint+"/workspace/"+enrolled.Workspace.ID); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -199,8 +215,13 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 		env := fmt.Sprintf("DING_LOCAL_SCALE_%d", i)
 		t.Setenv(env, grant.Token)
 		for _, watchID := range c.watchIDs() {
-			for _, body := range bodies {
-				lab.producers = append(lab.producers, PushProducer{URL: server.URL + "/v1/ingest/" + watchID, TokenEnv: env, Body: body})
+			for index, body := range bodies {
+				producer := PushProducer{URL: server.URL + "/v1/ingest/" + watchID, TokenEnv: env, Body: body}
+				if c.PayloadMix {
+					producer.Weight = []int{16, 3, 1}[index]
+					producer.Label = []string{"webhook10k", "batch18_100k", "batch100_600k"}[index]
+				}
+				lab.producers = append(lab.producers, producer)
 			}
 		}
 		lab.tenants = append(lab.tenants, tenant)
@@ -214,6 +235,14 @@ func newScaleLab(t *testing.T, c scaleConfig) *scaleLab {
 // Configure limits before workers start; changing App.Limits on a running
 // production Pool tenant would race with retention and acquisition workers.
 func scaleTenant(pool *Pool, w state.Workspace, defaults bool, deliveryWorkers ...int) (*Tenant, error) {
+	tenant, err := prepareScaleTenant(pool, w, defaults, deliveryWorkers...)
+	if err == nil {
+		startScaleTenant(tenant)
+	}
+	return tenant, err
+}
+
+func prepareScaleTenant(pool *Pool, w state.Workspace, defaults bool, deliveryWorkers ...int) (*Tenant, error) {
 	db, err := pool.workspaceStorage().Open(pool.ctx, w.ID)
 	if err != nil {
 		return nil, err
@@ -241,8 +270,15 @@ func scaleTenant(pool *Pool, w state.Workspace, defaults bool, deliveryWorkers .
 	pool.mu.Lock()
 	pool.tenants[w.ID] = tenant
 	pool.mu.Unlock()
-	go func() { tenant.err = app.Run(run); tenant.failed.Store(true); close(tenant.done) }()
 	return tenant, nil
+}
+
+func startScaleTenant(tenant *Tenant) {
+	go func() {
+		tenant.err = tenant.App.Run(tenant.ctx)
+		tenant.failed.Store(true)
+		close(tenant.done)
+	}()
 }
 
 func TestScaleLabUsesIsolatedHostedPath(t *testing.T) {

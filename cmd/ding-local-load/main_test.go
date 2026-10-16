@@ -26,3 +26,15 @@ func TestPublishedOriginPreservesProducerWatch(t *testing.T) {
 		}
 	}
 }
+
+func TestPrivateFixtureIsExplicitAndPreservesWatch(t *testing.T) {
+	host := "ding-scale-app.railway.internal"
+	origin := "https://" + host + ":8443"
+	if localURL(origin) || !fixtureURL(origin, host) || fixtureURL("https://other.railway.internal:8443", host) {
+		t.Fatal("private target scope")
+	}
+	got, err := rebaseFixtureProducer(origin, origin+"/v1/ingest/ci-2", host)
+	if err != nil || got != origin+"/v1/ingest/ci-2" {
+		t.Fatal(got, err)
+	}
+}

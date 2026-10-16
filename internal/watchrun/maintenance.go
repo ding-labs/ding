@@ -17,6 +17,11 @@ import (
 // Maintain uses short write batches. Persistent entity references are updated
 // with state, so ingestion can advance safely between every cleanup transaction.
 func (a *App) Maintain(ctx context.Context, now time.Time) error {
+	return a.maintain(ctx, now, nil)
+}
+
+func (a *App) maintain(ctx context.Context, now time.Time, schedule *scheduleCache) error {
+	ctx = runtimeperf.WithMaintenance(ctx)
 	defer runtimeperf.Since(a.Store.PerfBackend(), runtimeperf.Maintenance, time.Now())
 	const batch = 64
 	pass := rand.Text()
@@ -72,7 +77,16 @@ func (a *App) Maintain(ctx context.Context, now time.Time) error {
 		runtime.Gosched()
 	}
 	var records []store.WatchRecord
-	if err := a.Store.View(ctx, func(tx *store.Tx) error { var err error; records, err = tx.Watches(); return err }); err != nil {
+	if schedule != nil {
+		// Maintenance already needs the watch list. Refresh the shared durable
+		// snapshot here so scheduler and empty-delivery checks reuse this read.
+		schedule.invalidate()
+		state, err := schedule.load(ctx, a.Store, now)
+		if err != nil {
+			return err
+		}
+		records = state.Watches
+	} else if err := a.Store.View(ctx, func(tx *store.Tx) error { var err error; records, err = tx.Watches(); return err }); err != nil {
 		return err
 	}
 	for _, r := range records {

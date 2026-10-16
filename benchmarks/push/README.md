@@ -6,6 +6,15 @@ Every offered key is reconciled against durable receipts, usage, and observation
 rows after measurement. Capacity runs leave profiling off. Use `--profiles` for
 diagnostic runs; their profiles exclude setup, warmup, and reconciliation. Compare
 profiled results with unprofiled controls before making a capacity claim.
+With PostgreSQL, `--profiles` also enables `pg_stat_statements` in the disposable
+fixture. Resource snapshots contain cumulative app-role planning/execution, block
+and WAL counters grouped by bounded operation names; subtract snapshots for a
+measurement interval. SQL text, parameters and credential roles are not exported.
+This profiling overhead is excluded from ordinary capacity runs.
+Use the report's `StartedAt`/`EndedAt` and each database counter's timestamp to
+select the measured interval: launcher samples also cover setup and reconciliation.
+`databaseEnd` is after fixture teardown, so a dropped test database can reduce its
+database-wide totals; it is not a final retained-storage measurement.
 
 ## Run cases
 
@@ -31,6 +40,13 @@ SQLite receives the whole budget. PostgreSQL splits it equally between the Go ap
 and database, with a shared query pool selected by `--pool-limit`. Use
 `--resource-units 2` or `4` for separately labelled expanded-budget comparisons;
 `--credential-readers 1/2/4/8` sweeps the SQLite control read pool.
+
+The fixed-arrival driver persists a compact plan of every possible request key
+before starting the measurement clock (at most one million arrivals per run).
+Responses use a bounded 4,096-entry background journal that must flush successfully
+before the run completes. A crash can lose response records, but every planned key
+can still be resolved against durable receipts. Journal backpressure still counts
+as generator lateness; slow storage is never hidden or treated as a passing run.
 
 The producer is always a separate process. `--generator-placement container`
 uses a separate Linux container limited to 2 CPU/512 MiB, outside the server
@@ -62,7 +78,98 @@ Ordinary Go test failures close the active workers/stores before moving fixture
 state outside testing's cleanup directory. Native failures keep it in the case's
 `failed-state` directory; container archives include the preserved directory.
 
+`business-mixed` and `business-mixed100` use a declared synthetic mix across
+10/100 workspaces: 80% 10 KB/one-output webhooks, 15% 100 KB/18-output batches,
+and 5% 600 KB/100-output batches. Bodies include nested workflow/job metadata and
+deterministic high-entropy padding; padding is parsed but not retained. This is a
+representative shape test, not a captured customer trace. Payload weights are
+explicit, and the report records per-class accepted counts, bytes, observation
+counts and p99. Each 20 arrivals represents 1.06 MB and 170 observations. Reads
+and graceful restart reconciliation are enabled. Run retained-padding, alert
+and HTTP-polling scenarios separately before claiming a complete business mix.
+The default weighted cycle groups arrivals into short producer/workspace blocks.
+For an interleaved Railway control, pass `--seed 42` to `railway_collect.py` (or
+`railway_run.py` inside the generator). The seed shuffles the complete weighted
+cycle reproducibly, preserving its exact counts and every planned receipt key.
+Keep burst and interleaved results separate; they have different queueing behavior.
+
 ## Interpret evidence
+
+### Railway private-network lab
+
+`Railway.Dockerfile` builds the same Go test server and load driver into an
+isolated image. Deploy separate app (`railway_app.py`) and generator
+(`railway_run.py`, with no arguments) services beside a dedicated PostgreSQL
+service. Pin both source deployments to the same commit. No public domain or
+database proxy is required. Business logic remains in Go; Python starts cases
+and collects evidence. This is the real ingestion handler and storage stack in
+a test process, with expanded lab admission limits, rather than a complete
+production deployment or a default-policy capacity claim.
+
+Both services require a shared private `DING_LAB_CONTROL` secret and
+`DING_TEST_RAILWAY_PROJECT` equal to Railway's injected `RAILWAY_PROJECT_ID`.
+Set `DING_SCALE_PRIVATE_HOST=ding-scale-app.railway.internal`. The app additionally
+requires `PGADMIN_URL` referencing the dedicated Postgres service,
+`DING_LAB_PG_CA` containing its issuing CA certificate, and `DING_SCALE_TLS_CERT` /
+`DING_SCALE_TLS_KEY` under `/data/ding-lab`. PostgreSQL uses verified TLS with
+fsync, synchronous commits and full-page writes enabled. The launcher creates
+only random `dingtest_*` databases and verifies ownership of its two test roles;
+successful fixtures drop their database, while failures retain evidence for
+inspection. Never use this launcher against the production soak database.
+
+From SSH on the generator, run one case at a time:
+
+```sh
+python3 /opt/lab/railway_run.py --case generator-mixed --rate 100 --seconds 30
+python3 /opt/lab/railway_run.py --case business-mixed --rate 25 --seconds 180 --pool 4
+```
+
+Copy private run artifacts before redeploying either ephemeral service. Record
+actual cgroup limits, pinned revision, database settings and resource samples
+for every case. Resource observations include setup and reconciliation; select
+only the report's measurement timestamps when calculating CPU and I/O rates.
+The collector records a 100-query database RTT baseline and app deployment ID
+before each case. Keep deployments fixed during resource comparisons: a
+redeploy can change network placement within the same Railway region. Do not
+attribute a cross-deployment latency change to CPU alone.
+For the write-batching comparison, the image also contains the measured
+`db0594d` baseline, downloaded with a pinned SHA-256 and compiled using the same
+Go toolchain as the candidate. Pass `--variant before` or `--variant after`
+(default) to the collector. Alternate versions without redeploying. Every
+result records the selected binary's revision, SHA-256 and deployment ID.
+Pass `--backend sqlite` for embedded-database controls on the same app placement;
+the default remains `postgres` for this Railway lab. Ding itself still defaults
+to SQLite. Use a unique result label for each case/version/repeat.
+
+Calibrate the generator at or above each intended rate before accepting a
+capacity result. Railway qualification requires every planned first attempt
+accepted, scheduling p99 at most 20 ms and acceptance p99 below 250 ms, plus
+reconciliation, reads, restart and resource-observation gates.
+
+Start with Ding at 2 CPU/2 GB and PostgreSQL at 2 CPU/4 GB. Independently test
+PostgreSQL at 4 CPU/8 GB, holding Ding fixed; then Ding at 4 CPU/4 GB, holding
+PostgreSQL fixed. Increase beyond four CPUs only when measured saturation
+justifies it. Omit one-CPU runs. Test the best combined configuration
+and repeat a previous size as a control. Report throughput per allocated CPU and
+memory as well as absolute throughput. Keep database settings constant for the
+resource-only comparison; label any tuning separately. Connection-pool sweeps
+(2/4/8/16/32) are separate experiments, not silent changes between sizes. Pass
+`--workspaces 100` to compare the same payload across a larger tenant cohort.
+
+Alert fixtures use separate receiver paths for each workspace, because event
+IDs are workspace-scoped. Both request and receiver journals are exported.
+The synthetic receiver bypasses the production destination-host rate limiter
+before and after restart; this tests expanded lab capacity, not default policy.
+Restart row comparisons happen while workers are stopped on both sides, followed
+by resumed delivery and receipt checks.
+
+Screen rates briefly, repeat promising boundaries three times for 180 seconds,
+then sustain an operating rate with headroom for 30 minutes. Include 10/100
+workspace mixes, retained high-entropy JSON and alert delivery controls. This
+does not establish multi-server failover, physical crash recovery or arbitrary
+customer workload capacity. Export evidence, remove only owned fixture
+databases/roles and temporary services, and restore the dedicated database's
+prior resource allocation when the matrix ends. Preserve its existing volume.
 
 Private evidence defaults to `~/.config/ding-cloud/local-scale/runs/`. Each run
 records its revision, executable hash, settings, execution status, resource

@@ -17,6 +17,7 @@ type Config struct {
 	Backend      string     `json:"backend,omitempty"`
 	DSNRef       *SecretRef `json:"dsnRef,omitempty"`
 	MaxOpenConns int        `json:"maxOpenConns,omitempty"`
+	QueryMode    string     `json:"queryMode,omitempty"`
 }
 
 var environmentName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
@@ -28,6 +29,9 @@ func (c Config) Effective() Config {
 	if c.Backend == "postgres" && c.MaxOpenConns == 0 {
 		c.MaxOpenConns = 8
 	}
+	if c.Backend == "postgres" && c.QueryMode == "" {
+		c.QueryMode = "exec"
+	}
 	return c
 }
 
@@ -35,8 +39,8 @@ func (c Config) Validate() error {
 	c = c.Effective()
 	switch c.Backend {
 	case "sqlite":
-		if c.DSNRef != nil || c.MaxOpenConns != 0 {
-			return fmt.Errorf("SQLite does not accept dsnRef or maxOpenConns")
+		if c.DSNRef != nil || c.MaxOpenConns != 0 || c.QueryMode != "" {
+			return fmt.Errorf("SQLite does not accept PostgreSQL connection options")
 		}
 	case "postgres":
 		if c.DSNRef == nil || !environmentName.MatchString(c.DSNRef.Env) {
@@ -44,6 +48,9 @@ func (c Config) Validate() error {
 		}
 		if c.MaxOpenConns < 1 || c.MaxOpenConns > 64 {
 			return fmt.Errorf("PostgreSQL maxOpenConns must be between 1 and 64")
+		}
+		if c.QueryMode != "exec" && c.QueryMode != "cache_statement" {
+			return fmt.Errorf("PostgreSQL queryMode must be exec or cache_statement")
 		}
 	default:
 		return fmt.Errorf("database backend must be sqlite or postgres")

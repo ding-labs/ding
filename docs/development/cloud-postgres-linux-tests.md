@@ -77,6 +77,11 @@ must always be reported together.
   latency/throughput or idle CPU/RSS; document variance and any accepted tradeoff.
 - **Screens:** 30-second rate ramps locate the limit. A saturated generator, missing
   resource samples or unexpected host contention makes a run inconclusive. Exclude
+  a fixed-arrival run when generator scheduling p99 exceeds 20 ms (8% of the
+  acknowledgement SLO); record host CPU steal/I/O wait and generator throttling
+  to distinguish noisy runners from application limits. Preserve those results
+  as diagnostics rather than interpreting them as a clean capacity comparison.
+  Exclude
   profiling from capacity runs. Alternate baseline/candidate order where practical.
 - **Qualification:** three 180-second repeats at the candidate boundary, then
   30-minute hot-workspace and many-workspace cases at qualified rates. Include a

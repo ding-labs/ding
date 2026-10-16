@@ -125,7 +125,7 @@ func TestAtomicAcceptanceDedupAndRestart(t *testing.T) {
 	if err := a.Store.Close(); err != nil {
 		t.Fatal(err)
 	}
-	s, err := store.Open(ctx, dir)
+	s, err := reopenTestStore(ctx, dir)
 	if err != nil {
 		t.Fatal(err)
 	}

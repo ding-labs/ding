@@ -28,9 +28,15 @@ func OpenPostgres(ctx context.Context, c Config, lookup func(string) (string, bo
 	if err != nil {
 		return nil, err
 	}
+	if c.Effective().QueryMode == "cache_statement" {
+		cfg.DefaultQueryExecMode = pgx.QueryExecModeCacheStatement
+		cfg.StatementCacheCapacity = 512
+	}
 	db := stdlib.OpenDB(*cfg)
 	db.SetMaxOpenConns(c.Effective().MaxOpenConns)
-	db.SetMaxIdleConns(min(2, c.Effective().MaxOpenConns))
+	// Keep the bounded pool reusable between worker bursts. Closing all but two
+	// connections created repeated authentication handshakes at modest load.
+	db.SetMaxIdleConns(c.Effective().MaxOpenConns)
 	db.SetConnMaxIdleTime(time.Minute)
 	db.SetConnMaxLifetime(5 * time.Minute)
 	probe, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -64,6 +70,7 @@ func postgresConfig(dsn string) (*pgx.ConnConfig, error) {
 	// Extended protocol without a session statement cache also works through
 	// transaction poolers. Workspace scope is always transaction-local.
 	cfg.DefaultQueryExecMode = pgx.QueryExecModeExec
+	cfg.Tracer = queryTrace{}
 	cfg.RuntimeParams["application_name"] = "ding"
 	cfg.RuntimeParams["statement_timeout"] = "30000"
 	cfg.RuntimeParams["lock_timeout"] = "5000"

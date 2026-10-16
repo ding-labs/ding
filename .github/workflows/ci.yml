@@ -43,6 +43,11 @@ jobs:
         env:
           DING_TEST_POSTGRES_FILE: ${{ runner.temp }}/ding-postgres/connections.json
         run: go test -race -count=1 ./internal/database ./internal/store ./internal/serverstate ./internal/cloud ./internal/watchcli
+      - name: PostgreSQL buffered acceptance contracts
+        env:
+          DING_TEST_POSTGRES_FILE: ${{ runner.temp }}/ding-postgres/connections.json
+          DING_TEST_BACKEND: postgres
+        run: go test -race -count=1 ./internal/watchrun -run 'TestAcceptanceEntities|TestTargetedAcceptance|TestAtomicAcceptance|TestPostgres|TestThousandPush|TestPushReceipt'
       - name: Stop owned PostgreSQL fixture
         if: always()
         run: python3 benchmarks/push/postgres.py stop --root "$RUNNER_TEMP/ding-postgres"

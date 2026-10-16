@@ -79,6 +79,11 @@ func TestEntityReferencesCommitRollbackAndDelete(t *testing.T) {
 			delete(want, entityPin{"input", "4"})
 			want[entityPin{"input", "5"}] = true
 			assert(want)
+			if backend == "postgres" {
+				if err := s.View(ctx, func(tx *Tx) error { checkPostgresLogicalBytes(t, tx); return nil }); err != nil {
+					t.Fatal(err)
+				}
+			}
 			if err := s.Update(ctx, func(tx *Tx) error { return tx.DeleteEntity("health", "[]") }); err != nil {
 				t.Fatal(err)
 			}

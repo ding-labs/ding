@@ -10,7 +10,7 @@ import (
 	"github.com/ding-labs/ding/internal/database"
 )
 
-func postgresTestPool(t *testing.T, role string) *sql.DB {
+func postgresTestPool(t *testing.T, role string, modes ...string) *sql.DB {
 	t.Helper()
 	file := os.Getenv("DING_TEST_POSTGRES_FILE")
 	if file == "" {
@@ -24,7 +24,11 @@ func postgresTestPool(t *testing.T, role string) *sql.DB {
 	if json.Unmarshal(b, &values) != nil || values[role] == "" {
 		t.Fatal("invalid PostgreSQL fixture")
 	}
-	db, err := database.OpenPostgres(context.Background(), database.Config{Backend: "postgres", DSNRef: &database.SecretRef{Env: "FIXTURE"}, MaxOpenConns: 1}, func(string) (string, bool) { return values[role], true })
+	mode := "exec"
+	if len(modes) > 0 {
+		mode = modes[0]
+	}
+	db, err := database.OpenPostgres(context.Background(), database.Config{Backend: "postgres", DSNRef: &database.SecretRef{Env: "FIXTURE"}, MaxOpenConns: 1, QueryMode: mode}, func(string) (string, bool) { return values[role], true })
 	if err != nil {
 		t.Fatal(err)
 	}

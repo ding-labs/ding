@@ -29,7 +29,7 @@ func scaleReceiverEvidence(t *testing.T, lab *scaleLab, out string) (scaleReceiv
 					return err
 				}
 				for _, delivery := range page.Deliveries {
-					delivered[delivery.EventID] = true
+					delivered[scaleReceiverKey(tenant.Workspace.ID, delivery.EventID)] = true
 				}
 				if !page.More {
 					break
@@ -45,11 +45,7 @@ func scaleReceiverEvidence(t *testing.T, lab *scaleLab, out string) (scaleReceiv
 	ledgerIDs := map[string]bool{}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	for {
-		var record struct {
-			Data struct {
-				ID string `json:"id"`
-			} `json:"data"`
-		}
+		var record scaleReceiverRecord
 		err := decoder.Decode(&record)
 		if err == io.EOF {
 			break
@@ -57,7 +53,10 @@ func scaleReceiverEvidence(t *testing.T, lab *scaleLab, out string) (scaleReceiv
 		if err != nil {
 			t.Fatal("invalid receiver ledger", err)
 		}
-		ledgerIDs[record.Data.ID] = true
+		if !accountID.MatchString(record.Workspace) {
+			t.Fatal("receiver ledger lacks workspace identity")
+		}
+		ledgerIDs[scaleReceiverKey(record.Workspace, record.Data.ID)] = true
 	}
 	problems := []string{}
 	for id := range delivered {
@@ -88,6 +87,37 @@ func scaleReceiverEvidence(t *testing.T, lab *scaleLab, out string) (scaleReceiv
 		t.Fatal(closed)
 	}
 	return state, problems
+}
+
+func TestScaleReceiverEvidenceSeparatesWorkspaceEvents(t *testing.T) {
+	c := scaleConfig{Name: "receiver-workspaces", Rate: 1, Seconds: 1, Workspaces: 2, Condition: "alerts", Receiver: "fast"}
+	if err := c.validate(); err != nil {
+		t.Fatal(err)
+	}
+	lab := newScaleLab(t, c)
+	for _, producer := range lab.producers {
+		if status, _ := scaleSend(t, lab, producer, "same-key", producer.Body); status != 202 {
+			t.Fatal("fixture acceptance", status)
+		}
+	}
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		pending := 0
+		for _, account := range scaleAccounts(t, lab) {
+			pending += account.Rows.Pending
+		}
+		if pending == 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("fixture deliveries did not finish")
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	receiver, problems := scaleReceiverEvidence(t, lab, t.TempDir())
+	if len(problems) != 0 || len(receiver.IDs) != 2 {
+		t.Fatal("separate workspace events were conflated", problems, len(receiver.IDs))
+	}
 }
 
 func TestScaleReceiverEvidenceIncludesAllDeliveryPages(t *testing.T) {

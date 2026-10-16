@@ -12,10 +12,12 @@ import (
 type scaleConfig struct {
 	Name                                                           string
 	Backend                                                        string
+	QueryMode                                                      string
 	PoolLimit, CredentialReaders                                   int
 	Watches, DeliveryWorkers                                       int
 	ReceiverProcess                                                bool
 	EntropyPadding, Nested                                         bool
+	PayloadMix                                                     bool
 	Rate, Seconds, Workers, Workspaces, Outputs, Groups, BodyBytes int
 	Condition                                                      string // simple, window, or alerts
 	RetainPadding, Defaults, Reads, Restart, Noop, Profiles        bool
@@ -37,13 +39,16 @@ func (c *scaleConfig) validate() error {
 	if c.Backend == "" {
 		c.Backend = "sqlite"
 	}
+	if c.QueryMode != "" && c.QueryMode != "exec" && c.QueryMode != "cache_statement" {
+		return fmt.Errorf("invalid scale query mode")
+	}
 	if c.PoolLimit == 0 {
 		c.PoolLimit = 8
 	}
 	if c.CredentialReaders == 0 {
 		c.CredentialReaders = 4
 	}
-	if (c.Backend != "sqlite" && c.Backend != "postgres") || c.PoolLimit < 1 || c.PoolLimit > 16 || c.CredentialReaders < 1 || c.CredentialReaders > 8 {
+	if (c.Backend != "sqlite" && c.Backend != "postgres") || c.PoolLimit < 1 || c.PoolLimit > 32 || c.CredentialReaders < 1 || c.CredentialReaders > 8 {
 		return fmt.Errorf("invalid scale backend or pool bounds")
 	}
 	if c.Workers == 0 {
@@ -57,11 +62,14 @@ func (c *scaleConfig) validate() error {
 	}
 	if c.Groups == 0 {
 		c.Groups = c.Outputs
+		if c.PayloadMix {
+			c.Groups = 100
+		}
 	}
 	if c.Condition == "" {
 		c.Condition = "simple"
 	}
-	if c.Name == "" || c.Rate < 1 || c.Rate > 100000 || c.Seconds < 1 || c.Seconds > 3600 || c.Workers < 1 || c.Workers > 1024 || c.Workspaces < 1 || c.Workspaces > 100 || c.Outputs < 1 || c.Outputs > 100 || c.Groups < c.Outputs || c.Groups > 10000 || c.BodyBytes < 0 || c.BodyBytes > 1<<20 || c.Preload < 0 || c.Preload > 500000 || c.Noisy < 0 || c.Noisy > 99 {
+	if c.Name == "" || c.Rate < 1 || c.Rate > 100000 || c.Seconds < 1 || c.Seconds > 3600 || c.Workers < 1 || c.Workers > 1024 || c.Workspaces < 1 || c.Workspaces > 1000 || c.Outputs < 1 || c.Outputs > 100 || c.Groups < c.Outputs || c.Groups > 10000 || c.BodyBytes < 0 || c.BodyBytes > 1<<20 || c.Preload < 0 || c.Preload > 500000 || c.Noisy < 0 || c.Noisy > 99 {
 		return fmt.Errorf("invalid scale configuration")
 	}
 	if c.Condition != "simple" && c.Condition != "window" && c.Condition != "alerts" {
@@ -96,6 +104,21 @@ func (c scaleConfig) manifest() string {
 // Variants rotate through the whole group set. Each body stays immutable in a
 // producer fixture, so retries use exactly the originally offered bytes.
 func (c scaleConfig) bodies() ([]json.RawMessage, error) {
+	if c.PayloadMix {
+		var bodies []json.RawMessage
+		for _, shape := range []struct{ bytes, outputs int }{{10000, 1}, {100000, 18}, {600000, 100}} {
+			part := c
+			part.PayloadMix = false
+			part.BodyBytes, part.Outputs, part.Groups = shape.bytes, shape.outputs, shape.outputs
+			part.Nested, part.EntropyPadding = true, true
+			variants, err := part.bodies()
+			if err != nil {
+				return nil, err
+			}
+			bodies = append(bodies, variants[0])
+		}
+		return bodies, nil
+	}
 	n := (c.Groups + c.Outputs - 1) / c.Outputs
 	out := make([]json.RawMessage, n)
 	for variant := range n {
@@ -141,6 +164,32 @@ func (c scaleConfig) bodies() ([]json.RawMessage, error) {
 		out[variant], _ = json.Marshal(body)
 	}
 	return out, nil
+}
+
+func scaleProducerOutputs(p PushProducer) int {
+	var body struct {
+		Events []json.RawMessage `json:"events"`
+	}
+	if json.Unmarshal(p.Body, &body) != nil {
+		return 0
+	}
+	return len(body.Events)
+}
+
+func TestScaleMixedPayloadShapes(t *testing.T) {
+	c := scaleConfig{Name: "mix", Rate: 20, Seconds: 1, PayloadMix: true}
+	if err := c.validate(); err != nil {
+		t.Fatal(err)
+	}
+	bodies, err := c.bodies()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, shape := range []struct{ bytes, outputs int }{{10000, 1}, {100000, 18}, {600000, 100}} {
+		if len(bodies[i]) != shape.bytes || scaleProducerOutputs(PushProducer{Body: bodies[i]}) != shape.outputs {
+			t.Fatal("wrong mixed shape", i)
+		}
+	}
 }
 
 func TestScaleFixtureSizesAndGroups(t *testing.T) {

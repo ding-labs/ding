@@ -1,0 +1,56 @@
+name: Linux idle workers
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/cloud-postgres-single]
+    paths: [.github/workflows/linux-idle.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-idle-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  idle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [sqlite, postgres]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Start owned database
+        if: matrix.backend == 'postgres'
+        env:
+          DING_PG_CPUS: '1'
+          DING_PG_MEMORY: 2g
+        run: python3 benchmarks/push/postgres.py start --root "$RUNNER_TEMP/idle-postgres"
+      - name: Count native Linux idle transactions
+        env:
+          DING_TEST_POSTGRES_FILE: ${{ runner.temp }}/idle-postgres/connections.json
+          DING_IDLE_BACKEND: ${{ matrix.backend }}
+          DING_IDLE_OUTPUT: ${{ runner.temp }}/idle-evidence
+          GOMAXPROCS: '1'
+          GOMEMLIMIT: 900MiB
+        run: |
+          mkdir -p "$DING_IDLE_OUTPUT"
+          uname -a > "$DING_IDLE_OUTPUT/host.txt"
+          lscpu >> "$DING_IDLE_OUTPUT/host.txt"
+          git rev-parse HEAD > "$DING_IDLE_OUTPUT/revision.txt"
+          go test -v ./internal/cloud -run '^TestLocalIdleScale$' -count=1 -timeout=25m | tee "$DING_IDLE_OUTPUT/run.log"
+      - name: Remove owned database and credentials
+        if: always() && matrix.backend == 'postgres'
+        run: python3 benchmarks/push/postgres.py destroy --root "$RUNNER_TEMP/idle-postgres" --discard-data
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-idle-${{ matrix.backend }}
+          path: ${{ runner.temp }}/idle-evidence/
+          retention-days: 14

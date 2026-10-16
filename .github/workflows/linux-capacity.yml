@@ -1,0 +1,148 @@
+name: Linux capacity
+run-name: Linux ${{ inputs.backend }} · ${{ inputs.profile }} · ${{ inputs.rate }}/s for ${{ inputs.seconds }}s · ${{ inputs.cases }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      cases:
+        description: Comma-separated names from benchmarks/push/cases.json
+        default: one-100,hundred-1000
+        type: string
+      backend:
+        description: Storage backend to qualify
+        default: both
+        type: choice
+        options: [both, sqlite, postgres]
+      rate:
+        description: Offered pushes per second (all cases)
+        default: '25'
+        type: string
+      seconds:
+        description: Measured seconds per case
+        default: '30'
+        type: string
+      repeat:
+        description: Repeats per case
+        default: '1'
+        type: string
+      pool:
+        description: PostgreSQL query connections
+        default: '4'
+        type: choice
+        options: ['2', '4', '8', '16', all]
+      query_mode:
+        description: PostgreSQL execution mode
+        default: exec
+        type: choice
+        options: [exec, cache_statement]
+      profile:
+        description: Independent app and database sizing
+        default: initial
+        type: choice
+        options: [initial, more_app, more_database, larger_pair, sqlite_matched, database_control]
+      profiles:
+        description: Diagnostic profiling only (excluded from capacity qualification)
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+# Each dispatch owns a separate VM and randomly named fixtures. Do not serialize
+# independent experiments: GitHub concurrency groups discard older pending runs.
+
+jobs:
+  single-server:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: ${{ fromJSON(inputs.backend == 'postgres' && '["postgres"]' || inputs.backend == 'sqlite' && '["sqlite"]' || '["sqlite","postgres"]') }}
+        pool: ${{ fromJSON(inputs.pool == 'all' && '["2","4","8","16"]' || format('["{0}"]', inputs.pool || '4')) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Record Linux host
+        run: |
+          mkdir -p "$RUNNER_TEMP/capacity"
+          uname -a > "$RUNNER_TEMP/capacity/host.txt"
+          lscpu >> "$RUNNER_TEMP/capacity/host.txt"
+          free -b >> "$RUNNER_TEMP/capacity/host.txt"
+          df -T >> "$RUNNER_TEMP/capacity/host.txt"
+          docker info >> "$RUNNER_TEMP/capacity/host.txt"
+      - name: Screen one Go server on Linux
+        env:
+          BACKEND: ${{ matrix.backend }}
+          CASES: ${{ inputs.cases || 'one-100,hundred-1000' }}
+          RATE: ${{ inputs.rate || '25' }}
+          MEASURE_SECONDS: ${{ inputs.seconds || '30' }}
+          REPEATS: ${{ inputs.repeat || '1' }}
+          POOL: ${{ matrix.pool }}
+          QUERY_MODE: ${{ inputs.query_mode || 'exec' }}
+          PROFILE: ${{ inputs.profile || 'initial' }}
+          PROFILES: ${{ inputs.profiles || 'false' }}
+        run: |
+          profiles=("$PROFILE")
+          if [ "$PROFILE" = database_control ]; then
+            # A/B/A on one VM distinguishes database sizing from runner speed.
+            profiles=(initial more_database initial)
+          fi
+          for allocation in "${profiles[@]}"; do
+          app_cpus=1; app_memory=1024
+          db_cpus=1; db_memory=2048
+          case "$allocation" in
+            more_app) app_cpus=2; app_memory=2048 ;;
+            more_database) db_cpus=2; db_memory=4096 ;;
+            larger_pair) app_cpus=2; app_memory=2048; db_cpus=2; db_memory=4096 ;;
+            sqlite_matched) app_cpus=2; app_memory=3072 ;;
+          esac
+          extra=()
+          if [ "$BACKEND" = postgres ]; then
+            extra=(--database-cpus "$db_cpus" --database-memory-mib "$db_memory")
+          fi
+          if [ "$PROFILES" = true ]; then
+            extra+=(--profiles)
+          fi
+          python3 benchmarks/push/run.py --environment container --generator-placement container \
+            --backend "$BACKEND" --app-cpus "$app_cpus" --app-memory-mib "$app_memory" "${extra[@]}" \
+            --query-mode "$QUERY_MODE" --pool-limit "$POOL" --cases "$CASES" --rate "$RATE" --seconds "$MEASURE_SECONDS" --repeat "$REPEATS" \
+            --output "$RUNNER_TEMP/capacity/runs"
+          done
+      - name: Export public comparison
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'capacity'
+          out=[]
+          for path in root.glob('runs/*/summary.json'):
+              out.append({'run':path.parent.name,'summary':json.loads(path.read_text())})
+          (root/'summary.json').write_text(json.dumps(out,indent=2))
+          PY
+      - name: Remove owned database volumes and credentials
+        if: always()
+        run: |
+          for manifest in "$RUNNER_TEMP"/capacity/runs/*/postgres-lab/lab.json; do
+            [ -f "$manifest" ] || continue
+            python3 benchmarks/push/postgres.py destroy --root "$(dirname "$manifest")" --discard-data
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-capacity-${{ matrix.backend }}-pool${{ matrix.pool }}
+          path: |
+            ${{ runner.temp }}/capacity/host.txt
+            ${{ runner.temp }}/capacity/summary.json
+            ${{ runner.temp }}/capacity/runs/*/manifest.json
+            ${{ runner.temp }}/capacity/runs/*/run-state.json
+            ${{ runner.temp }}/capacity/runs/*/*/report.json
+            ${{ runner.temp }}/capacity/runs/*/*/execution.json
+            ${{ runner.temp }}/capacity/runs/*/*/requests.jsonl
+            ${{ runner.temp }}/capacity/runs/*/*/run.log
+            ${{ runner.temp }}/capacity/runs/*/*/generator.log
+            ${{ runner.temp }}/capacity/runs/*/*/*.pprof
+          retention-days: 14

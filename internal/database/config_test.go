@@ -27,6 +27,8 @@ func TestExplicitBackendSelection(t *testing.T) {
 func TestRejectInvalidDatabaseOptions(t *testing.T) {
 	for _, c := range []Config{
 		{Backend: "other"}, {Backend: "sqlite", MaxOpenConns: 8}, {DSNRef: &SecretRef{Env: "DING_DATABASE_URL"}},
+		{Backend: "sqlite", QueryMode: "exec"},
+		{Backend: "postgres", DSNRef: &SecretRef{Env: "DATABASE_URL"}, QueryMode: "simple_protocol"},
 		{Backend: "postgres"}, {Backend: "postgres", DSNRef: &SecretRef{Env: "bad-name"}},
 		{Backend: "postgres", DSNRef: &SecretRef{Env: "DATABASE_URL"}, MaxOpenConns: -1},
 		{Backend: "postgres", DSNRef: &SecretRef{Env: "DATABASE_URL"}, MaxOpenConns: 65},

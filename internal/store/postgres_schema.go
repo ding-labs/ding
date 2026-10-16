@@ -10,7 +10,7 @@ import (
 
 // PostgreSQL migrations have their own version stream. SQLite user_version and
 // existing on-disk migrations are independent.
-const PostgresSchemaVersion = 14
+const PostgresSchemaVersion = 16
 
 //go:embed postgres/001_records.sql
 var postgresRecordsSchema string
@@ -54,6 +54,14 @@ var postgresActiveDeliveryStreamsSchema string
 //go:embed postgres/014_stream_activity.sql
 var postgresStreamActivitySchema string
 
+//go:embed postgres/015_observation_accounting.sql
+var postgresObservationAccountingSchema string
+
+//go:embed postgres/016_entity_batch_accounting.sql
+var postgresEntityBatchAccountingSchema string
+
+var postgresMigrations = []string{postgresRecordsSchema, postgresStateSchema, postgresEventsSchema, postgresPushSchema, postgresIntegrationsSchema, postgresStorageSchema, postgresCanonicalAccountingSchema, postgresDeliveryStreamsSchema, postgresEntityPinsSchema, postgresRetentionIndexesSchema, postgresRetentionSweepIndexesSchema, postgresLogSweepIndexSchema, postgresActiveDeliveryStreamsSchema, postgresStreamActivitySchema, postgresObservationAccountingSchema, postgresEntityBatchAccountingSchema}
+
 func MigratePostgres(ctx context.Context, migrationDB *sql.DB, appRole string) error {
-	return database.Migrate(ctx, migrationDB, "runtime", []string{postgresRecordsSchema, postgresStateSchema, postgresEventsSchema, postgresPushSchema, postgresIntegrationsSchema, postgresStorageSchema, postgresCanonicalAccountingSchema, postgresDeliveryStreamsSchema, postgresEntityPinsSchema, postgresRetentionIndexesSchema, postgresRetentionSweepIndexesSchema, postgresLogSweepIndexSchema, postgresActiveDeliveryStreamsSchema, postgresStreamActivitySchema}, appRole)
+	return database.Migrate(ctx, migrationDB, "runtime", postgresMigrations, appRole)
 }

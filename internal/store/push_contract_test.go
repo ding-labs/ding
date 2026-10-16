@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -34,6 +35,9 @@ func pushContract(t *testing.T, tx *Tx) {
 	}
 	check := func(now time.Time, want int) {
 		t.Helper()
+		if tx.postgres {
+			checkPostgresLogicalBytes(t, tx)
+		}
 		if got, err := tx.PushReceiptCount(now); err != nil || got != want {
 			t.Fatalf("count=%d want=%d: %v", got, want, err)
 		}
@@ -62,6 +66,49 @@ func pushContract(t *testing.T, tx *Tx) {
 	}
 	if last, err := tx.LastPush(r.Lifetime, "health"); err != nil || last.AcceptanceID != "stable" {
 		t.Fatal("last receipt mismatch", err)
+	}
+}
+
+func TestPostgresPushCompletionRollsBackTogether(t *testing.T) {
+	s := openPostgresTestStore(t)
+	ctx := context.Background()
+	c, _ := fixture(t)
+	if err := s.Update(ctx, func(tx *Tx) error {
+		return tx.SaveWatch(WatchRecord{Plan: c, Generation: 1, Status: "running", NextAt: testNow}, testNow)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	abort := errors.New("abort after receipt")
+	var lifetime string
+	if err := s.Update(ctx, func(tx *Tx) error {
+		r, err := tx.Watch("health")
+		if err != nil {
+			return err
+		}
+		lifetime = r.Lifetime
+		receipt := PushReceipt{AcceptanceID: "rolled-back", WatchID: "health", AcceptedAt: testNow, ExpiresAt: testNow.Add(time.Hour)}
+		if err := tx.SavePushReceipt(lifetime, "producer", "key", "digest", receipt, 55, 1); err != nil {
+			return err
+		}
+		checkPostgresLogicalBytes(t, tx)
+		return abort
+	}); !errors.Is(err, abort) {
+		t.Fatal(err)
+	}
+	if err := s.View(ctx, func(tx *Tx) error {
+		if _, err := tx.PushReceipt(lifetime, "producer", "key", "digest", testNow); !errors.Is(err, ErrNotFound) {
+			t.Fatal("receipt survived rollback", err)
+		}
+		if _, err := tx.LastPush(lifetime, "health"); !errors.Is(err, ErrNotFound) {
+			t.Fatal("latest receipt survived rollback", err)
+		}
+		if usage, err := tx.PushUsage(); err != nil || usage != (PushUsage{}) {
+			t.Fatal("usage survived rollback", usage, err)
+		}
+		checkPostgresLogicalBytes(t, tx)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
 	}
 }
 

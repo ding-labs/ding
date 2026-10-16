@@ -121,23 +121,20 @@ func (o *Ownership) Fence(ctx context.Context, tx *sql.Tx, write bool) error {
 	if o.lost.Load() {
 		return ErrOwnershipLost
 	}
-	query := "SELECT pid,nonce FROM ding_meta.owner WHERE singleton=1"
+	query := `SELECT o.pid,o.nonce,EXISTS(
+ SELECT 1 FROM pg_locks WHERE locktype='advisory' AND classid=68247
+ AND objid=5319 AND objsubid=2 AND pid=o.pid AND granted)
+ FROM ding_meta.owner o WHERE singleton=1`
 	if write {
-		query += " FOR SHARE"
+		query += " FOR SHARE OF o"
 	}
 	var pid int
 	var nonce string
-	if err := tx.QueryRowContext(ctx, query).Scan(&pid, &nonce); err != nil {
+	var active bool
+	if err := tx.QueryRowContext(ctx, query).Scan(&pid, &nonce, &active); err != nil {
 		return SafeError("check ownership", err)
 	}
-	if pid != o.pid || nonce != o.nonce {
-		return ErrOwnershipLost
-	}
-	var active bool
-	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND classid=68247 AND objid=5319 AND objsubid=2 AND pid=$1 AND granted)`, o.pid).Scan(&active); err != nil {
-		return SafeError("check ownership session", err)
-	}
-	if !active {
+	if pid != o.pid || nonce != o.nonce || !active {
 		return ErrOwnershipLost
 	}
 	return nil

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -35,6 +36,28 @@ func scaleExternal(t *testing.T, lab *scaleLab, out string) (func(), func(contex
 			return
 		}
 		switch r.URL.Path {
+		case "/lab/ledger":
+			if os.Getenv("DING_SCALE_PRIVATE_HOST") == "" || r.Method != "PUT" {
+				w.WriteHeader(404)
+				return
+			}
+			path := filepath.Join(out, "requests.jsonl")
+			file, err := mcpconfig.CreatePrivate(path)
+			if err != nil {
+				w.WriteHeader(409)
+				return
+			}
+			_, err = io.Copy(file, http.MaxBytesReader(w, r.Body, 512<<20))
+			if err == nil {
+				err = file.Sync()
+			}
+			closeErr := file.Close()
+			if err != nil || closeErr != nil {
+				os.Remove(path)
+				w.WriteHeader(500)
+				return
+			}
+			w.WriteHeader(204)
 		case "/lab/start":
 			select {
 			case start <- struct{}{}:

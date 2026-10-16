@@ -46,6 +46,13 @@ func (t *Tx) syncEntityPins(id, key string, data []byte) error {
 	if err != nil {
 		return err
 	}
+	if t.postgres {
+		pins := make([]postgresEntityPin, 0, len(wanted))
+		for pin := range wanted {
+			pins = append(pins, postgresEntityPin{key, pin.kind, pin.value})
+		}
+		return t.syncPostgresEntityPins(id, []string{key}, pins)
+	}
 	rows, err := t.sql.QueryContext(t.ctx, t.query(qEntityPins), id, key)
 	if err != nil {
 		return err

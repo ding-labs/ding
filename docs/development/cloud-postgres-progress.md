@@ -1,0 +1,140 @@
+# Single-server PostgreSQL: Linux progress
+
+October 15, 2026. This is an **interim engineering result**, not a production
+capacity claim. SQLite remains the default. PostgreSQL still has one active
+execution owner; multi-server coordination and Cloud migration are separate gates.
+
+## What improved
+
+| Check | Earlier result | Current evidence |
+| --- | --- | --- |
+| 100 idle PostgreSQL workspaces | Repeated worker database reads | Zero runtime transactions in the latest 75-second window; maintenance about 4 transactions/s |
+| 1,000 idle PostgreSQL workspaces | 31 runtime transactions/s in the first cache implementation | Zero runtime transactions; maintenance about 40 transactions/s |
+| 100 workspaces, 25 small pushes/s | PostgreSQL p99 3,320 ms | Worker/query candidates: 25–113 ms across short runs |
+| Same 25 pushes/s, SQLite control | p99 7 ms | p99 7–8 ms |
+
+The idle result counts real SQL transactions. It does not mean the database does
+no work: minute maintenance is measured separately, and this idle diagnostic
+excludes SQL-backed metrics scraping. The current operator metrics endpoint still
+reads each workspace; reducing that collection cost remains follow-up work.
+The latency figures came from
+separate GitHub VMs, so they demonstrate progress without establishing a precise
+speedup multiplier. Small requests were **55 bytes with one observation**, not
+600 KB. Each 30-second, 25/s case offered 750 requests and reconciled its receipts.
+
+Changes include shared worker snapshots, avoiding empty delivery writes, fewer
+transaction setup queries, joined watch reads, batching observation inserts and
+accounting, and retaining the configured number of idle connections. Go still
+performs projection, evaluation, authorization and scheduling. Final byte quota
+checks now avoid counting unrelated watches/deliveries. SQLite keeps its page-based
+quota; PostgreSQL keeps its existing logical-byte definition.
+
+## What the faster screens do not establish
+
+**100 small pushes/s is not qualified on the initial one-CPU database profile.**
+Some short runs passed; others saturated database CPU, accumulated latency and
+rejected requests. App CPU had headroom. Pool-size comparisons on different VMs
+are not enough to choose an optimum. Prepared-statement caching remains optional.
+
+An experimental combined group-reference query was removed. Its suspected CPU
+regression was not confirmed by the rerun. A same-machine A/B/A control then measured 100 requests/s across 100 workspaces:
+
+| Database allocation | p99 | Accepted / offered |
+| --- | --- | --- |
+| 1 CPU / 2 GiB | 108 ms | 3,000 / 3,000 |
+| 2 CPU / 4 GiB | 18 ms | 3,000 / 3,000 |
+| Back to 1 CPU / 2 GiB | 128 ms | 3,000 / 3,000 |
+
+The Go server stayed at 1 CPU / 1 GiB. All three 30-second cases reconciled and
+passed the screen. In comparable resource-sample intervals, the small database
+hit its CPU quota in 27 and 30 periods; the larger database hit it zero times.
+This supports a benefit from independent database sizing and burst headroom,
+not a sustained throughput multiplier. A separate final hot-workspace stage had
+a late generator and is inconclusive.
+
+An 18-output batch screen passed after observation batching (25 requests/s,
+p99 220 ms). Its earlier baseline had a late generator, so the apparent latency
+ratio is not a clean comparison. 100-output overload remains unresolved. Profiling
+and generator scheduling p99 above 20 ms are excluded from capacity qualification.
+
+## Verification and next gates
+
+Race-enabled real PostgreSQL database, store, server-state, HTTP and CLI contracts
+passed after the final quota-read change. SQLite's complete watch runtime race
+suite and targeted PostgreSQL runtime tests passed. All 17 Python harness tests
+passed. Disposable local PostgreSQL volumes and credentials were deleted after
+verification; private measurements remain available.
+
+The first A/B/A attempt was interrupted because a Bash `SECONDS` variable caused
+later stages to lengthen. Its evidence is retained and excluded. The corrected
+run records exactly 30 seconds in every stage.
+
+All three 180-second repeats at 50 requests/s passed for both one and 100
+workspaces, on both backends: **54,000 accepted requests per backend**, no
+rejections/uncertainty/read errors, and exact durable reconciliation. SQLite p99
+was 8 ms in every repeat. PostgreSQL p99 was 21–32 ms for one workspace and
+23–43 ms for 100. This is 50 observations/s and 2.75 KB/s of JSON body data.
+
+The 30-minute runs at 35 requests/s (70% of the repeated rate) completed with
+inspection reads and graceful restart reconciliation:
+
+| Backend / workspaces | Accepted | Push p99 | Read p99 | Capacity result |
+| --- | --- | --- | --- | --- |
+| PostgreSQL / 1 | 63,000 / 63,000 | 20 ms | 4 ms | Pass |
+| PostgreSQL / 100 | 63,000 / 63,000 | 24 ms | 5 ms | Pass |
+| SQLite / 100 | 63,000 / 63,000 | 10 ms | 1 ms | Pass |
+| SQLite / 1 | 63,000 / 63,000 | 75 ms | 1 ms | Inconclusive: generator p99 63 ms |
+
+All four had zero rejections, uncertain responses and read errors, exact durable
+reconciliation, and successful graceful restart and authorization postchecks.
+Each served 18,000 inspection reads (17,999 for the SQLite one-workspace case).
+PostgreSQL traversed six timed checkpoints in each measured window, with no
+recorded deadlocks. Its database grew about 150/191 MiB during the sampled portions
+of the one/100-workspace runs. These are fresh-store growth measurements before
+long-term retention; they are not a steady-state storage forecast. The harness
+retained about 13 MiB of metrics text in memory, so heap growth includes test
+instrumentation and cannot by itself establish a production memory leak.
+All four jobs completed scoped database/volume/credential cleanup.
+
+The larger database profile completed its three 180-second repeats at 100/s, but did
+**not qualify**: all six cases had late generators (p99 134–219 ms), two returned
+81 and 122 throttling responses, and acknowledgement p99 was 653–3,587 ms. Every
+accepted receipt reconciled. Host I/O wait was 4.7–10.6%; database WAL syncs averaged
+0.6–1.5 ms, versus 0.16–0.27 ms in the earlier 50/s run. These are different VMs
+and rates, so this is diagnostic evidence of I/O pressure, not a controlled cause
+or a PostgreSQL capacity ceiling. No further repeat at this rate is scheduled. The initial profile allocates Go 1 CPU/1 GiB and PostgreSQL
+1 CPU/2 GiB, with four query connections. SQLite receives 1 CPU/1 GiB. Generators
+run separately on the same VM; this is a loopback diagnostic topology.
+
+Still required: a valid sustained SQLite hot-workspace rerun, due-work latency,
+representative mixed and aged workloads, SQL/lock/checkpoint analysis, Linux native
+versus container control, separate-host TLS/RTT tests, recovery/PITR objectives and
+migration rehearsal. Observation inserts are batched; event, outbox and group-state
+writes still offer further optimization opportunities. No safe Cloud rate or
+multi-server scaling multiplier is published yet.
+
+## Review stack and evidence
+
+[PR #58](https://github.com/ding-labs/ding/pull/58) builds on #57, which builds on
+#56 → #55 → #54 → #53 → #52 → main. Every preceding PR head is an ancestor of this
+branch. Preserve the small commits and merge in dependency order. The Cloud soak
+and Railway deployment have not been changed by this work.
+
+Merge #52 into `main`, then retarget #53 to `main` before merging it; repeat for
+each dependent PR. The repository keeps merged branches, so retargeting is an
+explicit step. Use merge commits to preserve the small commits and their ancestry.
+
+Evidence: [baseline](https://github.com/ding-labs/ding/actions/runs/38787585777),
+[worker/query screen](https://github.com/ding-labs/ding/actions/runs/38789220528),
+[idle](https://github.com/ding-labs/ding/actions/runs/38792417789),
+[SQL diagnostic](https://github.com/ding-labs/ding/actions/runs/38795250725),
+[resource control](https://github.com/ding-labs/ding/actions/runs/38796772072),
+[longer repeats](https://github.com/ding-labs/ding/actions/runs/38796901012),
+[larger-database repeats](https://github.com/ding-labs/ding/actions/runs/38799865988),
+[30-minute hot-workspace](https://github.com/ding-labs/ding/actions/runs/38799865909),
+[30-minute many-workspace](https://github.com/ding-labs/ding/actions/runs/38799865645).
+The [allowlisted measurements](../../benchmarks/push/results/2026-10-15-linux.csv)
+retain passing, failed and inconclusive screens, including source revisions and
+actual request sizes. The [qualification specification](cloud-postgres-linux-tests.md) defines the
+remaining acceptance gates and the [implementation plan](cloud-postgres-plan.md)
+separates single-server, operations, multi-server and migration work.

@@ -1,5 +1,17 @@
 package store
 
+var qSavePushCompletion = statement{postgres: `WITH receipt AS (
+ INSERT INTO push_receipts(lifetime,producer,input_key,digest,body,expires_at)
+ VALUES($1,$2,$3,$4,$5,$6)
+ ON CONFLICT(workspace_id,lifetime,producer,input_key) DO UPDATE
+ SET digest=excluded.digest,body=excluded.body,expires_at=excluded.expires_at
+ RETURNING body), latest AS (
+ INSERT INTO push_last(watch,lifetime,body) SELECT $7,$1,body FROM receipt
+ ON CONFLICT(workspace_id,watch) DO UPDATE SET lifetime=excluded.lifetime,body=excluded.body
+ RETURNING 1)
+ UPDATE push_usage SET requests=requests+1,bytes=bytes+$8,observations=observations+$9
+ FROM latest WHERE workspace_id=current_setting('ding.workspace') AND singleton=1`}
+
 var qPushReceipt = statement{sqlite: `SELECT digest,body FROM push_receipts WHERE lifetime=? AND producer=? AND input_key=? AND expires_at>?`, postgres: `SELECT digest,body FROM push_receipts WHERE workspace_id=current_setting('ding.workspace') AND lifetime=$1 AND producer=$2 AND input_key=$3 AND expires_at>$4`}
 
 var qSavePushReceipt = statement{sqlite: `INSERT INTO push_receipts(lifetime,producer,input_key,digest,body,expires_at) VALUES(?,?,?,?,?,?) ON CONFLICT(lifetime,producer,input_key) DO UPDATE SET digest=excluded.digest,body=excluded.body,expires_at=excluded.expires_at`, postgres: `INSERT INTO push_receipts(lifetime,producer,input_key,digest,body,expires_at) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(workspace_id,lifetime,producer,input_key) DO UPDATE SET digest=excluded.digest,body=excluded.body,expires_at=excluded.expires_at`}

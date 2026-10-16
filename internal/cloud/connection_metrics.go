@@ -15,9 +15,18 @@ func addConnectionStats(total *sql.DBStats, next sql.DBStats) {
 	total.Idle += next.Idle
 	total.WaitCount += next.WaitCount
 	total.WaitDuration += next.WaitDuration
+	total.MaxIdleClosed += next.MaxIdleClosed
+	total.MaxIdleTimeClosed += next.MaxIdleTimeClosed
+	total.MaxLifetimeClosed += next.MaxLifetimeClosed
 }
 func writeConnectionStats(w io.Writer, backend, role string, s sql.DBStats) {
 	fmt.Fprintf(w, "ding_runtime_sql_connections_limit{backend=%q,role=%q} %d\nding_runtime_sql_connections_open{backend=%q,role=%q} %d\nding_runtime_sql_connections_in_use{backend=%q,role=%q} %d\nding_runtime_sql_connections_idle{backend=%q,role=%q} %d\nding_runtime_sql_waits_total{backend=%q,role=%q} %d\nding_runtime_sql_wait_seconds_total{backend=%q,role=%q} %g\n", backend, role, s.MaxOpenConnections, backend, role, s.OpenConnections, backend, role, s.InUse, backend, role, s.Idle, backend, role, s.WaitCount, backend, role, s.WaitDuration.Seconds())
+	for _, closed := range []struct {
+		reason string
+		count  int64
+	}{{"idle_limit", s.MaxIdleClosed}, {"idle_time", s.MaxIdleTimeClosed}, {"lifetime", s.MaxLifetimeClosed}} {
+		fmt.Fprintf(w, "ding_runtime_sql_connections_closed_total{backend=%q,role=%q,reason=%q} %d\n", backend, role, closed.reason, closed.count)
+	}
 }
 func (p *Pool) connectionMetrics(w io.Writer, list []*Tenant) {
 	runtimeperf.Write(w)

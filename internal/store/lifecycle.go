@@ -210,6 +210,26 @@ func (t *Tx) Budget() (Usage, error) {
 	return u, nil
 }
 
+// QuotaBytes reads the same storage units as Budget without counting unrelated
+// watches or deliveries. PostgreSQL uses logical row bytes; SQLite uses live pages.
+func (t *Tx) QuotaBytes() (int64, error) {
+	if t.postgres {
+		var bytes int64
+		err := t.sql.QueryRowContext(t.ctx, "SELECT logical_bytes FROM workspaces WHERE workspace_id=current_setting('ding.workspace')").Scan(&bytes)
+		return bytes, err
+	}
+	var pages, free, size int64
+	for _, q := range []struct {
+		sql  string
+		dest *int64
+	}{{"PRAGMA page_count", &pages}, {"PRAGMA freelist_count", &free}, {"PRAGMA page_size", &size}} {
+		if err := t.sql.QueryRowContext(t.ctx, q.sql).Scan(q.dest); err != nil {
+			return 0, err
+		}
+	}
+	return (pages - free) * size, nil
+}
+
 // LimitBytes is a hard SQLite page allocation cap. WAL and backup files are
 // additional filesystem usage and remain separately visible in Health.
 func (s *Store) LimitBytes(ctx context.Context, max int64) error {

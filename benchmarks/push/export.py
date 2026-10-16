@@ -51,8 +51,9 @@ def measurements(root):
             'offered': load['offered'], 'accepted': load['accepted'],
             'firstAcceptedFraction': load['firstAccepted'] / max(1, planned),
             'acceptedRate': load['accepted'] / max(.001, load['durationSeconds']),
-            'observationRate': (0 if config['Noop'] else load['accepted'] * config['Outputs'])
+            'observationRate': (0 if config['Noop'] else load.get('acceptedObservations', load['accepted'] * config['Outputs']))
                 / max(.001, load['durationSeconds']),
+            'acceptedBodyBytes': load.get('acceptedBytes'),
             'p99MS': load['p99MS'], 'httpP99MS': load['httpP99MS'],
             'scheduleP99MS': load['scheduleP99MS'], 'generatorBusy': load['generatorBusy'],
             'throttles': load.get('throttled', load['statuses'].get('429', 0)),
@@ -78,7 +79,7 @@ def measurements(root):
             'serverExitCode': execution['exitCode'], 'generatorExitCode': execution['generatorExitCode'],
             'oomKilled': execution.get('container', {}).get('OOMKilled', False),
             'reportedStable': result['stable'],
-            'stable': result['stable'] and qualified_load(load),
+            'stable': result['stable'] and not manifest.get('profiles', True) and qualified_load(load, planned),
         }
 
 

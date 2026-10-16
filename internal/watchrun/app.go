@@ -457,7 +457,7 @@ func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch so
 		if current.LastError != "" && !timerInput {
 			batch.Observations = append([]watch.Observation{{Health: "gap", Detail: "backpressure_gap"}}, batch.Observations...)
 		}
-		states := newAcceptanceEntities(tx, id)
+		observations := make([]watch.Observation, len(batch.Observations))
 		for i, o := range batch.Observations {
 			o.AcceptedAt = now
 			o.InputID = inputID + ":" + strconv.Itoa(i) + ":" + strconv.FormatInt(now.UnixNano(), 10)
@@ -474,15 +474,19 @@ func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch so
 			if len(encoded) > current.Plan.Definition.Spec.Limits.MaxBytes {
 				return ErrQuota
 			}
-			sequence, err := tx.AppendObservation(id, current.Plan.Revision, current.Generation, o)
-			if err != nil {
-				return err
-			}
-			o.Sequence = sequence
-			if receipt.First == 0 {
-				receipt.First = sequence
-			}
-			receipt.Last = sequence
+			observations[i] = o
+		}
+		sequences, err := tx.AppendObservations(id, current.Plan.Revision, current.Generation, observations)
+		if err != nil {
+			return err
+		}
+		receipt.First, receipt.Last = sequences[0], sequences[len(sequences)-1]
+		states := newAcceptanceEntities(tx, id, current.Plan.Revision, now)
+		if err := states.preload(evaluator, observations); err != nil {
+			return err
+		}
+		for i, o := range observations {
+			o.Sequence = sequences[i]
 			keys, clearSource, err := states.route(evaluator, o)
 			if err != nil {
 				return err
@@ -532,9 +536,6 @@ func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch so
 				if err != nil {
 					return err
 				}
-				if err := tx.SaveEntity(id, key, current.Plan.Revision, result.State, now); err != nil {
-					return err
-				}
 				if current.Plan.Definition.Spec.Condition.MissingFor != "" && (o.Health == "ok" || o.Health == "unchanged") {
 					if err := tx.SaveTimer(store.Timer{WatchID: id, Entity: key, Kind: "missing", Generation: current.Generation, Due: result.State.MissingAt}); err != nil {
 						return err
@@ -553,11 +554,14 @@ func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch so
 
 			}
 		}
-		usage, err = tx.Budget()
+		if err := states.flush(); err != nil {
+			return err
+		}
+		bytes, err := tx.QuotaBytes()
 		if err != nil {
 			return err
 		}
-		if usage.Bytes > a.Limits.MaxBytes {
+		if bytes > a.Limits.MaxBytes {
 			return ErrQuota
 		}
 		if push != nil {
@@ -568,11 +572,11 @@ func (a *App) acceptPush(ctx context.Context, record store.WatchRecord, batch so
 			if err := tx.SavePushReceipt(current.Lifetime, push.Producer, push.Key, push.Digest, push.Receipt, push.Bytes, len(batch.Observations)); err != nil {
 				return err
 			}
-			usage, err := tx.Budget()
+			bytes, err := tx.QuotaBytes()
 			if err != nil {
 				return err
 			}
-			if usage.Bytes > a.Limits.MaxBytes {
+			if bytes > a.Limits.MaxBytes {
 				return ErrQuota
 			}
 			return nil

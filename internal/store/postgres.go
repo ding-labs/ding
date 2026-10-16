@@ -25,7 +25,7 @@ func OpenPostgres(ctx context.Context, db *sql.DB, workspace string, owners ...*
 	if err := ValidatePostgres(ctx, db); err != nil {
 		return nil, err
 	}
-	s := &Store{db: db, postgres: true, workspace: workspace, writer: make(chan struct{}, 1)}
+	s := &Store{db: db, postgres: true, workspace: workspace, writer: make(chan struct{}, 1), wake: make(chan struct{}, 1)}
 	if len(owners) > 0 {
 		s.ownership = owners[0]
 	}
@@ -88,9 +88,7 @@ func (s *Store) beginPostgres(ctx context.Context, readOnly bool) (*sql.Tx, erro
 		tx.Rollback()
 		return nil, err
 	}
-	if _, err = tx.ExecContext(ctx, "SET LOCAL search_path=ding_runtime,pg_catalog"); err == nil {
-		_, err = tx.ExecContext(ctx, "SELECT set_config('ding.workspace',$1,true)", s.workspace)
-	}
+	_, err = tx.ExecContext(ctx, "SELECT set_config('search_path','ding_runtime,pg_catalog',true),set_config('ding.workspace',$1,true)", s.workspace)
 	if err != nil {
 		tx.Rollback()
 		return nil, err
@@ -106,7 +104,9 @@ func (s *Store) updatePostgres(ctx context.Context, fn func(*Tx) error) error {
 		return err
 	}
 	defer tx.Rollback()
+	guarded := time.Now()
 	check, err := database.LockTransactionGuard(ctx, tx, s.db)
+	runtimeperf.Since(s.PerfBackend(), runtimeperf.TransactionGuard, guarded)
 	if err != nil {
 		return err
 	}
@@ -126,6 +126,7 @@ func (s *Store) updatePostgres(ctx context.Context, fn func(*Tx) error) error {
 	if err != nil {
 		return err
 	}
+	finalized := time.Now()
 	if p, ok := access.FromContext(ctx); ok && stx.changed {
 		if p.Workspace != s.workspace {
 			return access.ErrDenied
@@ -147,9 +148,11 @@ func (s *Store) updatePostgres(ctx context.Context, fn func(*Tx) error) error {
 	if err = s.ownership.Fence(ctx, tx, true); err != nil {
 		return err
 	}
+	runtimeperf.Since(s.PerfBackend(), runtimeperf.PreCommit, finalized)
 	started := time.Now()
 	err = tx.Commit()
 	runtimeperf.Since(s.PerfBackend(), runtimeperf.Commit, started)
+	s.signalCommit(stx.changed)
 	return err
 }
 

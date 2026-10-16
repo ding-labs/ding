@@ -14,6 +14,7 @@ import time
 
 from postgres_runtime import LocalPostgres
 from receiver_runtime import LocalReceiver
+from resources import cgroup_sample, container_user, linux_host_sample, resource_limits
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -27,15 +28,17 @@ def save(path, value):
         json.dump(value, f, indent=2)
 
 
-def qualified_load(load):
+def qualified_load(load, planned=None):
     return (load['generatorBusy'] == 0 and load['unconfirmed'] == 0 and load['rejected'] == 0
+            and (planned is None or load['firstAccepted'] == planned)
             and load.get('throttled', 0) == 0 and load.get('statuses', {}).get('429', 0) == 0
+            and load.get('scheduleP99MS', 0) <= 20
             and not load.get('clockDiscontinuity', False))
 
 
 def capture_failed_state(volume, output):
     archive = output / 'failed-state.tar.gz'
-    command(['docker', 'run', '--rm',
+    command(['docker', 'run', '--rm', '--user', container_user(),
              '--mount', 'type=volume,source='+volume+',target=/lab,readonly',
              '--mount', 'type=bind,source='+str(output)+',target=/evidence',
              'debian:bookworm-slim', 'tar', '-C', '/lab', '-czf', '/evidence/'+archive.name, '.'])
@@ -52,7 +55,8 @@ def sample_database(pg):
         return {'unavailable': True}
 
 
-def execute(binary, driver, config, output, environment, pg=None, units=1, generator_placement="host", database_cpu_share=.5):
+def execute(binary, driver, config, output, environment, pg=None, units=1, generator_placement="host", database_cpu_share=.5, resources=None):
+    resources = resources or resource_limits('postgres' if pg else 'sqlite', units, database_cpu_share)
     if generator_placement not in ("host", "container") or (generator_placement == "container" and environment != "container"):
         raise ValueError("container generator requires the Linux container environment")
     env = dict(os.environ, DING_SCALE_CONFIG=str(output / 'config.json'),
@@ -73,14 +77,16 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
     args = [str(binary), '-test.run=^TestLocalPushScale$', '-test.v', '-test.timeout='+str(int(timeout))+'s']
     if environment == 'container':
         command(['docker', 'volume', 'create', volume])
-        app_cpus = units*(1-database_cpu_share) if pg else units
-        app_memory = str(units*512 if pg else units*1024)+'m'
+        command(['docker', 'run', '--rm', '--mount', 'type=volume,source='+volume+',target=/lab',
+                 'debian:bookworm-slim', 'chown', container_user(), '/lab'])
+        app_cpus = resources['appCPUs']
+        app_memory = str(resources['appMemoryMiB'])+'m'
         network = ['--network', 'container:'+pg.container] if pg else (['--network','container:'+receiver.container] if receiver else ['-p','127.0.0.1::8443'])
         fixture = ['--mount', 'type=bind,source='+str(pg.connections)+',target=/postgres-fixture.json,readonly',
                    '-e', 'DING_TEST_POSTGRES_FILE=/postgres-fixture.json'] if pg else []
         if receiver:
             fixture += ['-e','DING_SCALE_RECEIVER_FILE=/evidence/receiver/bootstrap.json']
-        args = ['docker', 'run', '--name', container, '--cpus='+str(app_cpus), '--memory='+app_memory, '--memory-swap='+app_memory] + network + fixture + [ '--mount', 'type=volume,source='+volume+',target=/lab',
+        args = ['docker', 'run', '--name', container, '--user', container_user(), '--cpus='+str(app_cpus), '--memory='+app_memory, '--memory-swap='+app_memory] + network + fixture + [ '--mount', 'type=volume,source='+volume+',target=/lab',
                 '--mount', 'type=bind,source='+str(binary)+',target=/scale.test,readonly',
                 '--mount', 'type=bind,source='+str(output)+',target=/evidence',
                 '-e', 'DING_SCALE_CONFIG=/evidence/config.json', '-e', 'DING_SCALE_OUTPUT=/evidence',
@@ -115,7 +121,7 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
                     if generator_placement == 'container':
                         generator_container = container+'-generator'
                         namespace = pg.container if pg else (receiver.container if receiver else container)
-                        generator_args = ['docker','run','--name',generator_container,'--cpus=2',
+                        generator_args = ['docker','run','--name',generator_container,'--user',container_user(),'--cpus=2',
                             '--memory=512m','--memory-swap=512m','--network','container:'+namespace,
                             '--mount','type=bind,source='+str(driver)+',target=/load,readonly',
                             '--mount','type=bind,source='+str(output)+',target=/evidence',
@@ -134,6 +140,9 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
                         producer = (command(['docker','stats','--no-stream','--format','{{json .}}',generator_container]) if generator_container else
                                     command(['ps','-o','rss=,%cpu=','-p',str(generator.pid)])) if generator is not None and generator.poll() is None else None
                         samples.append({'at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'elapsed':time.monotonic()-started,'phase':'setup' if generator is None else 'producer','server':value,'generator':producer,
+                                        'appCPUStat':cgroup_sample(container) if environment == 'container' else None,
+                                        'hostCPUStat':linux_host_sample(container) if environment == 'container' else None,
+                                        'generatorCPUStat':cgroup_sample(generator_container) if producer is not None and generator_container else None,
                                         'database':pg.sample() if pg else None,
                                         'receiver':receiver.sample() if receiver else None})
                     except (subprocess.CalledProcessError, OSError, json.JSONDecodeError):
@@ -144,8 +153,8 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
             if code != 0 and generator is not None and generator.poll() is None:
                 generator.kill()
             generator_code = generator.wait() if generator is not None else None
-        except (subprocess.CalledProcessError, OSError):
-            failure = 'Local test infrastructure became unavailable.'
+        except (subprocess.CalledProcessError, OSError) as error:
+            failure = 'Local test infrastructure became unavailable ('+type(error).__name__+').'
         except (RuntimeError, TimeoutError) as error:
             failure = str(error)
         except KeyboardInterrupt:
@@ -182,8 +191,8 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
                 'cancelledByUser':cancelled, 'generator':generator_metadata, 'receiver':receiver.metadata if receiver else {'placement':'cohosted' if config.get('Receiver') else 'none'},
                 'databaseStart':database_start,
                 'databaseEnd':database_end, 'observerErrors':observer_errors, 'serverExitCode':process.returncode,
-                'appCPULimit':(units*(1-database_cpu_share) if pg else units) if environment=='container' else None,
-                'appMemoryBytes':(units*512 if pg else units*1024)*1024**2 if environment=='container' else None}
+                'appCPULimit':resources['appCPUs'] if environment=='container' else None,
+                'appMemoryBytes':resources['appMemoryMiB']*1024**2 if environment=='container' else None}
     if environment == 'native' and (code != 0 or failure):
         for directory in [output/'failed-state', fixture_tmp]:
             if any(directory.rglob('ding.db')):
@@ -192,7 +201,13 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
     if environment == 'container':
         remove_volume = True
         try:
-            metadata['container'] = json.loads(command(['docker','inspect',container]))[0]['State']
+            inspected = json.loads(command(['docker','inspect',container]))[0]
+            metadata['container'] = inspected['State']
+            limits = inspected['HostConfig']
+            metadata['appLimitsVerified'] = (limits['NanoCpus'] == int(resources['appCPUs']*1e9) and
+                limits['Memory'] == resources['appMemoryMiB']*1024**2 and limits['MemorySwap'] == limits['Memory'])
+            if not metadata['appLimitsVerified']:
+                failure = metadata['failure'] = 'Application resource limits do not match the manifest.'
         except (subprocess.CalledProcessError, json.JSONDecodeError):
             metadata['container'] = {'inspectionUnavailable': True}
         if code != 0 or generator_code != 0 or failure or not (output/'report.json').exists() or metadata['container'].get('inspectionUnavailable'):
@@ -226,9 +241,11 @@ def execute(binary, driver, config, output, environment, pg=None, units=1, gener
             'reconciliationErrors':report['Errors'],'readP99MS':report['ReadP99MS'],
             'pendingDeliveries':pending,'postChecksVerified':postchecks,
             'inconclusive': ('producer clock discontinuity' if load.get('clockDiscontinuity') else
+                             'producer scheduling p99 exceeded 20 ms' if load.get('scheduleP99MS', 0) > 20 else
                              'server clock discontinuity' if report.get('InternalObservations',0) else
-                             'local resource observation unavailable' if observer_errors or failure else None),
-            'stable':code==0 and generator_code==0 and not failure and not observer_errors and qualified_load(load) and fraction>=.999 and load['p99MS']<250 and not report['Errors'] and not report['ReadErrors'] and not report.get('InternalObservations',0) and pending==0 and postchecks}
+                             'local resource observation unavailable' if observer_errors or failure else
+                             'diagnostic profiling enabled' if config.get('Profiles', False) else None),
+            'stable':not config.get('Profiles',False) and code==0 and generator_code==0 and not failure and not observer_errors and qualified_load(load, config['Rate']*config['Seconds']) and load['p99MS']<250 and not report['Errors'] and not report['ReadErrors'] and not report.get('InternalObservations',0) and pending==0 and postchecks}
 
 
 def main():
@@ -246,6 +263,11 @@ def main():
                         help='total CPU cores and GiB; PostgreSQL splits app/database equally')
     parser.add_argument('--database-cpu-share', type=float, choices=[.25,.5,.75], default=.5,
                         help='PostgreSQL fraction of total CPU; memory stays evenly split')
+    parser.add_argument('--app-cpus', type=float)
+    parser.add_argument('--app-memory-mib', type=int)
+    parser.add_argument('--database-cpus', type=float)
+    parser.add_argument('--database-memory-mib', type=int)
+    parser.add_argument('--query-mode', choices=['exec','cache_statement'], default='exec')
     parser.add_argument('--pool-limit', type=int, choices=[1,2,4,8,16], default=8)
     parser.add_argument('--credential-readers', type=int, choices=[1,2,4,8], default=4)
     parser.add_argument('--rate', type=int, help='override planned requests per second')
@@ -260,6 +282,13 @@ def main():
         parser.error("container generator requires --environment container")
     if args.backend != "postgres" and args.database_cpu_share != .5:
         parser.error("database CPU split requires PostgreSQL")
+    overrides = (args.app_cpus, args.app_memory_mib, args.database_cpus, args.database_memory_mib)
+    if args.environment != 'container' and any(value is not None for value in overrides):
+        parser.error('explicit resource limits require the container environment')
+    try:
+        resources = resource_limits(args.backend, args.resource_units, args.database_cpu_share, *overrides)
+    except ValueError as error:
+        parser.error(str(error))
     if args.rate is not None and not 1 <= args.rate <= 100000:
         parser.error('rate outside local bounds')
     if not 1 <= args.repeat <= 10 or (args.seconds is not None and not 1 <= args.seconds <= 3600):
@@ -280,15 +309,17 @@ def main():
     subprocess.run(['go','build','-o',str(driver),'./cmd/ding-local-load'],cwd=REPO,
                    env=build_env if args.generator_placement=='container' else None,check=True)
     subprocess.run(['go','test','-c','-o',str(binary),'./internal/cloud'],cwd=REPO,env=build_env,check=True)
-    pg = LocalPostgres(root/'postgres-lab', args.environment, args.resource_units,args.database_cpu_share) if args.backend=='postgres' else None
-    save(root/'manifest.json',{'backend':args.backend,'poolLimit':args.pool_limit,
+    pg = LocalPostgres(root/'postgres-lab', args.environment, args.resource_units,args.database_cpu_share,
+                       cpus=resources['databaseCPUs'], memory_mib=resources['databaseMemoryMiB'], profiles=args.profiles) if args.backend=='postgres' else None
+    save(root/'manifest.json',{'backend':args.backend,'poolLimit':args.pool_limit,'queryMode':args.query_mode,
          'credentialReaders':args.credential_readers,'resourceUnits':args.resource_units,
          'receiverProcess':args.receiver_process,'generatorPlacement':args.generator_placement,
          'databaseCPUShare':args.database_cpu_share if pg else None,
+         'resourceProfile':resources,
          'driverSHA256':hashlib.sha256(driver.read_bytes()).hexdigest(),
          'runnerImage':command(['docker','image','inspect','--format','{{.Id}}','debian:bookworm-slim']) if args.environment=='container' else None,
-         'totalCPULimit':args.resource_units if args.environment=='container' else None,
-         'totalMemoryBytes':args.resource_units*1024**3 if args.environment=='container' else None,
+         'totalCPULimit':resources['appCPUs']+resources['databaseCPUs'] if args.environment=='container' else None,
+         'totalMemoryBytes':(resources['appMemoryMiB']+resources['databaseMemoryMiB'])*1024**2 if args.environment=='container' else None,
          'postgres':pg.metadata if pg else None,
          'pgx':command(['go','list','-m','github.com/jackc/pgx/v5']),
          'revision':command(['git','rev-parse','HEAD']),
@@ -309,7 +340,7 @@ def main():
                 raise SystemExit('Host free-disk floor reached; preserve evidence and stop.')
             config = dict(cases[name])
             config['Profiles'] = args.profiles
-            config.update(Backend=args.backend, PoolLimit=args.pool_limit, CredentialReaders=args.credential_readers, ReceiverProcess=args.receiver_process)
+            config.update(Backend=args.backend, QueryMode=args.query_mode, PoolLimit=args.pool_limit, CredentialReaders=args.credential_readers, ReceiverProcess=args.receiver_process)
             if args.rate is not None:
                 config['Rate']=args.rate
             if args.seconds is not None:
@@ -317,7 +348,7 @@ def main():
             output = root/(name+'-'+str(repeat+1));output.mkdir(mode=0o700)
             save(output/'config.json',config)
             print('Starting '+output.name,flush=True)
-            result = execute(binary,driver,config,output,args.environment,pg,args.resource_units,args.generator_placement,args.database_cpu_share)
+            result = execute(binary,driver,config,output,args.environment,pg,args.resource_units,args.generator_placement,args.database_cpu_share,resources)
             results.append(result)
             with (root/'summary.json').open('w') as f:
                 json.dump(results,f,indent=2)

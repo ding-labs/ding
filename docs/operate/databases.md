@@ -75,6 +75,12 @@ arguments and logs. Database errors are redacted by the Go adapter.
 There is also one dedicated direct connection for execution ownership. Increasing
 the pool does not parallelize writes within a workspace: evaluation and sequence
 allocation remain ordered by that workspace's transaction lock.
+The pool retains up to its configured cap between bursts, closes connections idle
+for one minute, and retires reusable connections after five minutes.
+`queryMode` defaults to `exec`. Set it to `cache_statement` to compare pgx's bounded
+512-entry prepared-statement cache per connection on direct PostgreSQL. Workspace
+scope remains transaction-local. This option does not qualify a transaction pooler;
+execution ownership still requires a dedicated direct connection.
 Size the pool against the combined Go/database CPU budget. In the
 [local qualification](../development/push-scale-results.md), a pool of 2 passed
 the tested one-CPU hot-workspace profile; larger pools were not consistently

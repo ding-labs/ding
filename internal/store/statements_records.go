@@ -8,9 +8,9 @@ var qWatch = statement{
 	postgres: `SELECT r.definition,r.revision,r.fingerprint,w.generation,w.status,w.next_at,w.cursor,w.last_input_at,w.last_error,w.lifetime FROM watches w JOIN watch_revisions r ON r.workspace_id=w.workspace_id AND r.watch_id=w.id AND r.revision=w.revision WHERE w.workspace_id=current_setting('ding.workspace') AND w.id=$1`,
 }
 
-var qWatchIDs = statement{
-	sqlite:   `SELECT id FROM watches ORDER BY id`,
-	postgres: `SELECT id FROM watches WHERE workspace_id=current_setting('ding.workspace') ORDER BY id`,
+var qWatches = statement{
+	sqlite:   `SELECT r.definition,r.revision,r.fingerprint,w.generation,w.status,w.next_at,w.cursor,w.last_input_at,w.last_error,w.lifetime FROM watches w JOIN watch_revisions r ON r.watch_id=w.id AND r.revision=w.revision ORDER BY w.id`,
+	postgres: `SELECT r.definition,r.revision,r.fingerprint,w.generation,w.status,w.next_at,w.cursor,w.last_input_at,w.last_error,w.lifetime FROM watches w JOIN watch_revisions r ON r.workspace_id=w.workspace_id AND r.watch_id=w.id AND r.revision=w.revision WHERE w.workspace_id=current_setting('ding.workspace') ORDER BY w.id`,
 }
 
 var qInsertWatchRevision = statement{

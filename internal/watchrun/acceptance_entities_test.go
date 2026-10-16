@@ -34,7 +34,7 @@ func TestAcceptanceEntitiesUsesTargetedReadsAndPreservesFanout(t *testing.T) {
 				return err
 			}
 		}
-		s := newAcceptanceEntities(tx, "api")
+		s := newAcceptanceEntities(tx, "api", r.Plan.Revision, start)
 		keys, clear, err := s.route(e, watch.Observation{Health: "ok", Fields: map[string]any{"host": "new"}})
 		if err != nil || len(keys) != 1 || !clear || s.all || len(s.states) != 1 {
 			t.Fatal(keys, clear, s.all, len(s.states), err)
@@ -45,14 +45,17 @@ func TestAcceptanceEntitiesUsesTargetedReadsAndPreservesFanout(t *testing.T) {
 		if n, err := s.count(); err != nil || n != 3 {
 			t.Fatal(n, err)
 		}
+		// Buffered bootstrap state must not reappear after recovery deletes it.
+		s.saved(condition.SourceEntity, json.RawMessage(`{"sourceUnhealthy":true}`))
 		if err := tx.DeleteEntity("api", condition.SourceEntity); err != nil {
 			return err
 		}
 		s.removed(condition.SourceEntity)
-		if err := tx.SaveEntity("api", keys[0], r.Plan.Revision, condition.State{Entity: keys[0]}, start); err != nil {
-			return err
+		s.saved(keys[0], json.RawMessage(`{"lastSequence":10}`))
+		if _, exists, err := s.load("a"); err != nil || !exists {
+			t.Fatal(exists, err)
 		}
-		s.saved(keys[0], json.RawMessage(`{}`))
+		s.saved("a", json.RawMessage(`{"lastSequence":11}`))
 		if n, err := s.count(); err != nil || n != 3 {
 			t.Fatal(n, err)
 		}
@@ -60,6 +63,15 @@ func TestAcceptanceEntitiesUsesTargetedReadsAndPreservesFanout(t *testing.T) {
 		want, _, _ := e.Route([]string{"a", "b", keys[0]}, watch.Observation{Health: "error"})
 		if err != nil || !s.all || !reflect.DeepEqual(fanout, want) {
 			t.Fatal(fanout, want, err)
+		}
+		if string(s.states[keys[0]]) != `{"lastSequence":10}` || string(s.states["a"]) != `{"lastSequence":11}` {
+			t.Fatal("fanout replaced buffered state with older database state", s.states)
+		}
+		if err := s.flush(); err != nil {
+			return err
+		}
+		if _, err := tx.Entity("api", condition.SourceEntity); !errors.Is(err, store.ErrNotFound) {
+			t.Fatal("deleted bootstrap state resurrected", err)
 		}
 		return nil
 	}); err != nil {
