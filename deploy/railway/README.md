@@ -236,3 +236,33 @@ References: [Railway IaC](https://docs.railway.com/infrastructure-as-code),
 [backups](https://docs.railway.com/volumes/backups),
 [SSH and file transfer](https://docs.railway.com/cli/ssh),
 [volume files](https://docs.railway.com/cli/volume).
+
+
+### PostgreSQL runtime configuration
+
+SQLite remains the default. Select PostgreSQL explicitly with
+`DING_DATABASE_JSON={"backend":"postgres","dsnRef":{"env":"DING_DATABASE_URL"},"maxOpenConns":16,"queryMode":"exec"}`.
+Set `DING_DATABASE_URL` privately to the restricted application role's DSN.
+For a private certificate authority, set `DING_DATABASE_CA_PEM` to its PEM
+certificate and include `sslmode=verify-full&sslrootcert=/run/ding/postgres-ca.crt`
+in the DSN. Private Railway networking does not disable certificate verification.
+The wrapper transfers the DSN through a private runtime file before dropping
+privileges; neither startup JSON nor the initial application environment contains it.
+
+Use a fresh `DING_STATE_NAME` when changing backends. This does not import
+SQLite data. Archive the old directory and its encryption key separately.
+Before serving, run the explicit offline `ding-cloud migrate --config ...
+--database-admin-env ...` operation with a separate migration role against the
+same database. Keep migration credentials out of the serving service. See the
+PostgreSQL self-hosting guide for role setup and migration ownership requirements.
+
+The serving pool starts at 16 connections with synchronous commits enabled.
+The cloud app starts with 2 CPUs / 2 GiB and its database with 4 CPUs / 4 GiB in
+the same region. Keep the existing PostgreSQL service and volume when changing
+app configuration; the app-only IaC definition does not provision that database.
+Configure database backups independently of the app's small identity volume.
+
+The production GitHub source follows `main` without a commit pin. Merging a PR
+therefore triggers Railway's GitHub deployment automatically. Schema changes
+still require an explicit offline migration; automatic deployment does not grant
+the application DDL privileges or silently migrate a live database.

@@ -1,15 +1,10 @@
 import { defineRailway, github, preserve, project, service, volume } from "railway/iac";
 
-// Follow main normally. Operators can temporarily pin a reviewed revision
-// while performing backups, restores or schema qualification.
+// Every merge to main deploys automatically; this service never pins a commit.
 export default defineRailway(() => {
-  const commitSha = process.env.DING_DEPLOY_COMMIT;
-  if (commitSha && !/^[a-f0-9]{40}$/.test(commitSha)) {
-    throw new Error("DING_DEPLOY_COMMIT must be an exact 40-character Git commit.");
-  }
   const data = volume("ding-data", { region: "us-west2", sizeMB: 1024 });
   const app = service("ding-cloud", {
-    source: github("ding-labs/ding", { branch: "main", ...(commitSha ? { commitSha } : {}) }),
+    source: github("ding-labs/ding", { branch: "main" }),
     build: { builder: "DOCKERFILE", dockerfilePath: "Dockerfile.railway" },
     deploy: {
       healthcheckPath: "/readyz", healthcheckTimeout: 120,
@@ -17,7 +12,7 @@ export default defineRailway(() => {
       restartPolicyType: "ON_FAILURE", restartPolicyMaxRetries: 3,
       multiRegionConfig: { "us-west2": { numReplicas: 1 } },
       overlapSeconds: 0, drainingSeconds: 60,
-      limitOverride: { containers: { cpu: 1, memoryBytes: 1073741824 } },
+      limitOverride: { containers: { cpu: 2, memoryBytes: 2147483648 } },
     },
     volumeMounts: { "/data": data },
     domains: [{ domain: "cloud.ding.ing", port: 8080 }],
@@ -28,6 +23,8 @@ export default defineRailway(() => {
       DING_MODE: preserve(), DING_STATE_NAME: preserve(),
       DING_PUSH_JSON: preserve(), DING_CAPACITY_JSON: preserve(),
       DING_DATA_KEY_BASE64: preserve(),
+      DING_DATABASE_JSON: preserve(), DING_DATABASE_URL: preserve(),
+      DING_DATABASE_CA_PEM: preserve(),
       DING_OIDC_JSON: preserve(), DING_MCP_JSON: preserve(),
       DING_MCP_BRIDGE_CLIENTS: preserve(), DING_AUTHKIT_JSON: preserve(),
       DING_AUTHKIT_API_KEY: preserve(),
