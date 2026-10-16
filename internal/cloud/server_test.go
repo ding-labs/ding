@@ -3,8 +3,11 @@ package cloud
 import (
 	"context"
 	"crypto/rand"
+	"github.com/ding-labs/ding/internal/database"
+	"github.com/ding-labs/ding/internal/pgtest"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -17,17 +20,40 @@ func testCloudServer(t *testing.T) (*Server, http.Handler, []state.Session) {
 	t.Helper()
 	ctx := context.Background()
 	root := t.TempDir()
-	db, err := state.Open(ctx, root)
-	if err != nil {
-		t.Fatal(err)
+	var db *state.DB
+	var storage *ServerStorage
+	var err error
+	if os.Getenv("DING_TEST_BACKEND") == "postgres" {
+		fixture := pgtest.New(t)
+		fixture.SetAppEnvironment(t, "DING_CLOUD_TEST_DATABASE")
+		fixture.SetMigrationEnvironment(t, "DING_CLOUD_TEST_MIGRATION")
+		config := Config{DataDir: root, Database: database.Config{Backend: "postgres", DSNRef: &database.SecretRef{Env: "DING_CLOUD_TEST_DATABASE"}, MaxOpenConns: 1}}
+		if err = MigrateDatabase(ctx, config, "DING_CLOUD_TEST_MIGRATION"); err != nil {
+			t.Fatal(err)
+		}
+		storage, err = OpenServerStorage(ctx, root, config.Database)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { storage.Close() })
+		db = storage.Control
+		ctx = storage.Context()
+	} else {
+		db, err = state.Open(ctx, root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { db.Close() })
 	}
-	t.Cleanup(func() { db.Close() })
 	key := make([]byte, 32)
 	rand.Read(key)
 	v, _ := state.NewVault(db, key)
 	client, closeHTTP := (egress.Guard{}).Client()
 	t.Cleanup(closeHTTP)
 	p := NewPool(ctx, root, db, v, client)
+	if storage != nil {
+		storage.ConfigurePool(p)
+	}
 	t.Cleanup(func() { p.Close() })
 	s := &Server{DB: db, Vault: v, Pool: p, PublicURL: "https://ding.example", Version: "test"}
 	s.Login = LoginFlow{DB: db, Vault: v, Provider: &fakeIdentity{}}

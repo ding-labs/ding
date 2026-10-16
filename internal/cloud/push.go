@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/access"
+	"github.com/ding-labs/ding/internal/database"
 	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/transform"
@@ -206,6 +207,11 @@ func (s *Server) servePush(w http.ResponseWriter, r *http.Request) {
 		cloudFail(w, 401, "service_revoked", "Producer credential expired or unavailable.")
 		return
 	}
+	guard := s.DB.IngestGuard(token, grant.ID, grant.Workspace, id, record.Lifetime)
+	if verified != nil {
+		guard = verified.guard
+	}
+	ctx = database.WithTransactionGuard(ctx, guard)
 	commitStart := time.Now()
 	receipt, err = t.App.CommitPush(ctx, record, batch, input)
 	s.Pool.ingest.commit.observe(time.Since(commitStart))
@@ -222,7 +228,7 @@ func (s *Server) servePush(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) pushError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, watchrun.ErrProducerExpired):
+	case errors.Is(err, watchrun.ErrProducerExpired), errors.Is(err, state.ErrServiceRevoked):
 		cloudFail(w, 401, "service_revoked", "Producer credential expired before acceptance.")
 	case errors.Is(err, store.ErrIdempotency):
 		cloudFail(w, 409, "idempotency_conflict", "This key already accepted different bytes.")

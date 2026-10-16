@@ -35,7 +35,7 @@ func (d *DB) CreateBoundService(ctx context.Context, p access.Principal, name st
 
 	d.Access.Lock()
 	defer d.Access.Unlock()
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return out, err
 	}
@@ -44,11 +44,11 @@ func (d *DB) CreateBoundService(ctx context.Context, p access.Principal, name st
 	if err != nil {
 		return out, err
 	}
-	if _, err = tx.ExecContext(ctx, "DELETE FROM service_grants WHERE expires_at<=?", time.Now().Unix()); err != nil {
+	if _, err = tx.ExecContext(ctx, tx.query(qCreateBoundService1), time.Now().Unix()); err != nil {
 		return out, err
 	}
 	var n int
-	if err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM service_grants WHERE workspace=?", p.Workspace).Scan(&n); err != nil {
+	if err = tx.QueryRowContext(ctx, tx.query(qCreateBoundService2), p.Workspace).Scan(&n); err != nil {
 		return out, err
 	}
 	if n >= 100 {
@@ -58,10 +58,10 @@ func (d *DB) CreateBoundService(ctx context.Context, p access.Principal, name st
 	rawScopes, _ := json.Marshal(scopes)
 	rawWatches, _ := json.Marshal(watches)
 	rawLifetimes, _ := json.Marshal(lifetimes)
-	if _, err = tx.ExecContext(ctx, "INSERT INTO service_grants(id,hash,name,workspace,created_by,scopes,watches,expires_at,lifetimes) VALUES(?,?,?,?,?,?,?,?,?)", out.ID, TokenHash(out.Token), name, p.Workspace, p.User, string(rawScopes), string(rawWatches), out.ExpiresAt.Unix(), string(rawLifetimes)); err != nil {
+	if _, err = tx.ExecContext(ctx, tx.query(qCreateBoundService3), out.ID, TokenHash(out.Token), name, p.Workspace, p.User, string(rawScopes), string(rawWatches), out.ExpiresAt.Unix(), string(rawLifetimes)); err != nil {
 		return out, err
 	}
-	if _, err = tx.ExecContext(ctx, "INSERT INTO service_keys(id,service,hash,expires_at,created_at) VALUES(?,?,?,?,?)", out.KeyID, out.ID, TokenHash(out.Token), out.ExpiresAt.Unix(), time.Now().UnixNano()); err != nil {
+	if _, err = tx.ExecContext(ctx, tx.query(qCreateBoundService4), out.KeyID, out.ID, TokenHash(out.Token), out.ExpiresAt.Unix(), time.Now().UnixNano()); err != nil {
 		return out, err
 	}
 	if err = audit(ctx, tx, p.User, p.Workspace, "service:create", out.ID); err != nil {
@@ -70,7 +70,7 @@ func (d *DB) CreateBoundService(ctx context.Context, p access.Principal, name st
 	return out, tx.Commit()
 }
 func (d *DB) Services(ctx context.Context, workspace string) ([]Service, error) {
-	rows, err := d.sql.QueryContext(ctx, "SELECT id,name,workspace,created_by,scopes,watches,expires_at,lifetimes FROM service_grants WHERE workspace=? ORDER BY id LIMIT 100", workspace)
+	rows, err := d.sql.QueryContext(ctx, d.query(qServices1), workspace)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func (d *DB) ServiceToken(ctx context.Context, token string) (Service, error) {
 	}
 	var keyID string
 	var used int64
-	out, err := scanService(d.credentialDB().QueryRowContext(ctx, "SELECT s.id,s.name,s.workspace,s.created_by,s.scopes,s.watches,k.expires_at,s.lifetimes,k.id,k.last_used_at FROM service_grants s JOIN service_keys k ON k.service=s.id WHERE k.hash=? AND k.expires_at>? AND s.workspace IN (SELECT id FROM workspaces WHERE deleting=0)", TokenHash(token), time.Now().Unix()), &keyID, &used)
+	out, err := scanService(d.credentialDB().QueryRowContext(ctx, d.query(qServiceToken1), TokenHash(token), time.Now().Unix()), &keyID, &used)
 	out.KeyID = keyID
 	if used > 0 {
 		at := time.Unix(used, 0).UTC()
@@ -119,7 +119,7 @@ func (d *DB) ServiceToken(ctx context.Context, token string) (Service, error) {
 func (d *DB) RevokeService(ctx context.Context, p access.Principal, id string) error {
 	d.Access.Lock()
 	defer d.Access.Unlock()
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,11 @@ func (d *DB) RevokeService(ctx context.Context, p access.Principal, id string) e
 	if err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, "DELETE FROM service_grants WHERE workspace=? AND id=?", p.Workspace, id); err != nil {
+	if err = tx.lockService(ctx, p.Workspace, id); err != nil {
+		return err
+	}
+
+	if _, err = tx.ExecContext(ctx, tx.query(qRevokeService1), p.Workspace, id); err != nil {
 		return err
 	}
 	if err = audit(ctx, tx, p.User, p.Workspace, "service:revoke", id); err != nil {
@@ -164,5 +168,5 @@ func (d *DB) NoteServiceUse(ctx context.Context, s Service) {
 	if s.KeyID == "" || (s.LastUsedAt != nil && now.Sub(*s.LastUsedAt) < time.Minute) {
 		return
 	}
-	_, _ = d.sql.ExecContext(ctx, "UPDATE service_keys SET last_used_at=? WHERE id=? AND last_used_at<?", now.Unix(), s.KeyID, now.Add(-time.Minute).Unix())
+	_, _ = d.exec(ctx, qNoteServiceUse1, now.Unix(), s.KeyID, now.Add(-time.Minute).Unix())
 }

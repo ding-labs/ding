@@ -3,7 +3,6 @@ package cloud
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watchrun"
@@ -20,7 +19,7 @@ func (p *Pool) inspectMCPGrant(ctx context.Context, workspace, token string) (st
 	if tenant := p.tenants[workspace]; tenant != nil {
 		return tenant.App.IntegrationAccess(ctx, token, "inspect")
 	}
-	db, err := store.Open(ctx, filepath.Join(p.root, "workspaces", workspace))
+	db, err := p.workspaceStorage().Open(ctx, workspace)
 	if err != nil {
 		return store.IntegrationGrant{}, err
 	}

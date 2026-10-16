@@ -13,7 +13,6 @@ import (
 	"github.com/ding-labs/ding/internal/cloud"
 	"github.com/ding-labs/ding/internal/mcpconfig"
 	"github.com/ding-labs/ding/internal/serverops"
-	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/spf13/cobra"
 )
 
@@ -50,6 +49,21 @@ func serverCommand(version string) *cobra.Command {
 	}}
 	run.Flags().BoolVar(&check, "check-config", false, "validate configuration without starting services")
 	root.AddCommand(run)
+	var databaseAdminEnv string
+	migrate := &cobra.Command{Use: "migrate", Short: "Apply database migrations while the server is stopped", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+		c, err := read()
+		if err != nil {
+			return err
+		}
+		if err = cloud.MigrateDatabase(cmd.Context(), c, databaseAdminEnv); err != nil {
+			return err
+		}
+		_, err = fmt.Fprintln(cmd.OutOrStdout(), "Server database migrations complete.")
+		return err
+	}}
+	migrate.Flags().StringVar(&databaseAdminEnv, "database-admin-env", "", "environment variable containing the separate PostgreSQL migration DSN")
+	root.AddCommand(migrate)
+
 	for _, name := range []string{"init", "recover"} {
 		var username, displayName, passwordFile string
 		command := &cobra.Command{Use: name, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
@@ -64,11 +78,12 @@ func serverCommand(version string) *cobra.Command {
 			if err := cloud.ValidateServerDirectory(c.DataDir); err != nil {
 				return err
 			}
-			db, err := state.Open(cmd.Context(), c.DataDir)
+			storage, err := cloud.OpenServerStorage(cmd.Context(), c.DataDir, c.Database)
 			if err != nil {
 				return err
 			}
-			defer db.Close()
+			defer storage.Close()
+			db := storage.Control
 			if err := db.ConfigureHosting(cmd.Context(), c.Hosting); err != nil {
 				return err
 			}

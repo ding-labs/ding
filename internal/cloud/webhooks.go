@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/access"
+	"github.com/ding-labs/ding/internal/database"
 	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/transform"
 	stripehook "github.com/stripe/stripe-go/v86/webhook"
@@ -23,6 +24,7 @@ import (
 
 type verifiedPushKey struct{}
 type verifiedPush struct {
+	guard      database.TransactionGuard
 	admitted   bool
 	validUntil time.Time
 	grant      state.Service
@@ -194,6 +196,7 @@ func (s *Server) serveWebhook(w http.ResponseWriter, r *http.Request) {
 	if subtle.ConstantTimeCompare([]byte(c.Secret), []byte(secret)) != 1 {
 		trusted.validUntil = c.PreviousUntil
 	}
+	trusted.guard = s.Vault.WebhookIngestGuard(c.ID, c.Workspace, authorize, func() time.Time { return trusted.validUntil })
 	copy := r.Clone(context.WithValue(ctx, verifiedPushKey{}, trusted))
 	copy.URL.Path = "/v1/ingest/" + c.Watch
 	copy.URL.RawPath = ""

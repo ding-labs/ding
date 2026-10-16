@@ -6,7 +6,7 @@ import (
 )
 
 func (d *DB) BeginWorkspaceDelete(ctx context.Context, id string) error {
-	r, err := d.sql.ExecContext(ctx, "UPDATE workspaces SET deleting=1 WHERE id=?", id)
+	r, err := d.exec(ctx, qBeginWorkspaceDelete1, id)
 	if err != nil {
 		return err
 	}
@@ -20,7 +20,7 @@ func (d *DB) BeginWorkspaceDelete(ctx context.Context, id string) error {
 	return nil
 }
 func (d *DB) DeletingWorkspaces(ctx context.Context) ([]string, error) {
-	rows, err := d.sql.QueryContext(ctx, "SELECT id FROM workspaces WHERE deleting=1")
+	rows, err := d.sql.QueryContext(ctx, d.query(qDeletingWorkspaces1))
 	if err != nil {
 		return nil, err
 	}
@@ -36,6 +36,6 @@ func (d *DB) DeletingWorkspaces(ctx context.Context) ([]string, error) {
 	return out, rows.Err()
 }
 func (d *DB) FinishWorkspaceDelete(ctx context.Context, id string) error {
-	_, err := d.sql.ExecContext(ctx, "DELETE FROM workspaces WHERE id=? AND deleting=1", id)
+	_, err := d.exec(ctx, qFinishWorkspaceDelete1, id)
 	return err
 }

@@ -28,32 +28,31 @@ func (d *DB) Reserve(ctx context.Context, workspace string, delivery bool, now t
 }
 func (d *DB) ReserveBudget(ctx context.Context, workspace string, delivery bool, now time.Time, budget OutboundBudget) (Reservation, error) {
 	r := Reservation{ID: ID(), Workspace: workspace, Period: now.UTC().Format("2006-01")}
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return r, err
 	}
 	defer tx.Rollback()
 	// Crashed requests retain their conservative byte charge, but not an
 	// indefinitely growing reservation row. No external action is retried here.
-	if _, err := tx.ExecContext(ctx, "DELETE FROM reservations WHERE workspace=? AND created_at<?", workspace, now.Add(-time.Hour).Unix()); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.query(qReserveBudget1), workspace, now.Add(-time.Hour).Unix()); err != nil {
 		return r, err
 	}
 	var active int
-	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM reservations WHERE workspace=?", workspace).Scan(&active); err != nil {
+	if err := tx.QueryRowContext(ctx, tx.query(qReserveBudget2), workspace).Scan(&active); err != nil {
 		return r, err
 	}
 	if active >= 4 {
 		return r, fmt.Errorf("workspace outbound concurrency exhausted")
 	}
-	if _, err := tx.ExecContext(ctx, "INSERT OR IGNORE INTO usage(workspace,period) VALUES(?,?)", workspace, r.Period); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.query(qReserveBudget3), workspace, r.Period); err != nil {
 		return r, err
 	}
 	checks, deliveries := 1, 0
 	if delivery {
 		checks, deliveries = 0, 1
 	}
-	result, err := tx.ExecContext(ctx, `UPDATE usage SET checks=checks+?,deliveries=deliveries+?,bytes=bytes+?
-WHERE workspace=? AND period=? AND (?=0 OR checks+?<=?) AND (?=0 OR deliveries+?<=?) AND (?=0 OR bytes+?<=?)`, checks, deliveries, RequestReservation, workspace, r.Period, budget.Checks, checks, budget.Checks, budget.Deliveries, deliveries, budget.Deliveries, budget.Bytes, RequestReservation, budget.Bytes)
+	result, err := tx.ExecContext(ctx, tx.query(qReserveBudget4), checks, deliveries, RequestReservation, workspace, r.Period, budget.Checks, checks, budget.Checks, budget.Deliveries, deliveries, budget.Deliveries, budget.Bytes, RequestReservation, budget.Bytes)
 	if err != nil {
 		return r, err
 	}
@@ -64,7 +63,7 @@ WHERE workspace=? AND period=? AND (?=0 OR checks+?<=?) AND (?=0 OR deliveries+?
 	if changed != 1 {
 		return r, fmt.Errorf("workspace monthly outbound budget exhausted; inspect cloud usage")
 	}
-	if _, err := tx.ExecContext(ctx, "INSERT INTO reservations(id,workspace,period,created_at) VALUES(?,?,?,?)", r.ID, workspace, r.Period, now.Unix()); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.query(qReserveBudget5), r.ID, workspace, r.Period, now.Unix()); err != nil {
 		return r, err
 	}
 	return r, tx.Commit()
@@ -76,12 +75,12 @@ func (d *DB) Finish(ctx context.Context, r Reservation, used int64) error {
 	if used < 0 || used > RequestReservation {
 		return fmt.Errorf("invalid network charge")
 	}
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	result, err := tx.ExecContext(ctx, "DELETE FROM reservations WHERE id=? AND workspace=? AND period=?", r.ID, r.Workspace, r.Period)
+	result, err := tx.ExecContext(ctx, tx.query(qFinish1), r.ID, r.Workspace, r.Period)
 	if err != nil {
 		return err
 	}
@@ -92,7 +91,7 @@ func (d *DB) Finish(ctx context.Context, r Reservation, used int64) error {
 	if changed == 0 {
 		return nil
 	}
-	if _, err := tx.ExecContext(ctx, "UPDATE usage SET bytes=bytes-? WHERE workspace=? AND period=?", RequestReservation-used, r.Workspace, r.Period); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.query(qFinish2), RequestReservation-used, r.Workspace, r.Period); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -100,6 +99,6 @@ func (d *DB) Finish(ctx context.Context, r Reservation, used int64) error {
 
 func (d *DB) Usage(ctx context.Context, workspace string, now time.Time) (Usage, error) {
 	u := Usage{Period: now.UTC().Format("2006-01")}
-	err := d.sql.QueryRowContext(ctx, `SELECT COALESCE((SELECT checks FROM usage WHERE workspace=? AND period=?),0),COALESCE((SELECT deliveries FROM usage WHERE workspace=? AND period=?),0),COALESCE((SELECT bytes FROM usage WHERE workspace=? AND period=?),0)`, workspace, u.Period, workspace, u.Period, workspace, u.Period).Scan(&u.Checks, &u.Deliveries, &u.Bytes)
+	err := d.sql.QueryRowContext(ctx, d.query(qUsage1), workspace, u.Period, workspace, u.Period, workspace, u.Period).Scan(&u.Checks, &u.Deliveries, &u.Bytes)
 	return u, err
 }

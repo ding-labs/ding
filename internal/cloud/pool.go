@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"regexp"
 	"sync"
 	"sync/atomic"
@@ -36,6 +34,7 @@ type Tenant struct {
 	failed    atomic.Bool
 }
 type Pool struct {
+	storage          workspaceStorage
 	ingest           pushMetrics
 	Capacity         hostingpolicy.Capacity
 	Shared           bool
@@ -79,7 +78,7 @@ func (p *Pool) Get(ctx context.Context, id string) (*Tenant, error) {
 	if err != nil {
 		return nil, err
 	}
-	db, err := store.Open(ctx, filepath.Join(p.root, "workspaces", id))
+	db, err := p.workspaceStorage().Open(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +166,7 @@ func (p *Pool) Start(ctx context.Context) error {
 	// Complete each atomic, version-journaled migration before any execution
 	// worker starts. A restart resumes from persisted per-store versions.
 	for _, a := range workspaces {
-		db, err := store.Open(ctx, filepath.Join(p.root, "workspaces", a.ID))
+		db, err := p.workspaceStorage().Open(ctx, a.ID)
 		if err != nil {
 			return err
 		}
@@ -225,21 +224,7 @@ func (p *Pool) Delete(ctx context.Context, id string) error {
 			return err
 		}
 	}
-	if t == nil {
-		path := filepath.Join(p.root, "workspaces", id)
-		if _, err := os.Stat(path); err == nil {
-			owned, err := store.Open(ctx, path)
-			if err != nil {
-				return err
-			}
-			if err := owned.Close(); err != nil {
-				return err
-			}
-		} else if !os.IsNotExist(err) {
-			return err
-		}
-	}
-	if err := os.RemoveAll(filepath.Join(p.root, "workspaces", id)); err != nil {
+	if err := p.workspaceStorage().Delete(ctx, id); err != nil {
 		return err
 	}
 	p.mu.Lock()

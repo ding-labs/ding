@@ -31,19 +31,23 @@ func enableOIDC(ctx context.Context, c Config, issuer string, apply func(*state.
 	if !slices.Contains(c.LoginMethods, "password") || !slices.Contains(c.LoginMethods, "oidc") || c.Identity.Issuer != issuer {
 		return fmt.Errorf("review a password+oidc configuration with the exact verified issuer")
 	}
-	if err := mcpconfig.CheckPrivate(filepath.Join(c.DataDir, "control.db")); err != nil {
-		return err
+	if c.Database.Effective().Backend == "sqlite" {
+		if err := mcpconfig.CheckPrivate(filepath.Join(c.DataDir, "control.db")); err != nil {
+			return err
+		}
 	}
 	key, err := loadKey(&c)
 	if err != nil {
 		return err
 	}
-	db, err := state.Open(ctx, c.DataDir)
+	storage, err := OpenServerStorage(ctx, c.DataDir, c.Database)
 	if err != nil {
 		return err
 	}
-	defer db.Close()
-	if c.Deployment == "railway" {
+	defer storage.Close()
+	ctx = storage.Context()
+	db := storage.Control
+	if c.Deployment == "railway" || c.Database.Effective().Backend == "postgres" {
 		if err := db.ConfigureDataKey(ctx, key); err != nil {
 			return err
 		}

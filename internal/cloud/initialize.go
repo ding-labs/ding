@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/ding-labs/ding/internal/mcpconfig"
-	state "github.com/ding-labs/ding/internal/serverstate"
 )
 
 // Initialize is a host-only operation. It cannot run while the server owns state.
@@ -29,12 +28,14 @@ func Initialize(ctx context.Context, c Config, username, name, password string, 
 	if err != nil {
 		return err
 	}
-	db, err := state.Open(ctx, c.DataDir)
+	storage, err := OpenServerStorage(ctx, c.DataDir, c.Database)
 	if err != nil {
 		return err
 	}
-	defer db.Close()
-	if c.Deployment == "railway" {
+	defer storage.Close()
+	ctx = storage.Context()
+	db := storage.Control
+	if c.Deployment == "railway" || c.Database.Effective().Backend == "postgres" {
 		if err := db.ConfigureDataKey(ctx, key); err != nil {
 			return err
 		}

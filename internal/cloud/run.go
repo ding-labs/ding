@@ -17,6 +17,7 @@ import (
 	"github.com/ding-labs/ding/internal/authkit"
 	"github.com/ding-labs/ding/internal/cloud/egress"
 	"github.com/ding-labs/ding/internal/cloudbackup"
+	"github.com/ding-labs/ding/internal/database"
 	"github.com/ding-labs/ding/internal/hostingpolicy"
 	"github.com/ding-labs/ding/internal/mcpconfig"
 	state "github.com/ding-labs/ding/internal/serverstate"
@@ -24,6 +25,7 @@ import (
 )
 
 type Config struct {
+	Database            database.Config        `json:"database,omitempty"`
 	Capacity            hostingpolicy.Capacity `json:"capacity,omitempty"`
 	Push                PushConfig             `json:"push,omitempty"`
 	AuthKitAPIKey       string                 `json:"authKitApiKey,omitempty"`
@@ -48,6 +50,9 @@ type Config struct {
 }
 
 func (c *Config) Validate() error {
+	if err := c.Database.Validate(); err != nil {
+		return err
+	}
 	if c.AuthKitAPIKey != "" && len(c.AuthKitClients) == 0 {
 		return fmt.Errorf("AuthKit API key requires configured AuthKit clients")
 	}
@@ -209,12 +214,14 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 			return err
 		}
 	}
-	db, err := state.Open(ctx, c.DataDir)
+	storage, err := OpenServerStorage(ctx, c.DataDir, c.Database)
 	if err != nil {
 		return err
 	}
-	defer db.Close()
-	if c.Deployment == "railway" {
+	defer storage.Close()
+	ctx = storage.Context()
+	db := storage.Control
+	if c.Deployment == "railway" || c.Database.Effective().Backend == "postgres" {
 		if err := db.ConfigureDataKey(ctx, key); err != nil {
 			return err
 		}
@@ -246,6 +253,7 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 		client = &http.Client{Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	}
 	pool := NewPool(ctx, c.DataDir, db, vault, client)
+	storage.ConfigurePool(pool)
 	pool.Capacity = c.Capacity
 	pool.Shared = c.Hosting == "self-hosted"
 	pool.ApprovedCommands = append([]string(nil), c.ApprovedCommands...)

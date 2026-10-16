@@ -53,19 +53,19 @@ func (v *Vault) Put(ctx context.Context, workspace, name, value string) error {
 		return err
 	}
 	encrypted := aead.Seal(nil, nil, []byte(value), []byte(workspace+"\x00"+name))
-	tx, err := v.db.sql.BeginTx(ctx, nil)
+	tx, err := v.db.begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 	var count, exists int
-	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*),COUNT(CASE WHEN name=? THEN 1 END) FROM secrets WHERE workspace=?", name, workspace).Scan(&count, &exists); err != nil {
+	if err := tx.QueryRowContext(ctx, tx.query(qPut1), name, workspace).Scan(&count, &exists); err != nil {
 		return err
 	}
 	if count >= 20 && exists == 0 {
 		return fmt.Errorf("workspace allows at most twenty credentials")
 	}
-	if _, err := tx.ExecContext(ctx, "INSERT INTO secrets(workspace,name,ciphertext) VALUES(?,?,?) ON CONFLICT(workspace,name) DO UPDATE SET ciphertext=excluded.ciphertext", workspace, name, encrypted); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.query(qPut2), workspace, name, encrypted); err != nil {
 		return err
 	}
 	if p, ok := access.FromContext(ctx); ok {
@@ -83,7 +83,7 @@ func (v *Vault) Get(ctx context.Context, workspace, name string) (string, error)
 
 func (v *Vault) GetWithRevision(ctx context.Context, workspace, name string) (string, string, error) {
 	var encrypted []byte
-	if err := v.db.sql.QueryRowContext(ctx, "SELECT ciphertext FROM secrets WHERE workspace=? AND name=?", workspace, name).Scan(&encrypted); err != nil {
+	if err := v.db.sql.QueryRowContext(ctx, v.db.query(qGetWithRevision1), workspace, name).Scan(&encrypted); err != nil {
 		return "", "", err
 	}
 	aead, err := v.aead(workspace)
@@ -98,7 +98,7 @@ func (v *Vault) GetWithRevision(ctx context.Context, workspace, name string) (st
 }
 
 func (v *Vault) Names(ctx context.Context, workspace string) ([]string, error) {
-	rows, err := v.db.sql.QueryContext(ctx, "SELECT name FROM secrets WHERE workspace=? ORDER BY name", workspace)
+	rows, err := v.db.sql.QueryContext(ctx, v.db.query(qNames1), workspace)
 	if err != nil {
 		return nil, err
 	}
@@ -115,12 +115,12 @@ func (v *Vault) Names(ctx context.Context, workspace string) ([]string, error) {
 }
 
 func (v *Vault) Delete(ctx context.Context, workspace, name string) error {
-	tx, err := v.db.sql.BeginTx(ctx, nil)
+	tx, err := v.db.begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err = tx.ExecContext(ctx, "DELETE FROM secrets WHERE workspace=? AND name=?", workspace, name); err != nil {
+	if _, err = tx.ExecContext(ctx, tx.query(qDelete1), workspace, name); err != nil {
 		return err
 	}
 	if p, ok := access.FromContext(ctx); ok {

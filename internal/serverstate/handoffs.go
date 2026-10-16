@@ -22,19 +22,19 @@ func (d *DB) SaveHandoffProof(ctx context.Context, workspace, id string, p Hando
 	if len(raw) > 32<<10 || len(id) != 64 {
 		return fmt.Errorf("invalid handoff proof")
 	}
-	tx, err := d.sql.BeginTx(ctx, nil)
+	tx, err := d.begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 	var n int
-	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM handoff_proofs WHERE workspace=? AND id!=?", workspace, id).Scan(&n); err != nil {
+	if err := tx.QueryRowContext(ctx, tx.query(qSaveHandoffProof1), workspace, id).Scan(&n); err != nil {
 		return err
 	}
 	if n >= 1000 {
 		return fmt.Errorf("handoff proof capacity reached")
 	}
-	_, err = tx.ExecContext(ctx, "INSERT INTO handoff_proofs(workspace,id,body) VALUES(?,?,?) ON CONFLICT(workspace,id) DO UPDATE SET body=excluded.body", workspace, id, raw)
+	_, err = tx.ExecContext(ctx, tx.query(qSaveHandoffProof2), workspace, id, raw)
 	if err != nil {
 		return err
 	}
@@ -43,7 +43,7 @@ func (d *DB) SaveHandoffProof(ctx context.Context, workspace, id string, p Hando
 func (d *DB) HandoffProof(ctx context.Context, workspace, id string) (HandoffProof, error) {
 	var p HandoffProof
 	var raw []byte
-	err := d.sql.QueryRowContext(ctx, "SELECT body FROM handoff_proofs WHERE workspace=? AND id=?", workspace, id).Scan(&raw)
+	err := d.sql.QueryRowContext(ctx, d.query(qHandoffProof1), workspace, id).Scan(&raw)
 	if err != nil {
 		return p, err
 	}

@@ -16,15 +16,18 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ding-labs/ding/internal/database"
 	"github.com/ding-labs/ding/internal/install"
 	"github.com/ding-labs/ding/internal/mcpconfig"
 	_ "modernc.org/sqlite"
 )
 
 type DB struct {
-	sql     *sql.DB
-	readers *sql.DB
-	unlock  func() error
+	ownership *database.Ownership
+	postgres  bool
+	sql       *sql.DB
+	readers   *sql.DB
+	unlock    func() error
 	// Access serializes permission changes with admitted runtime operations.
 	// Request adapters hold RLock until the operation completes; administration
 	// methods take Lock before rechecking permissions in their transaction.
@@ -37,6 +40,9 @@ type Workspace struct {
 }
 
 func Open(ctx context.Context, dir string) (*DB, error) {
+	if err := database.CheckDirectory(dir, "sqlite"); err != nil {
+		return nil, err
+	}
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
@@ -139,6 +145,9 @@ func Open(ctx context.Context, dir string) (*DB, error) {
 }
 
 func (d *DB) Close() error {
+	if d.postgres {
+		return nil
+	}
 	var readErr error
 	if d.readers != nil {
 		readErr = d.readers.Close()
@@ -182,7 +191,7 @@ func ID() string {
 }
 
 func (d *DB) Workspace(ctx context.Context, id string) (Workspace, error) {
-	return scanAccount(d.sql.QueryRowContext(ctx, "SELECT id,name,created_at FROM workspaces WHERE id=? AND deleting=0", id))
+	return scanAccount(d.sql.QueryRowContext(ctx, d.query(qWorkspace1), id))
 }
 
 type row interface{ Scan(...any) error }
@@ -196,7 +205,7 @@ func scanAccount(r row) (Workspace, error) {
 }
 
 func (d *DB) Workspaces(ctx context.Context) ([]Workspace, error) {
-	rows, err := d.sql.QueryContext(ctx, "SELECT id,name,created_at FROM workspaces WHERE deleting=0 ORDER BY id")
+	rows, err := d.sql.QueryContext(ctx, d.query(qWorkspaces1))
 	if err != nil {
 		return nil, err
 	}

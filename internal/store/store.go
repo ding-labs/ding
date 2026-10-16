@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/access"
+	"github.com/ding-labs/ding/internal/database"
 	_ "modernc.org/sqlite"
 )
 
@@ -52,6 +53,7 @@ var ErrStale = errors.New("stale generation")
 var ErrQuota = errors.New("resource quota exceeded")
 
 type Store struct {
+	ownership *database.Ownership
 	postgres  bool
 	workspace string
 	mu        sync.RWMutex
@@ -74,6 +76,11 @@ func Open(ctx context.Context, dir string) (s *Store, err error) {
 	dir, err = filepath.Abs(dir)
 	if err != nil {
 		return nil, err
+	}
+	if _, e := os.Lstat(filepath.Join(dir, database.BindingFile)); e == nil {
+		return nil, fmt.Errorf("server data directory cannot be used as personal watch state")
+	} else if !os.IsNotExist(e) {
+		return nil, e
 	}
 	if err = os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
@@ -171,6 +178,10 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 		return err
 	}
 	defer tx.Rollback()
+	check, err := database.LockTransactionGuard(ctx, tx, s.db)
+	if err != nil {
+		return err
+	}
 	p, attributed := access.FromContext(ctx)
 	var before int64
 	if attributed {
@@ -192,6 +203,9 @@ func (s *Store) Update(ctx context.Context, fn func(*Tx) error) error {
 				return err
 			}
 		}
+	}
+	if err = check(); err != nil {
+		return err
 	}
 	return tx.Commit()
 }
