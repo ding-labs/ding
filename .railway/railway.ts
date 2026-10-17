@@ -19,6 +19,7 @@ export default defineRailway(() => {
     domains: [{ domain: "cloud.ding.ing", port: 8080 }],
     env: {
       PORT: "8080", DING_PUBLIC_URL: "https://cloud.ding.ing", DING_NAME: "Ding Cloud",
+      RAILWAY_DOCKERFILE_PATH: "Dockerfile.railway",
       // Set these privately before first apply. Preserve operator maintenance
       // mode and restore directory selection across configuration updates.
       DING_MODE: preserve(), DING_STATE_NAME: preserve(),

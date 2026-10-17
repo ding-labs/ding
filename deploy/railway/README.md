@@ -12,6 +12,8 @@ and the deliberate existing-account transition are documented in
 Build the repository root with `Dockerfile.railway`. The container starts as
 root only to prepare `/data` and `/run/ding`, then execs as UID/GID 10001 with
 bootstrap and data-key variables removed from the serving process environment.
+Keep `RAILWAY_DOCKERFILE_PATH=Dockerfile.railway` set so API-triggered builds also
+select the cloud image instead of Railway's generic Go build.
 It refuses to start without an actual mount at `/data`. No pre-deploy command
 can initialize this volume. Runtime config and key files are private and stay
 outside the volume. The control database pins the login/hosting profile and a
