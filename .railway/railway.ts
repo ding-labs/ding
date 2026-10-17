@@ -9,7 +9,8 @@ export default defineRailway(() => {
     deploy: {
       healthcheckPath: "/readyz", healthcheckTimeout: 120,
       sleepApplication: false, preDeployCommand: [],
-      restartPolicyType: "ON_FAILURE", restartPolicyMaxRetries: 3,
+      // Losing the PostgreSQL ownership session can stop Ding with exit code 0.
+      restartPolicyType: "ALWAYS", restartPolicyMaxRetries: 3,
       multiRegionConfig: { "us-west2": { numReplicas: 1 } },
       overlapSeconds: 0, drainingSeconds: 60,
       limitOverride: { containers: { cpu: 2, memoryBytes: 2147483648 } },

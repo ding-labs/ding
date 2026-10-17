@@ -262,6 +262,12 @@ the same region. Keep the existing PostgreSQL service and volume when changing
 app configuration; the app-only IaC definition does not provision that database.
 Configure database backups independently of the app's small identity volume.
 
+Keep the app's Railway restart policy set to **Always**. Ding stops when its
+dedicated PostgreSQL ownership session is lost, including during a database
+restart, and that shutdown can return exit code 0. Always starts a replacement
+after this clean exit; On Failure can leave the service stopped. Use maintenance
+mode or explicitly stop the Railway deployment for intentional downtime.
+
 The production GitHub source follows `main` without a commit pin. Merging a PR
 therefore triggers Railway's GitHub deployment automatically. Schema changes
 still require an explicit offline migration; automatic deployment does not grant
