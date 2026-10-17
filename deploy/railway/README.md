@@ -12,6 +12,8 @@ and the deliberate existing-account transition are documented in
 Build the repository root with `Dockerfile.railway`. The container starts as
 root only to prepare `/data` and `/run/ding`, then execs as UID/GID 10001 with
 bootstrap and data-key variables removed from the serving process environment.
+Keep `RAILWAY_DOCKERFILE_PATH=Dockerfile.railway` set so API-triggered builds also
+select the cloud image instead of Railway's generic Go build.
 It refuses to start without an actual mount at `/data`. No pre-deploy command
 can initialize this volume. Runtime config and key files are private and stay
 outside the volume. The control database pins the login/hosting profile and a
@@ -261,6 +263,12 @@ The cloud app starts with 2 CPUs / 2 GiB and its database with 4 CPUs / 4 GiB in
 the same region. Keep the existing PostgreSQL service and volume when changing
 app configuration; the app-only IaC definition does not provision that database.
 Configure database backups independently of the app's small identity volume.
+
+Keep the app's Railway restart policy set to **Always**. Ding stops when its
+dedicated PostgreSQL ownership session is lost, including during a database
+restart, and that shutdown can return exit code 0. Always starts a replacement
+after this clean exit; On Failure can leave the service stopped. Use maintenance
+mode or explicitly stop the Railway deployment for intentional downtime.
 
 The production GitHub source follows `main` without a commit pin. Merging a PR
 therefore triggers Railway's GitHub deployment automatically. Schema changes
