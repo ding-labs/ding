@@ -39,7 +39,7 @@ type App struct {
 	ValidateBundle                      func(plan.Bundle) error // Optional execution policy; immutable after startup.
 	ApprovedCommands                    []string                // Exact revisions approved by the host operator.
 	AcquisitionWorkers, DeliveryWorkers int
-	PollInterval                        time.Duration // Zero preserves the local 100ms scheduler cadence.
+	PollInterval                        time.Duration // Error retry delay; zero defaults to one second. Work uses notifications/deadlines.
 	mu                                  sync.Mutex
 	outputMu                            sync.Mutex
 	outputPermit                        chan struct{}
