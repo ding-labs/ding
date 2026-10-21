@@ -39,6 +39,7 @@ func TestSchedulingHintsFollowCommitSQLiteAndPostgres(t *testing.T) {
 			if s.ChangeVersion() != before {
 				t.Fatal("empty transaction published a change")
 			}
+			changed := s.Changes()
 			if err := s.Update(ctx, mutate); err != nil {
 				t.Fatal(err)
 			}
@@ -46,7 +47,7 @@ func TestSchedulingHintsFollowCommitSQLiteAndPostgres(t *testing.T) {
 				t.Fatal("committed mutation did not advance version")
 			}
 			select {
-			case <-s.Changes():
+			case <-changed:
 			default:
 				t.Fatal("missing commit wakeup")
 			}

@@ -21,9 +21,10 @@ type logWorker struct {
 }
 
 type logWorkers struct {
-	app    *App
-	active map[string]logWorker
-	retry  map[string]time.Time
+	app       *App
+	active    map[string]logWorker
+	retry     map[string]time.Time
+	completed chan<- struct{}
 }
 
 func (w *logWorkers) reconcile(ctx context.Context, records []store.WatchRecord, now time.Time) {
@@ -76,11 +77,18 @@ func (w *logWorkers) reconcile(ctx context.Context, records []store.WatchRecord,
 		}
 		worker := logWorker{generation: r.Generation, cancel: cancel, done: make(chan struct{}), reconnect: delay}
 		w.active[id] = worker
+		delete(w.retry, id)
 		w.app.mu.Lock()
 		w.app.cancels[id] = acquisition{r.Generation, cancel}
 		w.app.mu.Unlock()
 		go func() {
-			defer close(worker.done)
+			defer func() {
+				close(worker.done)
+				select {
+				case w.completed <- struct{}{}:
+				default:
+				}
+			}()
 			defer cancel()
 			defer func() { w.app.mu.Lock(); delete(w.app.cancels, id); w.app.mu.Unlock() }()
 			w.app.runLogReader(readerCtx, r)
@@ -95,4 +103,15 @@ func (w *logWorkers) stop() {
 	for _, worker := range w.active {
 		<-worker.done
 	}
+}
+
+// The scheduler owns retry and active; worker completion only sends a hint.
+func (w *logWorkers) nextDeadline(now time.Time) time.Time {
+	var next time.Time
+	for _, due := range w.retry {
+		if due.After(now) && (next.IsZero() || due.Before(next)) {
+			next = due
+		}
+	}
+	return next
 }

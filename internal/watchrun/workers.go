@@ -126,11 +126,11 @@ func (a *App) Run(ctx context.Context) error {
 	if a.AcquisitionWorkers < 1 || a.DeliveryWorkers < 1 {
 		return fmt.Errorf("worker counts must be positive")
 	}
-	poll := a.PollInterval
-	if poll == 0 {
-		poll = 100 * time.Millisecond
+	retryDelay := a.PollInterval
+	if retryDelay == 0 {
+		retryDelay = time.Second
 	}
-	if poll < 100*time.Millisecond || poll > 5*time.Second {
+	if retryDelay < 100*time.Millisecond || retryDelay > 5*time.Second {
 		return fmt.Errorf("poll interval must be between 100ms and 5s")
 	}
 	if err := a.Store.LimitBytes(context.WithoutCancel(ctx), a.Limits.MaxBytes); err != nil {
@@ -144,8 +144,6 @@ func (a *App) Run(ctx context.Context) error {
 		deliveries.Add(1)
 		go func() {
 			defer deliveries.Done()
-			ticker := time.NewTicker(poll)
-			defer ticker.Stop()
 			var delivery deliveryCache
 			for {
 				select {
@@ -153,45 +151,50 @@ func (a *App) Run(ctx context.Context) error {
 					return
 				default:
 				}
+				changed := a.Store.Changes()
 				ready, err := delivery.ready(deliveryCtx, a.Store, a.Now(), &cached)
 				worked := false
 				if err == nil && ready {
-					version := a.Store.ChangeVersion()
 					worked, err = a.DeliverOne(deliveryCtx)
 					if err == nil && !worked {
-						// Pending work may be leased or delayed. Revisit it at the
-						// normal poll cadence; only an actually empty queue is cached.
-						delivery = deliveryCache{version: version}
+						// Recheck the shared snapshot after a nonempty queue
+						// drains; keep main's empty-queue cache between commits.
+						delivery = deliveryCache{}
 					}
 				}
 				a.note(err)
 				if worked && err == nil {
 					continue
 				}
-				select {
-				case <-deliveryCtx.Done():
-					return
-				case <-ticker.C:
+				next := a.Now().Add(time.Minute)
+				if err == nil && ready {
+					var due time.Time
+					due, err = a.Store.NextDelivery(deliveryCtx)
+					next = earlier(next, due)
+					a.note(err)
 				}
+				if err != nil {
+					next = a.Now().Add(retryDelay)
+				}
+				waitUntil(deliveryCtx, changed, nil, next.Sub(a.Now()))
 			}
 		}()
 	}
 	var acquisitions sync.WaitGroup
-	logReaders := &logWorkers{app: a, active: map[string]logWorker{}, retry: map[string]time.Time{}}
 	active := map[string]bool{}
 	retry := map[string]time.Time{}
 	var activeMu sync.Mutex
-	tick := time.NewTicker(poll)
-	defer tick.Stop()
+	completed := make(chan struct{}, 1)
+	logReaders := &logWorkers{app: a, active: map[string]logWorker{}, retry: map[string]time.Time{}, completed: completed}
 	lastMaintenance := time.Time{}
 	var previousWall, previousTick time.Time
-	schedule := func() {
+	schedule := func() time.Time {
 		now := a.Now()
 		tickNow := time.Now()
 		if !previousTick.IsZero() && clockDiscontinuity(previousWall, now, tickNow.Sub(previousTick)) {
 			if err := a.clockShift(ctx, now); err != nil {
 				a.note(err)
-				return
+				return now.Add(retryDelay)
 			}
 			lastMaintenance = time.Time{}
 		}
@@ -199,34 +202,46 @@ func (a *App) Run(ctx context.Context) error {
 		if lastMaintenance.IsZero() || now.Sub(lastMaintenance) >= time.Minute {
 			if err := a.maintain(ctx, now, &cached); err != nil {
 				a.note(err)
-				return
+				return now.Add(retryDelay)
 			}
 			lastMaintenance = now
 		}
 		state, err := cached.load(ctx, a.Store, now)
 		if err != nil {
 			a.note(err)
-			return
+			return now.Add(retryDelay)
 		}
 		if state.Budget.Bytes >= a.Limits.MaxBytes || state.Budget.Pending >= a.Limits.MaxPending {
 			a.note(ErrQuota)
-			return
+			return now.Add(retryDelay)
 		}
 		if !state.TimerAt.IsZero() && !state.TimerAt.After(now) {
 			cached.invalidate()
 			if err := a.RunTimers(ctx, now); err != nil {
 				a.note(err)
-				return
+				return now.Add(retryDelay)
 			}
 			state, err = cached.load(ctx, a.Store, now)
 			if err != nil {
 				a.note(err)
-				return
+				return now.Add(retryDelay)
 			}
 		}
 		records := state.Watches
 		a.expireLogSessions(ctx, records, now)
 		logReaders.reconcile(ctx, records, now)
+		next := earlier(lastMaintenance.Add(time.Minute), state.TimerAt)
+		next = earlier(next, logReaders.nextDeadline(now))
+		for _, record := range records {
+			if record.Status != "running" || record.Plan.Definition.Spec.Source.Type != "logs" {
+				continue
+			}
+			var checkpoint logCheckpoint
+			if json.Unmarshal([]byte(record.Cursor), &checkpoint) == nil && checkpoint.Status == "active" {
+				next = earlier(next, checkpoint.Last.Add(5*time.Second))
+			}
+		}
+
 		activeMu.Lock()
 		known := map[string]bool{}
 		for _, record := range records {
@@ -242,15 +257,29 @@ func (a *App) Run(ctx context.Context) error {
 		activeMu.Unlock()
 		for _, record := range records {
 			id := record.Plan.Definition.Metadata.ID
-			if record.Status != "running" || record.Plan.Definition.Spec.Source.Type == "push" || record.Plan.Definition.Spec.Source.Type == "logs" || record.NextAt.After(now) {
+			if record.Status != "running" || (record.Plan.Definition.Spec.Source.Type == "push" || record.Plan.Definition.Spec.Source.Type == "logs") {
 				continue
 			}
 			activeMu.Lock()
-			if active[id] || retry[id].After(now) || len(active) >= a.AcquisitionWorkers {
+			if active[id] {
+				activeMu.Unlock()
+				continue
+			}
+			ready := record.NextAt
+			if retry[id].After(ready) {
+				ready = retry[id]
+			}
+			if ready.After(now) {
+				next = earlier(next, ready)
+				activeMu.Unlock()
+				continue
+			}
+			if len(active) >= a.AcquisitionWorkers {
 				activeMu.Unlock()
 				continue
 			}
 			if err := a.Reserve(); err != nil {
+				next = earlier(next, now.Add(retryDelay))
 				activeMu.Unlock()
 				continue
 			}
@@ -259,8 +288,16 @@ func (a *App) Run(ctx context.Context) error {
 			acquisitions.Add(1)
 			go func(record store.WatchRecord, id string) {
 				defer acquisitions.Done()
-				defer a.Release()
-				defer func() { activeMu.Lock(); delete(active, id); activeMu.Unlock() }()
+				defer func() {
+					a.Release()
+					activeMu.Lock()
+					delete(active, id)
+					activeMu.Unlock()
+					select {
+					case completed <- struct{}{}:
+					default:
+					}
+				}()
 				acquireCtx, cancel := context.WithCancel(ctx)
 				defer cancel()
 				a.mu.Lock()
@@ -269,7 +306,16 @@ func (a *App) Run(ctx context.Context) error {
 				defer func() { a.mu.Lock(); delete(a.cancels, id); a.mu.Unlock() }()
 				// A lifecycle commit can race registration; verify the generation before I/O.
 				var current store.WatchRecord
-				if err := a.Store.View(acquireCtx, func(tx *store.Tx) error { var err error; current, err = tx.Watch(id); return err }); err != nil || current.Generation != record.Generation || current.Status != "running" {
+				if err := a.Store.View(acquireCtx, func(tx *store.Tx) error { var err error; current, err = tx.Watch(id); return err }); err != nil {
+					// Completion wakes the scheduler immediately. Without a retry
+					// deadline, a cached watch with a persistent read failure spins.
+					a.note(err)
+					activeMu.Lock()
+					retry[id] = a.Now().Add(retryDelay)
+					activeMu.Unlock()
+					return
+				}
+				if current.Generation != record.Generation || current.Status != "running" || !current.NextAt.Equal(record.NextAt) {
 					return
 				}
 				var acquirer source.Acquirer = a.HTTP
@@ -294,21 +340,14 @@ func (a *App) Run(ctx context.Context) error {
 				}
 			}(record, id)
 		}
+		return next
 	}
-	if ctx.Err() == nil {
-		schedule()
+	for ctx.Err() == nil {
+		changed := a.Store.Changes()
+		next := schedule()
+		waitUntil(ctx, changed, completed, next.Sub(a.Now()))
 	}
-loop:
-	for {
-		select {
-		case <-ctx.Done():
-			break loop
-		case <-tick.C:
-			if ctx.Err() == nil {
-				schedule()
-			}
-		}
-	}
+
 	a.mu.Lock()
 	a.closing = true
 	a.mu.Unlock()
@@ -317,6 +356,7 @@ loop:
 	drainDeadline := time.NewTimer(5 * time.Second)
 	defer drainDeadline.Stop()
 	for {
+		changed := a.Store.Changes()
 		pending := 0
 		err := a.Store.View(context.Background(), func(tx *store.Tx) error { var err error; pending, err = tx.Pending(); return err })
 		if err != nil || pending == 0 {
@@ -327,7 +367,7 @@ loop:
 			stopDelivery()
 			deliveries.Wait()
 			return nil
-		case <-tick.C:
+		case <-changed:
 		}
 	}
 	stopDelivery()
