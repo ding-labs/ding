@@ -2,8 +2,11 @@ package watchrun
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -163,5 +166,86 @@ func TestAcquisitionCompletionWakesWaitingWatch(t *testing.T) {
 	case <-fetched:
 		t.Fatal("completion triggered a duplicate acquisition")
 	case <-time.After(150 * time.Millisecond):
+	}
+}
+
+func TestAcquisitionReadFailureBacksOff(t *testing.T) {
+	a, dir := setup(t)
+	var nowCalls atomic.Int64
+	a.Now = func() time.Time { nowCalls.Add(1); return time.Now().UTC() }
+	fetched := make(chan time.Time, 8)
+	endpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fetched <- time.Now()
+		w.WriteHeader(200)
+	}))
+	defer endpoint.Close()
+	m := strings.Replace(manifest(endpoint.URL), "every: 5s", "every: 1s", 1)
+	if _, err := a.Apply(ctx, ApplyRequest{Manifest: m}); err != nil {
+		t.Fatal(err)
+	}
+	startRuntime(t, a)
+	receiveAttempt(t, fetched)
+	deadline := time.Now().Add(time.Second)
+	for {
+		changed := a.Store.Changes()
+		r, err := a.Record(ctx, "api")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !r.LastInputAt.IsZero() {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("acquisition did not checkpoint")
+		}
+		waitUntil(ctx, changed, nil, time.Until(deadline))
+	}
+	// Corrupt the row through a separate connection, without a process-local
+	// notification. The scheduler still has a valid cached plan; the acquisition
+	// fence must fail without launching a rapid completion/retry loop.
+	db, err := sql.Open("sqlite", filepath.Join(dir, "ding.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec("UPDATE watches SET revision='missing-revision'"); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(1200 * time.Millisecond)
+	before := nowCalls.Load()
+	time.Sleep(300 * time.Millisecond)
+	if delta := nowCalls.Load() - before; delta > 20 {
+		t.Fatalf("failed acquisition spun: %d clock samples in 300ms", delta)
+	}
+}
+
+func TestSleepingRuntimeExpiresLogSession(t *testing.T) {
+	a, _ := setup(t)
+	a.Now = time.Now
+	if _, err := a.Apply(ctx, ApplyRequest{Manifest: nativeLogManifest}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.StartLogSession(ctx, "output"); err != nil {
+		t.Fatal(err)
+	}
+	startRuntime(t, a)
+	deadline := time.Now().Add(7 * time.Second)
+	for {
+		changed := a.Store.Changes()
+		r, err := a.Record(ctx, "output")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var checkpoint logCheckpoint
+		if err := json.Unmarshal([]byte(r.Cursor), &checkpoint); err != nil {
+			t.Fatal(err)
+		}
+		if checkpoint.Status == "stalled" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("session expiry missed its deadline")
+		}
+		waitUntil(ctx, changed, nil, time.Until(deadline))
 	}
 }

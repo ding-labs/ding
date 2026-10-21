@@ -144,6 +144,7 @@ func (a *App) Run(ctx context.Context) error {
 		deliveries.Add(1)
 		go func() {
 			defer deliveries.Done()
+			var delivery deliveryCache
 			for {
 				select {
 				case <-deliveryCtx.Done():
@@ -151,13 +152,22 @@ func (a *App) Run(ctx context.Context) error {
 				default:
 				}
 				changed := a.Store.Changes()
-				worked, err := a.DeliverOne(deliveryCtx)
+				ready, err := delivery.ready(deliveryCtx, a.Store, a.Now(), &cached)
+				worked := false
+				if err == nil && ready {
+					worked, err = a.DeliverOne(deliveryCtx)
+					if err == nil && !worked {
+						// Recheck the shared snapshot after a nonempty queue
+						// drains; keep main's empty-queue cache between commits.
+						delivery = deliveryCache{}
+					}
+				}
 				a.note(err)
 				if worked && err == nil {
 					continue
 				}
 				next := a.Now().Add(time.Minute)
-				if err == nil {
+				if err == nil && ready {
 					var due time.Time
 					due, err = a.Store.NextDelivery(deliveryCtx)
 					next = earlier(next, due)
@@ -296,7 +306,16 @@ func (a *App) Run(ctx context.Context) error {
 				defer func() { a.mu.Lock(); delete(a.cancels, id); a.mu.Unlock() }()
 				// A lifecycle commit can race registration; verify the generation before I/O.
 				var current store.WatchRecord
-				if err := a.Store.View(acquireCtx, func(tx *store.Tx) error { var err error; current, err = tx.Watch(id); return err }); err != nil || current.Generation != record.Generation || current.Status != "running" || !current.NextAt.Equal(record.NextAt) {
+				if err := a.Store.View(acquireCtx, func(tx *store.Tx) error { var err error; current, err = tx.Watch(id); return err }); err != nil {
+					// Completion wakes the scheduler immediately. Without a retry
+					// deadline, a cached watch with a persistent read failure spins.
+					a.note(err)
+					activeMu.Lock()
+					retry[id] = a.Now().Add(retryDelay)
+					activeMu.Unlock()
+					return
+				}
+				if current.Generation != record.Generation || current.Status != "running" || !current.NextAt.Equal(record.NextAt) {
 					return
 				}
 				var acquirer source.Acquirer = a.HTTP
