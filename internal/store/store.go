@@ -80,6 +80,7 @@ type Store struct {
 	writer    chan struct{}
 	version   atomic.Uint64
 	wake      chan struct{}
+	changeMu  sync.Mutex
 	db        *sql.DB
 	readers   *sql.DB
 	lock      *os.File
