@@ -28,9 +28,6 @@ func (c Capacity) Policy(bundle plan.Bundle) error {
 		switch w.Source.Type {
 		case "push":
 		case "http":
-			if w.Limits.MaxBytes > 64<<10 {
-				return fmt.Errorf("cloud HTTP acquisition has a separate 64 KiB response limit")
-			}
 			if w.Source.URLRef != nil {
 				return fmt.Errorf("cloud HTTP sources require explicit public URLs")
 			}

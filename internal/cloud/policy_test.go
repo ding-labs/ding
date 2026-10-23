@@ -5,10 +5,24 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ding-labs/ding/internal/hostingpolicy"
 	"github.com/ding-labs/ding/internal/plan"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watchrun"
 )
+
+func TestCloudHTTPResponseLimitUsesConfiguredCapacity(t *testing.T) {
+	b, err := plan.Parse([]byte(strings.ReplaceAll(fixture, "maxBytes: 65536", "maxBytes: 1048576")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Policy(b); err != nil {
+		t.Fatal("1 MiB HTTP watch rejected", err)
+	}
+	if err := (hostingpolicy.Capacity{MaxBodyBytes: 64 << 10}).Policy(b); err == nil {
+		t.Fatal("configured smaller capacity ignored")
+	}
+}
 
 const fixture = `apiVersion: ding.ing/v1alpha1
 kind: Destination

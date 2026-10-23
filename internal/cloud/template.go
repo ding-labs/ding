@@ -23,7 +23,7 @@ func Template(r FirstWatch) (string, error) {
 		Source:       watch.Source{Type: "http", URL: r.URL, Every: "5m", Timeout: "5s"},
 		Condition:    watch.Condition{Field: "http.status", Operator: "gte", Value: 500},
 		Policy:       watch.Policy{Trigger: "transition", Consecutive: 3, RecoverAfter: 2, OnUnknown: "hold-incident"},
-		Limits:       watch.Limits{MaxBytes: 64 << 10, MaxEntities: 10, MaxSamples: 100, MaxOutputs: 10},
+		Limits:       watch.Limits{MaxBytes: maxResponseBodyBytes, MaxEntities: 10, MaxSamples: 100, MaxOutputs: 10},
 		Destinations: []watch.Target{{Ref: d.Metadata.ID, Events: []string{"firing", "recovered", "source_error", "source_recovered"}}},
 	}}
 	var out bytes.Buffer

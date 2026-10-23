@@ -72,10 +72,12 @@ type chargedBody struct {
 	finish     func(int64)
 }
 
+const maxResponseBodyBytes = 1 << 20
+
 func (b *chargedBody) Read(p []byte) (int, error) {
-	remaining := int64(64<<10) + 1 - b.read
+	remaining := int64(maxResponseBodyBytes) + 1 - b.read
 	if remaining <= 0 {
-		return 0, fmt.Errorf("cloud response body exceeds 64 KiB")
+		return 0, fmt.Errorf("cloud response body exceeds 1 MiB")
 	}
 	if int64(len(p)) > remaining {
 		p = p[:remaining]
@@ -83,8 +85,8 @@ func (b *chargedBody) Read(p []byte) (int, error) {
 	n, err := b.ReadCloser.Read(p)
 	b.read += int64(n)
 	b.used += int64(n)
-	if b.read > 64<<10 {
-		return n, fmt.Errorf("cloud response body exceeds 64 KiB")
+	if b.read > maxResponseBodyBytes {
+		return n, fmt.Errorf("cloud response body exceeds 1 MiB")
 	}
 	return n, err
 }
