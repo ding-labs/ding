@@ -108,6 +108,12 @@ not yet a qualified zero-configuration public-marketplace install.
 
 ## Preview limits
 
+HTTP watches allow responses up to 1 MiB by default, within the operator's
+`capacity.maxBodyBytes` setting. Set `limits.maxBytes` to enforce a smaller bound.
+JSON field projection reads the body; status-only checks inspect the HTTP status
+without downloading the body. The response allowance is validated when reviewing
+a watch, before any request is sent.
+
 Three public HTTP watches; five-minute minimum interval; three remote destinations;
 seven days of ordinary detailed history; 64 MiB per workspace; 100 pending
 deliveries; 30,000 check attempts, 1,000 delivery attempts and 128 MiB metered
