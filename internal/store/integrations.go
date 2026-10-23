@@ -152,7 +152,9 @@ func (t *Tx) SaveIntegrationPreview(p IntegrationPreview, now time.Time) error {
 	if count >= 64 {
 		return ErrIntegrationLimit
 	}
-	_, err := t.exec(qSaveIntegrationPreview3, p.ID, p.GrantID, p.Manifest, p.Review, timestamp(p.ExpiresAt))
+	// Bind bytes for BLOB/bytea storage; pgx otherwise sends json.RawMessage
+	// as JSON text, which PostgreSQL would parse for bytea escapes.
+	_, err := t.exec(qSaveIntegrationPreview3, p.ID, p.GrantID, p.Manifest, []byte(p.Review), timestamp(p.ExpiresAt))
 	return err
 }
 
@@ -202,6 +204,6 @@ func (t *Tx) SaveIntegrationOperation(grant string, o IntegrationOperation) erro
 	if count >= 10000 {
 		return ErrIntegrationLimit
 	}
-	_, err := t.exec(qSaveIntegrationOperation2, grant, o.Key, o.Action, o.Digest, o.Result, timestamp(o.CreatedAt))
+	_, err := t.exec(qSaveIntegrationOperation2, grant, o.Key, o.Action, o.Digest, []byte(o.Result), timestamp(o.CreatedAt))
 	return err
 }

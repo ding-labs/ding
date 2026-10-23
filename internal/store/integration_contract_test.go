@@ -21,18 +21,21 @@ func integrationContract(t *testing.T, tx *Tx) {
 	if got, err := tx.IntegrationGrantByHash("same-hash"); err != nil || got.ID != g.ID {
 		t.Fatal("grant identity mismatch", err)
 	}
-	preview := IntegrationPreview{ID: "same-preview", GrantID: g.ID, Manifest: "digest", Review: []byte(`{"allow":true}`), ExpiresAt: testNow.Add(time.Hour)}
+	// Real MCP receipts include YAML with escaped newlines and backslashes.
+	// Both bytea columns must preserve the JSON bytes without interpreting them.
+	payload := []byte(`{"allow":true,"text":"first\nsecond\t\"quoted\" C:\\temp\\watch ☃ \u2603"}`)
+	preview := IntegrationPreview{ID: "same-preview", GrantID: g.ID, Manifest: "digest", Review: payload, ExpiresAt: testNow.Add(time.Hour)}
 	if err := tx.SaveIntegrationPreview(preview, testNow); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := tx.IntegrationPreview(g.ID, preview.ID, testNow); err != nil || string(got.Review) != string(preview.Review) {
 		t.Fatal("preview mismatch", err)
 	}
-	op := IntegrationOperation{Key: "same-key", Action: "apply", Digest: "digest", Result: []byte(`{"accepted":true}`), CreatedAt: testNow}
+	op := IntegrationOperation{Key: "same-key", Action: "apply", Digest: "digest", Result: payload, CreatedAt: testNow}
 	if err := tx.SaveIntegrationOperation(g.ID, op); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := tx.IntegrationOperation(g.ID, op.Key); err != nil || got.Digest != op.Digest {
+	if got, err := tx.IntegrationOperation(g.ID, op.Key); err != nil || got.Digest != op.Digest || string(got.Result) != string(op.Result) {
 		t.Fatal("operation mismatch", err)
 	}
 	if err := tx.RevokeIntegrationGrant(g.ID); err != nil {

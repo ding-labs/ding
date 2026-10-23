@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -13,6 +14,54 @@ import (
 	"github.com/ding-labs/ding/internal/database"
 	"github.com/ding-labs/ding/internal/store"
 )
+
+func TestPostgresIntegrationApplyReceiptSurvivesRestartAndExpiry(t *testing.T) {
+	a, dir := postgresSetup(t)
+	g := integrationGrant(t, a, "inspect", "preview", "manage")
+	p, err := a.PreviewIntegration(ctx, g.Grant.ID, manifest("https://example.com"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const key = "postgres_apply_operation_000001"
+	want, err := a.ApplyIntegration(ctx, g.Grant.ID, p.Handle, key)
+	if err != nil {
+		t.Fatal("MCP apply failed to save its receipt", err)
+	}
+	if len(want.Changes) != 1 || want.Changes[0].State != "created" {
+		t.Fatal("watch not created", want)
+	}
+	if err := a.Store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	s, err := reopenTestStore(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	a = New(s)
+	a.Now = func() time.Time { return p.ExpiresAt.Add(time.Minute) }
+	again, err := a.ApplyIntegration(ctx, g.Grant.ID, p.Handle, key)
+	if err != nil || !reflect.DeepEqual(want, again) {
+		t.Fatal("apply receipt changed after restart and preview expiry", err)
+	}
+	op, err := a.GetIntegrationOperation(ctx, g.Grant.ID, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var receipt ApplyResult
+	if err := json.Unmarshal(op.Result, &receipt); err != nil || !reflect.DeepEqual(want, receipt) {
+		t.Fatal("stored apply result lost JSON escapes", err)
+	}
+	if err := a.Store.View(ctx, func(tx *store.Tx) error {
+		page, err := tx.EventPage("api", "", 100)
+		if len(page.Events) != 1 {
+			t.Errorf("retry duplicated the apply event: %d events", len(page.Events))
+		}
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func postgresSetup(t *testing.T) (*App, string) {
 	t.Helper()
