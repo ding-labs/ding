@@ -9,7 +9,10 @@ import (
 const MonthlyChecks = 30000
 const MonthlyDeliveries = 1000
 const MonthlyBytes = 128 << 20
-const RequestReservation = 192 << 10
+
+// Cover a 1 MiB response, its overflow probe, and the transport's combined
+// request/header allowance. A crashed request retains this conservative charge.
+const RequestReservation = (1 << 20) + 1 + (96 << 10)
 
 type Usage struct {
 	Period     string `json:"period"`
