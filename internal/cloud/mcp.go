@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/ding-labs/ding/internal/access"
+	"github.com/ding-labs/ding/internal/control"
 	"github.com/ding-labs/ding/internal/integrationpolicy"
 	"github.com/ding-labs/ding/internal/mcpauth"
 	"github.com/ding-labs/ding/internal/mcpclient"
@@ -160,6 +161,13 @@ func (t privateTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	}
 	p.Grant = t.principal.Grant
 	r = r.Clone(access.WithOperation(access.WithPrincipal(r.Context(), p), r.Method, r.URL.Path))
+	if r.URL.Path == "/v1/integrations/capabilities" {
+		workspace, err := t.db.Workspace(r.Context(), p.Workspace)
+		if err != nil {
+			return nil, fmt.Errorf("workspace unavailable")
+		}
+		r = r.Clone(control.WithWorkspaceName(r.Context(), workspace.ID, workspace.Name))
+	}
 	w := &privateResponse{header: make(http.Header), status: 200}
 	if t.admit != nil && !t.admit(p.Workspace) {
 		cloudFail(w, 429, "workspace_rate", "Workspace request rate exceeded; retry later.")
