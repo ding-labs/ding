@@ -23,7 +23,7 @@ import type { ControlInfo, ControlBrowserSession } from "../api/contracts";
 import { preference, savePreference, setPreferenceWorkspace } from "./preferences";
 import { ExecutionContext, discoverAuth, type AuthConfig, type Execution } from "./execution";
 import { SignIn } from "../components/SignIn";
-import { CommandMenu } from "../components/CommandMenu";
+import { CommandMenu, type Preference } from "../components/CommandMenu";
 import { AccountMenu } from "../components/AccountMenu";
 import { System } from "../pages/System";
 import { Workbench } from "../pages/Workbench";
@@ -35,6 +35,7 @@ import { Watches, WatchDetail } from "../pages/Watches";
 import { Events, EventDetail } from "../pages/Events";
 import { Deliveries, DeliveryDetail } from "../pages/Deliveries";
 import { TimeContext } from "../components/common";
+import { Settings } from "../pages/Settings";
 
 const nav = [
   { path: "/watches", label: "Watches", icon: Radio },
@@ -119,6 +120,19 @@ export function App() {
   });
   const current = nav.find((n) => location.pathname.startsWith(n.path));
   const workspaceName = memberships?.find(m => m.workspace === execution.workspace)?.name || "Workspace";
+  const preferences: Preference[] = [
+    { id: "density", label: "Display density", value: density, onChange: setDensity, options: [
+      { value: "comfortable", label: "Comfortable" }, { value: "compact", label: "Compact" },
+    ] },
+    { id: "time", label: "Display time", value: timeMode, onChange: value => {
+      setTimeMode(value); savePreference("ding.time", value);
+    }, options: [
+      { value: "local", label: "Local time" }, { value: "utc", label: "UTC" }, { value: "relative", label: "Relative time" },
+    ] },
+    { id: "appearance", label: "Appearance", value: theme, onChange: setTheme, options: [
+      { value: "system", label: "System" }, { value: "light", label: "Light" }, { value: "dark", label: "Dark" },
+    ] },
+  ];
   if (session !== "ready")
     return (
       <main className="connect-page">
@@ -197,7 +211,7 @@ export function App() {
         <div className="workspace">
           <header className="location-bar">
             <div className="header-context">
-              {execution.mode === "local" ? <div className="location-crumb">Console <span>/</span> {current?.label || "Watches"}</div> : (memberships?.length || 0) > 1 ? (
+              {execution.mode === "local" ? <div className="location-crumb">Console <span>/</span> {location.pathname === "/settings" ? "Settings" : current?.label || "Watches"}</div> : (memberships?.length || 0) > 1 ? (
                 <select className="workspace-selector" aria-label="Workspace" title={workspaceName} value={execution.workspace || ""} onChange={async e => {
                   const next = e.target.value; setSession("loading");
                   await client.cancelQueries(); selectWorkspace(next); client.clear(); resetDraft(); sessionAttempt = undefined; establish();
@@ -207,20 +221,8 @@ export function App() {
             <div className="toolbar header-actions">
               <CommandMenu open={commandOpen} initialSearch={commandSearch} onOpenChange={next => {
                 setCommandSearch(""); setCommandOpen(next);
-              }} preferences={[
-                { id: "density", label: "Display density", value: density, onChange: setDensity, options: [
-                  { value: "comfortable", label: "Comfortable" }, { value: "compact", label: "Compact" },
-                ] },
-                { id: "time", label: "Display time", value: timeMode, onChange: value => {
-                  setTimeMode(value); savePreference("ding.time", value);
-                }, options: [
-                  { value: "local", label: "Local time" }, { value: "utc", label: "UTC" }, { value: "relative", label: "Relative time" },
-                ] },
-                { id: "appearance", label: "Appearance", value: theme, onChange: setTheme, options: [
-                  { value: "system", label: "System" }, { value: "light", label: "Light" }, { value: "dark", label: "Dark" },
-                ] },
-              ]} />
-              <AccountMenu name={execution.user?.name} role={execution.role} workspace={execution.mode === "local" ? undefined : workspaceName}
+              }} preferences={preferences} />
+              <AccountMenu name={execution.user?.name} fallbackName={execution.mode === "local" ? "Local owner" : "Your account"} role={execution.role} workspace={execution.mode === "local" ? undefined : workspaceName}
                 onPreferences={() => {setCommandSearch("Preferences"); setCommandOpen(true);}}
                 onLogout={async () => {
                   try {
@@ -268,6 +270,9 @@ export function App() {
               <Route path="/workbench" element={execution.mode === "local" || execution.capabilities?.includes("preview") ? <Workbench /> : <Navigate to="/watches" replace />} />
               <Route path="/start" element={execution.mode === "cloud" ? <CloudFirstWatch /> : execution.mode === "shared" ? <Workbench /> : <FirstWatch />} />
               <Route path="/system" element={<System />} />
+              <Route path="/settings" element={<Settings workspaceName={workspaceName} preferences={preferences}
+                onProfileSaved={user => setExecution(current => ({ ...current, user }))}
+                onWorkspaceSaved={saved => setMemberships(current => current?.map(m => m.workspace === saved.id ? { ...m, name: saved.name } : m))} />} />
               <Route
                 path="*"
                 element={

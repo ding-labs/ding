@@ -13,7 +13,7 @@ func TestStaticRouting(t *testing.T) {
 		path string
 		code int
 		kind string
-	}{{"/ui/", 200, "text/html"}, {"/ui/watches/api", 200, "text/html"}, {"/ui/assets/app-123.js", 200, "text/javascript"}, {"/ui/assets/missing.js", 404, ""}, {"/ui/unknown", 404, ""}, {"/ui/../tokens.json", 404, ""}} {
+	}{{"/ui/", 200, "text/html"}, {"/ui/watches/api", 200, "text/html"}, {"/ui/settings", 200, "text/html"}, {"/ui/assets/app-123.js", 200, "text/javascript"}, {"/ui/assets/missing.js", 404, ""}, {"/ui/unknown", 404, ""}, {"/ui/../tokens.json", 404, ""}} {
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, httptest.NewRequest("GET", tc.path, nil))
 		if w.Code != tc.code || !strings.HasPrefix(w.Header().Get("Content-Type"), tc.kind) {

@@ -17,8 +17,9 @@ const commands = [
   { name: "Run Doctor", to: "/system" },
   { name: "Back up this daemon", to: "/system?tab=Backup" },
   { name: "Read CLI help", to: "/system?tab=CLI+setup" },
+  { name: "Open settings", to: "/settings" },
 ];
-type Preference = {
+export type Preference = {
   id: string;
   label: string;
   value: string;
