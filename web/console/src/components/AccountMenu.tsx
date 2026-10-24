@@ -1,15 +1,18 @@
 import { useRef } from "react";
 import * as Menu from "@radix-ui/react-dropdown-menu";
-import { LogOut, SlidersHorizontal, UserRound } from "lucide-react";
+import { LogOut, Settings, SlidersHorizontal, UserRound } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export function AccountMenu({
   name,
+  fallbackName = "Local session",
   role,
   workspace,
   onPreferences,
   onLogout,
 }: {
   name?: string;
+  fallbackName?: string;
   role?: string;
   workspace?: string;
   onPreferences: () => void;
@@ -45,13 +48,19 @@ export function AccountMenu({
           }}
         >
           <Menu.Label className="account-identity">
-            <strong>{name || "Local session"}</strong>
+            <strong>{name || fallbackName}</strong>
             <span>
               {role || "Personal access"}
               {workspace && ` · ${workspace}`}
             </span>
           </Menu.Label>
           <Menu.Separator className="account-separator" />
+          <Menu.Item asChild>
+            <Link to="/settings">
+              <Settings size={15} />
+              Settings
+            </Link>
+          </Menu.Item>
           <Menu.Item
             onSelect={() => {
               preferencesRequested.current = true;

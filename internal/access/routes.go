@@ -57,6 +57,7 @@ var Routes = map[string]Action{
 	"POST /v1/cloud/models":                        Inspect,
 	"POST /v1/cloud/destination-test":              Destinations,
 	"DELETE /v1/workspace":                         DeleteWorkspace,
+	"PATCH /v1/workspace":                          Owners,
 	"GET /v1/services":                             Members,
 	"POST /v1/services":                            Members,
 	"DELETE /v1/services/{id}":                     Members,

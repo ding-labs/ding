@@ -42,6 +42,13 @@ func (s *Server) scopedMCP(t *Tenant, next http.Handler) http.Handler {
 			cloudFail(w, 400, "unsupported_operation", "This instance is self-hosted; inspect its capabilities and watches.")
 			return
 		}
+		workspace, err := s.DB.Workspace(r.Context(), t.Workspace.ID)
+		if err != nil {
+			cloudFail(w, 503, "workspace_unavailable", "Workspace settings are unavailable.")
+			return
+		}
+		profile := t.App.Integration
+		profile.WorkspaceName = workspace.Name
 		now := time.Now().UTC()
 		usage, err := s.DB.Usage(r.Context(), t.Workspace.ID, now)
 		if err != nil {
@@ -65,7 +72,7 @@ func (s *Server) scopedMCP(t *Tenant, next http.Handler) http.Handler {
 			"resetsAt":        time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.UTC),
 			"budgetExhausted": (capacity.OutboundChecks > 0 && usage.Checks >= capacity.OutboundChecks) || (capacity.OutboundDeliveries > 0 && usage.Deliveries >= capacity.OutboundDeliveries) || (capacity.OutboundBytes > 0 && usage.Bytes >= capacity.OutboundBytes),
 			"health":          map[string]any{"healthy": health.Healthy, "running": health.Running, "closing": health.Closing, "storage": health.Usage, "storageLimits": health.Limits, "deliveries": health.Deliveries},
-			"policy":          map[string]any{"execution": "cloud", "minIntervalSeconds": capacity.MinPollSeconds, "publicHTTPOnly": false, "httpRequiresPublicURL": true, "sourceTypes": []string{"http", "push"}, "destinations": []string{"webhook", "slack", "discord"}, "preview": t.App.Integration},
+			"policy":          map[string]any{"execution": "cloud", "minIntervalSeconds": capacity.MinPollSeconds, "publicHTTPOnly": false, "httpRequiresPublicURL": true, "sourceTypes": []string{"http", "push"}, "destinations": []string{"webhook", "slack", "discord"}, "preview": profile},
 			"note":            "Failed checks and delivery attempts count. Zero cumulative limits mean no monthly quota. Exhausted configured budgets block outbound work; evidence pinned by active incidents or pending deliveries counts against storage limits.",
 		})
 	})

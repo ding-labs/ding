@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import { useExecution, useCapability } from "../app/execution";
 import { ErrorBox, useRead } from "../components/common";
 type Member = { id: string; name: string; username?: string; role: string; disabled: boolean };
+const memberName = (member: Member) => member.name || member.username || "Name not set";
 export function Members() {
   const passwords = useExecution().accountFeatures?.passwords; const owner = useCapability("owners");
   const members = useRead<Member[]>("/members"); const query = useQueryClient();
@@ -19,12 +20,12 @@ export function Members() {
   return <section className="panel"><h2>Workspace members</h2><p>Viewers inspect. Editors manage watches. Administrators manage credentials and members. Owners also manage ownership and workspace deletion.</p>
     <ErrorBox error={error || members.error}/>
     {link && <div role="status"><p>Share this one-use link privately. It expires in one hour.</p><input aria-label="Account activation link" readOnly value={link}/><button className="button" onClick={() => setLink("")}>Dismiss</button></div>}
-    <ul>{members.data?.map(m => <li key={m.id}><strong>{m.name}</strong> {m.username || m.id} {m.disabled ? "(disabled)" : ""}{" "}
-      <select aria-label={`Role for ${m.name}`} value={m.role} disabled={busy || (!owner && !roles.includes(m.role))} onChange={e => void change(`/members/${m.id}`, "PATCH", {role:e.target.value})}>{[...new Set([...roles,m.role])].map(r => <option key={r}>{r}</option>)}</select>{" "}
+    <ul>{members.data?.map(m => <li key={m.id}><strong>{memberName(m)}</strong> {m.username || m.id} {m.disabled ? "(disabled)" : ""}{" "}
+      <select aria-label={`Role for ${memberName(m)}`} value={m.role} disabled={busy || (!owner && !roles.includes(m.role))} onChange={e => void change(`/members/${m.id}`, "PATCH", {role:e.target.value})}>{[...new Set([...roles,m.role])].map(r => <option key={r}>{r}</option>)}</select>{" "}
       {(owner || roles.includes(m.role)) && <>
         <button className="button" disabled={busy} onClick={() => void change(`/members/${m.id}`,"PATCH",{disabled:!m.disabled})}>{m.disabled ? "Enable" : "Disable"}</button>{" "}
         {passwords && m.role !== "owner" && <button className="button" disabled={busy} onClick={() => void change(`/members/${m.id}`,"PATCH",{reset:true})}>Reset password</button>}{" "}
-        <button className="button" disabled={busy} onClick={() => {if(confirm(`Remove ${m.name} from this workspace?`)) void change(`/members/${m.id}`,"DELETE");}}>Remove</button>
+        <button className="button" disabled={busy} onClick={() => {if(confirm(`Remove ${memberName(m)} from this workspace?`)) void change(`/members/${m.id}`,"DELETE");}}>Remove</button>
       </>}
     </li>)}</ul>
     <form className="onboarding-form" onSubmit={invite}><fieldset disabled={busy}>

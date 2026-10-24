@@ -572,6 +572,11 @@ code {
 .onboarding-form select {
   width: 100%;
 }
+.settings-layout { display: grid; gap: 20px; max-width: 960px; }
+.settings-layout > .panel + .panel { margin-top: 0; }
+.settings-preferences { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 20px; }
+.settings-save { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.settings-save [role="status"] { color: var(--green); font-size: 13px; }
 .panel + .panel {
   margin-top: 20px;
 }

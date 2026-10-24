@@ -31,6 +31,7 @@ func TestOIDCVerifiesSignedIdentityPKCEAndNonce(t *testing.T) {
 	set := jwk.NewSet()
 	_ = set.AddKey(public)
 	var issuer, challenge, nonce string
+	profile := map[string]any{"name": "  Zoë Studios  "}
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
@@ -55,6 +56,9 @@ func TestOIDCVerifiesSignedIdentityPKCEAndNonce(t *testing.T) {
 			_ = token.Set(jwt.ExpirationKey, time.Now().Add(time.Minute))
 			_ = token.Set(jwt.IssuedAtKey, time.Now())
 			_ = token.Set("nonce", nonce)
+			for claim, value := range profile {
+				_ = token.Set(claim, value)
+			}
 			signed, err := jwt.Sign(token, jwt.WithKey(jwa.RS256(), key))
 			if err != nil {
 				t.Error(err)
@@ -79,8 +83,23 @@ func TestOIDCVerifiesSignedIdentityPKCEAndNonce(t *testing.T) {
 		t.Fatal("unexpected identity privileges or missing PKCE", u.RawQuery)
 	}
 	identity, err := p.Exchange(context.Background(), "good", "nonce", verifier)
-	if err != nil || identity.Subject != "stable-github-backed-id" {
+	if err != nil || identity.Subject != "stable-github-backed-id" || identity.Name != "Zoë Studios" {
 		t.Fatal("identity exchange failed", err)
+	}
+	for _, tc := range []struct {
+		claims map[string]any
+		want   string
+	}{
+		{map[string]any{"given_name": "Zoë", "family_name": "Studios"}, "Zoë Studios"},
+		{map[string]any{"name": "Bad\nName"}, ""},
+		{map[string]any{"name": 17}, ""},
+		{nil, ""},
+	} {
+		profile = tc.claims
+		got, err := p.Exchange(context.Background(), "good", "nonce", verifier)
+		if err != nil || got.Name != tc.want || got.Subject != identity.Subject {
+			t.Fatal("optional profile changed authentication", got, err)
+		}
 	}
 	if _, err := p.Exchange(context.Background(), "good", "wrong-nonce", verifier); err == nil {
 		t.Fatal("wrong nonce accepted")

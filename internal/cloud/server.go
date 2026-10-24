@@ -294,6 +294,10 @@ func (s *Server) Handler() (http.Handler, error) {
 		if s.membersAPI(w, r, principal) {
 			return
 		}
+		if r.Method == "PATCH" && r.URL.Path == "/v1/workspace" {
+			s.workspaceSettings(w, r, principal)
+			return
+		}
 		tenant, err := s.Pool.Get(r.Context(), session.Workspace)
 		if err != nil {
 			cloudFail(w, 503, "workspace_unavailable", "Workspace execution is unavailable; inspect service status or contact support.")

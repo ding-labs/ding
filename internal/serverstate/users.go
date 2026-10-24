@@ -53,7 +53,7 @@ func (d *DB) Enroll(ctx context.Context, issuer, subject string, limit int) (Enr
 		return out, fmt.Errorf("workspace enrollment is closed")
 	}
 	out = Enrollment{Workspace: Workspace{ID: ID(), Name: "Personal workspace", CreatedAt: time.Now().UTC()}, User: ID()}
-	if _, err := tx.ExecContext(ctx, tx.query(qEnroll3), out.User, "Ding user", out.CreatedAt.Unix()); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.query(qEnroll3), out.User, "", out.CreatedAt.Unix()); err != nil {
 		return out, err
 	}
 	if _, err := tx.ExecContext(ctx, tx.query(qEnroll4), issuer, subject, out.User); err != nil {
