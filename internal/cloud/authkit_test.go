@@ -9,8 +9,89 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/access"
+	"github.com/ding-labs/ding/internal/mcpconfig"
+	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/store"
 )
+
+func TestAuthKitLinkedSignInsShareWatchesAndDisconnectConsent(t *testing.T) {
+	f := newHostedMCPFixture(t)
+	f.s.AuthKitClients = []string{"chatgpt"}
+	ctx := context.Background()
+	token := f.token("owner", "chatgpt", "ding:inspect ding:preview ding:manage", "", map[string]any{"sid": "consent"})
+	hostedView(t, f.call(t, token, "ding_get_capabilities", nil))
+	connection, err := f.s.Vault.MCP(ctx, f.session.User, f.session.Workspace, "chatgpt")
+	if err != nil || connection.ProviderSubject != "owner" {
+		t.Fatal("consent identity was not retained in the encrypted binding", err)
+	}
+	if err := f.s.DB.ConfigureLoginMethods(ctx, []string{"password"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.s.DB.EnableOIDC(ctx, state.IdentityLink{User: f.session.User, Issuer: f.s.AuthKitIssuer, Subject: "other-sign-in"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.s.DB.IdentitySubject(ctx, f.session.User, f.s.AuthKitIssuer); err == nil {
+		t.Fatal("fixture must have two verified identities")
+	}
+	if _, err := f.s.DB.Enroll(ctx, f.s.AuthKitIssuer, "stranger", 10); err != nil {
+		t.Fatal(err)
+	}
+	linked, err := f.s.DB.IdentityWorkspace(ctx, f.s.AuthKitIssuer, "other-sign-in")
+	if err != nil || linked.User != f.session.User || linked.ID != f.session.Workspace {
+		t.Fatal("linked browser sign-in resolved to another workspace", err)
+	}
+	browser, err := f.s.DB.NewSession(ctx, linked.User, linked.ID, "browser", nil, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := Template(FirstWatch{ID: "linked-sign-in", URL: "https://example.com", Destination: "webhook", Credential: "WEBHOOK"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	preview := hostedView(t, f.call(t, token, "ding_preview_changes", map[string]any{"manifest": manifest}))
+	handle := preview.Data.(map[string]any)["preview"].(map[string]any)["handle"]
+	hostedView(t, f.call(t, token, "ding_apply_changes", map[string]any{"handle": handle, "operation_key": "linked_identity_apply_0001"}))
+	if w := cloudRequest(f.h, "GET", "/v1/watches/linked-sign-in", "", browser, false); w.Code != 200 || !strings.Contains(w.Body.String(), "linked-sign-in") {
+		t.Fatal("MCP watch is not visible to linked browser sign-in", w.Code, w.Body.String())
+	}
+	// Legacy bindings must not guess which of the linked identities consented.
+	legacy := connection
+	legacy.ProviderSubject = ""
+	if _, err := f.s.mcpConsentSubject(ctx, f.session.User, legacy); err == nil {
+		t.Fatal("ambiguous legacy consent identity accepted")
+	}
+	for _, subject := range []string{"missing", "stranger"} {
+		other := connection
+		other.ProviderSubject = subject
+		if _, err := f.s.mcpConsentSubject(ctx, f.session.User, other); err == nil {
+			t.Fatal("unlinked or another account's identity accepted", subject)
+		}
+	}
+	attempts := 0
+	f.s.ConsentRevoker = consentRevokerFunc(func(_ context.Context, subject, client string) error {
+		attempts++
+		if subject != "owner" || client != "chatgpt" {
+			t.Fatal("revoked the wrong provider identity", subject, client)
+		}
+		return nil
+	})
+	if w := cloudRequest(f.h, "POST", "/v1/cloud/models", `{"clientID":"chatgpt","revoke":true}`, browser, true); w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	if attempts != 1 || !f.call(t, token, "ding_get_capabilities", nil).IsError {
+		t.Fatal("disconnect did not fence linked-identity consent", attempts)
+	}
+	newToken := f.token("owner", "chatgpt", "ding:inspect", "", map[string]any{"sid": "new-consent"})
+	hostedView(t, f.call(t, newToken, "ding_get_capabilities", nil))
+}
+
+func TestAuthKitLegacyConsentIdentity(t *testing.T) {
+	f := newHostedMCPFixture(t)
+	subject, err := f.s.mcpConsentSubject(context.Background(), f.session.User, mcpconfig.Connection{})
+	if err != nil || subject != "owner" {
+		t.Fatal("legacy single-identity connection no longer resolves", subject, err)
+	}
+}
 
 type consentRevokerFunc func(context.Context, string, string) error
 

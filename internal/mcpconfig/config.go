@@ -23,6 +23,9 @@ type Connection struct {
 	DaemonURL string `json:"daemon_url"`
 	Token     string `json:"token"`
 	GrantID   string `json:"grant_id"`
+	// ProviderSubject is the verified identity that approved hosted consent. It
+	// stays in the encrypted binding so linked sign-ins revoke the exact consent.
+	ProviderSubject string `json:"provider_subject,omitempty"`
 }
 
 func (c Connection) String() string   { return "Ding connection (credential redacted)" }
@@ -51,7 +54,7 @@ func Endpoint(value string, httpsOnly bool) (string, error) {
 
 func (c *Connection) Validate() error {
 	u, err := Endpoint(c.DaemonURL, false)
-	if err != nil || !hex64.MatchString(c.GrantID) || !strings.HasPrefix(c.Token, "ding_mcp_") || !hex64.MatchString(strings.TrimPrefix(c.Token, "ding_mcp_")) {
+	if err != nil || len(c.ProviderSubject) > 512 || !hex64.MatchString(c.GrantID) || !strings.HasPrefix(c.Token, "ding_mcp_") || !hex64.MatchString(strings.TrimPrefix(c.Token, "ding_mcp_")) {
 		return ErrConfig
 	}
 	c.DaemonURL = u

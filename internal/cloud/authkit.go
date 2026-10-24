@@ -121,7 +121,7 @@ func (s *Server) authKitIdentity(ctx context.Context, issuer, subject, client st
 	if err != nil {
 		return state.User{}, denied
 	}
-	connection = mcpconfig.Connection{DaemonURL: s.PublicURL, Token: pairing.Token, GrantID: pairing.Grant.ID}
+	connection = mcpconfig.Connection{DaemonURL: s.PublicURL, Token: pairing.Token, GrantID: pairing.Grant.ID, ProviderSubject: subject}
 	if err = s.Vault.BindMCP(ctx, user.ID, enrollment.ID, client, connection); err != nil {
 		_ = tenant.App.Store.Update(ctx, func(tx *store.Tx) error { return tx.RevokeIntegrationGrant(pairing.Grant.ID) })
 		return state.User{}, denied
