@@ -16,7 +16,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type Identity struct{ Issuer, Subject string }
+type Identity struct{ Issuer, Subject, Name string }
 type Provider interface {
 	Begin(state, nonce, verifier string) string
 	Exchange(context.Context, string, string, string) (Identity, error)
@@ -152,5 +152,17 @@ func (p *identityProvider) Exchange(ctx context.Context, code, nonce, verifier s
 	if err != nil || identity.Subject == "" || len(identity.Subject) > 512 || subtle.ConstantTimeCompare([]byte(identity.Nonce), []byte(nonce)) != 1 {
 		return Identity{}, fmt.Errorf("identity verification failed; start a new sign-in")
 	}
-	return Identity{p.issuer, identity.Subject}, nil
+	var profile struct {
+		Name       string `json:"name"`
+		GivenName  string `json:"given_name"`
+		FamilyName string `json:"family_name"`
+	}
+	name := ""
+	if identity.Claims(&profile) == nil {
+		name, _ = DisplayName(profile.Name)
+		if name == "" {
+			name, _ = DisplayName(profile.GivenName + " " + profile.FamilyName)
+		}
+	}
+	return Identity{Issuer: p.issuer, Subject: identity.Subject, Name: name}, nil
 }

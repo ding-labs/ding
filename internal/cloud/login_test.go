@@ -27,7 +27,7 @@ func (f *fakeIdentity) Exchange(_ context.Context, code, nonce, verifier string)
 	if code != "verified-code" || nonce != f.nonce || verifier != f.verifier {
 		return identity.Identity{}, fmt.Errorf("invalid transaction")
 	}
-	return identity.Identity{Issuer: "https://issuer.example", Subject: "immutable-user-id"}, nil
+	return identity.Identity{Issuer: "https://issuer.example", Subject: "immutable-user-id", Name: "Verified person"}, nil
 }
 
 func TestLoginRequiresBrowserStateAndCannotReplay(t *testing.T) {
@@ -86,5 +86,9 @@ func TestLoginRequiresBrowserStateAndCannotReplay(t *testing.T) {
 	workspaces, err := db.Workspaces(ctx)
 	if err != nil || len(workspaces) != 1 || workspaces[0].Name != "Personal workspace" {
 		t.Fatal("identity binding failed", err)
+	}
+	user, err := db.IdentityUser(ctx, "https://issuer.example", "immutable-user-id")
+	if err != nil || user.Name != "Verified person" {
+		t.Fatal("verified profile name was not initialized", user, err)
 	}
 }

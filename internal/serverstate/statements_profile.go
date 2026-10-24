@@ -1,0 +1,3 @@
+package state
+
+var qInitializeDisplayName = statement{sqlite: `UPDATE users SET name=? WHERE id=? AND name='' AND disabled=0`, postgres: `UPDATE ding_control.users SET name=$1 WHERE id=$2 AND name='' AND disabled=false`}
