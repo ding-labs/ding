@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/ding-labs/ding/internal/access"
+	"github.com/ding-labs/ding/internal/identity"
 	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/store"
 )
@@ -118,6 +119,34 @@ func (s *Server) userAPI(w http.ResponseWriter, r *http.Request, session state.S
 			return true
 		}
 		switch {
+		case r.URL.Path == "/v1/user/profile" && r.Method == "GET":
+			user, err := s.DB.User(r.Context(), session.User)
+			if err != nil {
+				cloudFail(w, 503, "profile_unavailable", "Could not read your profile.")
+			} else {
+				cloudWrite(w, 200, user)
+			}
+			return true
+		case r.URL.Path == "/v1/user/profile" && r.Method == "PATCH":
+			var input struct {
+				Name string `json:"name"`
+			}
+			if decodeCloud(r, &input) != nil {
+				cloudFail(w, 400, "invalid_profile", "Provide your display name.")
+				return true
+			}
+			name, err := identity.DisplayName(input.Name)
+			if err != nil {
+				cloudFail(w, 400, "invalid_profile", err.Error())
+				return true
+			}
+			user, err := s.DB.UpdateDisplayName(r.Context(), session.User, name)
+			if err != nil {
+				cloudFail(w, 503, "profile_unavailable", "Could not save your profile. Try again.")
+			} else {
+				cloudWrite(w, 200, user)
+			}
+			return true
 		case r.URL.Path == "/v1/user/password" && r.Method == "POST" && s.passwordsEnabled():
 			var input struct {
 				Current  string `json:"current"`
