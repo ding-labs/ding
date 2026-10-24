@@ -1,6 +1,7 @@
 package cloud
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"github.com/ding-labs/ding/internal/access"
@@ -13,6 +14,19 @@ import (
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watchrun"
 )
+
+func (s *Server) mcpConsentSubject(ctx context.Context, user string, connection mcpconfig.Connection) (string, error) {
+	if connection.ProviderSubject == "" {
+		// Older bindings are safe to resolve only when the account has one
+		// verified identity at this issuer.
+		return s.DB.IdentitySubject(ctx, user, s.AuthKitIssuer)
+	}
+	identity, err := s.DB.IdentityUser(ctx, s.AuthKitIssuer, connection.ProviderSubject)
+	if err != nil || identity.ID != user {
+		return "", errors.New("model consent identity is no longer linked to this account")
+	}
+	return connection.ProviderSubject, nil
+}
 
 func (s *Server) modelConnections(w http.ResponseWriter, r *http.Request, t *Tenant) {
 	// Serialize consent/revocation, including the two durable stores. A crash may
@@ -98,7 +112,7 @@ func (s *Server) modelConnections(w http.ResponseWriter, r *http.Request, t *Ten
 		// succeeds, so failures (including a process crash) remain visible/retryable.
 		// authKitIdentity refuses every token while this grant remains revoked.
 		if grant.ProviderConsent != "" {
-			subject, err := s.DB.IdentitySubject(r.Context(), principal.User, s.AuthKitIssuer)
+			subject, err := s.mcpConsentSubject(r.Context(), principal.User, c)
 			if err != nil || s.ConsentRevoker == nil {
 				cloudFail(w, 503, "provider_revoke_pending", "Ding access is disabled. Hosted sign-in cleanup is unavailable; retry disconnect when it is configured.")
 				return

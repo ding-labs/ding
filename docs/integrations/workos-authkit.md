@@ -197,6 +197,13 @@ with current membership. Disconnect leaves a durable tombstone: the same
 consent can never recreate its grant, even from an unexpired token. A genuinely
 new consent creates a new connection; no raw provider token is stored in Ding.
 
+Account lookup uses the verified issuer and subject; separate email aliases can
+therefore create separate accounts and workspaces. Linking verified sign-ins is
+an explicit account repair, never an automatic email match. New encrypted MCP
+bindings retain the subject that approved their consent, so disconnect targets
+that exact identity even after another sign-in is linked to the account. Older
+bindings without this metadata require one unambiguous verified identity.
+
 A required live qualification is WorkOS's reconnect behavior after disconnect.
 WorkOS normally reuses existing consent. Merely obtaining another access token
 is therefore insufficient after Ding disconnects it. WorkOS documents
