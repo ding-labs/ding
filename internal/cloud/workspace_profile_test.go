@@ -24,6 +24,10 @@ func TestWorkspaceRenameKeepsIdentityAndRefreshesMCPMetadata(t *testing.T) {
 	if data["workspaceName"] != "Studio signals" || after.Target.Workspace != f.session.Workspace || before.Data.(map[string]any)["instance"] != data["instance"] {
 		t.Fatal("renaming changed execution identity or left stale MCP metadata", after)
 	}
+	status := hostedView(t, f.call(t, token, "ding_get_cloud_status", nil)).Data.(map[string]any)
+	if status["policy"].(map[string]any)["preview"].(map[string]any)["workspaceName"] != "Studio signals" {
+		t.Fatal("cloud status retained the old workspace name", status)
+	}
 	for _, path := range []string{"/v1/browser/session", "/v1/user/profile"} {
 		if w := cloudRequest(f.h, "GET", path, "", f.session, false); w.Code != 200 {
 			t.Fatal(path, w.Code)
