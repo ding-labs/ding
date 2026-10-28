@@ -572,6 +572,11 @@ code {
 .onboarding-form select {
   width: 100%;
 }
+.workos-signups { display: grid; gap: 16px; margin-top: 20px; }
+.workos-signups h3, .workos-signups p { margin: 0; }
+.workos-signups label, .workos-signups form { display: grid; gap: 8px; }
+.workos-signups input { width: 100%; min-width: 0; }
+.workos-signups > button, .workos-signups form > button { justify-self: start; }
 .settings-layout { display: grid; gap: 20px; max-width: 960px; }
 .settings-layout > .panel + .panel { margin-top: 0; }
 .settings-preferences { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 20px; }

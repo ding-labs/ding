@@ -227,11 +227,16 @@ func validSignature(provider string, header http.Header, raw []byte, secret stri
 		return hmac.Equal(want, mac.Sum(nil))
 	case "stripe":
 		return len(header.Values("Stripe-Signature")) == 1 && stripehook.ValidatePayload(raw, header.Get("Stripe-Signature"), secret) == nil
+	case "workos":
+		return validWorkOSSignature(header, raw, secret, time.Now())
 	}
 	return false
 }
 
 func webhookInput(c state.WebhookConnection, header http.Header, raw []byte) ([]byte, string, bool, error) {
+	if c.Provider == "workos" {
+		return workOSSignupInput(raw)
+	}
 	if c.Provider == "github" {
 		var event struct {
 			Action     string `json:"action"`

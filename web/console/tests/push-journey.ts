@@ -63,5 +63,18 @@ spec:
  await page.getByRole("button",{name:"Revoke credential",exact:true}).click();
  await expect(page.getByRole("button",{name:"Revoke credential",exact:true})).toHaveCount(0);
  expect((await send(rotated)).status()).toBe(401);
+ await page.getByLabel("Signup watch ID",{exact:true}).fill("ci");
+ await page.getByRole("button",{name:"Create signup connection",exact:true}).click();
+ await expect(page.getByLabel("WorkOS endpoint URL",{exact:true})).toHaveValue(new RegExp(`${url}/v1/hooks/workos/[a-f0-9]{64}`));
+ await page.getByLabel("WorkOS signing secret",{exact:true}).fill("whsec_synthetic_browser_test_secret");
+ await page.getByRole("button",{name:"Save WorkOS signing secret",exact:true}).click();
+ await expect(page.getByRole("status").filter({hasText:"Signing secret saved"})).toBeVisible();
+ await expect(page.getByLabel("WorkOS signing secret",{exact:true})).toHaveValue("");
+ expect((await viewer.request.get(url+"/v1/webhooks")).status()).toBe(403);
+ await page.screenshot({path:testInfo.outputPath("workos-signups.png"),fullPage:true});
+ await page.setViewportSize({width:375,height:900});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ await page.screenshot({path:testInfo.outputPath("workos-signups-mobile.png"),fullPage:true});
+ await page.setViewportSize({width:1440,height:1000});
  await page.getByRole("button",{name:"Members",exact:true}).click();
 }

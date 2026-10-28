@@ -1,0 +1,22 @@
+apiVersion: ding.ing/v1alpha1
+kind: Watch
+metadata:
+  id: ding-account-signups
+  name: Ding Cloud signups
+spec:
+  source:
+    type: push
+    fields:
+      eventId: eventId
+      type: type
+      createdAt: createdAt
+  match: {type: user.created}
+  condition:
+    field: eventId
+    operator: new-event
+    dedupFor: 168h
+  policy: {trigger: level, interval: 0s}
+  message: 'A new Ding Cloud account was created.'
+  destinations:
+    - ref: slack-ding-notifications
+      events: [new-event]

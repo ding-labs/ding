@@ -24,7 +24,7 @@ test(`${hosting} owner invites a viewer and revokes their access`, async ({ bina
   await new Promise<void>(r=>proxy.listen(0,"127.0.0.1",r));
   const url=`https://127.0.0.1:${(proxy.address() as {port:number}).port}`;
   const config=join(dir,"config.json"),password=join(dir,"password");
-  writeFileSync(config,JSON.stringify({hosting,loginMethods:["password"],...(hosting==="cloud"?{deployment:"railway"}:{}),name:"Team Ding",publicURL:url,listen:`127.0.0.1:${port}`,dataDir:join(dir,"state"),keyFile:join(dir,"vault.key")}),{mode:0o600});
+  writeFileSync(config,JSON.stringify({hosting,loginMethods:["password"],...(hosting==="cloud"?{deployment:"railway",push:{nativeWebhooks:true}}:{}),name:"Team Ding",publicURL:url,listen:`127.0.0.1:${port}`,dataDir:join(dir,"state"),keyFile:join(dir,"vault.key")}),{mode:0o600});
   writeFileSync(password,"owner correct password",{mode:0o600});
   let serverBinary=binary;
   if(hosting==="cloud") {
