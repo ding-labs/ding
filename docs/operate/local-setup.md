@@ -1,4 +1,8 @@
-# Install and set up Ding
+# Install and set up Ding locally
+
+To keep public HTTP watches running while your computer is off,
+[get started with Ding Cloud](https://cloud.ding.ing/auth/login).
+Follow this guide for watches that run on your own machine.
 
 Homebrew installs the complete local experience on macOS 13+ and Linux (ARM64 or
 x86-64). No account or development tools are needed:

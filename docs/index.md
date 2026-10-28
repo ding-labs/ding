@@ -2,10 +2,15 @@
 
 Ding watches an HTTP endpoint, runs an explicit local check, or accepts JSON from
 your software. It keeps condition state, records why an event happened, and retries
-notifications through a durable outbox. The Go daemon runs on your infrastructure.
+notifications through a durable outbox. Run public HTTP watches in Ding Cloud,
+or install the daemon on your own infrastructure.
 
-[Create your first watch](operate/local-setup.md){ .md-button .md-button--primary }
-[Choose an installation](install.md){ .md-button }
+[Get started with Ding Cloud](https://cloud.ding.ing/auth/login){ .md-button .md-button--primary }
+[Install locally](install.md){ .md-button }
+
+Cloud keeps checking while your computer is off. Local installation supports
+private endpoints and command checks without an account.
+[Create your first local watch](operate/local-setup.md).
 
 ## Start with a question
 

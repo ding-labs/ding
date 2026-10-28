@@ -4,14 +4,23 @@ Persistent watches and durable alerts for developers and agents.
 
 Ding watches for conditions you care about and tells you when they fire or
 recover. Poll an HTTP endpoint, monitor application output, run a local command,
-or push JSON from your own systems. Define each watch in YAML, then let a local
-daemon evaluate it, retain the evidence, and deliver alerts—even across restarts.
+or push JSON from your own systems. Define each watch in YAML, then let Ding
+evaluate it, retain the evidence, and deliver alerts—even across restarts.
 
 Use it to alert after three failed health checks, detect a changed value, catch
 missing data, or notify on a new provider event. Developers and agents use the
 same versioned manifests, CLI, and local API. Checks run without a model call.
 
-## Install and start
+## Start in Ding Cloud
+
+[Create a Ding Cloud account](https://cloud.ding.ing/auth/login) to run public
+HTTP watches without installing a daemon. Cloud keeps checking while your
+computer is off. Already have an account? [Open Ding Cloud](https://cloud.ding.ing/ui/).
+
+For local commands and private network endpoints, install Ding on a machine
+that can reach them.
+
+## Install and run locally
 
 On macOS or Linux with Homebrew:
 
@@ -37,10 +46,10 @@ marketplace publication has not yet happened.
 The [local setup](docs/operate/local-setup.md) includes background startup, a
 first-watch flow, desktop alerts, private credentials and signed-update tooling.
 Use an [always-on machine](docs/operate/always-on.md) without an account, or try the
-optional [cloud implementation](docs/operate/cloud-preview.md) for hosted public
-HTTP watches and reversible transfers. No public cloud service is announced;
-[implementation and release evidence](docs/development/local-first-progress.md)
-keep those boundaries explicit.
+optional [Ding Cloud](https://cloud.ding.ing/ui/) for hosted public HTTP watches.
+The [cloud implementation guide](docs/operate/cloud-preview.md) covers operator
+setup and transfers; [implementation and release evidence](docs/development/local-first-progress.md)
+tracks qualification separately.
 
 ## What you can watch
 
