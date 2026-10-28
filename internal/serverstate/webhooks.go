@@ -28,7 +28,7 @@ type WebhookConnection struct {
 }
 
 func (v *Vault) CreateWebhook(ctx context.Context, p access.Principal, c WebhookConnection, secret string) (WebhookConnection, error) {
-	if c.Name == "" || len(c.Name) > 100 || c.Watch == "" || c.Lifetime == "" || len(secret) < 16 || len(secret) > 4096 || !slices.Contains([]string{"github", "stripe"}, c.Provider) {
+	if c.Name == "" || len(c.Name) > 100 || c.Watch == "" || c.Lifetime == "" || len(secret) < 16 || len(secret) > 4096 || !slices.Contains([]string{"github", "stripe", "workos"}, c.Provider) {
 		return c, fmt.Errorf("provide a name, provider, existing push watch and a strong signing secret")
 	}
 	if len(c.Repositories) > 100 || len(c.Events) > 100 {
@@ -39,6 +39,9 @@ func (v *Vault) CreateWebhook(ctx context.Context, p access.Principal, c Webhook
 	}
 	if c.Provider == "stripe" && (c.Account == "" || len(c.Events) == 0) {
 		return c, fmt.Errorf("Stripe requires its account ID and explicit snapshot event types")
+	}
+	if c.Provider == "workos" && (len(c.Events) != 1 || c.Events[0] != "user.created" || len(c.Repositories) != 0 || c.Account != "" || c.Live) {
+		return c, fmt.Errorf("WorkOS connections require only the user.created event; the environment is bound by its signing secret")
 	}
 	for _, id := range c.Repositories {
 		if id == "" || len(id) > 32 {
