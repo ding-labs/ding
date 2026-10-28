@@ -22,7 +22,8 @@ def run(args, cwd=ROOT, env=None):
 
 def build_channel(source, destination, channel, ref, workspace, url_path=''):
     stage = workspace / ('stage-' + channel + '-' + ref.replace('/', '-'))
-    shutil.copytree(source / 'docs', stage / 'docs', ignore=shutil.ignore_patterns('cli', 'requirements.txt', 'overrides'))
+    # Local planning artifacts are gitignored and must never enter public docs.
+    shutil.copytree(source / 'docs', stage / 'docs', ignore=shutil.ignore_patterns('cli', 'requirements.txt', 'overrides', 'superpowers'))
     run(['go', 'run', './cmd/docgen', str(stage / 'docs/cli')], cwd=source)
     assets = stage / 'docs/assets'
     assets.mkdir(exist_ok=True)
