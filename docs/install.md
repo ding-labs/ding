@@ -2,6 +2,13 @@
 
 {{ availability }}
 
+Want hosted monitoring? [Get started with Ding Cloud](https://cloud.ding.ing/auth/login)
+to keep public HTTP watches running while your computer is off. Already have an
+account? [Open Ding Cloud](https://cloud.ding.ing/ui/).
+
+The instructions below install Ding on your own machine or server for local
+commands, private endpoints, and self-hosted watches. Local use needs no account.
+
 ## Homebrew (recommended)
 
 On macOS 13+ or Linux, with an ARM64 or x86-64 machine:

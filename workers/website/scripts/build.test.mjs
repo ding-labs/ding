@@ -65,6 +65,32 @@ test("availability cannot advertise a console in a legacy or preview binary", ()
   p.runtime.version = "v1.0.0";
   assert.doesNotThrow(() => validateProduct(p));
 });
+test("every public page offers Cloud account access and the homepage leads with it", () => {
+  const accountUrl = "https://cloud.ding.ing/auth/login";
+  for (const file of ["index.html", "console/index.html", "examples/index.html", "404.html"]) {
+    const html = readFileSync(new URL(file, dist), "utf8");
+    for (const region of ["header", "footer"]) {
+      const content = html.match(new RegExp(`<${region}\\b[^>]*>([\\s\\S]*?)</${region}>`))?.[1];
+      assert.ok(content, `${file} has a ${region}`);
+      for (const label of ["Sign in", "Create account"]) {
+        assert.equal(
+          content.match(new RegExp(`<a\\b[^>]*href="([^"]+)"[^>]*>${label}</a>`))?.[1],
+          accountUrl,
+          `${file} ${region} ${label} opens Cloud authentication`,
+        );
+      }
+    }
+  }
+  const home = readFileSync(new URL("index.html", dist), "utf8");
+  const info = JSON.parse(readFileSync(new URL("build-info.json", dist)));
+  const docsOrigin = info.preview ? product.previewDocsUrl : product.docsUrl;
+  for (const section of ["hero", "closing"]) {
+    const content = home.match(new RegExp(`<section class="${section}"[\\s\\S]*?</section>`))?.[0];
+    assert.ok(content, `homepage has a ${section}`);
+    assert.equal(content.match(/<a class="button primary" href="([^"]+)"/)?.[1], accountUrl);
+    assert.ok(content.includes(`href="${docsOrigin}${product.installPath}"`), "local installation remains available");
+  }
+});
 test("built pages have metadata, truthful sample labels, and no unresolved templates", () => {
   for (const file of [
     "index.html",

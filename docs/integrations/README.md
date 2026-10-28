@@ -12,6 +12,11 @@ signing, real-host qualification, and platform support for local/self-hosted
 connections. See [release qualification](release.md). Source checkout/manual
 connections are development paths, not a substitute for that release requirement.
 
+For hosted public HTTP watches, [create a Ding Cloud account](https://cloud.ding.ing/auth/login)
+and use the [Cloud Console](https://cloud.ding.ing/ui/) in your browser.
+Local and self-hosted plugin packages keep their configured endpoint.
+Marketplace qualification remains separate from creating a Cloud account.
+
 ## Local native setup
 
 The native Claude package contains a Go executable with its embedded interface,

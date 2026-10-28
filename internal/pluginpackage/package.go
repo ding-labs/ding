@@ -168,7 +168,12 @@ func Build(o Options) (string, error) {
 	if cloud {
 		dataLocation = "Ding Cloud stores your watches and evidence. Requested results are shared with ChatGPT. See privacy.md and the listing's privacy policy and terms."
 	}
-	if err := os.WriteFile(filepath.Join(dest, "README.md"), []byte("# Ding\n\n"+readme+"\n\nThis is a qualification build, not evidence of official marketplace approval.\n\n"+dataLocation+"\n"), 0644); err != nil {
+	readme += "\n\nThis is a qualification build, not evidence of official marketplace approval.\n\n" + dataLocation
+	readme += "\n\n## Hosted monitoring\n\n[Create a Ding Cloud account](https://cloud.ding.ing/auth/login) for public HTTP watches that keep running while your computer is off. Use the [Cloud Console](https://cloud.ding.ing/ui/) in your browser."
+	if !cloud {
+		readme += " This plugin still connects to the Ding instance configured above."
+	}
+	if err := os.WriteFile(filepath.Join(dest, "README.md"), []byte("# Ding\n\n"+readme+"\n"), 0644); err != nil {
 		return "", err
 	}
 	archive := filepath.Join(o.Output, "ding.zip")
