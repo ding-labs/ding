@@ -72,7 +72,24 @@ On an isolated qualification deployment with this adapter and
 `push.nativeWebhooks` enabled:
 
 1. Create the push watch and its Slack destination in the operator workspace.
-2. Register the Ding connection through `POST /v1/webhooks`, using the ordinary
+2. Open **System → Services → WorkOS signup alerts**, enter the watch ID and
+   choose **Create signup connection**. Register the displayed endpoint URL in
+   the correct WorkOS environment for **only `user.created`**. Paste WorkOS's
+   signing secret into Ding's password field and choose **Save WorkOS signing
+   secret**. The secret is encrypted by Ding and cleared from the form; it is
+   never placed in the browser's query cache. The initial random provisional
+   secret is replaced without an overlap period. Deliveries fail verification
+   until the real WorkOS secret is saved.
+3. Send a labeled WorkOS test event. Inspect Ding's accepted input, `new-event`
+   evidence, delivery record and actual Slack message separately. Redeliver that
+   exact event and confirm there is one durable notification intent. Test a new
+   signup separately from a login to an existing account.
+4. Repeat on the reviewed production deployment/environment after the isolated
+   checks pass. Existing account records are not backfilled by this setup.
+
+For API-based administration, the Console uses these existing protected routes:
+
+1. Register the Ding connection through `POST /v1/webhooks`, using the ordinary
    owner/administrator session and CSRF protection. Generate a random provisional
    signing secret of at least 32 bytes in the private operator setup:
 
@@ -81,7 +98,7 @@ On an isolated qualification deployment with this adapter and
    ```
 
    Ding returns `https://cloud.ding.ing/v1/hooks/workos/{connectionId}`.
-3. Choose **Webhooks** in the correct WorkOS environment. Create an endpoint for
+2. Choose **Webhooks** in the correct WorkOS environment. Create an endpoint for
    **only `user.created`** at Ding's returned URL. WorkOS supplies its own
    endpoint-specific signing secret. Replace the provisional Ding secret through
    `POST /v1/webhooks/{connectionId}/rotate` with `overlapSeconds: 0` and that
@@ -89,12 +106,6 @@ On an isolated qualification deployment with this adapter and
    in a manifest, shell history or chat. Deliveries fail signature verification
    until the actual WorkOS secret is installed; reconcile any setup deliveries
    in the WorkOS dashboard afterward.
-4. Send a labeled WorkOS test event. Inspect Ding's accepted input, `new-event`
-   evidence, delivery record and actual Slack message separately. Redeliver that
-   exact event and confirm there is one durable notification intent. Test a new
-   signup separately from a login to an existing account.
-5. Repeat on the reviewed production deployment/environment after the isolated
-   checks pass. Existing account records are not backfilled by this setup.
 
 WorkOS requests require one `WorkOS-Signature` header. Ding checks HMAC-SHA256 over
 the untouched body with the literal endpoint secret, and accepts timestamps only

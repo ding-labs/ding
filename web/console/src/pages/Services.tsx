@@ -12,6 +12,7 @@ import {
   CredentialSecret,
   type IssuedCredential,
 } from "./ServiceCredentialDialogs";
+import { WorkOSSignups } from "./WorkOSSignups";
 
 function CredentialExpiry({ value }: { value: string }) {
   const mode = useContext(TimeContext);
@@ -50,7 +51,7 @@ function CredentialExpiry({ value }: { value: string }) {
 export function Services() {
   const execution = useExecution();
   const info = useRead<{
-    push?: { supported: boolean; admissionOpen: boolean };
+    push?: { supported: boolean; admissionOpen: boolean; nativeWebhooks?: boolean };
   }>("/info");
   const ingest =
     execution.mode === "shared" || Boolean(info.data?.push?.supported);
@@ -180,6 +181,7 @@ export function Services() {
           retrieved again.
         </p>
       </details>
+      {info.data?.push?.nativeWebhooks && <WorkOSSignups />}
       {creating && (
         <CreateCredential
           ingest={ingest}

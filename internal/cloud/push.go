@@ -21,11 +21,11 @@ import (
 
 func (s *Server) pushCapabilities(workspace string) map[string]any {
 	if s.Shared {
-		return map[string]any{"supported": true, "admissionOpen": true, "idempotencyRequired": false, "projectionModes": []string{"fields", "itemsPath", "jq"}, "automaticTransfer": false, "contract": "shared-ingest"}
+		return map[string]any{"supported": true, "admissionOpen": true, "nativeWebhooks": s.Push.NativeWebhooks, "idempotencyRequired": false, "projectionModes": []string{"fields", "itemsPath", "jq"}, "automaticTransfer": false, "contract": "shared-ingest"}
 	}
 	p := s.Push.effective()
 	enabled := !p.Disabled && (len(p.Workspaces) == 0 || slices.Contains(p.Workspaces, workspace))
-	return map[string]any{"supported": true, "admissionOpen": enabled, "maxBodyBytes": s.Pool.Capacity.Effective().MaxBodyBytes, "maxDepth": p.MaxDepth, "maxNodes": p.MaxNodes, "receiptSeconds": p.ReceiptSeconds, "idempotencyRequired": true, "projectionModes": []string{"fields", "itemsPath"}, "automaticTransfer": false}
+	return map[string]any{"supported": true, "admissionOpen": enabled, "nativeWebhooks": s.Push.NativeWebhooks, "maxBodyBytes": s.Pool.Capacity.Effective().MaxBodyBytes, "maxDepth": p.MaxDepth, "maxNodes": p.MaxNodes, "receiptSeconds": p.ReceiptSeconds, "idempotencyRequired": true, "projectionModes": []string{"fields", "itemsPath"}, "automaticTransfer": false}
 }
 
 func (s *Server) servePush(w http.ResponseWriter, r *http.Request) {
