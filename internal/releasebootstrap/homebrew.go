@@ -85,6 +85,9 @@ class {{.Class}} < Formula
       Ding manages its own user service; do not register a second brew service.
       Before upgrading, run ding service stop. After upgrading, run ding setup.
       Homebrew owns these binaries; use brew upgrade instead of ding update install.
+
+      To keep public HTTP watches running while this computer is off, use Ding Cloud:
+        https://cloud.ding.ing/auth/login
     EOS
   end
 

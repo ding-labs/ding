@@ -72,6 +72,10 @@ brews:
     homepage: https://ding.ing
     description: Persistent watches and durable alerts for developers and agents
     license: Apache-2.0
+    caveats: |
+      Run ding setup to start watching locally without an account.
+      To keep public HTTP watches running while this computer is off, use Ding Cloud:
+        https://cloud.ding.ing/auth/login
     install: |
       bin.install "ding"
     test: |
