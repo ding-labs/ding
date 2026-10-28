@@ -94,6 +94,16 @@ try {
         );
         const response = await page.goto(url, { waitUntil: "networkidle" });
         assert.equal(response.status(), 200);
+        if (!url.startsWith(docs)) {
+          const account = page.locator(".account-actions").getByRole("link", { name: "Create account", exact: true });
+          assert.ok(await account.isVisible(), `${name}/${theme}/${width}: account entry is visible`);
+          assert.equal(await account.getAttribute("href"), "https://cloud.ding.ing/auth/login");
+          if (name === "home") {
+            const primary = page.locator(".hero .button.primary");
+            assert.ok(await primary.isVisible());
+            assert.equal(await primary.getAttribute("href"), "https://cloud.ding.ing/auth/login");
+          }
+        }
         await assertSharedDesign(
           page,
           url.startsWith(docs) ? "docs" : "website",
@@ -308,6 +318,7 @@ try {
     "keyboard theme control and persistence",
     "200% zoom",
     "no-JavaScript content",
+    "Cloud account links on mobile and desktop",
     "Worker 404s",
     "trailing slash",
     "legacy redirect",
