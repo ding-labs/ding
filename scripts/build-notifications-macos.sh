@@ -9,6 +9,10 @@ ding_bundle_version=${ding_version%%[-+]*}
 case "$ding_bundle_version" in *[!0-9.]*|'') echo 'Invalid bundle version' >&2; exit 1;; esac
 ding_identity=${DING_CODESIGN_IDENTITY:--}
 mkdir -p "$ding_output/Contents/MacOS" "$ding_output/Contents/Resources"
+mkdir -p "$ding_output/Contents/Resources/NotificationIcons"
+for ding_color in green yellow red; do
+  cp "$ding_root/design/assets/notifications/$ding_color.png" "$ding_output/Contents/Resources/NotificationIcons/$ding_color.png"
+done
 cp "$ding_root/native/macos/notifications/Info.plist" "$ding_output/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $ding_bundle_version" "$ding_output/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $ding_bundle_version" "$ding_output/Contents/Info.plist"

@@ -83,3 +83,22 @@ func TestNativeNotificationStatusDoesNotCrash(t *testing.T) {
 		t.Fatalf("invalid native settings: %s", out)
 	}
 }
+
+func TestNativeNotificationBellsAreBundledAndAttachable(t *testing.T) {
+	path := os.Getenv("DING_TEST_NOTIFICATION_HELPER")
+	if path == "" {
+		t.Skip("set DING_TEST_NOTIFICATION_HELPER to qualify a native macOS bundle")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, path, "--check-icons").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		Icons int `json:"icons"`
+	}
+	if json.Unmarshal(out, &result) != nil || result.Icons != 3 {
+		t.Fatalf("invalid bundled bell check: %s", out)
+	}
+}

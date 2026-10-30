@@ -63,6 +63,8 @@ Queued notifications and manual retries retain the payload pinned at creation.
 Desktop notifications carry the same status and text label. Linux notifications
 send the embedded bell through the standard `image-data` hint, without fetching
 an image from the network. The desktop notification server controls its display.
+macOS adds the matching bell as a bundled notification attachment, which the OS
+may show in the expanded alert. Its app icon remains the Ding brand mark.
 
 ## Follow an event to its delivery
 
