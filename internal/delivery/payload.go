@@ -8,6 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/ding-labs/ding/internal/notificationstyle"
 	"github.com/ding-labs/ding/internal/notify"
 	"github.com/ding-labs/ding/internal/watch"
 )
@@ -18,6 +19,10 @@ func Render(kind string, event watch.Event) ([]byte, error) {
 		return json.Marshal(watch.Envelope{APIVersion: watch.APIVersion, Data: event})
 	}
 	title := truncate(event.WatchID+" · "+event.Type, 150)
+	status := notificationstyle.ForEvent(event)
+	if label := status.Label(); label != "" {
+		title = truncate(label+" · "+event.WatchID+" · "+event.Type, 150)
+	}
 	if kind == "desktop" {
 		return json.Marshal(notify.Message{ID: event.ID, WatchID: event.WatchID, Title: title, Body: truncate(event.Message, 2800)})
 	}
@@ -45,13 +50,18 @@ func Render(kind string, event watch.Event) ([]byte, error) {
 	switch kind {
 	case "slack":
 		plain := func(text string) map[string]any { return map[string]any{"type": "plain_text", "text": text} }
-		return json.Marshal(map[string]any{"text": truncate(title, 150), "mrkdwn": false, "unfurl_links": false, "unfurl_media": false, "blocks": []any{map[string]any{"type": "header", "text": plain(title)}, map[string]any{"type": "section", "text": plain(text)}, map[string]any{"type": "context", "elements": []any{plain(footer)}}}})
-	case "discord":
-		color := 0xe74c3c
-		if strings.Contains(event.Type, "recovered") {
-			color = 0x2ecc71
+		section := map[string]any{"type": "section", "text": plain(text)}
+		if icon := status.IconURL(); icon != "" {
+			section["accessory"] = map[string]any{"type": "image", "image_url": icon, "alt_text": "Ding: " + status.Label()}
 		}
-		return json.Marshal(map[string]any{"allowed_mentions": map[string]any{"parse": []string{}}, "embeds": []any{map[string]any{"title": title, "description": text, "color": color, "footer": map[string]any{"text": footer}}}})
+		return json.Marshal(map[string]any{"text": title, "mrkdwn": false, "unfurl_links": false, "unfurl_media": false, "blocks": []any{map[string]any{"type": "header", "text": plain(title)}, section, map[string]any{"type": "context", "elements": []any{plain(footer)}}}})
+	case "discord":
+		embed := map[string]any{"title": title, "description": text, "footer": map[string]any{"text": footer}}
+		if icon := status.IconURL(); icon != "" {
+			embed["thumbnail"] = map[string]any{"url": icon}
+			embed["color"] = status.Color()
+		}
+		return json.Marshal(map[string]any{"allowed_mentions": map[string]any{"parse": []string{}}, "embeds": []any{embed}})
 	default:
 		return nil, fmt.Errorf("unsupported destination type")
 	}
