@@ -118,7 +118,7 @@ func (s *desktopSender) send(ctx context.Context, m Message) error {
 		actions = []string{"default", "Open watch"}
 	}
 	var id uint32
-	err := object.CallWithContext(ctx, desktopBus+".Notify", 0, "Ding", uint32(0), "", m.Title, html.EscapeString(m.Body), actions, map[string]dbus.Variant{}, int32(-1)).Store(&id)
+	err := object.CallWithContext(ctx, desktopBus+".Notify", 0, "Ding", uint32(0), "", m.Title, html.EscapeString(m.Body), actions, imageHints(m.Status), int32(-1)).Store(&id)
 	if err != nil || id == 0 {
 		return fmt.Errorf("desktop notification was not accepted")
 	}

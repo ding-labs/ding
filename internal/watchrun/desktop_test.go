@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ding-labs/ding/internal/notificationstyle"
 	"github.com/ding-labs/ding/internal/notify"
 )
 
@@ -29,6 +30,9 @@ func TestDesktopDeliveryUsesDurableRetryAndPinnedID(t *testing.T) {
 	a.Notify = func(_ context.Context, m notify.Message) error {
 		if m.RequestPermission {
 			t.Fatal("background alert requested permission")
+		}
+		if m.Status != notificationstyle.Error || !strings.HasPrefix(m.Title, "Error · ") {
+			t.Fatal("incident delivery lost its failure status", m)
 		}
 		ids = append(ids, m.ID)
 		if len(ids) == 1 {

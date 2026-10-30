@@ -60,6 +60,10 @@ deploying a runtime that uses them. Text labels remain available if images are
 blocked. Generic webhooks and console JSON retain the original event envelope.
 Queued notifications and manual retries retain the payload pinned at creation.
 
+Desktop notifications carry the same status and text label. Linux notifications
+send the embedded bell through the standard `image-data` hint, without fetching
+an image from the network. The desktop notification server controls its display.
+
 ## Follow an event to its delivery
 
 ```sh
