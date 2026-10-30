@@ -11,6 +11,35 @@ struct Message: Decodable {
     let requestPermission: Bool
     let watchId: String?
     let stateDir: String?
+    let status: String?
+}
+
+// Attach a temporary copy: UserNotifications may move attachment files into
+// its own store. Never give it a resource inside the signed application bundle.
+@MainActor
+func attachBell(to content: UNMutableNotificationContent, status: String?) -> URL? {
+    let color: String
+    switch status {
+    case "warning": color = "yellow"
+    case "error": color = "red"
+    case "recovered": color = "green"
+    default: return nil
+    }
+    guard let source = Bundle.main.url(forResource: color, withExtension: "png",
+                                       subdirectory: "NotificationIcons") else { return nil }
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("ding-bell-\(UUID().uuidString)", isDirectory: true)
+    do {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let copy = directory.appendingPathComponent("\(color).png")
+        try FileManager.default.copyItem(at: source, to: copy)
+        content.attachments = [try UNNotificationAttachment(identifier: "ding-status", url: copy)]
+        return directory
+    } catch {
+        try? FileManager.default.removeItem(at: directory)
+        // An unavailable image must not prevent the text alert from arriving.
+        return nil
+    }
 }
 
 struct NotificationSettings: Encodable, Sendable {
@@ -82,6 +111,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             content.title = message.title
             content.body = message.body
             content.sound = .default
+            let attachmentDirectory = attachBell(to: content, status: message.status)
+            defer {
+                if let directory = attachmentDirectory {
+                    try? FileManager.default.removeItem(at: directory)
+                }
+            }
             if let state = message.stateDir, state.hasPrefix("/"), state.utf8.count <= 4096 {
                 content.userInfo["dingStateDir"] = state
                 if let watch = message.watchId { content.userInfo["dingWatchId"] = watch }
@@ -141,6 +176,17 @@ struct NotificationApplication {
     @MainActor static func main() {
         if CommandLine.arguments.dropFirst() == ["--credentials"] {
             exit(credentials())
+        }
+        if CommandLine.arguments.dropFirst() == ["--check-icons"] {
+            // Release qualification without sending alerts or asking permission.
+            for status in ["warning", "error", "recovered"] {
+                let content = UNMutableNotificationContent()
+                guard let directory = attachBell(to: content, status: status),
+                      content.attachments.count == 1 else { exit(1) }
+                try? FileManager.default.removeItem(at: directory)
+            }
+            FileHandle.standardOutput.write(Data("{\"icons\":3}\n".utf8))
+            return
         }
         // The CLI launches our executable directly instead of opening the .app.
         // Refresh this bundle's metadata so Launch Services sees its icon and
