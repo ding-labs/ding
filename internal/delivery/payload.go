@@ -24,7 +24,7 @@ func Render(kind string, event watch.Event) ([]byte, error) {
 		title = truncate(label+" · "+event.WatchID+" · "+event.Type, 150)
 	}
 	if kind == "desktop" {
-		return json.Marshal(notify.Message{ID: event.ID, WatchID: event.WatchID, Title: title, Body: truncate(event.Message, 2800)})
+		return json.Marshal(notify.Message{ID: event.ID, WatchID: event.WatchID, Title: title, Body: truncate(event.Message, 2800), Status: status})
 	}
 	text := event.Message
 	keys := make([]string, 0, len(event.Fields))

@@ -16,21 +16,23 @@ import (
 	"strings"
 
 	"github.com/ding-labs/ding/internal/nativehelper"
+	"github.com/ding-labs/ding/internal/notificationstyle"
 	"github.com/godbus/dbus/v5"
 )
 
 type Message struct {
-	WatchID           string `json:"watchId,omitempty"`
-	StateDir          string `json:"stateDir,omitempty"`
-	ID                string `json:"id"`
-	Title             string `json:"title"`
-	Body              string `json:"body"`
-	RequestPermission bool   `json:"requestPermission"`
-	Activation        string `json:"activation,omitempty"`
+	Status            notificationstyle.Status `json:"status,omitempty"`
+	WatchID           string                   `json:"watchId,omitempty"`
+	StateDir          string                   `json:"stateDir,omitempty"`
+	ID                string                   `json:"id"`
+	Title             string                   `json:"title"`
+	Body              string                   `json:"body"`
+	RequestPermission bool                     `json:"requestPermission"`
+	Activation        string                   `json:"activation,omitempty"`
 }
 
 func validate(m Message) error {
-	if m.ID == "" || len(m.ID) > 256 || len(m.Title) > 512 || len(m.Body) > 4096 || strings.ContainsRune(m.Title+m.Body, '\x00') {
+	if m.ID == "" || len(m.ID) > 256 || len(m.Title) > 512 || len(m.Body) > 4096 || strings.ContainsRune(m.Title+m.Body, '\x00') || (m.Status != "" && m.Status.IconColor() == "") {
 		return fmt.Errorf("invalid notification")
 	}
 	return nil
@@ -52,7 +54,7 @@ func Send(ctx context.Context, m Message) error {
 		}
 		defer conn.Close()
 		var id uint32
-		err = conn.Object("org.freedesktop.Notifications", "/org/freedesktop/Notifications").CallWithContext(ctx, "org.freedesktop.Notifications.Notify", 0, "Ding", uint32(0), "", m.Title, html.EscapeString(m.Body), []string{}, map[string]dbus.Variant{}, int32(-1)).Store(&id)
+		err = conn.Object("org.freedesktop.Notifications", "/org/freedesktop/Notifications").CallWithContext(ctx, "org.freedesktop.Notifications.Notify", 0, "Ding", uint32(0), "", m.Title, html.EscapeString(m.Body), []string{}, imageHints(m.Status), int32(-1)).Store(&id)
 		if err != nil || id == 0 {
 			return fmt.Errorf("desktop notification was not accepted")
 		}

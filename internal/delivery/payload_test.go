@@ -7,6 +7,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/ding-labs/ding/internal/notificationstyle"
+	"github.com/ding-labs/ding/internal/notify"
 	"github.com/ding-labs/ding/internal/watch"
 )
 
@@ -127,6 +129,28 @@ func TestNotificationStylingPreservesMachineEventPayloads(t *testing.T) {
 		got, err := Render(kind, event)
 		if err != nil || string(got) != string(want) {
 			t.Fatalf("%s changed event evidence: %s, %v", kind, got, err)
+		}
+	}
+}
+
+func TestDesktopNotificationStatus(t *testing.T) {
+	for _, tc := range []struct {
+		kind, severity string
+		want           notificationstyle.Status
+	}{
+		{"firing", "", notificationstyle.Error},
+		{"firing", "warning", notificationstyle.Warning},
+		{"recovered", "error", notificationstyle.Recovered},
+		{"source_recovered", "", notificationstyle.Recovered},
+		{"new-event", "info", ""},
+	} {
+		data, err := Render("desktop", watch.Event{ID: "stable", WatchID: "api", Type: tc.kind, Fields: map[string]any{"severity": tc.severity}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var message notify.Message
+		if err := json.Unmarshal(data, &message); err != nil || message.Status != tc.want || message.ID != "stable" || message.WatchID != "api" || message.RequestPermission {
+			t.Fatal(message, err)
 		}
 	}
 }

@@ -11,7 +11,7 @@ import (
 )
 
 func TestNotificationRejectsOversizedInputBeforeOSCall(t *testing.T) {
-	for _, m := range []Message{{}, {ID: "test", Title: strings.Repeat("x", 513)}, {ID: "test", Body: strings.Repeat("x", 4097)}, {ID: "test", Body: "a\x00b"}} {
+	for _, m := range []Message{{}, {ID: "test", Title: strings.Repeat("x", 513)}, {ID: "test", Body: strings.Repeat("x", 4097)}, {ID: "test", Body: "a\x00b"}, {ID: "test", Status: "unknown"}} {
 		if err := Send(context.Background(), m); err == nil {
 			t.Fatal("accepted invalid notification")
 		}

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ding-labs/ding/internal/notificationstyle"
 	"github.com/godbus/dbus/v5"
 )
 
@@ -55,12 +56,15 @@ func TestNotificationActionsAreBoundedAndBoundToTheirSender(t *testing.T) {
 	}
 }
 
-type notificationFixture struct{}
+type notificationFixture struct {
+	received chan map[string]dbus.Variant
+}
 
 func (notificationFixture) GetCapabilities() ([]string, *dbus.Error) {
 	return []string{"actions", "body"}, nil
 }
-func (notificationFixture) Notify(_ string, _ uint32, _ string, _ string, _ string, _ []string, _ map[string]dbus.Variant, _ int32) (uint32, *dbus.Error) {
+func (f notificationFixture) Notify(_ string, _ uint32, _ string, _ string, _ string, _ []string, hints map[string]dbus.Variant, _ int32) (uint32, *dbus.Error) {
+	f.received <- hints
 	return 42, nil
 }
 
@@ -94,15 +98,19 @@ func TestDesktopActionAfterDeliveryReturnsOnPrivateBus(t *testing.T) {
 	if _, err := server.RequestName(desktopBus, dbus.NameFlagDoNotQueue); err != nil {
 		t.Fatal(err)
 	}
-	if err := server.Export(notificationFixture{}, "/org/freedesktop/Notifications", desktopBus); err != nil {
+	received := make(chan map[string]dbus.Variant, 1)
+	if err := server.Export(notificationFixture{received: received}, "/org/freedesktop/Notifications", desktopBus); err != nil {
 		t.Fatal(err)
 	}
 	opened := make(chan Target, 2)
 	s := &desktopSender{ctx: ctx, state: t.TempDir(), pending: make(map[uint32]pendingClick), open: func(_ context.Context, target Target) { opened <- target }}
-	if err := s.send(ctx, Message{ID: "fixture", WatchID: "my-watch", Title: "Fixture"}); err != nil {
+	if err := s.send(ctx, Message{ID: "fixture", WatchID: "my-watch", Title: "Fixture", Status: notificationstyle.Error}); err != nil {
 		t.Fatal(err)
 	}
 	defer s.conn.Close()
+	if hints := <-received; hints["image-data"].Signature().String() != "(iiibiiay)" {
+		t.Fatal("desktop receiver did not receive the status image", hints)
+	}
 	// Delivery has returned; its original short-lived context is unnecessary.
 	if err := server.Emit("/org/freedesktop/Notifications", desktopBus+".ActionInvoked", uint32(42), "default"); err != nil {
 		t.Fatal(err)
