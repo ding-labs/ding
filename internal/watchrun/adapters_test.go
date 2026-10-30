@@ -33,11 +33,16 @@ func TestProviderPayloadAndAcknowledgment(t *testing.T) {
 				if provider == "slack" {
 					if payload["blocks"] == nil {
 						t.Error("missing blocks")
+					} else if image := payload["blocks"].([]any)[1].(map[string]any)["accessory"].(map[string]any); image["image_url"] != "https://ding.ing/assets/notifications/red.png" {
+						t.Error("incident delivery lost its failure bell", image)
 					}
 					w.Write([]byte("rejected"))
 				} else {
 					if payload["allowed_mentions"] == nil {
 						t.Error("mentions not controlled")
+					}
+					if image := payload["embeds"].([]any)[0].(map[string]any)["thumbnail"].(map[string]any); image["url"] != "https://ding.ing/assets/notifications/red.png" {
+						t.Error("incident delivery lost its failure bell", image)
 					}
 					w.WriteHeader(204)
 				}

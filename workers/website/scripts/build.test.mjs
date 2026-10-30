@@ -95,6 +95,17 @@ test("built pages have metadata, truthful sample labels, and no unresolved templ
   );
 });
 
+test("notification bells are published as matching square PNGs", () => {
+  for (const color of ["green", "yellow", "red"]) {
+    const file = `assets/notifications/${color}.png`;
+    const png = readFileSync(new URL(file, dist));
+    assert.deepEqual(png.subarray(0, 8), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    assert.equal(png.readUInt32BE(16), 512, `${file} width`);
+    assert.equal(png.readUInt32BE(20), 512, `${file} height`);
+    assert.deepEqual(png, readFileSync(new URL(`design/${file}`, root)));
+  }
+});
+
 test('docs review deployments are excluded from indexing without changing production', async () => {
   const {default: docs} = await import('../../docs/src/worker.js');
   const request = new Request('https://ding-docs-preview.workers.dev/');
