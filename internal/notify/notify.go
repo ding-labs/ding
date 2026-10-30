@@ -79,7 +79,16 @@ func Send(ctx context.Context, m Message) error {
 }
 
 func helper(ctx context.Context, path string, args []string, m Message) error {
-	data, err := json.Marshal(m)
+	var payload any = m
+	if runtime.GOOS == "windows" {
+		// The local file path is added at delivery time, never pinned from source
+		// fields or fetched from a notification-supplied URL.
+		payload = struct {
+			Message
+			IconPath string `json:"iconPath,omitempty"`
+		}{m, notificationIconPath(m.Status)}
+	}
+	data, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
@@ -121,6 +130,13 @@ if ($m.activation) {
 $nodes = $xml.GetElementsByTagName('text')
 $nodes.Item(0).AppendChild($xml.CreateTextNode([string]$m.title)) | Out-Null
 $nodes.Item(1).AppendChild($xml.CreateTextNode([string]$m.body)) | Out-Null
+if ($m.iconPath) {
+  $image = $xml.CreateElement('image')
+  $image.SetAttribute('placement', 'appLogoOverride')
+  $image.SetAttribute('src', ([System.Uri]::new([string]$m.iconPath)).AbsoluteUri)
+  $image.SetAttribute('alt', 'Ding: ' + [string]$m.status)
+  $xml.GetElementsByTagName('binding').Item(0).AppendChild($image) | Out-Null
+}
 $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Ding')
 $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 $notifier.Show($toast)

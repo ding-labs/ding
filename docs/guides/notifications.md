@@ -1,8 +1,8 @@
 # Send notifications and inspect delivery
 
-The watch preview supports console output, webhook, Slack incoming webhook, and
-Discord webhook destinations. Store credential-bearing URLs in environment
-variables on the daemon host and reference their names in YAML.
+The watch preview supports console output, desktop notifications, webhook, Slack
+incoming webhook, and Discord webhook destinations. Store credential-bearing
+URLs in environment variables on the daemon host and reference their names in YAML.
 
 ```yaml
 apiVersion: ding.ing/v1alpha1
@@ -65,6 +65,9 @@ send the embedded bell through the standard `image-data` hint, without fetching
 an image from the network. The desktop notification server controls its display.
 macOS adds the matching bell as a bundled notification attachment, which the OS
 may show in the expanded alert. Its app icon remains the Ding brand mark.
+Windows toasts use the matching bell as their logo override, from a local image
+cache that remains available after delivery. An unavailable cache falls back to
+the text alert. Desktop notification appearance depends on OS settings.
 
 ## Follow an event to its delivery
 
