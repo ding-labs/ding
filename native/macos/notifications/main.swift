@@ -121,7 +121,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 content.userInfo["dingStateDir"] = state
                 if let watch = message.watchId { content.userInfo["dingWatchId"] = watch }
             }
-            try await center.add(UNNotificationRequest(identifier: message.id, content: content, trigger: nil))
+            // Older SDKs do not mark requests Sendable. Keep the content on
+            // this actor and bridge only the completion result across queues.
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                let request = UNNotificationRequest(identifier: message.id, content: content, trigger: nil)
+                center.add(request) { @Sendable error in
+                    if let error { continuation.resume(throwing: error) }
+                    else { continuation.resume() }
+                }
+            }
             FileHandle.standardOutput.write(Data("{\"accepted\":true}\n".utf8))
             NSApplication.shared.terminate(nil)
         } catch {
