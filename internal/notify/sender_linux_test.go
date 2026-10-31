@@ -108,8 +108,15 @@ func TestDesktopActionAfterDeliveryReturnsOnPrivateBus(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.conn.Close()
-	if hints := <-received; hints["image-data"].Signature().String() != "(iiibiiay)" {
-		t.Fatal("desktop receiver did not receive the status image", hints)
+	// The Go method dispatcher reconstructs struct variants as []any. Decode
+	// the received fields rather than inferring their original wire signature.
+	hints := <-received
+	var image notificationImage
+	if err := dbus.Store([]any{hints["image-data"].Value()}, &image); err != nil {
+		t.Fatal("desktop receiver could not decode the status image", err)
+	}
+	if image.Width != 512 || image.Height != 512 || image.RowStride != 2048 || len(image.Data) != 512*512*4 {
+		t.Fatal("desktop receiver received an invalid image layout")
 	}
 	// Delivery has returned; its original short-lived context is unnecessary.
 	if err := server.Emit("/org/freedesktop/Notifications", desktopBus+".ActionInvoked", uint32(42), "default"); err != nil {
