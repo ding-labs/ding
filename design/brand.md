@@ -25,6 +25,18 @@ sizes directly from the shared SVG using build-time AppKit.
 Social artwork lives in `assets/social.svg` with its matching rendered PNG.
 All source SVG assets are covered by the repository's Apache-2.0 license.
 
+Notification bells have yellow (`#E7E37E`) and red (`#E77E7E`) variants sampled
+from the owner's artwork in `reference/ding-yellow-official.png` and
+`reference/ding-red-official.png`. `assets/bell-yellow.svg` and
+`assets/bell-red.svg` retain the green mark's exact 434 × 429 canvas, paths,
+draw order, and outlines; only the bell fill changes. The original uploads are
+retained unchanged. `assets/notifications/{green,yellow,red}.png` are matching
+512 × 512 exports with ivory backing for readability on light and dark surfaces.
+Regenerate them on macOS with `sh scripts/render-notification-icons.sh`.
+Use yellow for warnings, red for failures, and green for explicit recovery.
+Keep the status in text as well. A generic change or new event is not proof of
+health and must not acquire a green recovery bell.
+
 Use semantic colors with text or icons, never color alone. Navigation selection
 uses a neutral surface. Green is not a generic claim that a watch is healthy.
 Use restrained motion, visible keyboard focus, and reduced-motion support.
