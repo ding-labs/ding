@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/ding-labs/ding/design"
 	"github.com/ding-labs/ding/internal/notificationstyle"
 )
+
+var notificationIconCacheMu sync.Mutex
 
 func notificationIconPath(status notificationstyle.Status) string {
 	root, err := os.UserCacheDir()
@@ -27,6 +30,10 @@ func cacheNotificationIcon(directory string, status notificationstyle.Status) st
 	if len(data) == 0 {
 		return ""
 	}
+	// Windows readers can prevent replacement of an open file. Publish each
+	// image once before concurrent deliveries start opening the cached path.
+	notificationIconCacheMu.Lock()
+	defer notificationIconCacheMu.Unlock()
 	digest := sha256.Sum256(data)
 	path := filepath.Join(directory, fmt.Sprintf("%s-%x.png", status.IconColor(), digest[:8]))
 	if cached, err := os.ReadFile(path); err == nil && bytes.Equal(cached, data) {
@@ -48,8 +55,8 @@ func cacheNotificationIcon(directory string, status notificationstyle.Status) st
 		return ""
 	}
 	if err := os.Rename(file.Name(), path); err != nil {
-		// Windows refuses to replace an existing file. Another sender may have
-		// published the same complete image while this one was being written.
+		// Another process may have published the same complete image while this
+		// one was being written, or may currently have that image open.
 		if cached, readErr := os.ReadFile(path); readErr != nil || !bytes.Equal(cached, data) {
 			return ""
 		}
