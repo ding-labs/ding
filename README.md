@@ -35,9 +35,9 @@ Python, or model key is needed. Close the terminal: Ding keeps running while you
 computer is awake and connected. Run `ding ui` to reopen the Console and
 `ding status` to check monitoring.
 
-[v0.15.2](https://github.com/ding-labs/ding/releases/tag/v0.15.2) includes the watch
+[v0.15.3](https://github.com/ding-labs/ding/releases/tag/v0.15.3) includes the watch
 runtime, Console, local MCP adapter and macOS notification helper. See the
-[setup guide](docs/operate/local-setup.md) and [release notes](docs/releases/v0.15.2.md).
+[setup guide](docs/operate/local-setup.md) and [release notes](docs/releases/v0.15.3.md).
 
 The monorepo also includes an [official Go SDK MCP integration for ChatGPT and Claude](docs/integrations/README.md)
 with embedded views and plugin packaging. It is under qualification; official

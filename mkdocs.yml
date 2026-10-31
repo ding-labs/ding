@@ -93,6 +93,7 @@ nav:
     - HTTP API: api.md
   - Migration and releases:
     - Legacy migration: legacy.md
+    - Ding 0.15.3: releases/v0.15.3.md
     - Watch preview: releases/watch-preview.md
     - Qualification: development/qualification.md
     - Release checklist: releases/watch-checklist.md
