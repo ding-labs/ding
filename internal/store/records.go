@@ -83,6 +83,9 @@ func (t *Tx) Watches() ([]WatchRecord, error) {
 // SaveWatch persists the immutable definition and active pointer in this
 // transaction. Lifecycle compatibility/reset decisions belong to the runtime.
 func (t *Tx) SaveWatch(r WatchRecord, now time.Time) error {
+	if err := t.checkPurgedWatch(r.Plan.Definition.Metadata.ID); err != nil {
+		return err
+	}
 	c, err := plan.Compile(r.Plan.Definition)
 	if err != nil {
 		return err
