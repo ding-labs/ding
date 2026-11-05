@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import * as Dialog from "@radix-ui/react-dialog";
 import * as Menu from "@radix-ui/react-dropdown-menu";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -12,7 +13,7 @@ import {
 } from "lucide-react";
 import { useCapability } from "../app/execution";
 import { useConnection } from "../api/connection";
-import { api, unknownOutcome } from "../api/client";
+import { api, APIError, unknownOutcome } from "../api/client";
 import type { StoreWatchRecord, StoreIntent } from "../api/contracts";
 import { ErrorBox } from "./common";
 function Confirm({
@@ -66,11 +67,30 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
   const allowed = useCapability("manage");
   const [action, setAction] = useState("");
   const [expected, setExpected] = useState("");
+  const [expectedGeneration, setExpectedGeneration] = useState(0);
   const [typed, setTyped] = useState("");
   const [cancelPending, setCancelPending] = useState(false);
   const client = useQueryClient();
   const connected = useConnection();
   const id = watch.plan.definition.metadata.id;
+  const navigate = useNavigate();
+  const finish = async () => {
+    setAction("");
+    if (action === "purge") {
+      navigate("/watches", { replace: true });
+      const path = `/watches/${encodeURIComponent(id)}`;
+      client.removeQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return (
+            typeof key === "string" &&
+            (key === path || key.startsWith(path + "?"))
+          );
+        },
+      });
+    }
+    await client.invalidateQueries();
+  };
   const change = useMutation({
     mutationFn: () =>
       api(`/watches/${encodeURIComponent(id)}/lifecycle`, {
@@ -78,64 +98,89 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
         body: {
           action,
           expected,
+          expectedGeneration,
           cancelPending: action === "delete" && cancelPending,
         },
       }),
-    onSuccess: async () => {
-      await client.invalidateQueries();
-      setAction("");
-    },
+    onSuccess: finish,
   });
   const start = (kind: string) => {
     setAction(kind);
     setExpected(watch.plan.revision);
+    setExpectedGeneration(watch.generation);
     setTyped("");
     setCancelPending(false);
     change.reset();
   };
-  if (!allowed || watch.status === "deleted") return null;
+  if (!allowed) return null;
+  const destructive = action === "delete" || action === "purge";
   const title =
-    action === "delete"
-      ? `Delete ${id}?`
-      : action === "pause"
-        ? `Pause ${id}?`
-        : `Resume ${id}?`;
+    action === "purge"
+      ? `Permanently delete ${id}?`
+      : action === "delete"
+        ? `Delete ${id}?`
+        : action === "pause"
+          ? `Pause ${id}?`
+          : `Resume ${id}?`;
   return (
     <>
-      <button
-        className="button"
-        disabled={!connected}
-        onClick={() => start(watch.status === "paused" ? "resume" : "pause")}
-      >
-        {watch.status === "paused" ? <Play size={15} /> : <Pause size={15} />}{" "}
-        {watch.status === "paused" ? "Resume watch" : "Pause watch"}
-      </button>
-      <Menu.Root>
-        <Menu.Trigger asChild>
+      {watch.status === "deleted" ? (
+        <button
+          className="button danger"
+          disabled={!connected}
+          onClick={() => start("purge")}
+        >
+          <Trash2 size={15} /> Permanently delete…
+        </button>
+      ) : (
+        <>
           <button
-            className="icon-button"
-            aria-label="More watch actions"
+            className="button"
             disabled={!connected}
+            onClick={() =>
+              start(watch.status === "paused" ? "resume" : "pause")
+            }
           >
-            <MoreHorizontal size={18} />
+            {watch.status === "paused" ? (
+              <Play size={15} />
+            ) : (
+              <Pause size={15} />
+            )}{" "}
+            {watch.status === "paused" ? "Resume watch" : "Pause watch"}
           </button>
-        </Menu.Trigger>
-        <Menu.Portal>
-          <Menu.Content className="dropdown" align="end" sideOffset={6}>
-            <Menu.Item className="danger-text" onSelect={() => start("delete")}>
-              <Trash2 size={14} /> Delete watch…
-            </Menu.Item>
-          </Menu.Content>
-        </Menu.Portal>
-      </Menu.Root>
+          <Menu.Root>
+            <Menu.Trigger asChild>
+              <button
+                className="icon-button"
+                aria-label="More watch actions"
+                disabled={!connected}
+              >
+                <MoreHorizontal size={18} />
+              </button>
+            </Menu.Trigger>
+            <Menu.Portal>
+              <Menu.Content className="dropdown" align="end" sideOffset={6}>
+                <Menu.Item
+                  className="danger-text"
+                  onSelect={() => start("delete")}
+                >
+                  <Trash2 size={14} /> Delete watch…
+                </Menu.Item>
+              </Menu.Content>
+            </Menu.Portal>
+          </Menu.Root>
+        </>
+      )}
       <Confirm
         title={title}
         description={
-          action === "delete"
-            ? "Delete stops this watch permanently. Recorded history remains available, and this watch ID cannot be reused."
-            : action === "pause"
-              ? "Pause stops new acquisition and timers. Committed deliveries continue. Incident state is retained."
-              : "Resume enables acquisition and timers. The runtime records the gap; interrupted consecutive-match progress is not treated as continuous."
+          action === "purge"
+            ? "Permanently removes this watch from the list, deletes its recorded history, and cancels queued deliveries. This cannot be undone, and this watch ID cannot be reused."
+            : action === "delete"
+              ? "Delete stops this watch permanently. Recorded history remains available, and this watch ID cannot be reused."
+              : action === "pause"
+                ? "Pause stops new acquisition and timers. Committed deliveries continue. Incident state is retained."
+                : "Resume enables acquisition and timers. The runtime records the gap; interrupted consecutive-match progress is not treated as continuous."
         }
         open={!!action}
         onClose={() => setAction("")}
@@ -171,16 +216,24 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
               An in-flight notification may already have been received.
               Cancellation cannot retract it.
             </p>
-            <label className="stack-label">
-              Type <code>{id}</code> to confirm
-              <input
-                aria-label="Watch ID to delete"
-                value={typed}
-                onChange={(e) => setTyped(e.target.value)}
-                autoComplete="off"
-              />
-            </label>
           </>
+        )}
+        {action === "purge" && (
+          <p className="notice">
+            An in-flight notification may already have been received. Permanent
+            deletion cannot retract it.
+          </p>
+        )}
+        {destructive && (
+          <label className="stack-label">
+            Type <code>{id}</code> to confirm
+            <input
+              aria-label="Watch ID to delete"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              autoComplete="off"
+            />
+          </label>
         )}
         <ErrorBox error={change.error} />
         {change.isError && unknownOutcome(change.error) && (
@@ -197,8 +250,15 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
                   await api(`/watches/${encodeURIComponent(id)}`);
                   await client.invalidateQueries();
                   setAction("");
-                } catch {
-                  /* Keep the uncertain action visible until a read succeeds. */
+                } catch (error) {
+                  if (
+                    action === "purge" &&
+                    error instanceof APIError &&
+                    error.status === 404
+                  ) {
+                    await finish();
+                  }
+                  // Otherwise keep the uncertain action visible until a read succeeds.
                 }
               }}
             >
@@ -223,22 +283,24 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
               : "Keep current state"}
           </button>
           <button
-            className={`button ${action === "delete" ? "danger" : "primary"}`}
+            className={`button ${destructive ? "danger" : "primary"}`}
             disabled={
               change.isPending ||
               !connected ||
               (change.isError && unknownOutcome(change.error)) ||
-              (action === "delete" && typed !== id)
+              (destructive && typed !== id)
             }
             onClick={() => change.mutate()}
           >
             {change.isPending
               ? "Committing…"
-              : action === "delete"
-                ? "Delete watch"
-                : action === "pause"
-                  ? "Pause watch"
-                  : "Resume watch"}
+              : action === "purge"
+                ? "Permanently delete watch"
+                : action === "delete"
+                  ? "Delete watch"
+                  : action === "pause"
+                    ? "Pause watch"
+                    : "Resume watch"}
           </button>
         </div>
       </Confirm>
