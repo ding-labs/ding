@@ -14,6 +14,8 @@ import (
 // ConsoleQuery describes a bounded operational view. Cursor identity includes every filter.
 // Watch state is a live snapshot; event pages have a fixed upper sequence boundary.
 type ConsoleQuery struct {
+	Condition   string `json:"condition,omitempty"`
+	Input       string `json:"input,omitempty"`
 	Search      string `json:"search"`
 	Status      string `json:"status"`
 	Source      string `json:"source"`
@@ -177,6 +179,7 @@ func (t *Tx) SecretNames() (map[string][]string, error) {
 
 const watchView = `WITH entity AS (SELECT watch_id,count(*) entities,coalesce(sum(json_extract(state,'$.open')),0) opened,coalesce(sum(json_extract(state,'$.sourceUnhealthy')),0) unhealthy FROM entities GROUP BY watch_id), delivery AS (SELECT watch_id,sum(status IN ('permanent','exhausted')) failed,sum(status IN ('pending','leased')) pending FROM outbox GROUP BY watch_id), summary AS (
  SELECT w.*,json_extract(r.definition,'$.spec.destinations') targets,coalesce(json_extract(r.definition,'$.metadata.name'),'') name,json_extract(r.definition,'$.spec.source.type') source,json_extract(r.definition,'$.spec.policy.trigger') trigger,coalesce(json_extract(r.definition,'$.spec.condition.operator'),'') operator,coalesce(e.entities,0) entities,coalesce(e.opened,0) opened,coalesce(e.unhealthy,0) unhealthy,coalesce(d.failed,0) failed,coalesce(d.pending,0) pending,
+ (w.id IN (SELECT value FROM json_each(?))) missing_credentials,
  (coalesce(e.opened,0)>0 OR coalesce(e.unhealthy,0)>0 OR w.last_error!='' OR coalesce(d.failed,0)>0 OR w.id IN (SELECT value FROM json_each(?))) attention
  FROM watches w JOIN watch_revisions r ON r.watch_id=w.id AND r.revision=w.revision LEFT JOIN entity e ON e.watch_id=w.id LEFT JOIN delivery d ON d.watch_id=w.id)
  `
@@ -195,11 +198,23 @@ func (t *Tx) ConsoleWatches(q ConsoleQuery, missing map[string][]string) (WatchP
 	}
 	raw, _ := json.Marshal(ids)
 	where := t.query(qWatchFilter)
-	args := []any{string(raw), q.Search, q.Search, q.Status, q.Status, q.Source, q.Source, q.Attention, q.Watch, q.Watch, q.Incident, q.Incident, q.Incident, q.Health, q.Health, q.Health, q.Delivery, q.Delivery, q.Delivery, q.Destination, q.Destination}
+	args := []any{string(raw), string(raw), q.Search, q.Search, q.Status, q.Status, q.Source, q.Source, q.Attention, q.Watch, q.Watch, q.Incident, q.Incident, q.Incident, q.Health, q.Health, q.Health, q.Health, q.Health, q.Health, q.Delivery, q.Delivery, q.Delivery, q.Delivery, q.Delivery, q.Destination, q.Destination}
+
+	args = append(args, q.Condition, q.Condition, q.Condition, q.Condition, q.Condition)
+	since := out.At
+	switch q.Input {
+	case "hour":
+		since = since.Add(-time.Hour)
+	case "day":
+		since = since.Add(-24 * time.Hour)
+	case "week":
+		since = since.Add(-7 * 24 * time.Hour)
+	}
+	args = append(args, q.Input, q.Input, q.Input, q.Input, timestamp(since))
 	if err = t.sql.QueryRowContext(t.ctx, t.query(qWatchView)+"SELECT count(*) FROM summary"+where, args...).Scan(&out.Total); err != nil {
 		return out, err
 	}
-	if err = t.sql.QueryRowContext(t.ctx, t.query(qWatchView)+t.query(qWatchTotals), string(raw)).Scan(&out.All, &out.Attention, &out.Paused); err != nil {
+	if err = t.sql.QueryRowContext(t.ctx, t.query(qWatchView)+t.query(qWatchTotals), string(raw), string(raw)).Scan(&out.All, &out.Attention, &out.Paused); err != nil {
 		return out, err
 	}
 	rows, err := t.sql.QueryContext(t.ctx, t.query(qWatchView)+`SELECT id,name,revision,status,source,trigger,operator,generation,next_at,last_input_at,substr(last_error,1,2000),entities,opened,unhealthy,failed,pending FROM summary`+where+t.query(qWatchTail), append(args, c.Key, q.Limit+1)...)
@@ -354,7 +369,7 @@ func (t *Tx) ConsoleDestinations(q ConsoleQuery) (DestinationPage, error) {
 
 // ValidateConsoleQuery rejects misspelled filters instead of silently broadening a query.
 func ValidateConsoleQuery(q ConsoleQuery) error {
-	for _, f := range []struct{ value, allowed string }{{q.Status, "running paused deleted pending leased delivered permanent exhausted canceled"}, {q.Source, "http command push"}, {q.Attention, "yes"}, {q.Incident, "open none"}, {q.Health, "error clear"}, {q.Delivery, "failed pending"}} {
+	for _, f := range []struct{ value, allowed string }{{q.Status, "running paused deleted pending leased delivered permanent exhausted canceled"}, {q.Source, "http command push"}, {q.Attention, "yes"}, {q.Incident, "open none"}, {q.Health, "error clear missing waiting received"}, {q.Delivery, "failed pending queued clear"}, {q.Condition, "waiting open clear evaluated"}, {q.Input, "never received hour day week"}} {
 		if f.value != "" && !strings.Contains(" "+f.allowed+" ", " "+f.value+" ") {
 			return ErrCursor
 		}

@@ -148,6 +148,12 @@ func (a *App) lifecycle(ctx context.Context, id string, request LifecycleRequest
 		if request.CancelPending && request.Action != "delete" {
 			return fmt.Errorf("cancelPending requires delete")
 		}
+		if request.Action == "purge" {
+			if err := tx.PurgeWatch(id); err != nil {
+				return err
+			}
+			return mutation.finish(tx, record, a.Now())
+		}
 		status := ""
 		switch request.Action {
 		case "pause":
