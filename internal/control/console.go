@@ -9,7 +9,7 @@ import (
 
 func consoleQuery(r *http.Request) (store.ConsoleQuery, error) {
 	v := r.URL.Query()
-	q := store.ConsoleQuery{Search: v.Get("search"), Status: v.Get("status"), Source: v.Get("source"), Attention: v.Get("attention"), Incident: v.Get("incident"), Health: v.Get("health"), Delivery: v.Get("delivery"), Watch: v.Get("watch"), Event: v.Get("event"), Destination: v.Get("destination"), Type: v.Get("type"), From: v.Get("from"), To: v.Get("to"), Cursor: v.Get("cursor"), Limit: 50}
+	q := store.ConsoleQuery{Condition: v.Get("condition"), Input: v.Get("input"), Search: v.Get("search"), Status: v.Get("status"), Source: v.Get("source"), Attention: v.Get("attention"), Incident: v.Get("incident"), Health: v.Get("health"), Delivery: v.Get("delivery"), Watch: v.Get("watch"), Event: v.Get("event"), Destination: v.Get("destination"), Type: v.Get("type"), From: v.Get("from"), To: v.Get("to"), Cursor: v.Get("cursor"), Limit: 50}
 	if v.Get("limit") != "" {
 		var err error
 		q.Limit, err = strconv.Atoi(v.Get("limit"))
