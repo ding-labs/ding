@@ -10,6 +10,9 @@ test("first useful watch is reviewed and observed without an account", async ({ 
   await page.getByLabel("Alert delivery").selectOption("console");
   await page.getByRole("button", { name: "Preview watch" }).click();
   await expect(page.getByRole("heading", { name: "Review before starting" })).toBeVisible();
+  await expect(page.getByText(/every 30s \(timeout 5s\)/)).toBeVisible();
+  await expect(page.getByText(/401 or 404 do not match/)).toBeVisible();
+  await expect(page.getByText(/3 matching checks span 1m0s/)).toBeVisible();
   const before = await fetch(daemon.url + "/v1/watches", { headers: { Authorization: "Bearer " + daemon.token } });
   expect((await before.json()).data).toHaveLength(0);
   const a11y = await new AxeBuilder({ page }).analyze();

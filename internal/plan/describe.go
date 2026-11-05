@@ -3,6 +3,7 @@ package plan
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 type Description struct {
@@ -53,6 +54,9 @@ func Describe(p Compiled) Description {
 			op = c.Operator
 		}
 		d.Condition = fmt.Sprintf("%s %s %s.", c.Field, op, v)
+		if s.Source.Type == "http" && c.Field == "http.status" && c.Operator == "gte" && string(v) == "500" {
+			d.Condition = "HTTP status is at least 500 (server errors). Responses such as 401 or 404 do not match; a nonmatch does not prove service health."
+		}
 	}
 	if c.Operator == "changed" || c.Operator == "new-event" {
 		d.Policy = "Emit a " + c.Operator + " event for each qualifying input."
@@ -61,6 +65,18 @@ func Describe(p Compiled) Description {
 	} else {
 		d.Policy = fmt.Sprintf("Fire after %d consecutive matches, limited to one firing per %s.", s.Policy.Consecutive, s.Policy.Interval)
 	}
-	d.Policy += " Unknown inputs: " + s.Policy.OnUnknown + "."
+	if s.Policy.OnUnknown == "hold-incident" {
+		d.Policy += " Unknown inputs preserve the incident state; they do not count as successful checks."
+	} else {
+		d.Policy += " Unknown inputs: " + s.Policy.OnUnknown + "."
+	}
+	if s.Source.Type == "http" {
+		d.Source += " Timeouts and unreachable endpoints are reported as source errors separately."
+		if s.Policy.Trigger == "transition" && c.Numeric == "" && c.MissingFor == "" && s.Policy.Consecutive > 1 {
+			if every, err := time.ParseDuration(s.Source.Every); err == nil {
+				d.Policy += fmt.Sprintf(" At this cadence, %d matching checks span %s from the first to the last. Waiting for the next check, response time, scheduling, and notification delivery can add delay.", s.Policy.Consecutive, (time.Duration(s.Policy.Consecutive-1) * every).String())
+			}
+		}
+	}
 	return d
 }

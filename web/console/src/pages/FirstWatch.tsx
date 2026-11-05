@@ -6,6 +6,7 @@ import type { ControlFirstWatchPreview } from "../api/contracts";
 import { Heading, ErrorBox } from "../components/common";
 import { NotificationSetup } from "../components/NotificationSetup";
 import { Demo } from "../components/Demo";
+import { FirstWatchRule } from "../components/FirstWatchRule";
 
 export function FirstWatch() {
   const [id, setID] = useState("first-watch");
@@ -71,8 +72,7 @@ export function FirstWatch() {
     {uncertain ? <div className="notice" role="alert">The activation response was interrupted. Check <Link to={`/watches/${encodeURIComponent(id)}`}>this watch</Link> before trying again.</div> : null}
     {preview ? <section className="panel">
       <h2>Review before starting</h2>
-      <p>Check every 30 seconds. Alert after three consecutive HTTP responses with a status of 500 or above. Recover after two nonmatching responses.</p>
-      <p>Timeouts and unreachable endpoints produce source-error alerts separately. They never count as successful checks.</p>
+      <FirstWatchRule descriptions={preview.descriptions} />
       <p>This watch runs while this computer is awake and connected. Closing Ding's Console or your AI app does not stop the background service.</p>
       {delivery === "desktop" ? <>
         <NotificationSetup label="Send a test notification" disabled={busy || uncertain}

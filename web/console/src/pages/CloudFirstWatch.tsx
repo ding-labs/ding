@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { api, APIError } from "../api/client";
 import type { ControlFirstWatchPreview } from "../api/contracts";
 import { Heading, ErrorBox, useRead } from "../components/common";
+import { FirstWatchRule } from "../components/FirstWatchRule";
 
 export function CloudFirstWatch() {
   const [id, setID] = useState("first-cloud-watch");
@@ -77,7 +78,7 @@ export function CloudFirstWatch() {
     {uncertain ? <div className="notice" role="alert">The activation response was interrupted. Inspect <Link to={`/watches/${encodeURIComponent(id)}`}>this watch</Link> before retrying.</div> : null}
     {preview ? <section className="panel">
       <h2>Review hosted execution</h2>
-      <p>Check every five minutes. Three consecutive HTTP 5xx responses fire; two nonmatching responses recover. Timeouts alert as source errors separately.</p>
+      <FirstWatchRule descriptions={preview.descriptions} />
       <p>Cloud capacity is configured by the operator and includes retained history, input sizes, storage, and network budgets. Pinned evidence counts against storage limits. <Link to="/system?tab=Cloud">Inspect usage and limits</Link>.</p>
       <button className="button" disabled={busy || uncertain || tested} onClick={testDelivery}>{tested ? "Test accepted by destination" : operation.current ? "Check test outcome" : "Send labeled delivery test"}</button>
       {tested ? <label><input type="checkbox" checked={sawTest} onChange={e => setSawTest(e.target.checked)} /> I received the test at my destination</label> : null}

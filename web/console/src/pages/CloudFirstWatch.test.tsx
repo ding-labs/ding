@@ -14,7 +14,7 @@ test("a lost delivery-test response reuses its key and activation requires confi
     const path = String(input);
     const body = options?.body ? JSON.parse(String(options.body)) : {};
     if (path === "/v1/cloud/secrets") return response({ names: ["DING_WEBHOOK"] });
-    if (path === "/v1/onboarding/preview") return response({ manifest: "exact reviewed manifest", review: { review: { manifestHash: "review" } } });
+    if (path === "/v1/onboarding/preview") return response({ manifest: "exact reviewed manifest", descriptions: [{ id: "first-cloud-watch", source: "Check every 7m (timeout 4s).", condition: "http.status does not equal 200.", policy: "Open after 4 consecutive matches." }], review: { review: { manifestHash: "review" } } });
     if (path === "/v1/cloud/destination-test") {
       tests.push(body.operationKey);
       if (tests.length === 1) throw new TypeError("response lost");
@@ -29,6 +29,9 @@ test("a lost delivery-test response reuses its key and activation requires confi
   fireEvent.change(screen.getByLabelText("Public health endpoint"), { target: { value: "https://example.com/health" } });
   fireEvent.click(screen.getByRole("button", { name: "Preview cloud watch" }));
   await screen.findByText("Review hosted execution");
+  expect(screen.getByText("Check every 7m (timeout 4s).")).toBeVisible();
+  expect(screen.getByText("http.status does not equal 200.")).toBeVisible();
+  expect(screen.getByText("Open after 4 consecutive matches.")).toBeVisible();
   expect(screen.getByRole("button", { name: "Start in Ding Cloud" })).toBeDisabled();
   fireEvent.click(screen.getByRole("button", { name: "Send labeled delivery test" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "Check test outcome" })).toBeEnabled());
