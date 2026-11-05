@@ -18,13 +18,41 @@ test("first useful watch is reviewed and observed without an account", async ({ 
   const a11y = await new AxeBuilder({ page }).analyze();
   expect(a11y.violations.filter(v => ["serious", "critical"].includes(v.impact ?? ""))).toEqual([]);
   await page.screenshot({ path: "/tmp/ding-first-watch.png", fullPage: true });
+  let state: "waiting" | "source-error" | "delivery-error" | "live" = "waiting";
+  await page.route("**/v1/console/watches?**", async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    if (new URL(route.request().url()).searchParams.get("watch") === "local-health" && state !== "live") {
+      for (const watch of body.data.watches) {
+        if (state === "waiting") Object.assign(watch, { lastInputAt: "0001-01-01T00:00:00Z", entities: 0 });
+        if (state === "source-error") Object.assign(watch, { lastError: "connection timed out", unhealthy: 1 });
+        if (state === "delivery-error") Object.assign(watch, { failed: 1, pending: 1 });
+      }
+    }
+    await route.fulfill({ response, json: body });
+  });
   await page.getByRole("button", { name: "Start this watch" }).click();
   await expect(page).toHaveURL(/watches\/local-health$/);
+  await expect(page.getByRole("status")).toHaveText("Waiting for the first observation");
+  await expect(page.getByRole("link", { name: "Create another watch" })).toHaveCount(0);
+  state = "source-error";
+  await expect(page.getByRole("status")).toHaveText("Monitoring needs attention", { timeout: 10000 });
+  await expect(page.getByRole("link", { name: "Create another watch" })).toHaveCount(0);
+  state = "delivery-error";
+  await expect(page.getByText(/A notification could not be delivered/)).toBeVisible({ timeout: 10000 });
+  await expect(page.getByRole("link", { name: "Inspect deliveries" })).toBeVisible();
+  state = "live";
+  await expect(page.getByText(/A notification could not be delivered/)).toHaveCount(0, { timeout: 10000 });
   await expect.poll(async () => {
     const r = await fetch(daemon.url + "/v1/doctor", { headers: { Authorization: "Bearer " + daemon.token } });
     const source = (await r.json()).data.sources.find((s: { id: string }) => s.id === "local-health");
     return !!source && !source.lastInputAt.startsWith("0001");
   }).toBeTruthy();
+  await expect(page.getByRole("status")).toHaveText("Monitoring input received");
+  await expect(page.getByRole("link", { name: "Create another watch" })).toBeVisible();
+  await expect(page.getByText(/not service health or notification delivery/)).toBeVisible();
+  await page.getByRole("link", { name: "Create another watch" }).click();
+  await expect(page.getByLabel("Watch ID")).toHaveValue("");
 });
 
 test("desktop onboarding requires visible-test confirmation and invalidates edits", async ({ page, daemon }) => {

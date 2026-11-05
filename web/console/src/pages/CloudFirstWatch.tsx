@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, APIError } from "../api/client";
 import type { ControlFirstWatchPreview } from "../api/contracts";
@@ -7,7 +7,8 @@ import { Heading, ErrorBox, useRead } from "../components/common";
 import { FirstWatchRule } from "../components/FirstWatchRule";
 
 export function CloudFirstWatch() {
-  const [id, setID] = useState("first-cloud-watch");
+  const location = useLocation();
+  const [id, setID] = useState(location.state?.anotherWatch ? "" : "first-cloud-watch");
   const [url, setURL] = useState("");
   const [destination, setDestination] = useState("webhook");
   const [credential, setCredential] = useState("DING_WEBHOOK");
@@ -49,7 +50,7 @@ export function CloudFirstWatch() {
     setBusy(true); setError(undefined);
     try {
       await api("/apply", { method: "POST", body: { manifest: preview.manifest, review: preview.review.review, dryRun: false } });
-      await client.invalidateQueries(); navigate(`/watches/${encodeURIComponent(id)}`);
+      await client.invalidateQueries(); navigate(`/watches/${encodeURIComponent(id)}`, { state: { firstWatch: id } });
     } catch (e) { setError(e); if (e instanceof APIError && e.status === 409) setPreview(undefined); else if (!(e instanceof APIError) || e.status >= 500) setUncertain(true); }
     finally { setBusy(false); }
   }

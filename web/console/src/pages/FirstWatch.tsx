@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, APIError } from "../api/client";
 import type { ControlFirstWatchPreview } from "../api/contracts";
@@ -9,7 +9,8 @@ import { Demo } from "../components/Demo";
 import { FirstWatchRule } from "../components/FirstWatchRule";
 
 export function FirstWatch() {
-  const [id, setID] = useState("first-watch");
+  const location = useLocation();
+  const [id, setID] = useState(location.state?.anotherWatch ? "" : "first-watch");
   const [url, setURL] = useState("");
   const [delivery, setDelivery] = useState("desktop");
   const [preview, setPreview] = useState<ControlFirstWatchPreview>();
@@ -40,7 +41,7 @@ export function FirstWatch() {
         manifest: preview.manifest, review: preview.review.review, dryRun: false,
       } });
       await client.invalidateQueries();
-      navigate(`/watches/${encodeURIComponent(id)}`);
+      navigate(`/watches/${encodeURIComponent(id)}`, { state: { firstWatch: id } });
     } catch (e) {
       setError(e);
       if (e instanceof APIError && e.status === 409) setPreview(undefined);

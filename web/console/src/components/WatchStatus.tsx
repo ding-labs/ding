@@ -1,5 +1,5 @@
 import { CircleCheck, CirclePause, CircleAlert, Radio } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import type {
   StoreConsoleWatch,
   StoreWatchSummary,
@@ -7,6 +7,7 @@ import type {
 } from "../api/contracts";
 import { useExecution } from "../app/execution";
 import { ErrorBox, Time, labels } from "./common";
+import { FirstWatchProgress } from "./FirstWatchProgress";
 import "./WatchOverview.css";
 
 export function WatchContext({ definition }: { definition: WatchDefinition }) {
@@ -63,6 +64,7 @@ export function WatchStatus({
   retry: () => void;
 }) {
   const w = detail.watch;
+  const location = useLocation();
   const { source, condition, policy, destinations } = w.plan.definition.spec;
   const id = w.plan.definition.metadata.id;
   const current = error ? undefined : summary;
@@ -137,6 +139,7 @@ export function WatchStatus({
 
   return (
     <div className="watch-status-stack">
+      {location.state?.firstWatch === id && <FirstWatchProgress watch={current} />}
       <section
         className={`panel watch-status-hero ${stopped ? "is-stopped" : needsAttention ? "needs-attention" : clear ? "is-clear" : ""}`}
         aria-labelledby="watch-condition-title"
