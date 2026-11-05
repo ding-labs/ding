@@ -1,0 +1,18 @@
+.watch-column-filters td {
+  padding-top: 0;
+  border-top: 0;
+  background: var(--soft);
+}
+.watch-column-filters input,
+.watch-column-filters select {
+  width: 100%;
+  min-width: 120px;
+  font-size: 12px;
+  font-weight: normal;
+}
+.watch-column-filters input {
+  min-width: 150px;
+}
+.watch-column-filters select:has(option:checked:not([value=""])) {
+  border-color: var(--green);
+}

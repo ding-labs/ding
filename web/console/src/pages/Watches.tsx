@@ -10,7 +10,7 @@ import {
   useNavigate,
   useLocation,
 } from "react-router-dom";
-import { Plus, Search, ArrowUpRight, Download, Pencil } from "lucide-react";
+import { Plus, ArrowUpRight, Download, Pencil } from "lucide-react";
 import { api, download } from "../api/client";
 import type {
   StoreWatchPage,
@@ -35,6 +35,7 @@ import {
 } from "../components/common";
 import { useDraft } from "../app/draft";
 import { savedViews, savePreference } from "../app/preferences";
+import { WatchColumnFilters } from "../components/WatchColumnFilters";
 import { WatchActions } from "../components/Actions";
 import { Events } from "./Events";
 import { Deliveries } from "./Deliveries";
@@ -89,41 +90,21 @@ export function Watches() {
         </button>
       </div>
       <div className="filters">
-        <label className="search">
-          <Search size={16} />
-          <input
-            aria-label="Search watches"
-            placeholder="Find a watch by name or ID…"
-            value={p.get("search") || ""}
-            onChange={(e) => {
-              const n = new URLSearchParams(p);
-              n.delete("cursor");
-              n.set("search", e.target.value);
-              set(n, { replace: true });
-            }}
-          />
-        </label>
         <Filter
           name="source"
-          label="Sources"
+          label="Source types"
           options={["http", "push", "command", "logs"]}
         />
-        <Filter
-          name="status"
-          label="Lifecycle"
-          options={["running", "paused", "deleted"]}
-        />
-        <Filter name="incident" label="Incidents" options={["open", "none"]} />
-        <Filter
-          name="health"
-          label="Source health"
-          options={["error", "clear"]}
-        />
-        <Filter
-          name="delivery"
-          label="Delivery attention"
-          options={["failed", "pending"]}
-        />
+        {p.has("incident") && (
+          <Filter
+            name="incident"
+            label="Incidents (saved filter)"
+            options={["open", "none"]}
+          />
+        )}
+        <button className="button" disabled={!p.size} onClick={() => set({})}>
+          Clear filters
+        </button>
       </div>
       <div className="view-preferences">
         <select
@@ -165,106 +146,103 @@ export function Watches() {
           else void query.refetch();
         }}
       />
+      <div className="table-wrap">
+        <table>
+          <caption className="sr-only">
+            Watches and their current condition, source and delivery state
+          </caption>
+          <thead>
+            <tr>
+              <th>Watch</th>
+              <th>Lifecycle</th>
+              <th>Condition</th>
+              <th>Source</th>
+              <th>Deliveries</th>
+              <th>Latest input</th>
+            </tr>
+            <WatchColumnFilters />
+          </thead>
+          <tbody>
+            {query.data?.watches.map((w) => (
+              <tr key={w.id}>
+                <td>
+                  <Link
+                    className="row-title"
+                    to={`/watches/${encodeURIComponent(w.id)}`}
+                    state={{
+                      returnTo: location.pathname + location.search,
+                    }}
+                  >
+                    {w.name || w.id}
+                    <ArrowUpRight size={14} />
+                  </Link>
+                  {w.name && <small>{w.id}</small>}
+                  <small>
+                    {w.source} · {w.trigger}
+                  </small>
+                </td>
+                <td>
+                  <Badge value={w.status} />
+                </td>
+                <td>
+                  {!w.entities ? (
+                    "Waiting for input"
+                  ) : w.trigger === "transition" ? (
+                    w.open ? (
+                      <Badge value="firing">
+                        {w.open} incident{w.open === 1 ? "" : "s"} open
+                      </Badge>
+                    ) : (
+                      "No open incident"
+                    )
+                  ) : (
+                    `${w.entities} evaluated entities`
+                  )}
+                </td>
+                <td>
+                  {w.unhealthy || w.lastError ? (
+                    <Badge value="error">Acquisition error</Badge>
+                  ) : w.missing.length ? (
+                    <Badge value="warning">Missing credentials</Badge>
+                  ) : (
+                    <span>
+                      {w.lastInputAt.startsWith("0001")
+                        ? "Waiting"
+                        : "Input received"}
+                    </span>
+                  )}
+                  {w.missing.map((m) => (
+                    <small key={m}>{m} absent</small>
+                  ))}
+                  {w.lastError && (
+                    <small className="danger-text">{w.lastError}</small>
+                  )}
+                </td>
+                <td>
+                  {w.failed ? (
+                    <Link to={`/deliveries?watch=${encodeURIComponent(w.id)}`}>
+                      <Badge value="permanent">{w.failed} failed</Badge>
+                    </Link>
+                  ) : w.pending ? (
+                    `${w.pending} queued / sending`
+                  ) : (
+                    "No delivery attention"
+                  )}
+                </td>
+                <td>
+                  <Time value={w.lastInputAt} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {query.isPending ? (
         <Loading />
       ) : (
         query.data && (
           <>
-            {query.data.watches.length ? (
-              <div className="table-wrap">
-                <table>
-                  <caption className="sr-only">
-                    Watches and their current condition, source and delivery
-                    state
-                  </caption>
-                  <thead>
-                    <tr>
-                      <th>Watch</th>
-                      <th>Lifecycle</th>
-                      <th>Condition</th>
-                      <th>Source</th>
-                      <th>Deliveries</th>
-                      <th>Latest input</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {query.data.watches.map((w) => (
-                      <tr key={w.id}>
-                        <td>
-                          <Link
-                            className="row-title"
-                            to={`/watches/${encodeURIComponent(w.id)}`}
-                            state={{
-                              returnTo: location.pathname + location.search,
-                            }}
-                          >
-                            {w.name || w.id}
-                            <ArrowUpRight size={14} />
-                          </Link>
-                          {w.name && <small>{w.id}</small>}
-                          <small>
-                            {w.source} · {w.trigger}
-                          </small>
-                        </td>
-                        <td>
-                          <Badge value={w.status} />
-                        </td>
-                        <td>
-                          {!w.entities ? (
-                            "Waiting for input"
-                          ) : w.trigger === "transition" ? (
-                            w.open ? (
-                              <Badge value="firing">
-                                {w.open} incident{w.open === 1 ? "" : "s"} open
-                              </Badge>
-                            ) : (
-                              "No open incident"
-                            )
-                          ) : (
-                            `${w.entities} evaluated entities`
-                          )}
-                        </td>
-                        <td>
-                          {w.unhealthy || w.lastError ? (
-                            <Badge value="error">Acquisition error</Badge>
-                          ) : w.missing.length ? (
-                            <Badge value="warning">Missing credentials</Badge>
-                          ) : (
-                            <span>
-                              {w.lastInputAt.startsWith("0001")
-                                ? "Waiting"
-                                : "Input received"}
-                            </span>
-                          )}
-                          {w.missing.map((m) => (
-                            <small key={m}>{m} absent</small>
-                          ))}
-                          {w.lastError && (
-                            <small className="danger-text">{w.lastError}</small>
-                          )}
-                        </td>
-                        <td>
-                          {w.failed ? (
-                            <Link
-                              to={`/deliveries?watch=${encodeURIComponent(w.id)}`}
-                            >
-                              <Badge value="permanent">{w.failed} failed</Badge>
-                            </Link>
-                          ) : w.pending ? (
-                            `${w.pending} queued / sending`
-                          ) : (
-                            "No delivery attention"
-                          )}
-                        </td>
-                        <td>
-                          <Time value={w.lastInputAt} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
+            {!query.data.watches.length && (
               <Empty
                 title={
                   query.data.all
@@ -273,9 +251,9 @@ export function Watches() {
                 }
               >
                 {query.data.all ? (
-                  <button className="button" onClick={() => set({})}>
-                    Clear filters
-                  </button>
+                  <p>
+                    Change a column filter or clear filters to see more watches.
+                  </p>
                 ) : (
                   <>
                     <p>
