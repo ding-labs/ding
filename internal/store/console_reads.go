@@ -214,7 +214,7 @@ func (t *Tx) ConsoleWatches(q ConsoleQuery, missing map[string][]string) (WatchP
 	if err = t.sql.QueryRowContext(t.ctx, t.query(qWatchView)+"SELECT count(*) FROM summary"+where, args...).Scan(&out.Total); err != nil {
 		return out, err
 	}
-	if err = t.sql.QueryRowContext(t.ctx, t.query(qWatchView)+"SELECT count(*),coalesce(sum(attention),0),coalesce(sum(status='paused'),0) FROM summary", string(raw), string(raw)).Scan(&out.All, &out.Attention, &out.Paused); err != nil {
+	if err = t.sql.QueryRowContext(t.ctx, t.query(qWatchView)+t.query(qWatchTotals), string(raw), string(raw)).Scan(&out.All, &out.Attention, &out.Paused); err != nil {
 		return out, err
 	}
 	rows, err := t.sql.QueryContext(t.ctx, t.query(qWatchView)+`SELECT id,name,revision,status,source,trigger,operator,generation,next_at,last_input_at,substr(last_error,1,2000),entities,opened,unhealthy,failed,pending FROM summary`+where+t.query(qWatchTail), append(args, c.Key, q.Limit+1)...)

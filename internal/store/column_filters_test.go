@@ -10,8 +10,11 @@ import (
 )
 
 func TestWatchColumnFiltersMatchDisplayedStates(t *testing.T) {
+	t.Run("sqlite", func(t *testing.T) { WatchColumnFiltersMatchDisplayedStates(t, openTest(t, t.TempDir())) })
+	t.Run("postgres", func(t *testing.T) { WatchColumnFiltersMatchDisplayedStates(t, openPostgresTestStore(t)) })
+}
+func WatchColumnFiltersMatchDisplayedStates(t *testing.T, s *Store) {
 	ctx := context.Background()
-	s := openTest(t, t.TempDir())
 	c, _ := fixture(t)
 	now := time.Now().UTC()
 	if err := s.Update(ctx, func(tx *Tx) error {
@@ -127,8 +130,11 @@ func TestWatchColumnFiltersMatchDisplayedStates(t *testing.T) {
 }
 
 func TestWatchDeliveryColumnFiltersRespectDisplayPriority(t *testing.T) {
+	t.Run("sqlite", func(t *testing.T) { WatchDeliveryColumnFiltersRespectDisplayPriority(t, openTest(t, t.TempDir())) })
+	t.Run("postgres", func(t *testing.T) { WatchDeliveryColumnFiltersRespectDisplayPriority(t, openPostgresTestStore(t)) })
+}
+func WatchDeliveryColumnFiltersRespectDisplayPriority(t *testing.T, s *Store) {
 	ctx := context.Background()
-	s := openTest(t, t.TempDir())
 	seed(t, s)
 	c, d := fixture(t)
 	if err := s.Update(ctx, func(tx *Tx) error {

@@ -18,19 +18,20 @@ func (t *Tx) PurgeWatch(id string) error {
 	} else if hold != "" {
 		return fmt.Errorf("watch has an active transfer")
 	}
-	for _, query := range []string{
-		"INSERT INTO metadata(key,value) VALUES('purged_watch:'||?, '1')",
-		"DELETE FROM outbox WHERE watch_id=?",
-		"DELETE FROM events WHERE watch_id=?",
-		"DELETE FROM observations WHERE watch_id=?",
-		"DELETE FROM entities WHERE watch_id=?",
-		"DELETE FROM timers WHERE watch_id=?",
-		"DELETE FROM input_receipts WHERE watch_id=?",
-		"DELETE FROM handoffs WHERE watch_id=?",
-		"DELETE FROM watches WHERE id=?",
-		"DELETE FROM watch_revisions WHERE watch_id=?",
+	for _, query := range []statement{
+		{sqlite: `INSERT INTO metadata(key,value) VALUES('purged_watch:'||?, '1')`, postgres: `INSERT INTO metadata(key,value) VALUES('purged_watch:'||$1, '1')`},
+		{sqlite: `DELETE FROM outbox WHERE watch_id=?`, postgres: `DELETE FROM outbox WHERE workspace_id=current_setting('ding.workspace') AND watch_id=$1`},
+		{sqlite: `DELETE FROM events WHERE watch_id=?`, postgres: `DELETE FROM events WHERE workspace_id=current_setting('ding.workspace') AND watch_id=$1`},
+		{sqlite: `DELETE FROM observations WHERE watch_id=?`, postgres: `DELETE FROM observations WHERE workspace_id=current_setting('ding.workspace') AND watch_id=$1`},
+		{sqlite: `DELETE FROM entities WHERE watch_id=?`, postgres: `DELETE FROM entities WHERE workspace_id=current_setting('ding.workspace') AND watch_id=$1`},
+		{sqlite: `DELETE FROM timers WHERE watch_id=?`, postgres: `DELETE FROM timers WHERE workspace_id=current_setting('ding.workspace') AND watch_id=$1`},
+		{sqlite: `DELETE FROM input_receipts WHERE watch_id=?`, postgres: `DELETE FROM input_receipts WHERE workspace_id=current_setting('ding.workspace') AND watch_id=$1`},
+		{sqlite: `DELETE FROM handoffs WHERE watch_id=?`, postgres: `DELETE FROM handoffs WHERE workspace_id=current_setting('ding.workspace') AND watch_id=$1`},
+		{sqlite: `DELETE FROM delivery_streams WHERE watch_id=?`, postgres: `DELETE FROM delivery_streams WHERE workspace_id=current_setting('ding.workspace') AND watch_id=$1`},
+		{sqlite: `DELETE FROM watches WHERE id=?`, postgres: `DELETE FROM watches WHERE workspace_id=current_setting('ding.workspace') AND id=$1`},
+		{sqlite: `DELETE FROM watch_revisions WHERE watch_id=?`, postgres: `DELETE FROM watch_revisions WHERE workspace_id=current_setting('ding.workspace') AND watch_id=$1`},
 	} {
-		if _, err := t.sql.ExecContext(t.ctx, query, id); err != nil {
+		if _, err := t.exec(query, id); err != nil {
 			return err
 		}
 	}
@@ -39,7 +40,7 @@ func (t *Tx) PurgeWatch(id string) error {
 
 func (t *Tx) checkPurgedWatch(id string) error {
 	var purged bool
-	if err := t.sql.QueryRowContext(t.ctx, "SELECT EXISTS(SELECT 1 FROM metadata WHERE key='purged_watch:'||?)", id).Scan(&purged); err != nil {
+	if err := t.sql.QueryRowContext(t.ctx, t.query(statement{sqlite: `SELECT EXISTS(SELECT 1 FROM metadata WHERE key='purged_watch:'||?)`, postgres: `SELECT EXISTS(SELECT 1 FROM metadata WHERE workspace_id=current_setting('ding.workspace') AND key='purged_watch:'||$1)`}), id).Scan(&purged); err != nil {
 		return err
 	}
 	if purged {
