@@ -266,3 +266,30 @@ likewise do not delay continuous delivery.
 
 Execution begins with increment A: align the service-watch rule descriptions and
 verify the existing local and cloud first-watch behavior before extending the UI.
+
+## Implementation record — November 5, 2026
+
+The first source increments are committed separately:
+
+- `307e390`: local and cloud previews render descriptions from the compiled rule,
+  including cadence, timeout, source errors, and time between matching checks.
+- `55ccf07`: after activation, the Console confirms actual monitoring input,
+  distinguishes source/delivery problems, and offers a fresh second-watch setup.
+- `4964516`: a loopback-only development fixture exposes healthy, failing, and
+  timeout modes without changing a user's service.
+- `c39c2c5`: both starter recipes are exercised through real HTTP acquisition and
+  receipt, persisted restart, incident recovery, and verified retained evidence;
+  the [service-watch guide](../guides/watch-shipped-service.md) documents the flow.
+
+The focused Go packages pass race tests and vet, all 34 Console unit tests pass,
+and all four Chromium onboarding tests pass, including the real scheduler demo.
+The Console production build passes. These checks use the current checkout,
+which also contains pre-existing uncommitted work; those changes were not included
+in these commits.
+
+Step 1 remains open for direct reuse of existing destinations in the starter
+form and participant/device qualification. Local network destinations currently
+use Workbench, and expected-status customization uses its existing typed rule
+editor. Human-visible native notification receipt and deployed cloud/laptop-off
+behavior have not been established by these local automated checks. Steps 2–5
+retain the dependencies and acceptance criteria above.
