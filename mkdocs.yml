@@ -60,6 +60,7 @@ nav:
     - Install: install.md
     - Local setup (development): operate/local-setup.md
     - First watch: guides/first-watch.md
+    - Watch a shipped service: guides/watch-shipped-service.md
   - Concepts:
     - Understand a watch: concepts/index.md
     - State glossary: reference/states.md

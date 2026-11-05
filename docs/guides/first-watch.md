@@ -1,5 +1,8 @@
 # Create your first watch
 
+For an existing service, start with [Watch the service you just shipped](watch-shipped-service.md).
+That guide uses the Console's HTTP starter flow, notification test, and first-observation status.
+
 This walkthrough uses the [watch source preview](../install.md), curl, and jq.
 Run it from the source checkout in two terminals. It sends no external notification:
 the destination is the daemon's console output.
