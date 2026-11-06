@@ -70,10 +70,10 @@ test("first useful watch is reviewed and observed without an account", async ({ 
   });
   await page.getByRole("button", { name: "Start this watch" }).click();
   await expect(page).toHaveURL(/watches\/local-health$/);
-  await expect(page.getByRole("status")).toHaveText("Waiting for the first observation");
+  await expect(page.locator("#first-observation-title")).toHaveText("Waiting for the first observation");
   await expect(page.getByRole("link", { name: "Create another watch" })).toHaveCount(0);
   state = "source-error";
-  await expect(page.getByRole("status")).toHaveText("Monitoring needs attention", { timeout: 10000 });
+  await expect(page.locator("#first-observation-title")).toHaveText("Monitoring needs attention", { timeout: 10000 });
   await expect(page.getByRole("link", { name: "Create another watch" })).toHaveCount(0);
   state = "delivery-error";
   await expect(page.getByText(/A notification could not be delivered/)).toBeVisible({ timeout: 10000 });
@@ -85,7 +85,7 @@ test("first useful watch is reviewed and observed without an account", async ({ 
     const source = (await r.json()).data.sources.find((s: { id: string }) => s.id === "local-health");
     return !!source && !source.lastInputAt.startsWith("0001");
   }).toBeTruthy();
-  await expect(page.getByRole("status")).toHaveText("Monitoring input received");
+  await expect(page.locator("#first-observation-title")).toHaveText("Monitoring input received");
   await expect(page.getByRole("link", { name: "Create another watch" })).toBeVisible();
   await expect(page.getByText(/not service health or notification delivery/)).toBeVisible();
   await page.getByRole("link", { name: "Create another watch" }).click();
