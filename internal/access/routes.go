@@ -82,6 +82,7 @@ var Routes = map[string]Action{
 	"DELETE /v1/integrations/grants/{id}":          Members,
 	"GET /v1/integrations/capabilities":            Inspect,
 	"POST /v1/integrations/preview":                Preview,
+	"POST /v1/integrations/preview/service":        Preview,
 	"POST /v1/integrations/apply":                  Manage,
 	"POST /v1/integrations/watches/{id}/lifecycle": Manage,
 	"POST /v1/integrations/deliveries/{id}/retry":  Retry,

@@ -165,6 +165,16 @@ type IntegrationPreview struct {
 }
 
 func (a *App) PreviewIntegration(ctx context.Context, grant, manifest string) (IntegrationPreview, error) {
+	return a.previewIntegration(ctx, grant, manifest, false)
+}
+
+// PreviewNewServiceIntegration uses the ordinary reviewed apply path, but never
+// offers a starter handle that could replace an existing watch or destination.
+func (a *App) PreviewNewServiceIntegration(ctx context.Context, grant, manifest string) (IntegrationPreview, error) {
+	return a.previewIntegration(ctx, grant, manifest, true)
+}
+
+func (a *App) previewIntegration(ctx context.Context, grant, manifest string, newService bool) (IntegrationPreview, error) {
 	var out IntegrationPreview
 	if len(manifest) > a.Integration.MaxManifestBytes {
 		return out, fmt.Errorf("manifest exceeds %d bytes", a.Integration.MaxManifestBytes)
@@ -176,6 +186,9 @@ func (a *App) PreviewIntegration(ctx context.Context, grant, manifest string) (I
 	out.Changes, err = a.Apply(ctx, ApplyRequest{Manifest: manifest, DryRun: true})
 	if err != nil {
 		return out, err
+	}
+	if newService && (len(out.Changes.Changes) != 1 || len(out.Changes.DestinationChanges) != 0 || out.Changes.Changes[0].Previous != "") {
+		return IntegrationPreview{}, fmt.Errorf("starter preview requires a new watch ID and an existing destination; use generic preview to change an existing watch")
 	}
 	out.Handle = integrationID()
 	out.ExpiresAt = a.Now().Add(15 * time.Minute)
