@@ -29,6 +29,7 @@ jobs:
       - run: npm test --prefix deploy/soak/worker
       - run: python3 -m py_compile deploy/soak/scripts/*.py benchmarks/push/*.py
       - run: python3 -m unittest discover -s benchmarks/push -p 'test_*.py'
+      - run: python3 -m unittest discover -s scripts -p 'test_package_chatgpt_update.py'
 
   postgres-contracts:
     runs-on: ubuntu-latest
