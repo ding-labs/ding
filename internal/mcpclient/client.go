@@ -171,7 +171,7 @@ func allowed(method, path string) bool {
 		}
 		if len(parts) == 1 {
 			switch parts[0] {
-			case "capabilities", "watches", "events", "deliveries", "destinations":
+			case "destination-status", "capabilities", "watches", "events", "deliveries", "destinations":
 				return true
 			}
 		}

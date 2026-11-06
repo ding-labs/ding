@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/ding-labs/ding/internal/mcpclient"
 	"github.com/ding-labs/ding/internal/mcpcontract"
@@ -44,7 +45,7 @@ func New(options Options) (*mcp.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	catalog = mcpcontract.ServicePreview(catalog)
+	catalog = mcpcontract.DestinationSetup(mcpcontract.ServicePreview(catalog))
 	if options.TransferTransport {
 		catalog = mcpcontract.TransferTransport(catalog)
 	}
@@ -114,6 +115,18 @@ func New(options Options) (*mcp.Server, error) {
 				if err == nil {
 					data, err = client.Call(ctx, r.method, r.path, r.query, r.body)
 					target = client.Target
+					if err == nil && r.view == "destination_setup" {
+						if result, ok := data.(map[string]any); ok {
+							path, _ := result["setupURL"].(string)
+							base, e := url.Parse(client.Connection.DaemonURL)
+							link, e2 := url.Parse(path)
+							if e != nil || e2 != nil || link.IsAbs() || link.Host != "" || link.Path != "/ui/destination-setup" {
+								err = mcpclient.Fail("invalid_response", "Invalid destination setup link")
+							} else {
+								result["setupURL"] = base.ResolveReference(link).String()
+							}
+						}
+					}
 				}
 			}
 			if err != nil {
@@ -230,6 +243,12 @@ func route(name string, a map[string]any) (request, error) {
 		r.path = fmt.Sprintf("/deliveries/%.0f", a["delivery_id"])
 		r.view = "delivery"
 		r.query = fields("before")
+	case "ding_get_destination_setup":
+		r.path = "/destination-status"
+		r.view = "destination_setup"
+		if ref, ok := a["destination_ref"]; ok {
+			r.query = map[string]any{"destination": ref}
+		}
 	case "ding_preview_changes":
 		r.method = http.MethodPost
 		r.path = "/preview"

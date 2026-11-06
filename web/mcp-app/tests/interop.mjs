@@ -7,7 +7,7 @@ import { runtime, manifest } from "./runtime.mjs";
 const r = await runtime();
 try {
   const tools = await r.client.listTools();
-  assert.equal(tools.tools.length, 19);
+  assert.equal(tools.tools.length, 20);
   const call = async (name, args = {}, client = r.client) => {
     const result = await client.callTool({ name, arguments: args });
     assert.ok(!result.isError, JSON.stringify(result));
@@ -45,6 +45,18 @@ spec: {type: console}
     handle: destination.preview.handle,
     operation_key: randomUUID(),
   });
+  const setup = await call("ding_get_destination_setup", {
+    destination_ref: "starter-alerts",
+  });
+  assert.equal(setup.state, "untested");
+  assert.equal(
+    new URL(setup.setupURL).origin,
+    new URL(r.connection.url).origin,
+  );
+  assert.equal(
+    new URL(setup.setupURL).searchParams.get("workspace"),
+    setup.workspaceID,
+  );
   const starter = await call("ding_preview_service_watch", {
     watch_id: "service-starter",
     url: "https://example.com/health",
@@ -124,7 +136,7 @@ spec: {type: console}
     200,
   );
   console.log(
-    "Independent TypeScript SDK: native stdio, 19 tools, UI bytes, pairing, both CLI entry points, typed starter, review/apply, receipt retry, lifecycle, evidence, revocation, daemon independence passed.",
+    "Independent TypeScript SDK: native stdio, 20 tools, UI bytes, pairing, both CLI entry points, typed starter, review/apply, receipt retry, lifecycle, evidence, revocation, daemon independence passed.",
   );
 } finally {
   await r.close();

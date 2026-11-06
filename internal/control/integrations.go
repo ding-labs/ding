@@ -204,6 +204,12 @@ func integrationHandler(app *watchrun.App, c Credentials, base http.Handler) htt
 		}
 		TransferStep(w, r, app, reader)
 	})
+	mux.HandleFunc("GET /v1/integrations/destination-status", func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := access(w, r, "inspect"); !ok {
+			return
+		}
+		DestinationSetupStatus(w, r, app)
+	})
 	slots := make(chan struct{}, 2)
 	preview := func(w http.ResponseWriter, r *http.Request) {
 		g, ok := access(w, r, "preview")
