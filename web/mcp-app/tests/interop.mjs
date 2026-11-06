@@ -7,7 +7,7 @@ import { runtime, manifest } from "./runtime.mjs";
 const r = await runtime();
 try {
   const tools = await r.client.listTools();
-  assert.equal(tools.tools.length, 18);
+  assert.equal(tools.tools.length, 19);
   const call = async (name, args = {}, client = r.client) => {
     const result = await client.callTool({ name, arguments: args });
     assert.ok(!result.isError, JSON.stringify(result));
@@ -34,6 +34,40 @@ try {
       "utf8",
     ),
   );
+  const destination = await call("ding_preview_changes", {
+    manifest: `apiVersion: ding.ing/v1alpha1
+kind: Destination
+metadata: {id: starter-alerts}
+spec: {type: console}
+`,
+  });
+  await call("ding_apply_changes", {
+    handle: destination.preview.handle,
+    operation_key: randomUUID(),
+  });
+  const starter = await call("ding_preview_service_watch", {
+    watch_id: "service-starter",
+    url: "https://example.com/health",
+    destination_ref: "starter-alerts",
+    expected_status: 204,
+  });
+  assert.equal(starter.valid, true);
+  assert.ok(starter.preview.handle);
+  assert.match(starter.manifest, /every: 30s/);
+  assert.match(starter.manifest, /operator: ne/);
+  assert.match(starter.manifest, /value: 204/);
+  assert.equal(starter.preview.changes.destinationChanges.length, 0);
+  assert.equal((await call("ding_list_watches")).watches.length, 0);
+  const invalidStarter = await r.client.callTool({
+    name: "ding_preview_service_watch",
+    arguments: {
+      watch_id: "service-starter",
+      url: "https://example.com/health",
+      destination_ref: "starter-alerts",
+      expected_status: 600,
+    },
+  });
+  assert.equal(invalidStarter.isError, true);
   const preview = await call("ding_preview_changes", { manifest });
   assert.equal(preview.valid, true);
   const operation_key = randomUUID();
@@ -90,7 +124,7 @@ try {
     200,
   );
   console.log(
-    "Independent TypeScript SDK: native stdio, 18 tools, UI bytes, pairing, both CLI entry points, review/apply, receipt retry, lifecycle, evidence, revocation, daemon independence passed.",
+    "Independent TypeScript SDK: native stdio, 19 tools, UI bytes, pairing, both CLI entry points, typed starter, review/apply, receipt retry, lifecycle, evidence, revocation, daemon independence passed.",
   );
 } finally {
   await r.close();

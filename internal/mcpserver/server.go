@@ -44,6 +44,7 @@ func New(options Options) (*mcp.Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	catalog = mcpcontract.ServicePreview(catalog)
 	if options.TransferTransport {
 		catalog = mcpcontract.TransferTransport(catalog)
 	}
@@ -132,7 +133,7 @@ func New(options Options) (*mcp.Server, error) {
 			view, err := mcpcontract.Normalize(schema, mcpcontract.View{Target: target, View: r.view, Data: data, Query: r.query, EvidenceNotice: mcpcontract.EvidenceNotice})
 			// Even a successful HTTP response can be unreadable to this version.
 			// Never encourage a fresh-key retry after a possibly committed write.
-			if err != nil && r.method == http.MethodPost && r.path != "/preview" {
+			if err != nil && r.method == http.MethodPost && r.path != "/preview" && r.path != "/preview/service" {
 				err = mcpclient.Unknown()
 			}
 			return nil, view, err
@@ -234,6 +235,15 @@ func route(name string, a map[string]any) (request, error) {
 		r.path = "/preview"
 		r.view = "preview"
 		r.body = fields("manifest", "fixture", "watch")
+	case "ding_preview_service_watch":
+		r.method = http.MethodPost
+		r.path = "/preview/service"
+		r.view = "preview"
+		body := map[string]any{"id": a["watch_id"], "url": a["url"], "destinationRef": a["destination_ref"]}
+		if status, ok := a["expected_status"]; ok {
+			body["expectedStatus"] = status
+		}
+		r.body = body
 	case "ding_apply_changes":
 		r.method = http.MethodPost
 		r.path = "/apply"

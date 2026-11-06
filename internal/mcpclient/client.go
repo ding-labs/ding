@@ -91,7 +91,7 @@ func (c *Client) Call(ctx context.Context, method, path string, query map[string
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	mutation := method == http.MethodPost && path != "/preview"
+	mutation := method == http.MethodPost && path != "/preview" && path != "/preview/service"
 	failure := func(code, message string) (any, error) {
 		if mutation {
 			return nil, Unknown()
@@ -186,7 +186,7 @@ func allowed(method, path string) bool {
 		if path == "/transfers/step" {
 			return true
 		}
-		return path == "/preview" || path == "/apply" || len(parts) == 3 && (parts[0] == "watches" && parts[2] == "lifecycle" || parts[0] == "deliveries" && parts[2] == "retry")
+		return path == "/preview" || path == "/preview/service" || path == "/apply" || len(parts) == 3 && (parts[0] == "watches" && parts[2] == "lifecycle" || parts[0] == "deliveries" && parts[2] == "retry")
 	}
 	return false
 }

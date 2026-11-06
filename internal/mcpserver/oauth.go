@@ -14,7 +14,7 @@ import (
 // Keep the advertised OAuth scopes and the resolver's action in one place.
 func toolScope(name string) string {
 	switch name {
-	case "ding_preview_changes":
+	case "ding_preview_changes", "ding_preview_service_watch":
 		return "preview"
 	case "ding_apply_changes", "ding_pause_watch", "ding_resume_watch", "ding_delete_watch":
 		return "manage"
