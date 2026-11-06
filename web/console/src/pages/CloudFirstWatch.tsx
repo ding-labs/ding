@@ -2,15 +2,19 @@ import { useRef, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, APIError } from "../api/client";
-import type { ControlFirstWatchPreview } from "../api/contracts";
+import type { ControlFirstWatchPreview, StoreConsoleDestination } from "../api/contracts";
 import { Heading, ErrorBox, useRead } from "../components/common";
 import { FirstWatchRule } from "../components/FirstWatchRule";
+import { SavedDestinationPicker } from "../components/SavedDestinationPicker";
+import { SavedDestinationTest } from "../components/SavedDestinationTest";
 
 export function CloudFirstWatch() {
   const location = useLocation();
   const [id, setID] = useState(location.state?.anotherWatch ? "" : "first-cloud-watch");
   const [url, setURL] = useState("");
   const [destination, setDestination] = useState("webhook");
+  const [savedDestination, setSavedDestination] = useState<StoreConsoleDestination>();
+  const [savedConfirmed, setSavedConfirmed] = useState(false);
   const [credential, setCredential] = useState("DING_WEBHOOK");
   const [value, setValue] = useState("");
   const [saved, setSaved] = useState(false);
@@ -21,19 +25,19 @@ export function CloudFirstWatch() {
   const [uncertain, setUncertain] = useState(false);
   const [error, setError] = useState<unknown>();
   const operation = useRef("");
-  const names = useRead<{ names: string[] }>("/cloud/secrets");
-  const available = saved || !!names.data?.names.includes(credential);
+  const names = useRead<{ names: string[] }>("/cloud/secrets", false, !savedDestination);
+  const available = !!savedDestination || saved || !!names.data?.names.includes(credential);
   const client = useQueryClient(); const navigate = useNavigate();
 
-  function changed() { setPreview(undefined); setTested(false); setSawTest(false); operation.current = ""; setError(undefined); }
+  function changed() { setPreview(undefined); setTested(false); setSawTest(false); setSavedConfirmed(false); operation.current = ""; setError(undefined); }
   async function save() {
     setBusy(true); setError(undefined);
     try { await api("/cloud/secrets", { method: "POST", body: { name: credential, value } }); setValue(""); setSaved(true); changed(); await client.invalidateQueries({ queryKey: ["/cloud/secrets"] }); }
     catch (e) { setError(e); } finally { setBusy(false); }
   }
   async function review(event: FormEvent) {
-    event.preventDefault(); setBusy(true); setError(undefined); setPreview(undefined);
-    try { setPreview(await api<ControlFirstWatchPreview>("/onboarding/preview", { method: "POST", body: { id, url, destination, credential } })); }
+    event.preventDefault(); setBusy(true); setError(undefined); setPreview(undefined); setSavedConfirmed(false);
+    try { setPreview(await api<ControlFirstWatchPreview>("/onboarding/preview", { method: "POST", body: savedDestination ? { id, url, destinationRef: savedDestination.definition.metadata.id } : { id, url, destination, credential } })); }
     catch (e) { setError(e); } finally { setBusy(false); }
   }
   async function testDelivery() {
@@ -46,7 +50,7 @@ export function CloudFirstWatch() {
     } catch (e) { setError(e); } finally { setBusy(false); }
   }
   async function activate() {
-    if (!preview?.review.review || !sawTest) return;
+    if (!preview?.review.review || !(savedDestination ? savedConfirmed : sawTest)) return;
     setBusy(true); setError(undefined);
     try {
       await api("/apply", { method: "POST", body: { manifest: preview.manifest, review: preview.review.review, dryRun: false } });
@@ -63,7 +67,8 @@ export function CloudFirstWatch() {
         <label>Watch ID<input required value={id} maxLength={64} onChange={e => { setID(e.target.value); changed(); }} /></label>
         <label>Public health endpoint<input required type="url" value={url} placeholder="https://your-service.example/health" onChange={e => { setURL(e.target.value); changed(); }} /></label>
         <p className="muted">Cloud supports public HTTP services and authenticated JSON push. Localhost, private networks and command checks stay on your machine or your own server.</p>
-        <label>Alert destination<select value={destination} onChange={e => { setDestination(e.target.value); changed(); }}>
+        <SavedDestinationPicker value={savedDestination} onChange={value => { setSavedDestination(value); changed(); }} disabled={busy || uncertain} />
+        {!savedDestination && <><label>Alert destination<select value={destination} onChange={e => { setDestination(e.target.value); changed(); }}>
           <option value="webhook">Webhook</option><option value="slack">Slack incoming webhook</option><option value="discord">Discord webhook</option>
         </select></label>
         <label>Credential reference<input required value={credential} pattern="[A-Za-z_][A-Za-z0-9_]*" maxLength={128} onChange={e => { setCredential(e.target.value); setSaved(false); changed(); }} /></label>
@@ -71,7 +76,7 @@ export function CloudFirstWatch() {
           <label>Destination webhook URL<input type="password" autoComplete="new-password" value={value} onChange={e => setValue(e.target.value)} /></label>
           <p className="muted">Saving transfers this URL to Ding Cloud, encrypted in your workspace. Source configuration is sent when you preview.</p>
           <button className="button" type="button" disabled={!value || !credential} onClick={save}>Save destination securely</button>
-        </>}
+        </>}</>}
         <button className="button primary" type="submit" disabled={!available}>{busy ? "Working…" : "Preview cloud watch"}</button>
       </fieldset>
     </form></section>
@@ -81,10 +86,12 @@ export function CloudFirstWatch() {
       <h2>Review hosted execution</h2>
       <FirstWatchRule descriptions={preview.descriptions} />
       <p>Cloud capacity is configured by the operator and includes retained history, input sizes, storage, and network budgets. Pinned evidence counts against storage limits. <Link to="/system?tab=Cloud">Inspect usage and limits</Link>.</p>
-      <button className="button" disabled={busy || uncertain || tested} onClick={testDelivery}>{tested ? "Test accepted by destination" : operation.current ? "Check test outcome" : "Send labeled delivery test"}</button>
-      {tested ? <label><input type="checkbox" checked={sawTest} onChange={e => setSawTest(e.target.checked)} /> I received the test at my destination</label> : null}
+      {savedDestination ? <SavedDestinationTest key={`${preview.review.review?.manifestHash}:${preview.review.review?.destinations[savedDestination.definition.metadata.id]}`} destinationRef={savedDestination.definition.metadata.id} revision={preview.review.review?.destinations[savedDestination.definition.metadata.id] || ""} endpoint="/cloud/destination-test" disabled={busy || uncertain} onConfirmed={setSavedConfirmed} /> : <>
+        <button className="button" disabled={busy || uncertain || tested} onClick={testDelivery}>{tested ? "Test accepted by destination" : operation.current ? "Check test outcome" : "Send labeled delivery test"}</button>
+        {tested ? <label><input type="checkbox" checked={sawTest} onChange={e => setSawTest(e.target.checked)} /> I received the test at my destination</label> : null}
+      </>}
       <details><summary>View exact manifest</summary><pre>{preview.manifest}</pre></details>
-      <button className="button primary" disabled={busy || uncertain || !sawTest} onClick={activate}>Start in Ding Cloud</button>
+      <button className="button primary" disabled={busy || uncertain || !(savedDestination ? savedConfirmed : sawTest)} onClick={activate}>Start in Ding Cloud</button>
     </section> : null}
   </>;
 }
