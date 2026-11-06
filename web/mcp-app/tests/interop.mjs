@@ -26,7 +26,11 @@ try {
     "ding_list_transfers",
   ])
     await call(name);
-  const page = await r.client.readResource({ uri: "ui://ding/workspace.html" });
+  const uiURI = tools.tools.find((tool) => tool.name === "ding_get_watch")._meta
+    .ui.resourceUri;
+  assert.match(uiURI, /^ui:\/\/ding\/workspace-[a-f0-9]{64}\.html$/);
+  const page = await r.client.readResource({ uri: uiURI });
+  assert.equal(page.contents[0].uri, uiURI);
   assert.equal(
     page.contents[0].text,
     await readFile(

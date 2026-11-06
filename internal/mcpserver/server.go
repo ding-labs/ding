@@ -55,6 +55,7 @@ func New(options Options) (*mcp.Server, error) {
 	if options.ListWorkspaces != nil {
 		catalog = mcpcontract.Cloud(catalog)
 	}
+	catalog = mcpcontract.BindUI(catalog, options.HTML)
 	s := mcp.NewServer(&mcp.Implementation{Name: "Ding", Version: options.Version}, &mcp.ServerOptions{Instructions: mcpcontract.Instructions, Capabilities: &mcp.ServerCapabilities{}})
 	// SDK 1.8.0 applies schema defaults to explicit null arguments before
 	// validating their object type. Reject invalid shapes before that code path.
@@ -153,12 +154,13 @@ func New(options Options) (*mcp.Server, error) {
 		})
 	}
 	if options.HTML != "" {
-		resource := catalog.Resources[0]
-		s.AddResource(resource, func(context.Context, *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-			content := *catalog.ResourceContents[0]
-			content.Text = options.HTML
-			return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{&content}}, nil
-		})
+		for i, resource := range catalog.Resources {
+			s.AddResource(resource, func(context.Context, *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+				content := *catalog.ResourceContents[i]
+				content.Text = options.HTML
+				return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{&content}}, nil
+			})
+		}
 	}
 	return s, nil
 }

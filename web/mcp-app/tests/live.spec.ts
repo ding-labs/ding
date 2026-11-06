@@ -15,9 +15,10 @@ test("embedded app reviews and applies through the native Go server", async ({
       name: "ding_preview_changes",
       arguments: { manifest },
     });
-    const resource = await r.client.readResource({
-      uri: "ui://ding/workspace.html",
-    });
+    const tools = await r.client.listTools();
+    const ui = tools.tools.find((tool) => tool.name === "ding_preview_changes")!
+      ._meta!.ui as { resourceUri: string };
+    const resource = await r.client.readResource({ uri: ui.resourceUri });
     const built = await build({
       entryPoints: ["tests/host-live.ts"],
       bundle: true,

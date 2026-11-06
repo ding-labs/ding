@@ -129,6 +129,22 @@ func TestRealDaemonPairingReviewLifecycleRevocation(t *testing.T) {
 	if err != nil || resource.Contents[0].Text != "<title>Ding</title>" {
 		t.Fatal("resource", err)
 	}
+	tools, err := cs.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tool := range tools.Tools {
+		if ui, ok := tool.Meta["ui"].(map[string]any); ok {
+			uri := ui["resourceUri"].(string)
+			if uri == mcpcontract.AppURI {
+				t.Fatal("tool still advertises an unversioned UI resource")
+			}
+			result, err := cs.ReadResource(ctx, &mcp.ReadResourceParams{URI: uri})
+			if err != nil || result.Contents[0].URI != uri || result.Contents[0].Text != "<title>Ding</title>" {
+				t.Fatal("advertised component cannot be read", err)
+			}
+		}
+	}
 	if _, _, err := mcpsetup.AdminCall(ctx, state, "DELETE", connection.GrantID, nil); err != nil {
 		t.Fatal(err)
 	}
