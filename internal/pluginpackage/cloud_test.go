@@ -6,6 +6,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
+
+	"github.com/ding-labs/ding/internal/mcpcontract"
 	"strings"
 	"testing"
 )
@@ -86,6 +89,34 @@ func TestCloudPackages(t *testing.T) {
 					if strings.Contains(body, unsupported) {
 						t.Fatalf("%s contains unavailable workflow %s", name, unsupported)
 					}
+				}
+			}
+			// Validate shipped instructions and review cases against the hosted tool
+			// catalog. This catches packaging a local-only or renamed tool; it is
+			// not an assertion about a model's behavior on these prompts.
+			catalog, err := mcpcontract.Load()
+			if err != nil {
+				t.Fatal(err)
+			}
+			catalog = mcpcontract.Cloud(mcpcontract.DestinationSetup(mcpcontract.ServicePreview(catalog)))
+			known := map[string]bool{mcpcontract.ProfileTool().Name: true}
+			for _, tool := range catalog.Tools {
+				known[tool.Name] = true
+			}
+			toolName := regexp.MustCompile(`ding_[a-z_]+`)
+			for _, name := range []string{"skills/ding-setup/SKILL.md", "skills/ding-watch/SKILL.md", "plugin.json"} {
+				for _, tool := range toolName.FindAllString(string(read(name)), -1) {
+					if !known[tool] {
+						t.Errorf("%s references unavailable hosted tool %s", name, tool)
+					}
+				}
+			}
+			// Relative links must survive assembly, including the setup-to-watch
+			// handoff. Validate the archive, not source paths on the developer host.
+			link := regexp.MustCompile(`\]\(([^)]+\.md)\)`)
+			for _, name := range []string{"skills/ding-setup/SKILL.md", "skills/ding-watch/SKILL.md"} {
+				for _, match := range link.FindAllStringSubmatch(string(read(name)), -1) {
+					read(filepath.ToSlash(filepath.Join(filepath.Dir(name), match[1])))
 				}
 			}
 			read("privacy.md")

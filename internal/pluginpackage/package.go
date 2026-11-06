@@ -154,7 +154,7 @@ func Build(o Options) (string, error) {
 		readme = "Connect through your host's OAuth flow. This package targets one operator-supplied, self-hosted endpoint. An operator must pair your identity to a Ding grant. It does not route arbitrary customer endpoints or expose localhost."
 	}
 	if cloud {
-		readme = "Use ChatGPT's Connect flow to sign in to Ding Cloud and approve access in your browser. Return to the conversation to inspect watches and create reviewed changes. Ding Cloud keeps monitoring independently of the conversation."
+		readme = "Use ChatGPT's Connect flow to sign in to Ding Cloud and approve access in your browser. Ask for a first service watch: reuse a saved destination or follow the protected setup link to save one, test delivery and confirm actual receipt. Return to the conversation for a fresh preview, authorized activation and first-check evidence. Preview-only requests remain read-only. Ding Cloud keeps monitoring independently of the conversation; alerts go to the chosen destination, not back into the chat."
 	}
 	config["mcpServers"] = map[string]any{"ding": server}
 	configName := ".mcp.json"
