@@ -32,12 +32,10 @@ func Manifest(r Request) (string, []plan.Description, error) {
 		destID = r.DestinationRef
 	}
 	d := watch.Destination{APIVersion: watch.APIVersion, Kind: "Destination", Metadata: watch.Metadata{ID: destID}, Spec: watch.DestinationSpec{Type: r.Delivery}}
-	w := watch.Definition{APIVersion: watch.APIVersion, Kind: "Watch", Metadata: watch.Metadata{ID: r.ID, Name: r.ID}, Spec: watch.Spec{
-		Source:       watch.Source{Type: "http", URL: r.URL, Every: "30s", Timeout: "5s"},
-		Condition:    watch.Condition{Field: "http.status", Operator: "gte", Value: 500},
-		Policy:       watch.Policy{Trigger: "transition", Consecutive: 3, RecoverAfter: 2, OnUnknown: "hold-incident"},
-		Destinations: []watch.Target{{Ref: destID, Events: []string{"firing", "recovered", "source_error", "source_recovered"}}},
-	}}
+	w, err := ServiceDefinition(ServiceRequest{ID: r.ID, URL: r.URL, DestinationRef: destID}, "local")
+	if err != nil {
+		return "", nil, err
+	}
 	var b bytes.Buffer
 	e := yaml.NewEncoder(&b)
 	e.SetIndent(2)

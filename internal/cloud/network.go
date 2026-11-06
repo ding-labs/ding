@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ding-labs/ding/internal/integrationpolicy"
 	state "github.com/ding-labs/ding/internal/serverstate"
 )
 
@@ -72,7 +73,7 @@ type chargedBody struct {
 	finish     func(int64)
 }
 
-const maxResponseBodyBytes = 1 << 20
+const maxResponseBodyBytes = integrationpolicy.CloudResponseBytes
 
 func (b *chargedBody) Read(p []byte) (int, error) {
 	remaining := int64(maxResponseBodyBytes) + 1 - b.read
