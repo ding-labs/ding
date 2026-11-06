@@ -166,3 +166,42 @@ func TestInvalidCloudConfigurationCreatesNoArtifact(t *testing.T) {
 		})
 	}
 }
+
+func TestPrivateCloudQualificationDoesNotInventPolicyURLs(t *testing.T) {
+	o := cloudOptions(t, OAuthClient{Mode: "provided", ClientID: "registered-public-client", TokenEndpointAuthMethod: "none"})
+	if err := writeJSON(o.CloudConfig, CloudConfig{Client: OAuthClient{Mode: "provided", ClientID: "registered-public-client", TokenEndpointAuthMethod: "none"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(o); err == nil {
+		t.Fatal("public artifact accepted absent policy URLs")
+	}
+	o.Private = true
+	archive, err := Build(o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := zip.OpenReader(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	f, err := r.Open("plugin.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	b, err := io.ReadAll(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), "termsOfServiceURL") || strings.Contains(string(b), "privacyPolicyURL") || !strings.Contains(string(b), "PRIVATE QUALIFICATION ONLY") {
+		t.Fatal("private archive has misleading publication metadata")
+	}
+	o.Output = filepath.Join(t.TempDir(), "invalid")
+	if err := writeJSON(o.CloudConfig, CloudConfig{Client: OAuthClient{Mode: "provided", ClientID: "registered-public-client", TokenEndpointAuthMethod: "none"}, SupportURL: "https://user:secret@example.com"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(o); err == nil {
+		t.Fatal("private mode bypassed credential URL validation")
+	}
+}

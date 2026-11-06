@@ -16,6 +16,7 @@ func main() {
 	flag.StringVar(&o.Target, "target", "", "Native OS-architecture")
 	flag.StringVar(&o.Endpoint, "endpoint", "", "Self-hosted HTTPS /mcp endpoint")
 	flag.StringVar(&o.CloudConfig, "cloud-config", "", "JSON public OAuth client settings and listing URLs (cloud-chatgpt only; no secrets)")
+	flag.BoolVar(&o.Private, "private", false, "Private cloud qualification only; allow absent listing policy URLs, never public submission")
 	flag.StringVar(&o.Output, "output", "", "New artifact output directory")
 	flag.StringVar(&o.Version, "version", "0.1.0", "Plugin version matching the native binary")
 	flag.Parse()

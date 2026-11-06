@@ -24,3 +24,11 @@ connection route. A generated ZIP is not evidence of directory acceptance. See
 [release qualification](../docs/integrations/release.md).
 
 For the Ding Cloud marketplace route, follow the [ChatGPT publication runbook](../docs/integrations/chatgpt-cloud-publication.md).
+
+For a private Cloud journey test, add `-private` to `-mode cloud-chatgpt`.
+The public OAuth client configuration is still required, but absent listing URLs
+are omitted rather than invented. The archive is labeled **Ding — Journey Test**
+and **PRIVATE QUALIFICATION ONLY**; its qualification record has `private: true`.
+Provided URLs still undergo credential-free HTTPS validation. Never submit this
+archive for public publication. Build without `-private` and supply published
+service terms, privacy and support URLs for public review.

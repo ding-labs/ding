@@ -21,7 +21,10 @@ import (
 	"time"
 )
 
-type Options struct{ Root, Mode, Runtime, Target, Endpoint, Output, Version, CloudConfig string }
+type Options struct {
+	Root, Mode, Runtime, Target, Endpoint, Output, Version, CloudConfig string
+	Private                                                             bool
+}
 
 var versionPattern = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(?:-[a-zA-Z0-9.-]+)?$`)
 
@@ -35,6 +38,9 @@ func Build(o Options) (string, error) {
 	platform := "claude"
 	native := o.Mode == "native-claude"
 	cloud := o.Mode == "cloud-chatgpt"
+	if o.Private && !cloud {
+		return "", errors.New("private qualification requires cloud-chatgpt mode")
+	}
 	var publisher CloudConfig
 	executable := "ding-mcp"
 	if o.Mode == "remote-chatgpt" || cloud {
@@ -48,7 +54,7 @@ func Build(o Options) (string, error) {
 		}
 		o.Endpoint = cloudEndpoint
 		var err error
-		publisher, err = loadCloudConfig(o.CloudConfig)
+		publisher, err = loadCloudConfig(o.CloudConfig, o.Private)
 		if err != nil {
 			return "", err
 		}
@@ -120,7 +126,15 @@ func Build(o Options) (string, error) {
 		if listing == nil {
 			return "", errors.New("cloud package is missing its listing")
 		}
-		listing["supportURL"], listing["privacyPolicyURL"], listing["termsOfServiceURL"] = publisher.SupportURL, publisher.PrivacyPolicyURL, publisher.TermsOfServiceURL
+		for key, value := range map[string]string{"supportURL": publisher.SupportURL, "privacyPolicyURL": publisher.PrivacyPolicyURL, "termsOfServiceURL": publisher.TermsOfServiceURL} {
+			if value != "" {
+				listing[key] = value
+			}
+		}
+		if o.Private {
+			listing["displayName"] = "Ding — Journey Test"
+			openai["publication"] = map[string]any{"release_notes": "PRIVATE QUALIFICATION ONLY. Not ready for public submission; listing policy URLs may be absent."}
+		}
 	}
 	if err := writeJSON(manifestPath, manifest); err != nil {
 		return "", err
@@ -168,6 +182,9 @@ func Build(o Options) (string, error) {
 	if cloud {
 		dataLocation = "Ding Cloud stores your watches and evidence. Requested results are shared with ChatGPT. See privacy.md and the listing's privacy policy and terms."
 	}
+	if o.Private {
+		readme += "\n\nPRIVATE QUALIFICATION ONLY. Do not submit this archive for public publication. Published service terms and privacy policy remain a separate requirement."
+	}
 	readme += "\n\nThis is a qualification build, not evidence of official marketplace approval.\n\n" + dataLocation
 	readme += "\n\n## Hosted monitoring\n\n[Create a Ding Cloud account](https://cloud.ding.ing/auth/login) for public HTTP watches that keep running while your computer is off. Use the [Cloud Console](https://cloud.ding.ing/ui/) in your browser."
 	if !cloud {
@@ -194,7 +211,7 @@ func Build(o Options) (string, error) {
 	if err := os.WriteFile(filepath.Join(o.Output, "SHA256SUMS"), []byte(digest+"  ding.zip\n"), 0644); err != nil {
 		return "", err
 	}
-	err = writeJSON(filepath.Join(o.Output, "qualification.json"), map[string]any{"mode": o.Mode, "target": o.Target, "version": o.Version, "sha256": digest, "signed": false, "marketplaceApproved": false, "containsRuntime": native, "runtime": "go"})
+	err = writeJSON(filepath.Join(o.Output, "qualification.json"), map[string]any{"mode": o.Mode, "target": o.Target, "version": o.Version, "sha256": digest, "private": o.Private, "signed": false, "marketplaceApproved": false, "containsRuntime": native, "runtime": "go"})
 	return archive, err
 }
 
