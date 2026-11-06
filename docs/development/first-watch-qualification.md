@@ -144,24 +144,40 @@ watch was modified. The disposable PostgreSQL lab was stopped with its data
 retained. These checks used an existing browser session; fresh OAuth is recorded
 separately below.
 
-## Fresh OAuth reconnect: awaiting account clarification
+## Fresh OAuth reconnect: passed
 
 The ChatGPT **Ding — Test** account's **Reconnect** action opened a new OAuth
 authorization flow through the configured AuthKit provider. The consent page
 offered the existing inspect, preview, manage, and retry permissions, identity,
-email, and ongoing access. It displayed a different email from ChatGPT's existing
-connection label. Authorization was left pending while asking the user which
-account to reconnect; no consent was submitted for the mismatched identity.
+email, and ongoing access. The provider's email differed from ChatGPT's old
+connection label. Before completing consent, a fresh Console authorization via
+`/auth/login` reused the current provider session and returned the exact existing
+internal account ID and all seven watches. This established account continuity
+without guessing from the email labels or linking accounts by email.
 
-The existing MCP connection still returned the original instance, workspace,
-grant, and scopes. This establishes that the deployed OAuth entry point reaches
-the provider, but does not yet qualify a completed fresh authorization, callback,
-or subsequent tool call with new credentials. No expired-token refresh or new-user
-installation is claimed.
+Consent then completed and returned to ChatGPT's connected-account settings,
+which now displayed the provider's current email. The next authenticated MCP
+capability call created a new grant at `2026-11-06T01:30:32.182661652Z`:
+
+- Grant: `04ce4a460a44ffff9eb997e452952b9cfe07fa1091bb23c004408edf3681218d`.
+- Both grant ID and provider-consent hash differ from the pre-reconnect values.
+- Instance, workspace, effective scopes, and authorized secret references match
+  their pre-reconnect values.
+- Authenticated watch and destination reads succeed. All six pre-deployment
+  watches retain their revisions, generations, and lifecycle states; the new
+  qualification watch remains paused at generation 2. The saved Slack destination
+  revision is unchanged.
+
+This qualifies a fresh Console authorization and ChatGPT OAuth reconnect through
+callback and authenticated tool use. The existing provider session was reused:
+it does not qualify a fresh GitHub credential/consent round trip, expired-token
+refresh, or a new user's installation. No account linking or permission expansion
+was performed.
 
 ## Remaining qualification
 
-- Fresh OAuth installation, Claude host behavior, laptop-off execution, click-to-
+- New-user OAuth installation, a fresh GitHub sign-in round trip, token refresh
+  after expiry, Claude host behavior, laptop-off execution, click-to-
   evidence navigation from a native notification, and signed installer behavior
   remain separate checks. The laptop stayed awake during this run.
 - Pilot activation/retention, paid operations, and assistant event wakeups retain
