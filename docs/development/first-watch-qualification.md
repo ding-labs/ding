@@ -22,7 +22,7 @@ Verified in the working checkout:
 - `make test-mcp`: embedded-app build/unit tests, tagged Go race tests, independent
   TypeScript SDK interoperability, and both embedded-app browser tests.
 
-The checkout also contains pre-existing uncommitted changes. The development
+The initial checkout also contains pre-existing uncommitted changes. The development
 binary includes that working tree; this is not qualification of a clean release
 artifact. Implementation commits preserve the unrelated changes unstaged.
 `npm ci` reported two high-severity audit findings in existing MCP-app dependencies
@@ -84,12 +84,100 @@ Every alert explicitly identified the sample-count qualification scenario.
 The qualification watch was paused at generation 2 after recovery, retaining its
 events and delivery history. Existing watches were not modified.
 
+## Clean release and live onboarding
+
+The onboarding commits were isolated in a clean worktree based on production
+`1398d88`, leaving the original checkout's unrelated work untouched. Production's
+1 MiB HTTP response limit and configured cloud capacity were preserved.
+
+Release preparation found that destination-test receipts used SQLite-only SQL.
+Commit `8b3cb06` adds PostgreSQL statements through the store transaction API,
+including its audit and logical-byte accounting. Real PostgreSQL tests cover
+concurrent reservation across facades, tenant isolation, persisted outcomes, and
+the exact saved-destination send contract, including replay after restart.
+
+Validation of the clean candidate passed:
+
+- Full Console/MCP-tagged Go race suite and vet.
+- PostgreSQL store, cloud, and watchrun contracts against disposable PostgreSQL 17.
+- 46 Console unit tests, seven MCP-app unit tests, production builds, and the
+  Console bundle budget (173.9 KiB of 250 KiB).
+- Five focused onboarding Chromium tests and `make test-mcp`, including SDK
+  interoperability and both embedded-app browser tests.
+- [CI run 42140612839](https://github.com/ding-labs/ding/actions/runs/42140612839),
+  including 117 Console browser cases across Chromium, Firefox, and WebKit,
+  PostgreSQL contracts, containers, and native artifacts; the accompanying
+  [MCP integration run](https://github.com/ding-labs/ding/actions/runs/42140612916)
+  also passed.
+
+[PR #73](https://github.com/ding-labs/ding/pull/73) was merged without squashing
+the 15 focused commits as `d7e1d008d2d8e75e3acc4adc0d187108af1719a5`.
+The existing Railway service source was connected to `ding-labs/ding` branch
+`main` after the merge did not automatically trigger deployment. Deployment
+`67f2564f-2aec-4766-9c59-a3b3404dfccd` reached `SUCCESS` and started the runtime at
+approximately `01:12:35Z`. Database, secrets, volume, and runtime limits were not
+changed. The prior deployment is `b4ce9551-7906-4c17-acfb-a92c32ca10fe`.
+
+Live checks returned HTTP 200 for `/healthz`, `/readyz`, and `/ui/`; the served
+Console bundle matched the candidate build. Unauthenticated `/mcp` returned 401
+with its OAuth challenge, and protected-resource discovery returned 200. All six
+pre-existing watches retained their revisions, generations, and lifecycle states.
+
+The actual production form at `/ui/start` then passed this flow:
+
+1. Select **Slack - ding-notifications**, with no credential fields required.
+2. Preview `qualification-onboarding-live-20261105` against the public
+   `https://cloud.ding.ing/healthz` endpoint. The plan retained a five-minute
+   interval, five-second timeout, three matching observations to fire, two to
+   recover, and hold-incident behavior for unknown input.
+3. Send one saved-destination setup test. The labeled message was read back from
+   [Slack](https://devrel-flywheel.slack.com/archives/C0C8G0KVBMH/p1793927615200889)
+   at `01:13:35Z` (event `ding-test-d31824d5-9680-4891-a47a-719c440cffea`).
+   Activation stayed disabled until receipt confirmation was checked.
+4. Start the watch and observe the UI transition from waiting to **Monitoring
+   input received**, backed by `lastInputAt: 2026-11-06T01:13:46.899374963Z`.
+5. Select **Create another watch** and verify an empty watch ID and endpoint.
+
+The saved destination's revision remained unchanged. The qualification watch was
+paused at generation 2, retaining its plan, first input, and history. No unrelated
+watch was modified. The disposable PostgreSQL lab was stopped with its data
+retained. These checks used an existing browser session; fresh OAuth is recorded
+separately below.
+
+## Fresh OAuth reconnect: passed
+
+The ChatGPT **Ding — Test** account's **Reconnect** action opened a new OAuth
+authorization flow through the configured AuthKit provider. The consent page
+offered the existing inspect, preview, manage, and retry permissions, identity,
+email, and ongoing access. The provider's email differed from ChatGPT's old
+connection label. Before completing consent, a fresh Console authorization via
+`/auth/login` reused the current provider session and returned the exact existing
+internal account ID and all seven watches. This established account continuity
+without guessing from the email labels or linking accounts by email.
+
+Consent then completed and returned to ChatGPT's connected-account settings,
+which now displayed the provider's current email. The next authenticated MCP
+capability call created a new grant at `2026-11-06T01:30:32.182661652Z`:
+
+- Grant: `04ce4a460a44ffff9eb997e452952b9cfe07fa1091bb23c004408edf3681218d`.
+- Both grant ID and provider-consent hash differ from the pre-reconnect values.
+- Instance, workspace, effective scopes, and authorized secret references match
+  their pre-reconnect values.
+- Authenticated watch and destination reads succeed. All six pre-deployment
+  watches retain their revisions, generations, and lifecycle states; the new
+  qualification watch remains paused at generation 2. The saved Slack destination
+  revision is unchanged.
+
+This qualifies a fresh Console authorization and ChatGPT OAuth reconnect through
+callback and authenticated tool use. The existing provider session was reused:
+it does not qualify a fresh GitHub credential/consent round trip, expired-token
+refresh, or a new user's installation. No account linking or permission expansion
+was performed.
+
 ## Remaining qualification
 
-- The new onboarding code was tested locally; it has not been deployed to Ding
-  Cloud. This hosted run qualifies the deployed runtime and existing connector,
-  not the new hosted form or saved-destination test endpoint in production.
-- Fresh OAuth installation, Claude host behavior, laptop-off execution, click-to-
+- New-user OAuth installation, a fresh GitHub sign-in round trip, token refresh
+  after expiry, Claude host behavior, laptop-off execution, click-to-
   evidence navigation from a native notification, and signed installer behavior
   remain separate checks. The laptop stayed awake during this run.
 - Pilot activation/retention, paid operations, and assistant event wakeups retain
