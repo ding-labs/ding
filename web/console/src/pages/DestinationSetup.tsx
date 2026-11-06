@@ -41,7 +41,7 @@ export function DestinationSetup() {
     </section> : <>
       <ErrorBox error={error || status.error} />
       {!allowed && <p>An administrator must set up and confirm delivery for this account.</p>}
-      <section className="panel"><SavedDestinationPicker selectedRef={ref} onChange={d => select(d?.definition.metadata.id || "")} disabled={busy} />
+      <section className="panel onboarding-form"><SavedDestinationPicker selectedRef={ref} onChange={d => select(d?.definition.metadata.id || "")} disabled={busy} />
       {!ref && <form className="onboarding-form" onSubmit={create}><fieldset disabled={busy || !allowed || !status.data}>
         <label>Destination ID<input required value={id} maxLength={64} onChange={e => setID(e.target.value)} /></label>
         <label>Delivery type<select value={type} onChange={e => setType(e.target.value)}>

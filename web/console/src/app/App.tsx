@@ -212,7 +212,7 @@ export function App() {
         <div className="workspace">
           <header className="location-bar">
             <div className="header-context">
-              {execution.mode === "local" ? <div className="location-crumb">Console <span>/</span> {location.pathname === "/settings" ? "Settings" : current?.label || "Watches"}</div> : (memberships?.length || 0) > 1 ? (
+              {execution.mode === "local" ? <div className="location-crumb">Console <span>/</span> {location.pathname === "/destination-setup" ? "Notification setup" : location.pathname === "/settings" ? "Settings" : current?.label || "Watches"}</div> : (memberships?.length || 0) > 1 ? (
                 <select className="workspace-selector" aria-label="Workspace" title={workspaceName} value={execution.workspace || ""} onChange={async e => {
                   const next = e.target.value; setSession("loading");
                   await client.cancelQueries(); selectWorkspace(next); client.clear(); resetDraft(); sessionAttempt = undefined; establish();
