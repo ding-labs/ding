@@ -287,9 +287,26 @@ The Console production build passes. These checks use the current checkout,
 which also contains pre-existing uncommitted work; those changes were not included
 in these commits.
 
-Step 1 remains open for direct reuse of existing destinations in the starter
-form and participant/device qualification. Local network destinations currently
-use Workbench, and expected-status customization uses its existing typed rule
-editor. Human-visible native notification receipt and deployed cloud/laptop-off
-behavior have not been established by these local automated checks. Steps 2–5
-retain the dependencies and acceptance criteria above.
+The next increments complete saved-destination reuse in both starter forms:
+
+- `346bf38`: reference-only local/cloud templates and reviewed destination revisions.
+- `dc0897b`: persistent test receipts that survive restart.
+- `1109961`: labeled tests using saved credentials/headers, with no resend on replay.
+- `fa4afa2`: authorized local and hosted saved-destination test endpoints.
+- `905cf2b`: local picker, receipt confirmation, and a real-daemon browser regression
+  for a lost test response without changing the shared destination.
+- `174cf1d`: hosted picker and tests for pagination, reviewed revisions, and avoiding
+  unnecessary credential creation.
+- `04b53af`: the service-watch guide explains reuse and uncertain test outcomes.
+
+[Real-device and hosted qualification](first-watch-qualification.md) records a
+user-confirmed native setup notification, the full local starter-rule
+failure/restart/timeout/recovery cycle, and real hosted firing/recovery messages
+read back from the authorized Slack channel. Both temporary watches were paused.
+All 35 Console unit tests, five Chromium onboarding tests, the Console build,
+focused Go race/vet checks, and `make test-mcp` pass in the working checkout.
+
+The new source has not been deployed to Ding Cloud. Fresh host OAuth installation,
+signed installer behavior, laptop-off operation, and participant activation remain
+unqualified. Expected-status customization continues to use Workbench's typed
+rule editor. Steps 2–5 retain the dependencies and acceptance criteria above.
