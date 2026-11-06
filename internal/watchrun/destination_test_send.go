@@ -31,6 +31,9 @@ func (a *App) TestDestination(ctx context.Context, request DestinationTestReques
 		return probe, err
 	}
 	principal, _ := access.FromContext(ctx)
+	if (request.AccountID != "" || request.WorkspaceID != "") && !interactiveDestinationPrincipal(principal) {
+		return probe, access.ErrDenied
+	}
 	if request.AccountID != "" && request.AccountID != principal.User || request.WorkspaceID != "" && request.WorkspaceID != principal.Workspace {
 		return probe, access.ErrDenied
 	}

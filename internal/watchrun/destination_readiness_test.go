@@ -52,6 +52,9 @@ func testDestinationSetupConfirmation(t *testing.T, setup func(*testing.T) (*App
 		}
 	}
 	check(modelCtx, "untested")
+	if _, err := a.TestDestination(modelCtx, req); !errors.Is(err, access.ErrDenied) {
+		t.Fatal("model sent a protected setup test", err)
+	}
 	for range 2 {
 		p, err := a.TestDestination(browser, req)
 		if err != nil || p.Outcome != "accepted" {
