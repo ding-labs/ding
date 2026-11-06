@@ -93,6 +93,9 @@ the hosted cadence can add five minutes.
 
 ## 2. Complete the journey in ChatGPT
 
+The next implementation sequence and acceptance matrix are in
+[Complete the ChatGPT first-watch journey](chatgpt-first-watch-plan.md).
+
 **Deliverable:** connect → describe → review → activate → inspect → explain, on a
 real supported ChatGPT surface and a qualified hosted workspace.
 
