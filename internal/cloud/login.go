@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/ding-labs/ding/internal/identity"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -42,10 +43,7 @@ func cookie(w http.ResponseWriter, name, value string, expiry time.Time) {
 }
 
 func (f LoginFlow) Begin(w http.ResponseWriter, r *http.Request) {
-	back := "/ui/"
-	if next := r.URL.Query().Get("return"); strings.HasPrefix(next, "/connect/") && accountID.MatchString(strings.TrimPrefix(next, "/connect/")) {
-		back = next
-	}
+	back := loginReturnPath(r.URL.Query().Get("return"))
 	id := state.ID()
 	login := state.Login{Nonce: state.ID(), Verifier: oauth2.GenerateVerifier(), ReturnPath: back}
 	if err := f.Vault.BeginLogin(r.Context(), id, login, time.Now()); err != nil {
@@ -70,7 +68,11 @@ func (f LoginFlow) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Query().Get("error") != "" {
-		http.Redirect(w, r, "/ui/?sign_in=canceled", http.StatusFound)
+		back := "/ui/?sign_in=canceled"
+		if strings.HasPrefix(login.ReturnPath, "/ui/destination-setup?") {
+			back = login.ReturnPath + "&sign_in=canceled"
+		}
+		http.Redirect(w, r, back, http.StatusFound)
 		return
 	}
 	code := r.URL.Query().Get("code")
@@ -112,4 +114,29 @@ func (f LoginFlow) Callback(w http.ResponseWriter, r *http.Request) {
 	cookie(w, sessionCookie, session.Token, session.ExpiresAt)
 	cookie(w, csrfCookie, session.CSRF, session.ExpiresAt)
 	http.Redirect(w, r, login.ReturnPath, http.StatusFound)
+}
+
+// Only explicit Console setup coordinates may survive sign-in. They identify a
+// requested view, never an account to authenticate or a workspace to authorize.
+func loginReturnPath(next string) string {
+	if strings.HasPrefix(next, "/connect/") && accountID.MatchString(strings.TrimPrefix(next, "/connect/")) {
+		return next
+	}
+	u, err := url.Parse(next)
+	if err != nil || len(next) > 1024 || u.IsAbs() || u.Host != "" || u.User != nil || u.Path != "/ui/destination-setup" || u.RawPath != "" || u.Fragment != "" {
+		return "/ui/"
+	}
+	q, err := url.ParseQuery(u.RawQuery)
+	if err != nil || !accountID.MatchString(q.Get("account")) || !accountID.MatchString(q.Get("workspace")) {
+		return "/ui/"
+	}
+	for key, values := range q {
+		if len(values) != 1 || (key != "account" && key != "workspace" && key != "destination") {
+			return "/ui/"
+		}
+	}
+	if len(q.Get("destination")) > 64 || strings.ContainsAny(q.Get("destination"), "/\\\r\n\x00") {
+		return "/ui/"
+	}
+	return "/ui/destination-setup?" + q.Encode()
 }

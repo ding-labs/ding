@@ -32,7 +32,17 @@ export function SignIn({ config, connected }: { config: AuthConfig; connected: (
       <label>{activate ? "New password" : "Password"}<input required type="password" minLength={activate ? 12 : undefined} maxLength={1024} autoComplete={activate ? "new-password" : "current-password"} value={password} onChange={e => setPassword(e.target.value)} /></label>
       <button className="button primary" type="submit">{busy ? "Please wait…" : activate ? "Set password" : "Sign in"}</button>
     </fieldset></form>}
-    {!activate && config.methods.filter(m => m.id === "oidc" && m.url?.startsWith("/auth/")).map(m => <a key={m.id} className="button primary" href={m.url}>{m.label}</a>)}
+    {!activate && config.methods.filter(m => m.id === "oidc" && m.url?.startsWith("/auth/")).map(m => <a key={m.id} className="button primary" href={setupLoginURL(m.url!)}>{m.label}</a>)}
     {config.access === "personal" && <><span>Run in your terminal</span><code>ding ui</code><p>The command opens a one-use link. Credentials stay on your machine.</p></>}
   </div>;
+}
+
+function setupLoginURL(endpoint: string) {
+  if (location.pathname !== "/ui/destination-setup") return endpoint;
+  const query = new URLSearchParams(location.search);
+  const target = new URLSearchParams();
+  for (const key of ["account", "workspace", "destination"]) { const value = query.get(key); if (value) target.set(key, value); }
+  const login = new URL(endpoint, location.origin);
+  login.searchParams.set("return", "/ui/destination-setup?" + target.toString());
+  return login.pathname + login.search;
 }

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	state "github.com/ding-labs/ding/internal/serverstate"
@@ -90,5 +91,47 @@ func TestLoginRequiresBrowserStateAndCannotReplay(t *testing.T) {
 	user, err := db.IdentityUser(ctx, "https://issuer.example", "immutable-user-id")
 	if err != nil || user.Name != "Verified person" {
 		t.Fatal("verified profile name was not initialized", user, err)
+	}
+}
+
+func TestDestinationSetupLoginReturnIsBounded(t *testing.T) {
+	account, workspace := strings.Repeat("a", 64), strings.Repeat("b", 64)
+	target := "/ui/destination-setup?account=" + account + "&destination=alerts&workspace=" + workspace
+	for _, bad := range []string{"https://evil.example" + target, "//evil.example" + target, "/ui/other?account=" + account, target + "#external", target + "&return=https://evil.example", target + "&account=" + account, strings.Replace(target, "alerts", "%2Fother", 1), "/ui/destination-setup?account=wrong"} {
+		if got := loginReturnPath(bad); got != "/ui/" {
+			t.Fatal("unsafe return", bad, got)
+		}
+	}
+	db, err := state.Open(t.Context(), t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	key := make([]byte, 32)
+	rand.Read(key)
+	vault, _ := state.NewVault(db, key)
+	provider := &fakeIdentity{}
+	flow := LoginFlow{DB: db, Vault: vault, Provider: provider}
+	for _, canceled := range []bool{false, true} {
+		start := httptest.NewRecorder()
+		flow.Begin(start, httptest.NewRequest("GET", "https://ding.example/auth/login?return="+url.QueryEscape(target), nil))
+		redirect, _ := url.Parse(start.Header().Get("Location"))
+		suffix := "&code=verified-code"
+		want := target
+		if canceled {
+			suffix = "&error=access_denied"
+			want += "&sign_in=canceled"
+		}
+		req := httptest.NewRequest("GET", "https://ding.example/auth/callback?state="+redirect.Query().Get("state")+suffix, nil)
+		for _, cookie := range start.Result().Cookies() {
+			if cookie.Name == loginCookie {
+				req.AddCookie(cookie)
+			}
+		}
+		finish := httptest.NewRecorder()
+		flow.Callback(finish, req)
+		if finish.Code != 302 || finish.Header().Get("Location") != want {
+			t.Fatal("setup was lost during sign-in", finish.Code, finish.Header().Get("Location"))
+		}
 	}
 }
