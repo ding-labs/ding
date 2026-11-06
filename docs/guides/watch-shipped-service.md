@@ -10,10 +10,13 @@ Open the Console with `ding ui` after [local setup](../operate/local-setup.md),
 or open your configured Ding Cloud Console. Choose **Create your first watch**.
 
 1. Give the watch a recognizable ID and enter the service's health endpoint.
-2. Choose notification delivery. Local setup offers desktop or Console-only
-   delivery; cloud setup offers a webhook, Slack incoming webhook, or Discord
-   webhook. Save destination credentials in the protected setup form. For local
-   network destinations, use [Workbench](../console/index.md).
+2. Choose a **Saved destination** to reuse delivery already configured on this
+   instance or workspace. Use **Load more destinations** when needed. Reuse adds
+   only the watch; it does not replace the shared destination or ask for its
+   credentials again. Alternatively, set up new delivery: local setup offers
+   desktop or Console-only, and cloud setup offers webhook, Slack, or Discord.
+   Configure a new local network destination in [Workbench](../console/index.md),
+   then return to setup and refresh the saved destinations.
 3. Preview the rule and review its endpoint, check interval, timeout, and policy.
    The description comes from the compiled definition. Local starter watches
    check every 30 seconds; hosted starter watches check every five minutes.
@@ -22,6 +25,14 @@ or open your configured Ding Cloud Console. Choose **Create your first watch**.
    Ding and the daemon output; it cannot interrupt you outside Ding.
 5. Start the watch. The detail page initially waits for monitoring input. A saved
    configuration alone does not establish that the source is reachable.
+
+Saved-destination tests use the credentials and headers held by the instance.
+Confirm receipt at that destination (or in the daemon output for Console delivery).
+If the test response is lost, **Check saved destination test outcome** reconciles
+the same persisted test without sending another alert. An uncertain transport
+outcome may remain uncertain; check the destination before explicitly previewing
+and testing again. If the destination changed after review, preview again before
+testing or starting the watch.
 
 The starter rule matches HTTP status 500 or above. It fires after three
 consecutive matching observations and recovers after two nonmatching observations.
