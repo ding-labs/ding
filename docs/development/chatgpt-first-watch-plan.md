@@ -1,8 +1,9 @@
 # Complete the ChatGPT first-watch journey
 
 Proposed November 5, 2026. Implements outcome 2 of the
-[adoption plan](developer-adoption-plan.md). This is a plan, not a claim that the
-remaining behavior or host qualification already exists.
+[adoption plan](developer-adoption-plan.md). Increments 1–2 now have implementation
+and automated qualification as recorded below. The remaining behavior and real-host
+qualification are still planned.
 
 ## Outcome and boundaries
 
@@ -240,3 +241,47 @@ change. Preserve small commits in PRs. Run focused checks per increment and the
 full relevant Go race/vet, PostgreSQL, Console, SDK, and MCP App suites at release.
 Add no unrelated checkout changes. Both 24-hour soaks remain optional, non-blocking
 background validation with separately reported actionable failures.
+
+
+## Implementation record: account profile and typed preview
+
+November 5, 2026. Implemented in an isolated checkout; unrelated working-tree
+changes were preserved. These results cover repository code, not a new production
+deployment or a real ChatGPT run with refreshed metadata.
+
+- `c12d532`: hosted `ding_get_profile` resolves the immutable Ding account before
+  workspace selection, returns the direct profile contract, and checks current
+  consent. Signed-token HTTP tests cover label changes/reconsent, linked identity,
+  same-email distinct accounts, multiple workspaces, revoked/invalid credentials,
+  and rejection of user/workspace selector arguments.
+- `dee869e`: extracted the common Console/MCP HTTP service recipe. Local and Cloud
+  compiled definitions retain their existing defaults; explicit expected HTTP
+  status is supported. The Cloud byte limit uses the network policy constant.
+- `909a5dd`: typed preview API uses the normal grant, policy, review, and persisted
+  handle paths. SQLite and real PostgreSQL tests cover changed destinations,
+  cross-grant rejection, restart, duplicate apply receipts, existing watch IDs,
+  and a watch created between preview and apply. No alternate apply engine.
+- `04db452`: added `ding_preview_service_watch`, strict input schema, scope metadata,
+  routing, and `ding.mcp/v1.3`. Hosted HTTP tests cover default/explicit-status
+  rules, descriptions, target, private URLs, missing destinations, insufficient
+  scopes, cross-workspace rejection, no preview I/O, and ordinary apply replay.
+- `49cda1e`: the combined adapter also exposes the starter with explicit connection selection;
+  its SDK test rejects an ambiguous target and missing destination without fallback.
+
+Qualification passed:
+
+| Check | Result |
+| --- | --- |
+| Go race tests | Cloud, MCP server/contract/client/bridge, onboarding, control, access, and watch runtime checks passed |
+| Real PostgreSQL | `TestPostgresServicePreviewPreservesReviewAndReceipts` passed against the isolated PG17 fixture |
+| Static checks | Relevant Go vet, gofmt, and `git diff --check` passed |
+| `make test-mcp` | Passed: Go race/package checks, 7 UI unit tests, independent TypeScript SDK against the real daemon (19 local tools), and 2 MCP App browser tests |
+| Hosted protocol contract | 22 hosted tools; profile shape/metadata and OAuth scopes verified through the real HTTP handler with synthetic signed tokens |
+
+Still pending for increments 1–2: production deployment, refreshed host metadata,
+actual ChatGPT profile/account-label behavior, and natural-language tool selection
+in the completed onboarding workflow. No claim of new-user or packaged-plugin
+qualification is made. The next implementation is increment 3: protected
+destination setup, receipt confirmation, and model-readable readiness bound to
+current account/workspace/destination state. Do not use preview success as proof
+that a notification destination was tested or a notification was seen.

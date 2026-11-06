@@ -214,13 +214,63 @@ milestones in [the plan](../development/llm-integration-plan.md).
 
 See [Cloud MCP connections and qualification](cloud-mcp.md) for the configured
 `/mcp` endpoint, Railway OAuth setup, existing-account linking, workspace consent,
-and the optional local/cloud bridge. Capabilities report `ding.mcp/v1.2`, effective
+and the optional local/cloud bridge. Capabilities report `ding.mcp/v1.3`, effective
 permissions and execution limits. Cloud previews allow 64 KiB manifests/fixtures
 inside a 1 MiB request; local/self-hosted limits remain 1 MiB/8 MiB with a 12 MiB
 request cap. Cloud calls share workspace admission with the browser API.
 
-Local and self-hosted adapters add three transfer-inspection tools to the original
-15 watch tools. Hosted adapters also add workspace discovery and cloud status.
+Local and self-hosted adapters add three transfer-inspection tools and a typed
+service starter to the original 15 watch tools. Hosted adapters also add workspace
+discovery, cloud status, and an authenticated account profile.
 The optional combined adapter adds explicit connection discovery and five reviewed
 transfer actions. Provider configuration and actual host qualification are still
 required before claiming the deployed service supports these flows.
+
+
+## Stable account identification and service starters
+
+Hosted `ding_get_profile` takes an empty object and returns the authenticated
+Ding user's immutable `id`, plus `name` when available. It returns the profile
+directly as structured content and matching JSON text, with
+`_meta["openai/profile"]: true`; it does not use the ordinary Ding view envelope.
+It requires inspect authority and active workspace consent but does not select a
+workspace. Email-label changes, reauthorization, and multiple approved workspaces
+do not change the account ID. The ID is not an email, a workspace, or a grant.
+This does not link accounts, infer email aliases, or guarantee a particular host
+label. Use `ding_list_workspaces` separately to select the execution workspace.
+
+`ding_preview_service_watch` accepts a new watch ID, HTTP endpoint, and an exact
+saved destination reference from `ding_list_destinations`. For example:
+
+```json
+{
+  "watch_id": "api-health",
+  "url": "https://service.example/health",
+  "destination_ref": "ops-alerts",
+  "expected_status": 204
+}
+```
+
+`expected_status` is optional and accepts an integer from 100 through 599. When
+present, a different status is failure; when omitted, HTTP 5xx is failure. The
+starter checks every five minutes in Cloud or every 30 seconds locally/self-hosted,
+with a five-second timeout, three failing checks to fire, and two healthy checks
+to recover. Source errors hold incident state and have separate error/recovery
+events. Cloud retains its public-network and one-MiB response limits.
+
+Supply `workspace_id` for an ambiguous hosted workspace selection; the combined
+adapter requires `connection_id` as well. The starter rejects existing watch IDs,
+unknown options, unsupported URLs, and missing destinations. Preview neither
+fetches the service nor tests delivery nor creates a watch. It returns the
+manifest, compiled descriptions, execution target, and the ordinary expiring
+preview handle bound to the destination revision. Use `ding_apply_changes` with
+that handle and a stable operation key under the user's authorization. Changed
+revisions require a fresh preview; a repeated apply key reconciles one effect.
+
+The REST equivalent is `POST /v1/integrations/preview/service`, using `id`, `url`,
+`destinationRef`, and optional `expectedStatus` with the existing preview grant.
+Advanced changes still use generic manifest preview. A typed preview does not
+establish destination readiness or prove notification receipt; protected setup
+and its return path remain the next [journey increment](../development/chatgpt-first-watch-plan.md).
+These additions have automated qualification; production deployment and host
+metadata/profile-label qualification must be recorded separately.
