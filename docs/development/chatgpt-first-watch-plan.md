@@ -1,7 +1,7 @@
 # Complete the ChatGPT first-watch journey
 
 Proposed November 5, 2026. Implements outcome 2 of the
-[adoption plan](developer-adoption-plan.md). Increments 1–2 now have implementation
+[adoption plan](developer-adoption-plan.md). Increments 1–3 now have implementation
 and automated qualification as recorded below. The remaining behavior and real-host
 qualification are still planned.
 
@@ -285,3 +285,57 @@ qualification is made. The next implementation is increment 3: protected
 destination setup, receipt confirmation, and model-readable readiness bound to
 current account/workspace/destination state. Do not use preview success as proof
 that a notification destination was tested or a notification was seen.
+
+
+## Implementation record: protected notification setup
+
+November 5, 2026. Increment 3 is implemented in a separate branch stacked on the
+profile/typed-starter PR. The unrelated original checkout remains untouched.
+
+- Existing destination-test receipts now carry private account/workspace,
+  destination revision, resolved credential/header digest, and confirmation
+  bindings. Confirmation is valid for 24 hours from the test; expiry retains
+  the no-resend record. No database schema migration is required.
+- Interactive APIs create only a destination, inspect its status, and record
+  receipt confirmation. A model cannot confirm or send a bound setup test.
+  Current access and exact account/workspace are checked on mutations; read
+  status remains scoped to the authenticated user and workspace.
+- `ding_get_destination_setup` exposes read-only readiness and a protected link.
+  Cloud, local, and combined connections use the same status contract. Cloud now
+  advertises 23 tools; local stdio advertises 20. The tool contract is v1.4.
+- `/ui/destination-setup` reuses saved-destination selection and offers protected
+  credential entry, destination-only creation, test reconciliation, and persisted
+  receipt confirmation. The page blocks account/workspace mismatches and never
+  creates a watch. Unknown delivery outcomes stay uncertain; another test requires
+  a deliberate additional-send action.
+- Setup links survive OAuth success and cancellation through a narrowly validated
+  Console return path. This does not authorize URL-specified identities or an
+  automatic workspace switch. The existing first-observation browser test also
+  now targets its own status element, fixing the transient selector collision
+  seen in PR #76's Firefox CI run.
+
+Automated evidence:
+
+- SQLite and real PostgreSQL 17 contracts exercise identity/workspace isolation,
+  destination/credential changes, pending/accepted/confirmed states, expiry,
+  restart, and idempotent test/confirmation behavior. Hosted signed-token tests
+  cover the browser-to-MCP round trip, private-data exclusion, and revocation.
+- Six Chromium/WebKit scenarios passed against a real daemon: existing-destination
+  setup with lost test and confirmation responses plus reload, new-destination
+  setup with wrong-account blocking and zero watches, and first-watch observation
+  with the corrected selector. Accessibility checks passed for the setup page.
+- The local Firefox launcher failed before running tests with “Could not find
+  profile folder,” including with a separately installed copy and alternate temp
+  directory. Do not count this as a Firefox application pass; CI/platform
+  qualification remains necessary. The final successful Chromium/WebKit run used
+  an isolated output directory.
+- Console unit tests cover protected credential submission, read-only controls,
+  mismatched links, reuse of a replacement test key after response loss, and the
+  OAuth return link. Go race/vet, PostgreSQL, generated contracts, Console build/
+  bundle budget, and `make test-mcp` checks are recorded in the PR.
+
+No production deployment, real-provider sign-in, live notification, or fresh
+participant run was performed for this increment. The next implementation is
+increment 4: package and teach the complete conversation, including readiness
+refresh, a fresh preview, same-key apply reconciliation, and first-input evidence.
+The live host still needs refreshed metadata and full new-user qualification.

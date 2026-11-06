@@ -214,13 +214,13 @@ milestones in [the plan](../development/llm-integration-plan.md).
 
 See [Cloud MCP connections and qualification](cloud-mcp.md) for the configured
 `/mcp` endpoint, Railway OAuth setup, existing-account linking, workspace consent,
-and the optional local/cloud bridge. Capabilities report `ding.mcp/v1.3`, effective
+and the optional local/cloud bridge. Capabilities report `ding.mcp/v1.4`, effective
 permissions and execution limits. Cloud previews allow 64 KiB manifests/fixtures
 inside a 1 MiB request; local/self-hosted limits remain 1 MiB/8 MiB with a 12 MiB
 request cap. Cloud calls share workspace admission with the browser API.
 
 Local and self-hosted adapters add three transfer-inspection tools and a typed
-service starter to the original 15 watch tools. Hosted adapters also add workspace
+service starter and destination setup inspection to the original 15 watch tools. Hosted adapters also add workspace
 discovery, cloud status, and an authenticated account profile.
 The optional combined adapter adds explicit connection discovery and five reviewed
 transfer actions. Provider configuration and actual host qualification are still
@@ -270,7 +270,63 @@ revisions require a fresh preview; a repeated apply key reconciles one effect.
 The REST equivalent is `POST /v1/integrations/preview/service`, using `id`, `url`,
 `destinationRef`, and optional `expectedStatus` with the existing preview grant.
 Advanced changes still use generic manifest preview. A typed preview does not
-establish destination readiness or prove notification receipt; protected setup
-and its return path remain the next [journey increment](../development/chatgpt-first-watch-plan.md).
+establish destination readiness or prove notification receipt. Use the protected
+setup flow below for the guided [first-watch journey](../development/chatgpt-first-watch-plan.md).
 These additions have automated qualification; production deployment and host
 metadata/profile-label qualification must be recorded separately.
+
+
+## Protected notification setup and receipt confirmation
+
+Call `ding_get_destination_setup` with an existing `destination_ref`, or omit the
+reference to obtain a Console setup link. It requires only current inspect access.
+The response identifies the authenticated account and workspace and contains an
+absolute `setupURL`; it never contains credential values or credential digests.
+The local adapter and combined adapter support the same read contract, with the
+combined adapter retaining explicit connection selection.
+
+Open that link in the browser. The Console checks its account and workspace
+against the link before showing setup actions. An OAuth sign-in preserves only
+the validated setup coordinates; it does not sign in as a URL-specified account
+or silently change workspace. A mismatch offers normal sign-out/sign-in and
+workspace selection. These coordinates are not authorization tokens.
+
+The protected page can reuse a saved destination or create a destination using
+an existing credential reference or a credential saved directly to the workspace.
+It creates no watch. Send a clearly labeled test and confirm receipt in the
+Console only after seeing it. Acceptance by the provider and user-confirmed
+receipt remain separate states. Test keys survive reloads, a lost response can
+be reconciled without sending again, and confirmation itself is idempotent.
+An uncertain attempt can be replaced only through an explicit additional-test
+action that warns the earlier notification may already have arrived.
+
+| State | Meaning |
+| --- | --- |
+| `missing` | No reference selected, or that destination does not exist |
+| `unavailable` | Destination configuration or its resolved credential cannot be read |
+| `untested` | No bound test receipt for this account/workspace/destination |
+| `pending` | An attempt was reserved; acceptance is still unknown |
+| `failed` | The destination rejected the attempt |
+| `accepted` | Provider/OS acceptance recorded; user receipt not confirmed |
+| `confirmed` | User recorded receipt for the current configuration within the validity window |
+| `stale` | The destination revision or resolved credential/header binding changed |
+| `expired` | The test is outside the 24-hour confirmation window |
+
+Confirmation expires **24 hours after the test**, not after the confirmation
+click. Reconfirming does not extend that window. The durable no-resend receipt is
+retained after expiry. The current destination revision, resolved credentials,
+account, workspace, and test operation bind readiness; every read requires current
+authority. Models cannot submit a confirmation argument or call a confirmation tool.
+
+After returning to chat, refresh the destination list if needed, read readiness
+for the chosen reference, and obtain a fresh service preview before authorized
+activation. This onboarding workflow does not add a universal notification-test
+gate to advanced generic apply. The complete packaged assistant workflow and real
+ChatGPT qualification remain separate milestones.
+
+Browser APIs: `GET /v1/onboarding/destination-status?destination=ID`,
+`POST /v1/onboarding/destination`, and
+`POST /v1/onboarding/destination-confirm`. Creation and confirmation require an
+interactive destination administrator (or the local owner) and an exact account/
+workspace match. MCP uses only `GET /v1/integrations/destination-status`, under the
+existing inspect grant. Capabilities report `ding.mcp/v1.4`.
