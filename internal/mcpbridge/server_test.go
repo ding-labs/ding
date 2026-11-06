@@ -92,3 +92,49 @@ func TestBridgeDiscoveryOverSDKRequiresNoRemoteConnection(t *testing.T) {
 		t.Fatal(result, err)
 	}
 }
+
+func TestTypedStarterUsesOnlySelectedConnection(t *testing.T) {
+	b, apps, sent := transferFixture(t)
+	server, err := b.server("test", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, z := mcp.NewInMemoryTransports()
+	ctx := context.Background()
+	ss, err := server.Connect(ctx, a, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ss.Close()
+	cs, err := mcp.NewClient(&mcp.Implementation{Name: "starter-test"}, nil).Connect(ctx, z, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cs.Close()
+	invoke := sessionCall(cs)
+	args := map[string]any{"watch_id": "starter", "url": "https://example.com/health", "destination_ref": "hook", "expected_status": 204}
+	if _, err := invoke(ctx, "ding_preview_service_watch", args); err == nil {
+		t.Fatal("ambiguous target accepted")
+	}
+	args["connection_id"] = "local"
+	preview, err := invoke(ctx, "ding_preview_service_watch", args)
+	if err != nil || preview.Target == nil || preview.Target.Connection != "local" || preview.Data.(map[string]any)["valid"] != true {
+		t.Fatal("local starter unavailable", preview, err)
+	}
+	// The selected cloud fixture has no destination named hook. It must fail,
+	// even though the local connection can produce that same starter preview.
+	args["connection_id"] = "cloud"
+	if _, err := invoke(ctx, "ding_preview_service_watch", args); err == nil {
+		t.Fatal("missing destination fell back to the local connection")
+	}
+	for id, app := range apps {
+		watches, err := app.List(ctx)
+		want := 0
+		if id == "local" {
+			want = 1 // The existing fixture watch, not the starter.
+		}
+		if err != nil || len(watches) != want || sent.Load() != 0 {
+			t.Fatal("preview created a watch or sent a notification", id, err)
+		}
+	}
+}
