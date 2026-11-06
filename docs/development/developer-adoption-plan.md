@@ -306,7 +306,34 @@ read back from the authorized Slack channel. Both temporary watches were paused.
 All 35 Console unit tests, five Chromium onboarding tests, the Console build,
 focused Go race/vet checks, and `make test-mcp` pass in the working checkout.
 
-The new source has not been deployed to Ding Cloud. Fresh host OAuth installation,
-signed installer behavior, laptop-off operation, and participant activation remain
-unqualified. Expected-status customization continues to use Workbench's typed
-rule editor. Steps 2–5 retain the dependencies and acceptance criteria above.
+The onboarding changes were isolated from unrelated working-tree changes and
+merged in [PR #73](https://github.com/ding-labs/ding/pull/73), preserving 15 focused
+commits. Release preparation also fixed PostgreSQL destination-test receipt
+persistence in `8b3cb06`, with real-backend concurrency, isolation, accounting, and
+restart tests. Merge `d7e1d00` was deployed to Ding Cloud and its live form passed
+saved-destination selection, a Slack setup test read back from the channel,
+explicit receipt confirmation, activation, and first-observation confirmation.
+
+Fresh Console authorization and ChatGPT OAuth reconnect also passed: a new
+provider consent and integration grant resolved to the same existing account and
+workspace, with unchanged scopes, watches, and destination revision. The provider
+session was reused; this is not a fresh GitHub sign-in or a new participant's
+installation. See the [qualification record](first-watch-qualification.md) for
+deployment identifiers, automated checks, live evidence, and precise limits.
+
+## Review against the five outcomes — November 5, 2026
+
+| Outcome | Implemented or verified | Still needed |
+| --- | --- | --- |
+| 1. First useful service watch | Compiled-rule descriptions; local and hosted saved-destination reuse; durable, revision-bound setup-test receipts; receipt confirmation; actual first-input state; second-watch action; controllable fixture and guide. Local failure/restart/source-error/recovery and real hosted Slack delivery passed. New hosted onboarding is deployed and qualified. | Independent new-user activation and timing; laptop-off observation; native notification click-through and signed installer qualification. Expected-status customization remains in Workbench. |
+| 2. Complete ChatGPT journey | Existing MCP preview/apply/inspect and evidence tools were reused for hosted watch qualification. Fresh OAuth reconnect, account/workspace continuity, and authenticated reads passed. SDK and embedded-app checks passed. | Tailor the shared assistant skill to this exact starter journey; qualify a fresh participant end to end, expired-token refresh, host failure/fallback cases, and client-specific behavior. Marketplace publication remains separate. |
+| 3. Ten-engineer pilot | Research goals and decision thresholds are specified; an earlier pilot protocol exists. | Extend the outcome record and session script, recruit with separate outreach authorization, observe ten real activations, and collect day-7/day-30 repeat-use evidence. No participant or retention results are claimed. |
+| 4. Paid hosted continuity | Hosted execution works; a proposed $10/month pilot offer is described. | Cost and finalize the offer, configure collection and a manual entitlement ledger, test service-end handling, and observe actual payment, laptop-off delivery, and renewal. No paid-demand result is claimed. |
+| 5. Event-triggered investigation | Subscription, authorization, delivery, and real-host acceptance requirements are planned. Existing tools can inspect evidence when invoked. | Run the host compatibility spike, implement durable subscriptions and delivery, and demonstrate an authorized investigation in a real host. The current integration does not wake the chat. |
+
+The work establishes the first usable product loop and part of its assistant
+distribution path. It does not yet validate repeat use or willingness to pay.
+The next implementation increment is the complete ChatGPT starter journey and
+fresh-participant qualification, followed by the pilot; hosted billing and event
+subscriptions retain their separate acceptance criteria above. Optional soaks
+remain non-blocking and do not delay delivery.
