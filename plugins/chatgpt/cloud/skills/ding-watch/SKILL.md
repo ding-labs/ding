@@ -14,7 +14,48 @@ scraping are unavailable. Use an existing destination from `ding_list_destinatio
 New secrets must be entered in Ding's secure browser interface, never in chat or
 tool arguments. For authoring syntax, read [the manifest example](references/manifest.md).
 
-For an authorized creation or change, inspect relevant watches and destinations,
+
+For a first service health watch, prefer `ding_preview_service_watch` over
+handwritten YAML. Gather only missing intent: the public service URL, a new watch
+ID, the saved destination, and an expected HTTP status if the user requires one.
+List destinations first and reuse the exact existing ID; never recreate a shared
+destination or treat its name as an ID. The starter checks every five minutes in
+Cloud (30 seconds locally), fires after three failures and recovers after two
+healthy checks. Omitted `expected_status` means HTTP 5xx is failure, not that all
+other responses are healthy for the user's purpose. Network errors produce
+source-error evidence and hold the incident; they are not HTTP status failures.
+Explain those semantics and the returned timeout, limits and destination.
+
+When `ding_get_destination_setup` is available, read it for the selected saved
+destination. If there is none, omit `destination_ref` to obtain the protected
+setup link. Use the returned `setupURL`; never construct one from an email or ask
+for notification secrets. The user tests and confirms receipt in that page.
+`accepted` is provider acceptance only; `pending` is uncertain, not a reason to
+resend. Only current `confirmed` establishes receipt for the current destination
+configuration within 24 hours. All other states need setup or recovery. Never
+mark receipt yourself. Return to this conversation does not imply success.
+
+A preview-only request stays read-only: if a destination exists, it can be
+previewed before readiness is confirmed, with the readiness gap clearly stated.
+Do not send tests, activate, or require a browser detour merely to preview. For
+guided activation, refresh destination status after browser setup and obtain a
+fresh typed preview. Review the resulting definition and current readiness before
+applying an authorized change. Respect existing explicit authorization; ask only
+if a material choice or permission is missing. If the selected account, workspace,
+destination or policy changed, resolve it before applying. On older connections
+without setup status, say receipt is unverified rather than inventing confirmation.
+
+After apply, inspect the new watch with `ding_get_watch` and its recent
+`ding_list_events`. Distinguish saved/active from a recorded first successful
+source check. If the first check is pending, make at most two follow-up reads;
+then report pending and link to the Console rather than looping, creating another
+watch, or declaring success. Inspect source-error evidence on failure. Report
+which watch and destination were used, what has actually run, and how to inspect
+or pause it. Provide the same facts and actionable links in text when the embedded
+view is unavailable. A healthy check need not fire an alert; notification readiness
+and source health are separate facts.
+
+For other authorized creations or changes, inspect relevant watches and destinations,
 call `ding_preview_changes` with the exact manifest and a small fixture where
 useful, and explain the source, firing/recovery policy, destination, missing
 credentials, and state preservation/reset effects. A preview is a dry run: it

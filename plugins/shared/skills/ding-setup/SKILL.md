@@ -49,3 +49,9 @@ For an authorized combined local/cloud adapter, the operator uses
 register this native client and its loopback callback. Never reuse a CLI device
 or administrator token. Transfer consent is separately granted to the approved
 native bridge; ordinary model clients must use their own registered client IDs.
+
+When `ding_get_profile` is advertised, use it to identify the hosted Ding account
+by immutable ID, not an email alias. Do not call hosted-only tools on a local
+connection. For a requested service watch, use the [watch skill](../ding-watch/SKILL.md)
+to reuse an existing destination and complete protected notification setup before
+activation. A working connection alone does not authorize a test notification.
