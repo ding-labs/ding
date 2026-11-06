@@ -6,20 +6,36 @@ import (
 	"time"
 
 	"github.com/ding-labs/ding/internal/cloud/egress"
+	"github.com/ding-labs/ding/internal/control"
 	"github.com/ding-labs/ding/internal/delivery"
 	state "github.com/ding-labs/ding/internal/serverstate"
 	"github.com/ding-labs/ding/internal/watch"
+	"github.com/ding-labs/ding/internal/watchrun"
 )
 
 type DestinationTest struct {
-	OperationKey string `json:"operationKey"`
-	Destination  string `json:"destination"`
-	Credential   string `json:"credential"`
+	OperationKey   string `json:"operationKey"`
+	Destination    string `json:"destination"`
+	Credential     string `json:"credential"`
+	DestinationRef string `json:"destinationRef,omitempty"`
+	Revision       string `json:"revision,omitempty"`
 }
 
 func (s *Server) testDestination(w http.ResponseWriter, r *http.Request, t *Tenant) {
 	var req DestinationTest
-	if decodeCloud(r, &req) != nil || (req.Destination != "webhook" && req.Destination != "slack" && req.Destination != "discord") {
+	if decodeCloud(r, &req) != nil {
+		cloudFail(w, 400, "invalid_test", "Provide a destination test request.")
+		return
+	}
+	if req.DestinationRef != "" {
+		if req.Destination != "" || req.Credential != "" {
+			cloudFail(w, 400, "invalid_test", "Choose a saved destination or a new delivery type, not both.")
+			return
+		}
+		control.TestSavedDestination(w, r, t.App, watchrun.DestinationTestRequest{OperationKey: req.OperationKey, DestinationRef: req.DestinationRef, Revision: req.Revision})
+		return
+	}
+	if req.Destination != "webhook" && req.Destination != "slack" && req.Destination != "discord" {
 		cloudFail(w, 400, "invalid_test", "Provide a stable operation key, destination type and credential reference.")
 		return
 	}

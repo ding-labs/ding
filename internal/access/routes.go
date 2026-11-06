@@ -32,6 +32,7 @@ var Routes = map[string]Action{
 	"POST /v1/watches/{id}/lifecycle":              Manage,
 	"POST /v1/deliveries/{id}/retry":               Retry,
 	"POST /v1/onboarding/preview":                  Preview,
+	"POST /v1/onboarding/destination-test":         Destinations,
 	"POST /v1/tools/compile":                       Preview,
 	"POST /v1/tools/test":                          Preview,
 	"POST /v1/tools/replay":                        Preview,
