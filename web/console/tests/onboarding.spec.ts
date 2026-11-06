@@ -1,6 +1,43 @@
 import { test, expect } from "./fixtures";
 import AxeBuilder from "@axe-core/playwright";
 
+test("onboarding reuses a saved destination and reconciles a lost test response", async ({ page, daemon }) => {
+  const manifest = "apiVersion: ding.ing/v1alpha1\nkind: Destination\nmetadata: {id: saved-console}\nspec: {type: console}\n";
+  const seed = await fetch(daemon.url + "/v1/apply", { method: "POST", headers: { Authorization: "Bearer " + daemon.token, "Content-Type": "application/json" }, body: JSON.stringify({ manifest }) });
+  expect(seed.ok).toBeTruthy();
+  const readDestinations = async () => {
+    const r = await fetch(daemon.url + "/v1/console/destinations", { headers: { Authorization: "Bearer " + daemon.token } });
+    return (await r.json()).data.destinations;
+  };
+  const before = await readDestinations();
+  const keys: string[] = [];
+  await page.route("**/v1/onboarding/destination-test", async route => {
+    keys.push(route.request().postDataJSON().operationKey);
+    const response = await route.fetch();
+    if (keys.length === 1) await route.abort();
+    else await route.fulfill({ response });
+  });
+  await page.goto(await daemon.launch());
+  await page.getByRole("link", { name: "Create your first watch" }).click();
+  await page.getByLabel("Health endpoint").fill(daemon.webhookURL);
+  await page.getByLabel("Saved destination").selectOption("saved-console");
+  await page.getByRole("button", { name: "Preview watch", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Start this watch" })).toBeDisabled();
+  await page.getByRole("button", { name: "Send saved destination test" }).click();
+  await page.getByRole("button", { name: "Check saved destination test outcome" }).click();
+  await expect(page.getByRole("button", { name: "Start this watch" })).toBeDisabled();
+  await page.getByLabel("I received the test at this destination").check();
+  await page.getByRole("button", { name: "Start this watch" }).click();
+  await expect(page).toHaveURL(/watches\/first-watch$/);
+  expect(keys).toHaveLength(2);
+  expect(keys[0]).toBe(keys[1]);
+  const after = await readDestinations();
+  expect(after).toHaveLength(1);
+  expect(after[0].revision).toBe(before[0].revision);
+  expect(after[0].definition).toEqual(before[0].definition);
+  expect(after[0].watches).toBe(1);
+});
+
 test("first useful watch is reviewed and observed without an account", async ({ page, daemon }) => {
   await page.goto(await daemon.launch());
   await page.getByRole("link", { name: "Create your first watch" }).click();
@@ -10,18 +47,49 @@ test("first useful watch is reviewed and observed without an account", async ({ 
   await page.getByLabel("Alert delivery").selectOption("console");
   await page.getByRole("button", { name: "Preview watch" }).click();
   await expect(page.getByRole("heading", { name: "Review before starting" })).toBeVisible();
+  await expect(page.getByText(/every 30s \(timeout 5s\)/)).toBeVisible();
+  await expect(page.getByText(/401 or 404 do not match/)).toBeVisible();
+  await expect(page.getByText(/3 matching checks span 1m0s/)).toBeVisible();
   const before = await fetch(daemon.url + "/v1/watches", { headers: { Authorization: "Bearer " + daemon.token } });
   expect((await before.json()).data).toHaveLength(0);
   const a11y = await new AxeBuilder({ page }).analyze();
   expect(a11y.violations.filter(v => ["serious", "critical"].includes(v.impact ?? ""))).toEqual([]);
   await page.screenshot({ path: "/tmp/ding-first-watch.png", fullPage: true });
+  let state: "waiting" | "source-error" | "delivery-error" | "live" = "waiting";
+  await page.route("**/v1/console/watches?**", async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    if (new URL(route.request().url()).searchParams.get("watch") === "local-health" && state !== "live") {
+      for (const watch of body.data.watches) {
+        if (state === "waiting") Object.assign(watch, { lastInputAt: "0001-01-01T00:00:00Z", entities: 0 });
+        if (state === "source-error") Object.assign(watch, { lastError: "connection timed out", unhealthy: 1 });
+        if (state === "delivery-error") Object.assign(watch, { failed: 1, pending: 1 });
+      }
+    }
+    await route.fulfill({ response, json: body });
+  });
   await page.getByRole("button", { name: "Start this watch" }).click();
   await expect(page).toHaveURL(/watches\/local-health$/);
+  await expect(page.getByRole("status")).toHaveText("Waiting for the first observation");
+  await expect(page.getByRole("link", { name: "Create another watch" })).toHaveCount(0);
+  state = "source-error";
+  await expect(page.getByRole("status")).toHaveText("Monitoring needs attention", { timeout: 10000 });
+  await expect(page.getByRole("link", { name: "Create another watch" })).toHaveCount(0);
+  state = "delivery-error";
+  await expect(page.getByText(/A notification could not be delivered/)).toBeVisible({ timeout: 10000 });
+  await expect(page.getByRole("link", { name: "Inspect deliveries" })).toBeVisible();
+  state = "live";
+  await expect(page.getByText(/A notification could not be delivered/)).toHaveCount(0, { timeout: 10000 });
   await expect.poll(async () => {
     const r = await fetch(daemon.url + "/v1/doctor", { headers: { Authorization: "Bearer " + daemon.token } });
     const source = (await r.json()).data.sources.find((s: { id: string }) => s.id === "local-health");
     return !!source && !source.lastInputAt.startsWith("0001");
   }).toBeTruthy();
+  await expect(page.getByRole("status")).toHaveText("Monitoring input received");
+  await expect(page.getByRole("link", { name: "Create another watch" })).toBeVisible();
+  await expect(page.getByText(/not service health or notification delivery/)).toBeVisible();
+  await page.getByRole("link", { name: "Create another watch" }).click();
+  await expect(page.getByLabel("Watch ID")).toHaveValue("");
 });
 
 test("desktop onboarding requires visible-test confirmation and invalidates edits", async ({ page, daemon }) => {

@@ -11,19 +11,26 @@ import (
 )
 
 type Request struct {
-	ID       string `json:"id"`
-	URL      string `json:"url"`
-	Delivery string `json:"delivery"`
+	ID             string `json:"id"`
+	URL            string `json:"url"`
+	Delivery       string `json:"delivery"`
+	DestinationRef string `json:"destinationRef,omitempty"`
 }
 
 func Manifest(r Request) (string, []plan.Description, error) {
-	if r.Delivery != "desktop" && r.Delivery != "console" {
+	if r.DestinationRef != "" && r.Delivery != "" {
+		return "", nil, fmt.Errorf("choose a new delivery type or an existing destination, not both")
+	}
+	if r.DestinationRef == "" && r.Delivery != "desktop" && r.Delivery != "console" {
 		return "", nil, fmt.Errorf("choose desktop or console delivery; configure network destinations in Workbench")
 	}
 	if r.ID == "" {
 		r.ID = "first-watch"
 	}
 	destID := r.ID + "-alerts"
+	if r.DestinationRef != "" {
+		destID = r.DestinationRef
+	}
 	d := watch.Destination{APIVersion: watch.APIVersion, Kind: "Destination", Metadata: watch.Metadata{ID: destID}, Spec: watch.DestinationSpec{Type: r.Delivery}}
 	w := watch.Definition{APIVersion: watch.APIVersion, Kind: "Watch", Metadata: watch.Metadata{ID: r.ID, Name: r.ID}, Spec: watch.Spec{
 		Source:       watch.Source{Type: "http", URL: r.URL, Every: "30s", Timeout: "5s"},
@@ -34,8 +41,10 @@ func Manifest(r Request) (string, []plan.Description, error) {
 	var b bytes.Buffer
 	e := yaml.NewEncoder(&b)
 	e.SetIndent(2)
-	if err := e.Encode(d); err != nil {
-		return "", nil, err
+	if r.DestinationRef == "" {
+		if err := e.Encode(d); err != nil {
+			return "", nil, err
+		}
 	}
 	if err := e.Encode(w); err != nil {
 		return "", nil, err
