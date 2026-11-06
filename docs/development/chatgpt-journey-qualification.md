@@ -92,6 +92,10 @@ account identifiers and the private conversation URL are omitted from this repor
 The original dirty checkout was untouched; work used an isolated checkout and
 small, unsquashed commits.
 
+Follow-up: the [embedded-view loading investigation](chatgpt-view-loading.md)
+records a deployed cache-key correction, the remaining inline-host failure, and
+verified recovery without replaying watch actions.
+
 ## Automated verification
 
 - Focused Go package/contract tests passed for `internal/mcpcontract`,
