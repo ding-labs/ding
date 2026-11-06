@@ -44,6 +44,10 @@ func TestHostedWorkspaceDiscoverySelectionAndRevocation(t *testing.T) {
 	if err != nil || len(workspaces) != 2 {
 		t.Fatal(workspaces, err)
 	}
+	profile, err := s.mcpProfile("issuer")(ctx, token)
+	if err != nil || profile.ID != sessions[0].User {
+		t.Fatal("account identification requires workspace selection", profile, err)
+	}
 	resolve := s.resolveMCP("issuer")
 	if _, err := resolve(ctx, "inspect", token); err == nil || !strings.Contains(err.Error(), "workspace_required") {
 		t.Fatal("ambiguous target accepted", err)

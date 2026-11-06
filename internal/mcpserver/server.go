@@ -20,6 +20,7 @@ type Options struct {
 	OAuthResourceMetadataURL string
 	Resolve                  Resolver
 	ListWorkspaces           func(context.Context, *auth.TokenInfo) ([]mcpcontract.Workspace, error)
+	GetProfile               ProfileResolver
 	TransferInspection       bool
 	TransferTransport        bool
 }
@@ -71,7 +72,13 @@ func New(options Options) (*mcp.Server, error) {
 		for _, tool := range catalog.Tools {
 			names = append(names, tool.Name)
 		}
+		if options.GetProfile != nil {
+			names = append(names, "ding_get_profile")
+		}
 		s.AddReceivingMiddleware(oauthToolMetadata(options.OAuthResourceMetadataURL, names))
+	}
+	if options.GetProfile != nil {
+		addProfileTool(s, options.GetProfile)
 	}
 	for _, tool := range catalog.Tools {
 		if options.HTML == "" {

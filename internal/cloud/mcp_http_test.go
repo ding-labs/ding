@@ -246,7 +246,7 @@ func TestHostedChatGPTToolOAuth(t *testing.T) {
 				} `json:"tools"`
 			} `json:"result"`
 		}
-		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &envelope) != nil || len(envelope.Result.Tools) != 20 {
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &envelope) != nil || len(envelope.Result.Tools) != 21 {
 			t.Fatal(w.Code, w.Body.String())
 		}
 		for _, tool := range envelope.Result.Tools {
