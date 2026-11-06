@@ -32,3 +32,21 @@ and **PRIVATE QUALIFICATION ONLY**; its qualification record has `private: true`
 Provided URLs still undergo credential-free HTTPS validation. Never submit this
 archive for public publication. Build without `-private` and supply published
 service terms, privacy and support URLs for public review.
+
+An existing private ChatGPT development app has a host-assigned plugin name and
+an `.app.json` binding. To update its skills without creating another OAuth
+connection, download its ZIP from ChatGPT, then run:
+
+```sh
+python3 scripts/package-chatgpt-update.py \
+  --existing /private/exported-plugin.zip \
+  --journey /tmp/ding-cloud-chatgpt/ding.zip \
+  --output /tmp/ding-cloud-chatgpt/existing-plugin-update.zip
+```
+
+The journey input must be built with `-private`. The adapter preserves the exact
+app ID, plugin name and display name, ships the Cloud skills and assets, and
+omits the standalone MCP definition. Upload the result with **Upload new version**
+on that same private plugin. A matching name alone does not qualify discovery:
+verify the skills and refreshed tools in a new conversation. This compatibility
+format follows [OpenAI packaging](https://developers.openai.com/plugins/build/plugins).
