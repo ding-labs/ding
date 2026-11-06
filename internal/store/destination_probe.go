@@ -30,7 +30,7 @@ func (t *Tx) BeginDestinationProbe(id, digest string, now time.Time) (Destinatio
 		return p, false, fmt.Errorf("invalid test identity")
 	}
 	var raw string
-	err := t.sql.QueryRowContext(t.ctx, "SELECT value FROM metadata WHERE key=?", "destination_probe:"+id).Scan(&raw)
+	err := t.sql.QueryRowContext(t.ctx, t.query(qDestinationProbeRead), "destination_probe:"+id).Scan(&raw)
 	if err == nil {
 		var old destinationProbeRecord
 		if err := json.Unmarshal([]byte(raw), &old); err != nil {
@@ -45,7 +45,7 @@ func (t *Tx) BeginDestinationProbe(id, digest string, now time.Time) (Destinatio
 		return p, false, err
 	}
 	var count int
-	if err := t.sql.QueryRowContext(t.ctx, "SELECT count(*) FROM metadata WHERE key GLOB 'destination_probe:*'").Scan(&count); err != nil {
+	if err := t.sql.QueryRowContext(t.ctx, t.query(qDestinationProbeCount)).Scan(&count); err != nil {
 		return p, false, err
 	}
 	if count >= 1000 {
@@ -55,7 +55,7 @@ func (t *Tx) BeginDestinationProbe(id, digest string, now time.Time) (Destinatio
 	if err != nil {
 		return p, false, err
 	}
-	_, err = t.sql.ExecContext(t.ctx, "INSERT INTO metadata(key,value) VALUES(?,?)", "destination_probe:"+id, string(data))
+	_, err = t.exec(qDestinationProbeInsert, "destination_probe:"+id, string(data))
 	return p, err == nil, err
 }
 
@@ -64,7 +64,7 @@ func (t *Tx) FinishDestinationProbe(id, outcome string) error {
 		return fmt.Errorf("invalid test outcome")
 	}
 	var raw string
-	if err := t.sql.QueryRowContext(t.ctx, "SELECT value FROM metadata WHERE key=?", "destination_probe:"+id).Scan(&raw); err != nil {
+	if err := t.sql.QueryRowContext(t.ctx, t.query(qDestinationProbeRead), "destination_probe:"+id).Scan(&raw); err != nil {
 		return err
 	}
 	var p destinationProbeRecord
@@ -79,6 +79,23 @@ func (t *Tx) FinishDestinationProbe(id, outcome string) error {
 	if err != nil {
 		return err
 	}
-	_, err = t.sql.ExecContext(t.ctx, "UPDATE metadata SET value=? WHERE key=?", string(data), "destination_probe:"+id)
+	_, err = t.exec(qDestinationProbeFinish, string(data), "destination_probe:"+id)
 	return err
+}
+
+var qDestinationProbeRead = statement{
+	sqlite:   "SELECT value FROM metadata WHERE key=?",
+	postgres: "SELECT value FROM metadata WHERE key=$1",
+}
+var qDestinationProbeCount = statement{
+	sqlite:   "SELECT count(*) FROM metadata WHERE key GLOB 'destination_probe:*'",
+	postgres: "SELECT count(*) FROM metadata WHERE starts_with(key,'destination_probe:')",
+}
+var qDestinationProbeInsert = statement{
+	sqlite:   "INSERT INTO metadata(key,value) VALUES(?,?)",
+	postgres: "INSERT INTO metadata(key,value) VALUES($1,$2)",
+}
+var qDestinationProbeFinish = statement{
+	sqlite:   "UPDATE metadata SET value=? WHERE key=?",
+	postgres: "UPDATE metadata SET value=$1 WHERE key=$2",
 }

@@ -16,6 +16,15 @@ import (
 )
 
 func TestExistingDestinationProbeUsesExactHeadersAndDoesNotResend(t *testing.T) {
+	testSavedDestinationProbe(t, setup)
+}
+
+func TestPostgresDestinationProbeUsesExactHeadersAndDoesNotResend(t *testing.T) {
+	testSavedDestinationProbe(t, postgresSetup)
+}
+
+func testSavedDestinationProbe(t *testing.T, setup func(*testing.T) (*App, string)) {
+	t.Helper()
 	app, dir := setup(t)
 	var sent atomic.Int64
 	receiver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +57,7 @@ func TestExistingDestinationProbeUsesExactHeadersAndDoesNotResend(t *testing.T) 
 	if err := app.Store.Close(); err != nil {
 		t.Fatal(err)
 	}
-	db, err := store.Open(ctx, dir)
+	db, err := reopenTestStore(ctx, dir)
 	if err != nil {
 		t.Fatal(err)
 	}
