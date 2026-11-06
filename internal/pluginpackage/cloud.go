@@ -27,7 +27,7 @@ type OAuthClient struct {
 	TokenEndpointAuthMethod string `json:"tokenEndpointAuthMethod,omitempty"`
 }
 
-func loadCloudConfig(path string) (CloudConfig, error) {
+func loadCloudConfig(path string, private bool) (CloudConfig, error) {
 	var cfg CloudConfig
 	f, err := os.Open(path)
 	if err != nil {
@@ -63,6 +63,9 @@ func loadCloudConfig(path string) (CloudConfig, error) {
 		return cfg, errors.New("choose the provider's supported OAuth client mode: provided, cimd or dcr")
 	}
 	for name, raw := range map[string]string{"supportURL": cfg.SupportURL, "privacyPolicyURL": cfg.PrivacyPolicyURL, "termsOfServiceURL": cfg.TermsOfServiceURL} {
+		if private && raw == "" {
+			continue
+		}
 		u, err := url.Parse(raw)
 		if err != nil || len(raw) > 1024 || u.Scheme != "https" || u.Hostname() == "" || u.User != nil {
 			return cfg, fmt.Errorf("%s must be a credential-free public HTTPS listing URL", name)
