@@ -14,6 +14,8 @@ import (
 )
 
 type DestinationTest struct {
+	AccountID      string `json:"accountID,omitempty"`
+	WorkspaceID    string `json:"workspaceID,omitempty"`
 	OperationKey   string `json:"operationKey"`
 	Destination    string `json:"destination"`
 	Credential     string `json:"credential"`
@@ -32,7 +34,7 @@ func (s *Server) testDestination(w http.ResponseWriter, r *http.Request, t *Tena
 			cloudFail(w, 400, "invalid_test", "Choose a saved destination or a new delivery type, not both.")
 			return
 		}
-		control.TestSavedDestination(w, r, t.App, watchrun.DestinationTestRequest{OperationKey: req.OperationKey, DestinationRef: req.DestinationRef, Revision: req.Revision})
+		control.TestSavedDestination(w, r, t.App, watchrun.DestinationTestRequest{AccountID: req.AccountID, WorkspaceID: req.WorkspaceID, OperationKey: req.OperationKey, DestinationRef: req.DestinationRef, Revision: req.Revision})
 		return
 	}
 	if req.Destination != "webhook" && req.Destination != "slack" && req.Destination != "discord" {

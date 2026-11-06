@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/ding-labs/ding/internal/mcpclient"
 	"github.com/ding-labs/ding/internal/mcpcontract"
@@ -20,6 +21,7 @@ type Options struct {
 	OAuthResourceMetadataURL string
 	Resolve                  Resolver
 	ListWorkspaces           func(context.Context, *auth.TokenInfo) ([]mcpcontract.Workspace, error)
+	GetProfile               ProfileResolver
 	TransferInspection       bool
 	TransferTransport        bool
 }
@@ -43,6 +45,7 @@ func New(options Options) (*mcp.Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	catalog = mcpcontract.DestinationSetup(mcpcontract.ServicePreview(catalog))
 	if options.TransferTransport {
 		catalog = mcpcontract.TransferTransport(catalog)
 	}
@@ -71,7 +74,13 @@ func New(options Options) (*mcp.Server, error) {
 		for _, tool := range catalog.Tools {
 			names = append(names, tool.Name)
 		}
+		if options.GetProfile != nil {
+			names = append(names, "ding_get_profile")
+		}
 		s.AddReceivingMiddleware(oauthToolMetadata(options.OAuthResourceMetadataURL, names))
+	}
+	if options.GetProfile != nil {
+		addProfileTool(s, options.GetProfile)
 	}
 	for _, tool := range catalog.Tools {
 		if options.HTML == "" {
@@ -106,6 +115,18 @@ func New(options Options) (*mcp.Server, error) {
 				if err == nil {
 					data, err = client.Call(ctx, r.method, r.path, r.query, r.body)
 					target = client.Target
+					if err == nil && r.view == "destination_setup" {
+						if result, ok := data.(map[string]any); ok {
+							path, _ := result["setupURL"].(string)
+							base, e := url.Parse(client.Connection.DaemonURL)
+							link, e2 := url.Parse(path)
+							if e != nil || e2 != nil || link.IsAbs() || link.Host != "" || link.Path != "/ui/destination-setup" {
+								err = mcpclient.Fail("invalid_response", "Invalid destination setup link")
+							} else {
+								result["setupURL"] = base.ResolveReference(link).String()
+							}
+						}
+					}
 				}
 			}
 			if err != nil {
@@ -125,7 +146,7 @@ func New(options Options) (*mcp.Server, error) {
 			view, err := mcpcontract.Normalize(schema, mcpcontract.View{Target: target, View: r.view, Data: data, Query: r.query, EvidenceNotice: mcpcontract.EvidenceNotice})
 			// Even a successful HTTP response can be unreadable to this version.
 			// Never encourage a fresh-key retry after a possibly committed write.
-			if err != nil && r.method == http.MethodPost && r.path != "/preview" {
+			if err != nil && r.method == http.MethodPost && r.path != "/preview" && r.path != "/preview/service" {
 				err = mcpclient.Unknown()
 			}
 			return nil, view, err
@@ -222,11 +243,26 @@ func route(name string, a map[string]any) (request, error) {
 		r.path = fmt.Sprintf("/deliveries/%.0f", a["delivery_id"])
 		r.view = "delivery"
 		r.query = fields("before")
+	case "ding_get_destination_setup":
+		r.path = "/destination-status"
+		r.view = "destination_setup"
+		if ref, ok := a["destination_ref"]; ok {
+			r.query = map[string]any{"destination": ref}
+		}
 	case "ding_preview_changes":
 		r.method = http.MethodPost
 		r.path = "/preview"
 		r.view = "preview"
 		r.body = fields("manifest", "fixture", "watch")
+	case "ding_preview_service_watch":
+		r.method = http.MethodPost
+		r.path = "/preview/service"
+		r.view = "preview"
+		body := map[string]any{"id": a["watch_id"], "url": a["url"], "destinationRef": a["destination_ref"]}
+		if status, ok := a["expected_status"]; ok {
+			body["expectedStatus"] = status
+		}
+		r.body = body
 	case "ding_apply_changes":
 		r.method = http.MethodPost
 		r.path = "/apply"

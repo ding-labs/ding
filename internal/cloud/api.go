@@ -199,13 +199,13 @@ func (s *Server) cloudPreview(w http.ResponseWriter, r *http.Request, t *Tenant)
 func cloudRoute(method, path string) bool {
 	if method == "GET" {
 		switch path {
-		case "/v1/status", "/v1/doctor", "/v1/watches", "/v1/events", "/v1/console/doctor", "/v1/console/watches", "/v1/console/events", "/v1/console/deliveries", "/v1/console/destinations":
+		case "/v1/onboarding/destination-status", "/v1/status", "/v1/doctor", "/v1/watches", "/v1/events", "/v1/console/doctor", "/v1/console/watches", "/v1/console/events", "/v1/console/deliveries", "/v1/console/destinations":
 			return true
 		}
 	}
 	if method == "POST" {
 		switch path {
-		case "/v1/apply", "/v1/tools/compile", "/v1/tools/test", "/v1/tools/project", "/v1/tools/replay":
+		case "/v1/onboarding/destination", "/v1/onboarding/destination-confirm", "/v1/apply", "/v1/tools/compile", "/v1/tools/test", "/v1/tools/project", "/v1/tools/replay":
 			return true
 		}
 	}

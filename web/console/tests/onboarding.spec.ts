@@ -70,10 +70,10 @@ test("first useful watch is reviewed and observed without an account", async ({ 
   });
   await page.getByRole("button", { name: "Start this watch" }).click();
   await expect(page).toHaveURL(/watches\/local-health$/);
-  await expect(page.getByRole("status")).toHaveText("Waiting for the first observation");
+  await expect(page.locator("#first-observation-title")).toHaveText("Waiting for the first observation");
   await expect(page.getByRole("link", { name: "Create another watch" })).toHaveCount(0);
   state = "source-error";
-  await expect(page.getByRole("status")).toHaveText("Monitoring needs attention", { timeout: 10000 });
+  await expect(page.locator("#first-observation-title")).toHaveText("Monitoring needs attention", { timeout: 10000 });
   await expect(page.getByRole("link", { name: "Create another watch" })).toHaveCount(0);
   state = "delivery-error";
   await expect(page.getByText(/A notification could not be delivered/)).toBeVisible({ timeout: 10000 });
@@ -85,7 +85,7 @@ test("first useful watch is reviewed and observed without an account", async ({ 
     const source = (await r.json()).data.sources.find((s: { id: string }) => s.id === "local-health");
     return !!source && !source.lastInputAt.startsWith("0001");
   }).toBeTruthy();
-  await expect(page.getByRole("status")).toHaveText("Monitoring input received");
+  await expect(page.locator("#first-observation-title")).toHaveText("Monitoring input received");
   await expect(page.getByRole("link", { name: "Create another watch" })).toBeVisible();
   await expect(page.getByText(/not service health or notification delivery/)).toBeVisible();
   await page.getByRole("link", { name: "Create another watch" }).click();
@@ -138,4 +138,60 @@ test("UI demo runs the real watch engine and keeps user watches empty", async ({
   expect((await response.json()).data).toHaveLength(0);
   const a11y = await new AxeBuilder({ page }).analyze();
   expect(a11y.violations.filter(v => ["serious", "critical"].includes(v.impact ?? ""))).toEqual([]);
+});
+
+test("protected destination setup confirms receipt across lost responses and reloads", async ({ page, daemon }) => {
+  const headers = { Authorization: "Bearer " + daemon.token, "Content-Type": "application/json" };
+  const manifest = "apiVersion: ding.ing/v1alpha1\nkind: Destination\nmetadata: {id: chat-alerts}\nspec: {type: console}\n";
+  expect((await fetch(daemon.url + "/v1/apply", { method: "POST", headers, body: JSON.stringify({ manifest }) })).ok).toBeTruthy();
+  const status = async () => (await (await fetch(daemon.url + "/v1/onboarding/destination-status?destination=chat-alerts", { headers })).json()).data;
+  const before = await status();
+  let sends = 0, confirmations = 0;
+  await page.route("**/v1/onboarding/destination-test", async route => {
+    sends++;
+    await route.fetch();
+    await route.abort();
+  });
+  await page.route("**/v1/onboarding/destination-confirm", async route => {
+    confirmations++;
+    await route.fetch();
+    await route.abort();
+  });
+  await page.goto(await daemon.launch());
+  await expect(page.getByRole("link", { name: "Create your first watch" })).toBeVisible();
+  await page.goto(daemon.url + before.setupURL);
+  await page.getByRole("button", { name: "Send labeled notification test", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Refresh delivery status" })).toBeEnabled();
+  await page.reload();
+  await page.getByRole("button", { name: "I received the test at this destination" }).click();
+  await expect(page.getByRole("button", { name: "Refresh delivery status" })).toBeEnabled();
+  await page.getByRole("button", { name: "Refresh delivery status" }).click();
+  await expect(page.getByRole("status", { name: "Notification readiness" })).toContainText("Receipt confirmed");
+  await page.reload();
+  await expect(page.getByRole("status", { name: "Notification readiness" })).toContainText("Receipt confirmed");
+  expect(sends).toBe(1); expect(confirmations).toBe(1);
+  expect((await status()).state).toBe("confirmed");
+  expect((await (await fetch(daemon.url + "/v1/watches", { headers })).json()).data).toHaveLength(0);
+  const a11y = await new AxeBuilder({ page }).analyze();
+  expect(a11y.violations.filter(v => ["serious", "critical"].includes(v.impact ?? ""))).toEqual([]);
+  await page.screenshot({ path: "/tmp/ding-destination-setup.png", fullPage: true });
+});
+
+test("destination-only setup creates delivery without a watch and blocks the wrong account", async ({ page, daemon }) => {
+  await page.goto(await daemon.launch());
+  await expect(page.getByRole("link", { name: "Create your first watch" })).toBeVisible();
+  await page.goto(daemon.url + "/ui/destination-setup?account=another-account");
+  await expect(page.getByRole("heading", { name: "This setup link belongs to another account or workspace" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create notification destination" })).toHaveCount(0);
+  await page.goto(daemon.url + "/ui/destination-setup");
+  await page.getByLabel("Destination ID", { exact: true }).fill("new-chat-alerts");
+  await page.getByLabel("Delivery type").selectOption("console");
+  await page.getByRole("button", { name: "Create notification destination" }).click();
+  await expect(page).toHaveURL(/destination=new-chat-alerts/);
+  await page.getByRole("button", { name: "Send labeled notification test", exact: true }).click();
+  await page.getByRole("button", { name: "I received the test at this destination" }).click();
+  await expect(page.getByRole("status", { name: "Notification readiness" })).toContainText("Receipt confirmed");
+  const headers = { Authorization: "Bearer " + daemon.token };
+  expect((await (await fetch(daemon.url + "/v1/watches", { headers })).json()).data).toHaveLength(0);
+  expect((await (await fetch(daemon.url + "/v1/console/destinations", { headers })).json()).data.destinations).toHaveLength(1);
 });

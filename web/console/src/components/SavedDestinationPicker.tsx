@@ -3,8 +3,9 @@ import { api } from "../api/client";
 import type { StoreConsoleDestination, StoreDestinationPage } from "../api/contracts";
 import { ErrorBox } from "./common";
 
-export function SavedDestinationPicker({ value, onChange, disabled }: {
+export function SavedDestinationPicker({ value, onChange, disabled, selectedRef }: {
   value?: StoreConsoleDestination;
+  selectedRef?: string;
   onChange: (value?: StoreConsoleDestination) => void;
   disabled?: boolean;
 }) {
@@ -16,9 +17,10 @@ export function SavedDestinationPicker({ value, onChange, disabled }: {
   });
   const destinations = [...new Map(query.data?.pages.flatMap(page => page.destinations).map(d => [d.definition.metadata.id, d])).values()];
   return <>
-    <label>Saved destination<select disabled={disabled} value={value?.definition.metadata.id || ""}
+    <label>Saved destination<select disabled={disabled} value={selectedRef ?? value?.definition.metadata.id ?? ""}
       onChange={event => onChange(destinations.find(d => d.definition.metadata.id === event.target.value))}>
       <option value="">Set up new delivery</option>
+      {selectedRef && !destinations.some(d => d.definition.metadata.id === selectedRef) && <option value={selectedRef}>{selectedRef}</option>}
       {destinations.map(d => <option key={d.definition.metadata.id} value={d.definition.metadata.id}>
         {d.definition.metadata.name || d.definition.metadata.id} ({d.definition.spec.type})
       </option>)}

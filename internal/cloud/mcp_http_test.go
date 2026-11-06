@@ -246,13 +246,13 @@ func TestHostedChatGPTToolOAuth(t *testing.T) {
 				} `json:"tools"`
 			} `json:"result"`
 		}
-		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &envelope) != nil || len(envelope.Result.Tools) != 20 {
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &envelope) != nil || len(envelope.Result.Tools) != 23 {
 			t.Fatal(w.Code, w.Body.String())
 		}
 		for _, tool := range envelope.Result.Tools {
 			want := "ding:inspect"
 			switch tool.Name {
-			case "ding_preview_changes":
+			case "ding_preview_changes", "ding_preview_service_watch":
 				want += " ding:preview"
 			case "ding_apply_changes", "ding_pause_watch", "ding_resume_watch", "ding_delete_watch":
 				want += " ding:manage"

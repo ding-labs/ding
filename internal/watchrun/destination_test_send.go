@@ -11,13 +11,13 @@ import (
 	"github.com/ding-labs/ding/internal/access"
 	"github.com/ding-labs/ding/internal/delivery"
 	"github.com/ding-labs/ding/internal/notify"
-	"github.com/ding-labs/ding/internal/plan"
-	"github.com/ding-labs/ding/internal/source"
 	"github.com/ding-labs/ding/internal/store"
 	"github.com/ding-labs/ding/internal/watch"
 )
 
 type DestinationTestRequest struct {
+	AccountID      string `json:"accountID,omitempty"`
+	WorkspaceID    string `json:"workspaceID,omitempty"`
 	OperationKey   string `json:"operationKey"`
 	DestinationRef string `json:"destinationRef"`
 	Revision       string `json:"revision"`
@@ -30,35 +30,21 @@ func (a *App) TestDestination(ctx context.Context, request DestinationTestReques
 	if err := access.Require(ctx, access.Destinations); err != nil {
 		return probe, err
 	}
-	var destination plan.CompiledDestination
-	if err := a.Store.View(ctx, func(tx *store.Tx) error {
-		var err error
-		destination, err = tx.Destination(request.DestinationRef, "")
-		return err
-	}); err != nil {
+	principal, _ := access.FromContext(ctx)
+	if (request.AccountID != "" || request.WorkspaceID != "") && !interactiveDestinationPrincipal(principal) {
+		return probe, access.ErrDenied
+	}
+	if request.AccountID != "" && request.AccountID != principal.User || request.WorkspaceID != "" && request.WorkspaceID != principal.Workspace {
+		return probe, access.ErrDenied
+	}
+	destination, endpoint, headers, err := a.destinationMaterial(ctx, request.DestinationRef)
+	if err != nil {
 		return probe, err
 	}
 	if request.Revision == "" || request.Revision != destination.Revision {
 		return probe, store.ErrConflict
 	}
 	spec := destination.Definition.Spec
-	headers := make(http.Header)
-	endpoint := ""
-	if spec.Type != "console" && spec.Type != "desktop" {
-		var err error
-		endpoint, err = source.Resolve(spec.URLRef, a.Lookup)
-		if err != nil || source.URL(endpoint) != nil {
-			return probe, fmt.Errorf("destination endpoint or credential is unavailable")
-		}
-		for name, ref := range spec.Headers {
-			value, err := source.Resolve(&ref, a.Lookup)
-			if err != nil {
-				return probe, fmt.Errorf("destination header credential is unavailable")
-			}
-			headers.Set(name, value)
-		}
-	}
-	principal, _ := access.FromContext(ctx)
 	identity, err := json.Marshal([]any{principal.User, principal.Grant, destination, endpoint, headers})
 	if err != nil {
 		return probe, err
@@ -73,7 +59,12 @@ func (a *App) TestDestination(ctx context.Context, request DestinationTestReques
 		if current.Revision != request.Revision {
 			return store.ErrConflict
 		}
-		probe, start, err = tx.BeginDestinationProbe(request.OperationKey, digest, a.Now())
+		if interactiveDestinationPrincipal(principal) {
+			setup := destinationBinding(principal, destination, endpoint, headers)
+			probe, start, err = tx.BeginSetupProbe(request.OperationKey, digest, setup, a.Now())
+		} else {
+			probe, start, err = tx.BeginDestinationProbe(request.OperationKey, digest, a.Now())
+		}
 		return err
 	})
 	if err != nil || !start {

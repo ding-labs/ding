@@ -11,6 +11,7 @@ import (
 	"github.com/ding-labs/ding/internal/access"
 	"time"
 
+	"github.com/ding-labs/ding/internal/onboarding"
 	"github.com/ding-labs/ding/internal/plan"
 	"github.com/ding-labs/ding/internal/replay"
 	"github.com/ding-labs/ding/internal/store"
@@ -203,8 +204,14 @@ func integrationHandler(app *watchrun.App, c Credentials, base http.Handler) htt
 		}
 		TransferStep(w, r, app, reader)
 	})
+	mux.HandleFunc("GET /v1/integrations/destination-status", func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := access(w, r, "inspect"); !ok {
+			return
+		}
+		DestinationSetupStatus(w, r, app)
+	})
 	slots := make(chan struct{}, 2)
-	mux.HandleFunc("POST /v1/integrations/preview", func(w http.ResponseWriter, r *http.Request) {
+	preview := func(w http.ResponseWriter, r *http.Request) {
 		g, ok := access(w, r, "preview")
 		if !ok {
 			return
@@ -220,7 +227,24 @@ func integrationHandler(app *watchrun.App, c Credentials, base http.Handler) htt
 		defer cancel()
 		var req ToolRequest
 		limits := app.Integration
-		if decodeBounded(w, r, &req, int64(limits.MaxRequestBytes)) != nil || len(req.Manifest) > limits.MaxManifestBytes || len(req.Fixture) > limits.MaxFixtureBytes || len(req.Evidence) > 0 {
+		service := r.URL.Path == "/v1/integrations/preview/service"
+		if service {
+			var starter onboarding.ServiceRequest
+			if decodeBounded(w, r, &starter, 8192) != nil {
+				fail(w, 400, "invalid_request", "provide a watch ID, endpoint URL, saved destination reference, and optional expected status")
+				return
+			}
+			var err error
+			req.Manifest, err = onboarding.ServiceManifest(starter, limits.Execution)
+			if err != nil {
+				fail(w, 400, "invalid_request", err.Error())
+				return
+			}
+		} else if decodeBounded(w, r, &req, int64(limits.MaxRequestBytes)) != nil {
+			fail(w, 400, "invalid_request", "invalid preview request")
+			return
+		}
+		if len(req.Manifest) > limits.MaxManifestBytes || len(req.Fixture) > limits.MaxFixtureBytes || len(req.Evidence) > 0 {
 			fail(w, 400, "invalid_request", fmt.Sprintf("preview permits %d manifest bytes and %d fixture bytes within %d encoded request bytes", limits.MaxManifestBytes, limits.MaxFixtureBytes, limits.MaxRequestBytes))
 			return
 		}
@@ -249,13 +273,23 @@ func integrationHandler(app *watchrun.App, c Credentials, base http.Handler) htt
 			}
 			fixture = map[string]any{"watchId": report.WatchID, "revision": report.Revision, "observations": report.Observations, "eventCount": len(report.Events), "events": report.Events[:min(20, len(report.Events))], "truncated": len(report.Events) > 20}
 		}
-		out, err := app.PreviewIntegration(ctx, g.ID, req.Manifest)
+		previewWatch := app.PreviewIntegration
+		if service {
+			previewWatch = app.PreviewNewServiceIntegration
+		}
+		out, err := previewWatch(ctx, g.ID, req.Manifest)
 		if err != nil {
 			integrationError(w, err)
 			return
 		}
-		write(w, 200, map[string]any{"valid": true, "preview": out, "descriptions": compiled.Descriptions, "fixture": fixture}, nil)
-	})
+		result := map[string]any{"valid": true, "preview": out, "descriptions": compiled.Descriptions, "fixture": fixture}
+		if service {
+			result["manifest"] = req.Manifest
+		}
+		write(w, 200, result, nil)
+	}
+	mux.HandleFunc("POST /v1/integrations/preview", preview)
+	mux.HandleFunc("POST /v1/integrations/preview/service", preview)
 	mux.HandleFunc("POST /v1/integrations/apply", func(w http.ResponseWriter, r *http.Request) {
 		g, ok := access(w, r, "manage")
 		if !ok {

@@ -120,3 +120,24 @@ func TestAmbiguousWritesAndResponseBounds(t *testing.T) {
 type brokenReader struct{}
 
 func (brokenReader) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
+
+func TestPreviewTransportFailuresAreNotAmbiguousWrites(t *testing.T) {
+	for _, path := range []string{"/preview", "/preview/service"} {
+		t.Run(path, func(t *testing.T) {
+			c := New(connection("http://127.0.0.1:7676"))
+			defer c.Close()
+			called := false
+			c.HTTP.Transport = roundTrip(func(r *http.Request) (*http.Response, error) {
+				called = true
+				if r.URL.Path != "/v1/integrations"+path {
+					t.Error("wrong route", r.URL.Path)
+				}
+				return nil, errors.New("private upstream detail")
+			})
+			_, err := c.Call(context.Background(), "POST", path, nil, map[string]any{})
+			if !called || err == nil || !strings.HasPrefix(err.Error(), "daemon_unavailable:") || strings.Contains(err.Error(), "private") {
+				t.Fatal("preview classified as a write or bypassed transport", err)
+			}
+		})
+	}
+}

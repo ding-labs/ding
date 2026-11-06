@@ -17,7 +17,9 @@ type DestinationProbe struct {
 
 type destinationProbeRecord struct {
 	DestinationProbe
-	Digest string `json:"digest"`
+	Digest      string            `json:"digest"`
+	Setup       *DestinationSetup `json:"setup,omitempty"`
+	ConfirmedAt *time.Time        `json:"confirmedAt,omitempty"`
 }
 
 var destinationProbeKey = regexp.MustCompile(`^[A-Za-z0-9_-]{16,128}$`)
@@ -51,7 +53,7 @@ func (t *Tx) BeginDestinationProbe(id, digest string, now time.Time) (Destinatio
 	if count >= 1000 {
 		return p, false, fmt.Errorf("destination test receipt limit reached")
 	}
-	data, err := json.Marshal(destinationProbeRecord{p, digest})
+	data, err := json.Marshal(destinationProbeRecord{DestinationProbe: p, Digest: digest})
 	if err != nil {
 		return p, false, err
 	}

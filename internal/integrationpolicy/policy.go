@@ -15,6 +15,7 @@ type Profile struct {
 const (
 	CloudManifestBytes = 64 << 10
 	CloudFixtureBytes  = 64 << 10
+	CloudResponseBytes = 1 << 20
 	// Fits both fields even with six-byte JSON escaping, plus the MCP envelope.
 	// Individual field limits still apply before parsing or evaluation.
 	CloudRequestBytes = 1 << 20

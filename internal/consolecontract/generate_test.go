@@ -15,3 +15,10 @@ func TestGeneratedContractsCurrent(t *testing.T) {
 		t.Fatal("console contracts changed: run go run ./cmd/console-contract")
 	}
 }
+
+func TestEmbeddedReadinessMatchesJSONContract(t *testing.T) {
+	generated := Generate()
+	if !bytes.Contains(generated, []byte("interface WatchrunDestinationSetupStatus extends StoreDestinationReadiness {")) || bytes.Contains(generated, []byte("DestinationReadiness: StoreDestinationReadiness")) {
+		t.Fatal("embedded readiness must be flattened like encoding/json, not nested")
+	}
+}

@@ -27,6 +27,7 @@ import { CommandMenu, type Preference } from "../components/CommandMenu";
 import { AccountMenu } from "../components/AccountMenu";
 import { System } from "../pages/System";
 import { Workbench } from "../pages/Workbench";
+import { DestinationSetup } from "../pages/DestinationSetup";
 import { FirstWatch } from "../pages/FirstWatch";
 import { CloudFirstWatch } from "../pages/CloudFirstWatch";
 import { resetDraft } from "./draft";
@@ -211,7 +212,7 @@ export function App() {
         <div className="workspace">
           <header className="location-bar">
             <div className="header-context">
-              {execution.mode === "local" ? <div className="location-crumb">Console <span>/</span> {location.pathname === "/settings" ? "Settings" : current?.label || "Watches"}</div> : (memberships?.length || 0) > 1 ? (
+              {execution.mode === "local" ? <div className="location-crumb">Console <span>/</span> {location.pathname === "/destination-setup" ? "Notification setup" : location.pathname === "/settings" ? "Settings" : current?.label || "Watches"}</div> : (memberships?.length || 0) > 1 ? (
                 <select className="workspace-selector" aria-label="Workspace" title={workspaceName} value={execution.workspace || ""} onChange={async e => {
                   const next = e.target.value; setSession("loading");
                   await client.cancelQueries(); selectWorkspace(next); client.clear(); resetDraft(); sessionAttempt = undefined; establish();
@@ -268,6 +269,7 @@ export function App() {
               <Route path="/deliveries" element={<Deliveries />} />
               <Route path="/deliveries/:id" element={<DeliveryDetail />} />
               <Route path="/workbench" element={execution.mode === "local" || execution.capabilities?.includes("preview") ? <Workbench /> : <Navigate to="/watches" replace />} />
+              <Route path="/destination-setup" element={<DestinationSetup />} />
               <Route path="/start" element={execution.mode === "cloud" ? <CloudFirstWatch /> : execution.mode === "shared" ? <Workbench /> : <FirstWatch />} />
               <Route path="/system" element={<System />} />
               <Route path="/settings" element={<Settings workspaceName={workspaceName} preferences={preferences}
