@@ -57,7 +57,18 @@ func Generate() []byte {
 			}
 			definitions[name] = ""
 			var out strings.Builder
-			fmt.Fprintf(&out, "export interface %s {\n", name)
+			bases := []string{}
+			for i := 0; i < t.NumField(); i++ {
+				f := t.Field(i)
+				if f.IsExported() && f.Anonymous && f.Type.Kind() == reflect.Struct && strings.Split(f.Tag.Get("json"), ",")[0] == "" {
+					bases = append(bases, typeOf(f.Type))
+				}
+			}
+			extension := ""
+			if len(bases) > 0 {
+				extension = " extends " + strings.Join(bases, ", ")
+			}
+			fmt.Fprintf(&out, "export interface %s%s {\n", name, extension)
 			for i := 0; i < t.NumField(); i++ {
 				f := t.Field(i)
 				if !f.IsExported() {
@@ -65,7 +76,7 @@ func Generate() []byte {
 				}
 				parts := strings.Split(f.Tag.Get("json"), ",")
 				field := parts[0]
-				if field == "-" {
+				if field == "-" || (field == "" && f.Anonymous && f.Type.Kind() == reflect.Struct) {
 					continue
 				}
 				if field == "" {
@@ -84,7 +95,7 @@ func Generate() []byte {
 			panic("unsupported API type " + t.String())
 		}
 	}
-	for _, v := range []any{control.LogPreview{}, demo.Update{}, notify.Settings{}, control.LocalUpdates{}, control.FirstWatchPreview{}, store.WatchPage{}, store.EventSummaryPage{}, store.DeliveryPage{}, store.DestinationPage{}, watchrun.Status{}, control.BackupArtifact{}, control.CompileResult{}, control.Verification{}, control.Info{}, control.BrowserSession{}, plan.Bundle{}, watch.Definition{}, watch.Event{}, watch.Observation{}, store.WatchSummary{}, store.DeliveryInspection{}, store.EventPage{}, store.ObservationPage{}, watchrun.Doctor{}, watchrun.ApplyRequest{}, watchrun.ApplyResult{}, replay.Evidence{}, replay.Report{}} {
+	for _, v := range []any{control.LogPreview{}, demo.Update{}, notify.Settings{}, control.LocalUpdates{}, control.FirstWatchPreview{}, watchrun.DestinationSetupStatus{}, store.WatchPage{}, store.EventSummaryPage{}, store.DeliveryPage{}, store.DestinationPage{}, watchrun.Status{}, control.BackupArtifact{}, control.CompileResult{}, control.Verification{}, control.Info{}, control.BrowserSession{}, plan.Bundle{}, watch.Definition{}, watch.Event{}, watch.Observation{}, store.WatchSummary{}, store.DeliveryInspection{}, store.EventPage{}, store.ObservationPage{}, watchrun.Doctor{}, watchrun.ApplyRequest{}, watchrun.ApplyResult{}, replay.Evidence{}, replay.Report{}} {
 		typeOf(reflect.TypeOf(v))
 	}
 	names := make([]string, 0, len(definitions))

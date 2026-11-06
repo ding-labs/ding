@@ -283,6 +283,19 @@ export interface StoreDestinationPage {
   more: boolean;
 }
 
+export interface StoreDestinationProbe {
+  id: string;
+  outcome: string;
+  at: string;
+}
+
+export interface StoreDestinationReadiness {
+  state: string;
+  probe?: StoreDestinationProbe | null;
+  confirmedAt?: string | null;
+  expiresAt?: string | null;
+}
+
 export interface StoreEntitySummary {
   waitingReason?: string;
   key: string;
@@ -596,6 +609,14 @@ export interface WatchrunChange {
 export interface WatchrunCredentialHealth {
   environment: string;
   present: boolean;
+}
+
+export interface WatchrunDestinationSetupStatus extends StoreDestinationReadiness {
+  accountID: string;
+  workspaceID: string;
+  destinationRef: string;
+  revision?: string;
+  setupURL: string;
 }
 
 export interface WatchrunDoctor {
