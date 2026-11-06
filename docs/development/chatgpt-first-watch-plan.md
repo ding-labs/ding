@@ -2,8 +2,10 @@
 
 Proposed November 5, 2026. Implements outcome 2 of the
 [adoption plan](developer-adoption-plan.md). Increments 1–3 now have implementation
-and automated qualification as recorded below. The remaining behavior and real-host
-qualification are still planned.
+and automated qualification as recorded below. The packaged journey is now deployed
+and has an assisted owner-session ChatGPT result; see the
+[live qualification record](chatgpt-journey-qualification.md). Independent new-user
+qualification and the remaining host/failure scenarios are still pending.
 
 ## Outcome and boundaries
 
