@@ -70,6 +70,7 @@ func (b *Bridge) server(version, html string) (*mcp.Server, error) {
 		return nil, err
 	}
 	catalog = mcpcontract.Cloud(mcpcontract.TransferInspection(mcpcontract.DestinationSetup(mcpcontract.ServicePreview(catalog))))
+	catalog = mcpcontract.BindUI(catalog, html)
 	s := mcp.NewServer(&mcp.Implementation{Name: "Ding", Version: version}, &mcp.ServerOptions{Instructions: mcpcontract.Instructions + " This adapter has separate local and cloud connections. Always supply connection_id. A cloud error never selects the local instance. Discover connections before choosing where a watch should run."})
 	s.AddReceivingMiddleware(func(next mcp.MethodHandler) mcp.MethodHandler {
 		return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
@@ -120,11 +121,13 @@ func (b *Bridge) server(version, html string) (*mcp.Server, error) {
 		return nil, mcpcontract.View{View: "connections", Query: map[string]any{}, Data: map[string]any{"connections": []any{map[string]any{"id": "local", "name": "This computer"}, map[string]any{"id": "cloud", "name": "Ding Cloud"}}}, EvidenceNotice: mcpcontract.EvidenceNotice}, nil
 	})
 	if html != "" {
-		s.AddResource(catalog.Resources[0], func(context.Context, *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-			content := *catalog.ResourceContents[0]
-			content.Text = html
-			return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{&content}}, nil
-		})
+		for i, resource := range catalog.Resources {
+			s.AddResource(resource, func(context.Context, *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+				content := *catalog.ResourceContents[i]
+				content.Text = html
+				return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{&content}}, nil
+			})
+		}
 	}
 	return s, nil
 }
