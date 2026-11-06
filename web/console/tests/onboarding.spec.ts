@@ -1,6 +1,43 @@
 import { test, expect } from "./fixtures";
 import AxeBuilder from "@axe-core/playwright";
 
+test("onboarding reuses a saved destination and reconciles a lost test response", async ({ page, daemon }) => {
+  const manifest = "apiVersion: ding.ing/v1alpha1\nkind: Destination\nmetadata: {id: saved-console}\nspec: {type: console}\n";
+  const seed = await fetch(daemon.url + "/v1/apply", { method: "POST", headers: { Authorization: "Bearer " + daemon.token, "Content-Type": "application/json" }, body: JSON.stringify({ manifest }) });
+  expect(seed.ok).toBeTruthy();
+  const readDestinations = async () => {
+    const r = await fetch(daemon.url + "/v1/console/destinations", { headers: { Authorization: "Bearer " + daemon.token } });
+    return (await r.json()).data.destinations;
+  };
+  const before = await readDestinations();
+  const keys: string[] = [];
+  await page.route("**/v1/onboarding/destination-test", async route => {
+    keys.push(route.request().postDataJSON().operationKey);
+    const response = await route.fetch();
+    if (keys.length === 1) await route.abort();
+    else await route.fulfill({ response });
+  });
+  await page.goto(await daemon.launch());
+  await page.getByRole("link", { name: "Create your first watch" }).click();
+  await page.getByLabel("Health endpoint").fill(daemon.webhookURL);
+  await page.getByLabel("Saved destination").selectOption("saved-console");
+  await page.getByRole("button", { name: "Preview watch", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Start this watch" })).toBeDisabled();
+  await page.getByRole("button", { name: "Send saved destination test" }).click();
+  await page.getByRole("button", { name: "Check saved destination test outcome" }).click();
+  await expect(page.getByRole("button", { name: "Start this watch" })).toBeDisabled();
+  await page.getByLabel("I received the test at this destination").check();
+  await page.getByRole("button", { name: "Start this watch" }).click();
+  await expect(page).toHaveURL(/watches\/first-watch$/);
+  expect(keys).toHaveLength(2);
+  expect(keys[0]).toBe(keys[1]);
+  const after = await readDestinations();
+  expect(after).toHaveLength(1);
+  expect(after[0].revision).toBe(before[0].revision);
+  expect(after[0].definition).toEqual(before[0].definition);
+  expect(after[0].watches).toBe(1);
+});
+
 test("first useful watch is reviewed and observed without an account", async ({ page, daemon }) => {
   await page.goto(await daemon.launch());
   await page.getByRole("link", { name: "Create your first watch" }).click();
