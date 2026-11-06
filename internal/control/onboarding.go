@@ -19,6 +19,7 @@ type FirstWatchPreview struct {
 }
 
 func onboardingRoutes(mux *http.ServeMux, app *watchrun.App) {
+	destinationSetupRoutes(mux, app)
 	mux.HandleFunc("POST /v1/onboarding/destination-test", func(w http.ResponseWriter, r *http.Request) {
 		var req watchrun.DestinationTestRequest
 		if decodeBounded(w, r, &req, 8192) != nil {

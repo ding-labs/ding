@@ -99,6 +99,7 @@ func postgresSetup(t *testing.T) (*App, string) {
 	}
 	t.Cleanup(func() { s.Close() })
 	a := New(s)
+	a.Integration.Workspace = id
 	a.Now = func() time.Time { return start }
 	dir := t.TempDir()
 	postgresReopen.Store(dir, func(ctx context.Context) (*store.Store, error) { return store.OpenPostgres(ctx, pool, id) })
