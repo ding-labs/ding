@@ -30,3 +30,11 @@ not_found_handling = "404-page"
 
 [env.preview.vars]
 PREVIEW = "true"
+
+[[d1_databases]]
+binding = "FUNNEL"
+database_name = "ding-homepage-analytics"
+database_id = "d8bf814c-6731-4c87-a075-5b53cca99986"
+
+[triggers]
+crons = ["17 4 * * *"]
