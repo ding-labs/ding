@@ -68,3 +68,13 @@ test("only signed WorkOS creations count and a signed callback links the browser
   assert.deepEqual(Object.values(raw.prepare("SELECT * FROM homepage_funnel_30d").get()),[0,0,0,0]);
   raw.close();
 });
+
+test("the documented browser exclusion URL serves a form and confirms a same-origin opt-out", async () => {
+  const url="https://ding.ing/analytics/exclude";
+  const form=await homepageFunnel(new Request(url),{});
+  assert.equal(form.status,200);
+  assert.match(await form.text(),/<form method="post">/);
+  const result=await homepageFunnel(new Request(url,{method:"POST",headers:{Origin:"https://ding.ing"}}),{});
+  assert.match(result.headers.get("Set-Cookie"),/__Host-ding-funnel-off=1/);
+  assert.match(await result.text(),/This browser is excluded/);
+});

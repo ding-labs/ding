@@ -25,6 +25,9 @@ def resolve(url):
     path=unquote(parsed.path)
     if parsed.hostname=='ding.ing' and path.rstrip('/') in REDIRECTS:
         return resolve(REDIRECTS[path.rstrip('/')])
+    # This preference page is rendered from a browser cookie by the website Worker.
+    # Its GET and POST routes are exercised by the website suite.
+    if parsed.hostname=='ding.ing' and path=='/analytics/exclude' and not parsed.fragment:return None
     root=ORIGINS[parsed.hostname]
     target=(root/path.lstrip('/')).resolve()
     if not target.is_relative_to(root.resolve()):return False
