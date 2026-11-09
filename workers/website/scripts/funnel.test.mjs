@@ -37,3 +37,34 @@ test("a real homepage button click gets a handoff while crawlers, prefetched lin
   }
   assert.equal(batches, 1);
 });
+
+import { createHash, createHmac } from "node:crypto";
+import { signupEvent } from "../src/signup.js";
+test("only signed WorkOS creations count and a signed callback links the browser independently of event order", async () => {
+  const raw = new DatabaseSync(":memory:");
+  raw.exec(migration);
+  const db = {
+    prepare(sql) { return {bind(...args) { return {run: () => raw.prepare(sql).run(...args)}; }}; },
+    batch(stmts) { return stmts.map(s => s.run()); },
+  };
+  const env = {FUNNEL:db, FUNNEL_WORKOS_SECRET:"workos", FUNNEL_RECEIPT_SECRET:"cloud"};
+  const browser = crypto.randomUUID(), handoff = crypto.randomUUID(), user = "user_Example";
+  const account = createHash("sha256").update(user).digest("hex");
+  raw.prepare("INSERT INTO homepage_landings VALUES (?,date('now'))").run(browser);
+  raw.prepare("INSERT INTO homepage_clicks(handoff,browser,clicked_at) VALUES (?,?,unixepoch()-5)").run(handoff,browser);
+  async function post(path, header, secret, payload) {
+    const time = Date.now(), body = JSON.stringify(payload);
+    const sig = createHmac("sha256",secret).update(time+"."+body).digest("hex");
+    const req = new Request("https://ding.ing"+path,{method:"POST",body,headers:{[header]:`t=${time}, v1=${sig}`}});
+    return (await signupEvent(req,env,path)).status;
+  }
+  const event = {event:"user.created",data:{object:"user",id:user,created_at:new Date().toISOString()}};
+  assert.equal(await post("/_funnel/workos","WorkOS-Signature","wrong",event),401);
+  assert.equal(await post("/_funnel/verified","Ding-Signature","cloud",{account,handoff}),204);
+  for(let i=0;i<2;i++) assert.equal(await post("/_funnel/workos","WorkOS-Signature","workos",event),204);
+  assert.equal(raw.prepare("SELECT signed_up_from_button FROM homepage_funnel_30d").get().signed_up_from_button,1);
+  raw.prepare("INSERT INTO excluded_accounts VALUES (?)").run(account);
+  await post("/_funnel/verified","Ding-Signature","cloud",{account,handoff});
+  assert.deepEqual(Object.values(raw.prepare("SELECT * FROM homepage_funnel_30d").get()),[0,0,0,0]);
+  raw.close();
+});

@@ -1,3 +1,5 @@
+import { signupEvent } from "./signup.js";
+
 const login = "https://cloud.ding.ing/auth/login";
 const origin = "https://ding.ing";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -31,6 +33,7 @@ function toLogin(handoff) {
 
 export async function homepageFunnel(request, env) {
   const {pathname} = new URL(request.url);
+  if (pathname === "/_funnel/workos" || pathname === "/_funnel/verified") return signupEvent(request, env, pathname);
   const browser = cookie(request, "__Host-ding-visit");
   if (pathname === "/go/cloud") {
     if (request.method !== "GET" || !uuid.test(browser) || !eligible(request) || !fromHomepage(request) ||
