@@ -16,6 +16,7 @@ import (
 // requires an explicit capacity and uses hosted sign-in exclusively.
 func configureMCP(c *cloud.Config, get func(string) string) error {
 	c.AuthKitAPIKey = get("DING_AUTHKIT_API_KEY")
+	c.HomepageFunnelKey = get("DING_HOMEPAGE_FUNNEL_KEY")
 	decode := func(raw string, dest any) error {
 		if len(raw) > 16<<10 {
 			return fmt.Errorf("OAuth configuration exceeds 16 KiB")

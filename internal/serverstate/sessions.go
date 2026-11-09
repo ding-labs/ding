@@ -92,10 +92,10 @@ func (d *DB) RevokeSession(ctx context.Context, token string) error {
 	return err
 }
 
-type Login struct{ Verifier, Nonce, ReturnPath string }
+type Login struct{ Verifier, Nonce, ReturnPath, HomepageHandoff string }
 
 func (v *Vault) BeginLogin(ctx context.Context, state string, login Login, now time.Time) error {
-	if len(state) != 64 || len(login.Verifier) > 128 || len(login.Nonce) != 64 || len(login.ReturnPath) > 256 {
+	if len(state) != 64 || len(login.Verifier) > 128 || len(login.Nonce) != 64 || len(login.ReturnPath) > 256 || len(login.HomepageHandoff) > 36 {
 		return fmt.Errorf("invalid login transaction")
 	}
 	data, err := json.Marshal(login)

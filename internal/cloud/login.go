@@ -1,9 +1,11 @@
 package cloud
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"github.com/ding-labs/ding/internal/identity"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -19,6 +21,7 @@ const csrfCookie = "__Host-ding-csrf"
 const loginCookie = "__Host-ding-login"
 
 type LoginFlow struct {
+	homepage        *homepageAnalytics
 	Shared          bool
 	EnrollmentLimit *int
 	DB              *state.DB
@@ -46,6 +49,9 @@ func (f LoginFlow) Begin(w http.ResponseWriter, r *http.Request) {
 	back := loginReturnPath(r.URL.Query().Get("return"))
 	id := state.ID()
 	login := state.Login{Nonce: state.ID(), Verifier: oauth2.GenerateVerifier(), ReturnPath: back}
+	if h := r.URL.Query().Get("homepage_handoff"); f.homepage != nil && homepageHandoff.MatchString(h) {
+		login.HomepageHandoff = h
+	}
 	if err := f.Vault.BeginLogin(r.Context(), id, login, time.Now()); err != nil {
 		cloudFail(w, 503, "login_unavailable", "Sign-in is temporarily unavailable. Local watches continue running.")
 		return
@@ -114,6 +120,16 @@ func (f LoginFlow) Callback(w http.ResponseWriter, r *http.Request) {
 	cookie(w, sessionCookie, session.Token, session.ExpiresAt)
 	cookie(w, csrfCookie, session.CSRF, session.ExpiresAt)
 	http.Redirect(w, r, login.ReturnPath, http.StatusFound)
+	if f.homepage != nil && login.HomepageHandoff != "" {
+		// Release the redirect before recording attribution. A measurement
+		// outage cannot prevent a verified user from reaching their Console.
+		_ = http.NewResponseController(w).Flush()
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 4*time.Second)
+		defer cancel()
+		if err := f.homepage.confirm(ctx, identity.Subject, login.HomepageHandoff); err != nil {
+			log.Print("homepage signup attribution unavailable")
+		}
+	}
 }
 
 // Only explicit Console setup coordinates may survive sign-in. They identify a

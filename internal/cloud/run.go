@@ -25,6 +25,7 @@ import (
 )
 
 type Config struct {
+	HomepageFunnelKey   string                 `json:"homepageFunnelKey,omitempty"`
 	Database            database.Config        `json:"database,omitempty"`
 	Capacity            hostingpolicy.Capacity `json:"capacity,omitempty"`
 	Push                PushConfig             `json:"push,omitempty"`
@@ -274,6 +275,9 @@ func Run(ctx context.Context, c Config, version string, out io.Writer) error {
 	}
 	app := &Server{Push: c.Push, OpenAIAppsChallenge: c.OpenAIAppsChallenge, AuthKitClients: slices.Clone(c.AuthKitClients), MCPBridgeClients: c.MCPBridgeClients, Railway: c.Deployment == "railway", LoginMethods: c.LoginMethods, Shared: pool.Shared, Name: c.Name, DB: db, Vault: vault, Pool: pool, PublicURL: c.PublicURL, Version: version, Assets: assets, Login: LoginFlow{DB: db, Vault: vault, Provider: provider, EnrollmentLimit: c.EnrollmentLimit, Shared: pool.Shared}}
 	app.AuthKitIssuer = c.Identity.Issuer
+	if c.HomepageFunnelKey != "" && c.PublicURL == "https://cloud.ding.ing" && c.Hosting == "cloud" {
+		app.Login.homepage = newHomepageAnalytics(c.HomepageFunnelKey)
+	}
 	if c.AuthKitAPIKey != "" {
 		app.ConsentRevoker = authkit.NewRevoker(c.AuthKitAPIKey)
 	}
