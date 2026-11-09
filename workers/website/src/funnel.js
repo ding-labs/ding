@@ -2,7 +2,7 @@ const login = "https://cloud.ding.ing/auth/login";
 const origin = "https://ding.ing";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const noStore = {"Cache-Control": "private, no-store"};
-const optOut = "__Host-ding-funnel-off=1; Path=/; Max-Age=31536000; Secure; HttpOnly; SameSite=Lax";
+const optOut = "__Host-ding-funnel-off=1; Path=/; Max-Age=31536000; Secure; SameSite=Lax";
 
 function cookie(request, name) {
   return (request.headers.get("Cookie") || "").split(";").map(x => x.trim())
@@ -10,7 +10,7 @@ function cookie(request, name) {
 }
 
 function eligible(request) {
-  return !request.cf?.botManagement?.verifiedBot &&
+  return request.headers.get("Sec-GPC") !== "1" && !request.cf?.botManagement?.verifiedBot &&
     !/bot\b|crawler|spider|headless|lighthouse|pagespeed|prerender/i.test(request.headers.get("User-Agent") || "") &&
     !/prefetch|prerender/i.test([request.headers.get("Purpose"), request.headers.get("Sec-Purpose")].join(" ")) &&
     cookie(request, "__Host-ding-funnel-off") !== "1";

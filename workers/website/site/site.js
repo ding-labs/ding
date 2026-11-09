@@ -84,6 +84,7 @@ if (location.origin === "https://ding.ing" && location.pathname === "/" && !navi
   function measureHomepage() {
     if (document.visibilityState !== "visible") return;
     document.removeEventListener("visibilitychange", measureHomepage);
+    if (document.cookie.split("; ").includes("__Host-ding-funnel-off=1")) return;
     let id = document.cookie.match(/(?:^|; )__Host-ding-visit=([^;]+)/)?.[1];
     if (!id) {
       id = crypto.randomUUID();

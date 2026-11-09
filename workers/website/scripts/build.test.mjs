@@ -93,6 +93,7 @@ test("every public page offers Cloud account access and the homepage leads with 
     const content = home.match(new RegExp(`<section class="${section}"[\\s\\S]*?</section>`))?.[0];
     assert.ok(content, `homepage has a ${section}`);
     assert.equal(content.match(/<a class="button primary" href="([^"]+)"/)?.[1], accountUrl);
+    assert.match(content, /data-cloud-start\s*>Get started with Ding Cloud/);
     assert.ok(content.includes(`href="${docsOrigin}${product.installPath}"`), "local installation remains available");
   }
 });

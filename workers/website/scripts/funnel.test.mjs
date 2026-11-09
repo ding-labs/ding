@@ -22,3 +22,18 @@ test("the rolling funnel deduplicates browsers and accounts and excludes owner a
   });
   db.close();
 });
+
+import { homepageFunnel } from "../src/funnel.js";
+
+test("a real homepage button click gets a handoff while crawlers, prefetched links and excluded browsers keep the direct login", async () => {
+  const browser = crypto.randomUUID();
+  const headers = {Cookie: `__Host-ding-visit=${browser}`, Referer: "https://ding.ing/", "Sec-Fetch-Dest": "document", "User-Agent": "Firefox"};
+  let batches = 0;
+  const FUNNEL = {prepare: () => ({bind: () => ({})}), batch: async () => { batches++; }};
+  const click = extra => homepageFunnel(new Request("https://ding.ing/go/cloud", {headers: {...headers,...extra}}), {FUNNEL});
+  assert.match((await click({})).headers.get("Location"), /\/auth\/login\?homepage_handoff=[a-f0-9-]{36}$/);
+  for (const extra of [{"Sec-Purpose":"prefetch"}, {"User-Agent":"ExampleCrawler"}, {Cookie: headers.Cookie+"; __Host-ding-funnel-off=1"}, {Referer:"https://elsewhere.example/"}, {"Sec-GPC":"1"}]) {
+    assert.equal((await click(extra)).headers.get("Location"), "https://cloud.ding.ing/auth/login");
+  }
+  assert.equal(batches, 1);
+});
