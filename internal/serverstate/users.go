@@ -77,26 +77,33 @@ func (d *DB) IdentityUser(ctx context.Context, issuer, subject string) (User, er
 // IdentitySubject resolves only a previously verified identity at the pinned
 // issuer. An email address or a caller-supplied provider user ID is never used.
 func (d *DB) IdentitySubject(ctx context.Context, user, issuer string) (string, error) {
-	rows, err := d.sql.QueryContext(ctx, d.query(qIdentitySubject1), user, issuer)
+	subjects, err := d.IdentitySubjects(ctx, user, issuer)
 	if err != nil {
 		return "", err
 	}
-	defer rows.Close()
-	var subject string
-	n := 0
-	for rows.Next() {
-		if err := rows.Scan(&subject); err != nil {
-			return "", err
-		}
-		n++
-	}
-	if err := rows.Err(); err != nil {
-		return "", err
-	}
-	if n != 1 {
+	if len(subjects) != 1 {
 		return "", fmt.Errorf("one verified provider identity is required")
 	}
-	return subject, nil
+	return subjects[0], nil
+}
+
+// IdentitySubjects returns the verified identities linked to an active Ding
+// user at the configured issuer. An account may have multiple login methods.
+func (d *DB) IdentitySubjects(ctx context.Context, user, issuer string) ([]string, error) {
+	rows, err := d.sql.QueryContext(ctx, d.query(qIdentitySubject1), user, issuer)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var subjects []string
+	for rows.Next() {
+		var subject string
+		if err := rows.Scan(&subject); err != nil {
+			return nil, err
+		}
+		subjects = append(subjects, subject)
+	}
+	return subjects, rows.Err()
 }
 
 func (d *DB) IdentityWorkspace(ctx context.Context, issuer, subject string) (Enrollment, error) {

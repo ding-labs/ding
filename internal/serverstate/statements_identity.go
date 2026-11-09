@@ -14,7 +14,7 @@ var qEnroll6 = statement{sqlite: `INSERT INTO memberships(user,workspace,role) V
 
 var qIdentityUser1 = statement{sqlite: `SELECT u.id,u.name,COALESCE(u.username,''),u.disabled FROM users u JOIN identities i ON i.user=u.id WHERE i.issuer=? AND i.subject=? AND u.disabled=0`, postgres: `SELECT u.id,u.name,COALESCE(u.username,''),u.disabled FROM ding_control.users u JOIN ding_control.identities i ON i.ding_user=u.id WHERE i.issuer=$1 AND i.subject=$2 AND u.disabled=false`}
 
-var qIdentitySubject1 = statement{sqlite: `SELECT i.subject FROM identities i JOIN users u ON u.id=i.user WHERE i.user=? AND i.issuer=? AND u.disabled=0 LIMIT 2`, postgres: `SELECT i.subject FROM ding_control.identities i JOIN ding_control.users u ON u.id=i.ding_user WHERE i.ding_user=$1 AND i.issuer=$2 AND u.disabled=false LIMIT 2`}
+var qIdentitySubject1 = statement{sqlite: `SELECT i.subject FROM identities i JOIN users u ON u.id=i.user WHERE i.user=? AND i.issuer=? AND u.disabled=0 ORDER BY i.subject`, postgres: `SELECT i.subject FROM ding_control.identities i JOIN ding_control.users u ON u.id=i.ding_user WHERE i.ding_user=$1 AND i.issuer=$2 AND u.disabled=false ORDER BY i.subject`}
 
 var qIdentityWorkspace1 = statement{sqlite: `SELECT w.id,w.name,w.created_at FROM workspaces w JOIN memberships m ON m.workspace=w.id WHERE m.user=? AND w.deleting=0 ORDER BY w.id LIMIT 1`, postgres: `SELECT w.id,w.name,w.created_at FROM ding_control.workspaces w JOIN ding_control.memberships m ON m.workspace=w.id WHERE m.ding_user=$1 AND w.deleting=false ORDER BY w.id LIMIT 1`}
 

@@ -50,6 +50,7 @@ func (a *homepageAnalytics) post(ctx context.Context, action, subject, handoff s
 	io.WriteString(mac, ts+".")
 	mac.Write(payload)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "Ding Cloud homepage analytics/1.0")
 	req.Header.Set("Ding-Signature", "t="+ts+", v1="+hex.EncodeToString(mac.Sum(nil)))
 	return a.client.Do(req)
 }
@@ -96,23 +97,33 @@ func (s *Server) homepageReport(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Private report", http.StatusForbidden)
 		return
 	}
-	subject, err := s.DB.IdentitySubject(r.Context(), session.User, s.AuthKitIssuer)
-	if err != nil {
-		http.Error(w, "Private report", http.StatusForbidden)
-		return
-	}
-	resp, err := s.Login.homepage.post(r.Context(), "report", subject, "")
+	subjects, err := s.DB.IdentitySubjects(r.Context(), session.User, s.AuthKitIssuer)
 	if err != nil {
 		http.Error(w, "Analytics temporarily unavailable", 503)
 		return
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode == 403 {
-		http.Error(w, "Private report", 403)
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	var allowed *http.Response
+	for _, subject := range subjects {
+		resp, err := s.Login.homepage.post(ctx, "report", subject, "")
+		if err != nil {
+			http.Error(w, "Analytics temporarily unavailable", 503)
+			return
+		}
+		if resp.StatusCode != http.StatusForbidden {
+			allowed = resp
+			break
+		}
+		resp.Body.Close()
+	}
+	if allowed == nil {
+		http.Error(w, "Private report", http.StatusForbidden)
 		return
 	}
+	defer allowed.Body.Close()
 	var counts homepageCounts
-	if resp.StatusCode != 200 || json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&counts) != nil {
+	if allowed.StatusCode != 200 || json.NewDecoder(io.LimitReader(allowed.Body, 4096)).Decode(&counts) != nil {
 		http.Error(w, "Analytics temporarily unavailable", 503)
 		return
 	}

@@ -51,7 +51,15 @@ func TestHomepageFunnelAuthenticatedJourney(t *testing.T) {
 		}
 	}))
 	defer worker.Close()
-	server.AuthKitIssuer = "issuer"
+	server.AuthKitIssuer = "https://auth.example"
+	if err := server.DB.ConfigureLoginMethods(t.Context(), []string{"password"}); err != nil {
+		t.Fatal(err)
+	}
+	for subject, user := range map[string]string{"0-other-linked-login": sessions[0].User, "a": sessions[0].User, "b": sessions[1].User} {
+		if err := server.DB.EnableOIDC(t.Context(), state.IdentityLink{User: user, Issuer: server.AuthKitIssuer, Subject: subject}); err != nil {
+			t.Fatal(err)
+		}
+	}
 	server.Login.homepage = newHomepageAnalytics(key)
 	server.Login.homepage.origin = worker.URL
 	anon := cloudRequest(handler, "GET", "/analytics/homepage", "", state.Session{}, false)
