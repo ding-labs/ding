@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {DatabaseSync} from 'node:sqlite';
+import test from 'node:test';
+
+test('recent releases backfill, older assets start at baseline, and verified jobs are excluded once', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(readFileSync(new URL('../migrations/0003_local_downloads.sql', import.meta.url), 'utf8'));
+  const report = () => db.prepare('SELECT * FROM github_download_report').get();
+  assert.equal(report(), undefined);
+  const day = 86400, start = Date.UTC(2027, 0, 1) / 1000;
+  const archive = {id:1,tag:'v1',name:'ding_linux_arm64.tar.gz',kind:'archive',created:start-40*day,count:100};
+  const bottle = {id:2,tag:'v1',name:'ding-1.sequoia.bottle.tar.gz',kind:'bottle',created:start-day,count:5};
+  const sample = (t, assets) => db.prepare('INSERT INTO github_download_samples VALUES (?,?)').run(start+t,JSON.stringify(assets));
+  sample(0,[archive,bottle]);
+  assert.equal(report().archives,0);
+  assert.equal(report().bottles,5);
+  db.prepare('INSERT INTO release_job_fetches VALUES (1,?,?,?)').run(archive.tag,archive.name,start+4);
+  sample(day,[{...archive,count:109},bottle]);
+  assert.equal(report().archives,8);
+  assert.equal(report().excluded,1);
+  sample(2*day,[{...archive,id:3,created:start+day+1,count:2}]);
+  assert.equal(report().archives,10);
+  assert.equal(report().bottles,5);
+  sample(31*day,[{...archive,id:3,created:start+day+1,count:11}]);
+  assert.equal(report().archives,11);
+  assert.equal(report().excluded,0);
+  assert.equal(report().bottles,0);
+  db.close();
+});
