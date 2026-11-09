@@ -118,7 +118,9 @@ func (s *Server) homepageReport(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Homepage funnel · Ding Cloud</title>
-<main><h1>Ding homepage funnel</h1><p>Last 30 UTC calendar days, including today. Your three original accounts and recognized owner browsers are excluded.</p>
+<style>
+:root{color-scheme:light dark;font-family:system-ui,sans-serif}body{margin:0}main{max-width:46rem;margin:clamp(2rem,7vw,5rem) auto;padding:0 1.25rem}h1{font-size:clamp(1.8rem,6vw,3rem);letter-spacing:-.04em;margin-bottom:.4rem}p{line-height:1.55}table{width:100%%;border-collapse:collapse;margin:2rem 0}th,td{border-bottom:1px solid #8888;text-align:left;padding:.85rem .3rem}thead th{font-size:.85rem}tbody th{font-weight:500}td,thead th:last-child{text-align:right;font-variant-numeric:tabular-nums}td{font-size:1.5rem;font-weight:650}
+</style><main><h1>Ding homepage funnel</h1><p>Last 30 UTC calendar days, including today. Owner accounts and recognized owner browsers are excluded.</p>
 <table cellpadding="8"><thead><tr><th scope="col">Step</th><th scope="col">Count</th></tr></thead><tbody>
 <tr><th scope="row">Browsers that landed on ding.ing</th><td>%d</td></tr>
 <tr><th scope="row">Browsers that clicked Get started with Ding Cloud</th><td>%d</td></tr>
