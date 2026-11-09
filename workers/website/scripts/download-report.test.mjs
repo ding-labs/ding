@@ -28,3 +28,27 @@ test('recent releases backfill, older assets start at baseline, and verified job
   assert.equal(report().bottles,0);
   db.close();
 });
+
+import {signupEvent} from '../src/signup.js';
+import {storeDownloadReading} from '../src/downloads.js';
+
+test('the download writer has a separate credential and preserves the latest valid reading', async () => {
+  const path = '/_funnel/downloads';
+  const unauthorized = await signupEvent(new Request('https://ding.ing'+path,{method:'POST'}),{DOWNLOAD_REPORT_SECRET:'writer'},path);
+  assert.equal(unauthorized.status,401);
+  const raw = new DatabaseSync(':memory:');
+  raw.exec(readFileSync(new URL('../migrations/0003_local_downloads.sql',import.meta.url),'utf8'));
+  const db = {prepare(sql) {return {run:() => raw.prepare(sql).run(), bind(...args) {return {run:() => raw.prepare(sql).run(...args)};}};},
+    batch: async stmts => stmts.map(s=>s.run())};
+  const observed = Math.floor(Date.now()/1000);
+  const brew = {source:'homebrew',observed,start_date:'2026-10-10',end_date:'2026-11-09',installs:2};
+  assert.equal((await storeDownloadReading(db,brew)).status,204);
+  await storeDownloadReading(db,{...brew,observed:observed-1,installs:0});
+  assert.equal(raw.prepare('SELECT installs FROM brew_download_report').get().installs,2);
+  const snap = {source:'github', observed, assets:[{id:1,tag:'v1',name:'ding_linux_arm64.tar.gz',kind:'archive',created:observed-20,count:7}],
+    fetches:[{id:77,tag:'v1',name:'ding_linux_arm64.tar.gz',fetched:observed-3}]};
+  for (let i=0;i<2;i++) assert.equal((await storeDownloadReading(db,snap)).status,204);
+  assert.equal(raw.prepare('SELECT archives FROM github_download_report').get().archives,6);
+  assert.equal((await storeDownloadReading(db,{...snap,assets:[]})).status,400);
+  raw.close();
+});

@@ -1,3 +1,5 @@
+import { storeDownloadReading } from './downloads.js';
+
 const encoder = new TextEncoder();
 const hex = bytes => Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2, "0")).join("");
 const invalid = status => new Response(null, {status, headers: {"Cache-Control":"no-store"}});
@@ -26,6 +28,11 @@ async function signedBody(request, header, secret) {
 
 export async function signupEvent(request, env, path) {
   if (request.method !== "POST") return invalid(405);
+  if (path === "/_funnel/downloads") {
+    const data = await signedBody(request, "Ding-Signature", env.DOWNLOAD_REPORT_SECRET);
+    if (data instanceof Response) return data;
+    return storeDownloadReading(env.FUNNEL, data);
+  }
   if (path === "/_funnel/workos") {
     const event = await signedBody(request, "WorkOS-Signature", env.FUNNEL_WORKOS_SECRET);
     if (event instanceof Response) return event;
@@ -44,8 +51,12 @@ export async function signupEvent(request, env, path) {
       if (receipt.action !== "report") return invalid(400);
       const allowed = await env.FUNNEL.prepare("SELECT 1 FROM report_readers WHERE account=?").bind(receipt.account).first();
       if (!allowed) return invalid(403);
-      const totals = await env.FUNNEL.prepare("SELECT * FROM homepage_funnel_30d").first();
-      return Response.json(totals, {headers: {"Cache-Control": "private, no-store"}});
+      const [totals, github, homebrew] = await Promise.all([
+        env.FUNNEL.prepare("SELECT * FROM homepage_funnel_30d").first(),
+        env.FUNNEL.prepare("SELECT * FROM github_download_report").first(),
+        env.FUNNEL.prepare("SELECT observed,start_date,end_date,installs FROM brew_download_report").first(),
+      ]);
+      return Response.json({...totals, github, homebrew}, {headers: {"Cache-Control": "private, no-store"}});
     }
     if (receipt.action !== "verified" || !/^[a-f0-9-]{36}$/.test(receipt.handoff) || !/^[a-f0-9]{64}$/.test(receipt.account)) return invalid(400);
     // The handoff is single-use. Retries are harmless, including webhook-first delivery.
