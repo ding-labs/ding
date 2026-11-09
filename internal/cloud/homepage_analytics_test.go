@@ -45,7 +45,7 @@ func TestHomepageFunnelAuthenticatedJourney(t *testing.T) {
 				w.WriteHeader(403)
 				return
 			}
-			io.WriteString(w, `{"homepage_browsers":51,"browsers_clicked_get_started":12,"signed_up_from_button":4,"all_outside_signups":6}`)
+			io.WriteString(w, `{"homepage_browsers":51,"browsers_clicked_get_started":12,"signed_up_from_button":4,"all_outside_signups":6,"github":{"archives":27,"bottles":9,"excluded":6,"observed":1794264000,"baseline":1794264000,"cutoff":1791590400},"homebrew":{"installs":0,"start_date":"2026-10-10","end_date":"2026-11-09"}}`)
 		default:
 			t.Error("unexpected route")
 		}
@@ -69,6 +69,11 @@ func TestHomepageFunnelAuthenticatedJourney(t *testing.T) {
 	private := cloudRequest(handler, "GET", "/analytics/homepage", "", sessions[0], false)
 	if private.Code != 200 || !strings.Contains(private.Body.String(), ">51<") {
 		t.Fatal("owner could not read private report", private.Code)
+	}
+	for _, want := range []string{"Trying Ding locally", ">27<", ">9<", ">0<", "Excluded 6 identified", "Partial 30-day history", "04:17 UTC", "2026-11-09"} {
+		if !strings.Contains(private.Body.String(), want) {
+			t.Errorf("owner report missing %q", want)
+		}
 	}
 	if other := cloudRequest(handler, "GET", "/analytics/homepage", "", sessions[1], false); other.Code != 403 {
 		t.Fatal("external account could read report")
