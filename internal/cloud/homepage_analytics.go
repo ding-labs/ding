@@ -72,3 +72,58 @@ func (a *homepageAnalytics) confirm(ctx context.Context, subject, handoff string
 	}
 	return errors.New("homepage measurement unavailable")
 }
+
+type homepageCounts struct {
+	Landings int `json:"homepage_browsers"`
+	Clicks   int `json:"browsers_clicked_get_started"`
+	Signups  int `json:"signed_up_from_button"`
+	Total    int `json:"all_outside_signups"`
+}
+
+func (s *Server) homepageReport(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("X-Robots-Tag", "noindex")
+	if r.Method != "GET" || s.Login.homepage == nil {
+		http.NotFound(w, r)
+		return
+	}
+	session, err := s.authenticate(r)
+	if err != nil {
+		http.Redirect(w, r, "/auth/login?return=/analytics/homepage", http.StatusFound)
+		return
+	}
+	if session.Kind != "browser" {
+		http.Error(w, "Private report", http.StatusForbidden)
+		return
+	}
+	subject, err := s.DB.IdentitySubject(r.Context(), session.User, s.AuthKitIssuer)
+	if err != nil {
+		http.Error(w, "Private report", http.StatusForbidden)
+		return
+	}
+	resp, err := s.Login.homepage.post(r.Context(), "report", subject, "")
+	if err != nil {
+		http.Error(w, "Analytics temporarily unavailable", 503)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == 403 {
+		http.Error(w, "Private report", 403)
+		return
+	}
+	var counts homepageCounts
+	if resp.StatusCode != 200 || json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&counts) != nil {
+		http.Error(w, "Analytics temporarily unavailable", 503)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(w, `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Homepage funnel · Ding Cloud</title>
+<main><h1>Ding homepage funnel</h1><p>Last 30 UTC calendar days, including today. Your three original accounts and recognized owner browsers are excluded.</p>
+<table cellpadding="8"><thead><tr><th scope="col">Step</th><th scope="col">Count</th></tr></thead><tbody>
+<tr><th scope="row">Browsers that landed on ding.ing</th><td>%d</td></tr>
+<tr><th scope="row">Browsers that clicked Get started with Ding Cloud</th><td>%d</td></tr>
+<tr><th scope="row">New accounts that completed signup through that button</th><td>%d</td></tr></tbody></table>
+<p>New accounts across all signup paths: <strong>%d</strong>.</p>
+<p>Repeat visits and clicks count once per browser. Button signups require a new WorkOS account and a verified return from the same login flow. Visits and clicks started being measured November 9, 2026.</p>
+<p><a href="https://ding.ing/analytics/exclude">Exclude another browser you use</a></p></main></html>`, counts.Landings, counts.Clicks, counts.Signups, counts.Total)
+}

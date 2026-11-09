@@ -135,6 +135,9 @@ func (f LoginFlow) Callback(w http.ResponseWriter, r *http.Request) {
 // Only explicit Console setup coordinates may survive sign-in. They identify a
 // requested view, never an account to authenticate or a workspace to authorize.
 func loginReturnPath(next string) string {
+	if next == "/analytics/homepage" {
+		return next
+	}
 	if strings.HasPrefix(next, "/connect/") && accountID.MatchString(strings.TrimPrefix(next, "/connect/")) {
 		return next
 	}

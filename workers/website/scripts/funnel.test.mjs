@@ -60,11 +60,11 @@ test("only signed WorkOS creations count and a signed callback links the browser
   }
   const event = {event:"user.created",data:{object:"user",id:user,created_at:new Date().toISOString()}};
   assert.equal(await post("/_funnel/workos","WorkOS-Signature","wrong",event),401);
-  assert.equal(await post("/_funnel/verified","Ding-Signature","cloud",{account,handoff}),204);
+  assert.equal(await post("/_funnel/verified","Ding-Signature","cloud",{action:"verified",account,handoff}),204);
   for(let i=0;i<2;i++) assert.equal(await post("/_funnel/workos","WorkOS-Signature","workos",event),204);
   assert.equal(raw.prepare("SELECT signed_up_from_button FROM homepage_funnel_30d").get().signed_up_from_button,1);
   raw.prepare("INSERT INTO excluded_accounts VALUES (?)").run(account);
-  await post("/_funnel/verified","Ding-Signature","cloud",{account,handoff});
+  await post("/_funnel/verified","Ding-Signature","cloud",{action:"verified",account,handoff});
   assert.deepEqual(Object.values(raw.prepare("SELECT * FROM homepage_funnel_30d").get()),[0,0,0,0]);
   raw.close();
 });

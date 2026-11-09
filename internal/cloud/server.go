@@ -160,6 +160,10 @@ func (s *Server) Handler() (http.Handler, error) {
 			s.openAIChallenge(w, r)
 			return
 		}
+		if r.URL.Path == "/analytics/homepage" {
+			s.homepageReport(w, r)
+			return
+		}
 		if s.publicIdentity(w, r) {
 			return
 		}

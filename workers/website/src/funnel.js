@@ -33,7 +33,7 @@ function toLogin(handoff) {
 
 export async function homepageFunnel(request, env) {
   const {pathname} = new URL(request.url);
-  if (pathname === "/_funnel/workos" || pathname === "/_funnel/verified") return signupEvent(request, env, pathname);
+  if (pathname === "/_funnel/workos" || pathname === "/_funnel/verified" || pathname === "/_funnel/report") return signupEvent(request, env, pathname);
   const browser = cookie(request, "__Host-ding-visit");
   if (pathname === "/go/cloud") {
     if (request.method !== "GET" || !uuid.test(browser) || !eligible(request) || !fromHomepage(request) ||

@@ -39,7 +39,15 @@ export async function signupEvent(request, env, path) {
   } else {
     const receipt = await signedBody(request, "Ding-Signature", env.FUNNEL_RECEIPT_SECRET);
     if (receipt instanceof Response) return receipt;
-    if (!/^[a-f0-9-]{36}$/.test(receipt.handoff) || !/^[a-f0-9]{64}$/.test(receipt.account)) return invalid(400);
+    if (!/^[a-f0-9]{64}$/.test(receipt.account)) return invalid(400);
+    if (path === "/_funnel/report") {
+      if (receipt.action !== "report") return invalid(400);
+      const allowed = await env.FUNNEL.prepare("SELECT 1 FROM report_readers WHERE account=?").bind(receipt.account).first();
+      if (!allowed) return invalid(403);
+      const totals = await env.FUNNEL.prepare("SELECT * FROM homepage_funnel_30d").first();
+      return Response.json(totals, {headers: {"Cache-Control": "private, no-store"}});
+    }
+    if (receipt.action !== "verified" || !/^[a-f0-9-]{36}$/.test(receipt.handoff) || !/^[a-f0-9]{64}$/.test(receipt.account)) return invalid(400);
     // The handoff is single-use. Retries are harmless, including webhook-first delivery.
     await env.FUNNEL.batch([
       env.FUNNEL.prepare("UPDATE homepage_clicks SET account=?, verified_at=unixepoch() WHERE handoff=? AND account IS NULL AND clicked_at >= unixepoch()-900").bind(receipt.account, receipt.handoff),
