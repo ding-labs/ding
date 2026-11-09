@@ -144,7 +144,7 @@ writeFileSync(
 );
 writeFileSync(
   new URL("_headers", out),
-  `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'\n/assets/*\n  Cache-Control: public, max-age=3600\n`,
+  `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self' https://static.cloudflareinsights.com; object-src 'none'; frame-ancestors 'none'; base-uri 'none'\n/assets/*\n  Cache-Control: public, max-age=3600\n`,
 );
 writeFileSync(
   new URL("build-info.json", out),

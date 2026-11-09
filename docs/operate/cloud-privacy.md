@@ -37,7 +37,21 @@ ownership. A held local watch must not be resumed merely because cloud is offlin
 or an account was deleted. Use the reversible move protocol while both sides can
 confirm their state; unresolved ownership requires explicit recovery review.
 
-Product analytics are not enabled. Pilot measurement uses separately consenting
-participants and coarse outcome records. Do not silently associate local activity
-with a subsequent GitHub identity. Operational monitoring is necessary for hosted
-execution and must be disclosed separately from optional adoption measurement.
+### Public homepage measurement
+
+Ding measures visible homepage visits and use of the two **Get started with Ding
+Cloud** buttons. A first-party random browser cookie expires after 30 days.
+The private signup report counts distinct browsers and excludes recognized owner
+browsers and owner accounts. Global Privacy Control disables browser collection.
+[Exclude this browser](https://ding.ing/analytics/exclude) to opt out or exclude
+its existing visits from the report.
+
+A button click creates a random handoff that expires after 15 minutes.
+After successful sign-in, Ding Cloud confirms the handoff using a digest of
+the verified WorkOS user ID. WorkOS separately confirms account creation.
+This distinguishes new accounts from returning users and also counts signups
+through other entry points. The funnel stores browser IDs, dates, clicks, and
+account digests. It discards names, email addresses, IP addresses and user agents.
+Individual visit, click and signup rows expire after the 30-day reporting window
+and its cleanup allowance. Owner exclusions and report permissions are maintained
+separately. Local installations do not report activity to this funnel.

@@ -65,6 +65,11 @@ test("availability cannot advertise a console in a legacy or preview binary", ()
   p.runtime.version = "v1.0.0";
   assert.doesNotThrow(() => validateProduct(p));
 });
+test("the homepage permits Cloudflare's injected analytics script", () => {
+  const headers = readFileSync(new URL("_headers", dist), "utf8");
+  assert.match(headers, /script-src 'self' https:\/\/static\.cloudflareinsights\.com;/);
+});
+
 test("every public page offers Cloud account access and the homepage leads with it", () => {
   const accountUrl = "https://cloud.ding.ing/auth/login";
   for (const file of ["index.html", "console/index.html", "examples/index.html", "404.html"]) {
@@ -88,6 +93,7 @@ test("every public page offers Cloud account access and the homepage leads with 
     const content = home.match(new RegExp(`<section class="${section}"[\\s\\S]*?</section>`))?.[0];
     assert.ok(content, `homepage has a ${section}`);
     assert.equal(content.match(/<a class="button primary" href="([^"]+)"/)?.[1], accountUrl);
+    assert.match(content, /data-cloud-start\s*>Get started with Ding Cloud/);
     assert.ok(content.includes(`href="${docsOrigin}${product.installPath}"`), "local installation remains available");
   }
 });

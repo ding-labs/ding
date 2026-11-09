@@ -77,3 +77,23 @@ for (const window of document.querySelectorAll(".evidence-window")) {
       b.setAttribute("aria-pressed", String(b === button));
   });
 }
+
+// Count a rendered homepage once per browser in the reporting window. The
+// direct Cloud login links remain usable with scripts or cookies disabled.
+if (location.origin === "https://ding.ing" && location.pathname === "/" && !navigator.webdriver && !navigator.globalPrivacyControl) {
+  function measureHomepage() {
+    if (document.visibilityState !== "visible") return;
+    document.removeEventListener("visibilitychange", measureHomepage);
+    if (document.cookie.split("; ").includes("__Host-ding-funnel-off=1")) return;
+    let id = document.cookie.match(/(?:^|; )__Host-ding-visit=([^;]+)/)?.[1];
+    if (!id) {
+      id = crypto.randomUUID();
+      document.cookie = `__Host-ding-visit=${id}; Path=/; Max-Age=2592000; SameSite=Lax; Secure`;
+    }
+    if (!document.cookie.includes("__Host-ding-visit=")) return;
+    for (const link of document.querySelectorAll("a[data-cloud-start]")) link.href = "/go/cloud";
+    fetch("/_funnel/land", {method: "POST", keepalive: true}).catch(() => {});
+  }
+  if (document.visibilityState === "visible") measureHomepage();
+  else document.addEventListener("visibilitychange", measureHomepage);
+}
