@@ -6,7 +6,7 @@ import { CloudFirstWatch } from "./CloudFirstWatch";
 
 afterEach(() => vi.restoreAllMocks());
 
-test.each(["accepted", "unreadable", "missing result", "unknown version"])("lost delivery-test replies reuse their key and activation handles %s replies", async (reply) => {
+test.each(["accepted", "unreadable", "missing result", "empty object", "null result", "preview reply", "unknown version"])("lost delivery-test replies reuse their key and activation handles %s replies", async (reply) => {
   const tests: string[] = [];
   const applies: unknown[] = [];
   const response = (data: unknown) => new Response(JSON.stringify({ apiVersion: "ding.ing/v1alpha1", data }), { status: 200 });
@@ -26,7 +26,9 @@ test.each(["accepted", "unreadable", "missing result", "unknown version"])("lost
       if (reply === "unreadable") return new Response("truncated");
       if (reply === "missing result") return response(undefined);
       if (reply === "unknown version") return new Response(JSON.stringify({apiVersion: "future", data: {}}));
-      return response({});
+      if (reply === "empty object") return response({});
+      if (reply === "null result") return response(null);
+      return response({ dryRun: reply === "preview reply", changes: [], destinationChanges: [], credentials: [] });
     }
     throw new Error(`Unexpected request: ${path}`);
   });
@@ -68,7 +70,7 @@ test("saved hosted delivery loads more destinations and needs no new credentials
     if (path.startsWith("/v1/console/destinations?")) return response(path.endsWith("cursor=next") ? { destinations: [destination], more: false, cursor: "" } : { destinations: [], more: true, cursor: "next" });
     if (path === "/v1/onboarding/preview") return response({ manifest: "reference-only-watch", descriptions: [], review: { review: { manifestHash: "review", destinations: { "team-alerts": "reviewed-revision" } } } });
     if (path === "/v1/cloud/destination-test") return response({ outcome: "accepted" });
-    if (path === "/v1/apply") return response({});
+    if (path === "/v1/apply") return response({dryRun: false, changes: [], destinationChanges: [], credentials: []});
     throw new Error(`Unexpected request: ${path}`);
   });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

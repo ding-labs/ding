@@ -14,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { useConnection } from "../api/connection";
-import { api, download, APIError, unknownOutcome } from "../api/client";
+import { api, download, APIError, reviewedApply, unknownOutcome } from "../api/client";
 import type {
   ControlCompileResult,
   ControlVerification,
@@ -213,10 +213,7 @@ export function Workbench() {
   };
   const preview = useMutation({
     mutationFn: (manifest: string) =>
-      api<WatchrunApplyResult>("/apply", {
-        method: "POST",
-        body: { manifest, dryRun: true },
-      }),
+      reviewedApply({ manifest, dryRun: true }),
     onSuccess: (d, manifest) => {
       setReview(d);
       setReviewText(manifest);
@@ -227,10 +224,7 @@ export function Workbench() {
   });
   const commit = useMutation({
     mutationFn: () =>
-      api<WatchrunApplyResult>("/apply", {
-        method: "POST",
-        body: { manifest: reviewText, dryRun: false, review: review?.review },
-      }),
+      reviewedApply({ manifest: reviewText, dryRun: false, review: review?.review }),
     onSuccess: (d) => {
       setDraft({ dirty: false });
       setReview(undefined);

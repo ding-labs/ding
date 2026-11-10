@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { api, APIError, unknownOutcome } from "../api/client";
+import { api, APIError, reviewedApply, unknownOutcome } from "../api/client";
 import type { ControlFirstWatchPreview, StoreConsoleDestination } from "../api/contracts";
 import { Heading, ErrorBox } from "../components/common";
 import { NotificationSetup } from "../components/NotificationSetup";
@@ -41,9 +41,9 @@ export function FirstWatch() {
     if (!preview?.review.review || (savedDestination ? !savedConfirmed : delivery === "desktop" && !sawNotification)) return;
     setBusy(true); setError(undefined);
     try {
-      await api("/apply", { method: "POST", body: {
+      await reviewedApply({
         manifest: preview.manifest, review: preview.review.review, dryRun: false,
-      } });
+      });
       await client.invalidateQueries();
       navigate(`/watches/${encodeURIComponent(id)}`, { state: { firstWatch: id } });
     } catch (e) {
