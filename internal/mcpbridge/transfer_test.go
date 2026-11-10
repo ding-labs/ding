@@ -183,6 +183,34 @@ func TestReviewedTransferLostActivationRestartAndMoveBack(t *testing.T) {
 	}
 }
 
+func TestUncertainTransferTestKeepsTargetPrepared(t *testing.T) {
+	b, apps, _ := transferFixture(t)
+	ctx := context.Background()
+	original := apps["cloud"].HTTP.Client.Transport
+	sends := 0
+	apps["cloud"].HTTP.Client.Transport = fixtureTransport(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodPost {
+			sends++
+			return nil, io.ErrUnexpectedEOF
+		}
+		return original.RoundTrip(r)
+	})
+	args := reviewed(t, apps["local"], "local", "cloud", "prepare_uncertain_001")
+	id := runTransfer(t, b, "ding_prepare_transfer", args)["id"]
+	testArgs := map[string]any{"transfer_id": id, "operation_key": "test_uncertain_00001"}
+	for range 2 {
+		result := runTransfer(t, b, "ding_test_transfer", testArgs)
+		if result["phase"] != "prepared" || result["outcome"] != "pending" || result["operationKey"] != testArgs["operation_key"] {
+			t.Fatal(result)
+		}
+	}
+	_, err := b.transfer(ctx, "ding_finish_transfer", map[string]any{"transfer_id": id, "delivery_confirmed": true})
+	source, _ := apps["local"].Record(ctx, "same-watch")
+	if err == nil || sends != 1 || source.Status != "running" {
+		t.Fatal("uncertain test advanced the transfer", err, sends, source.Status)
+	}
+}
+
 func TestIneligibleReviewDoesNotConnectAndCancelDoesNotPause(t *testing.T) {
 	b, apps, _ := transferFixture(t)
 	ctx := context.Background()
