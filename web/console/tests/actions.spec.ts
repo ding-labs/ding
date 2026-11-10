@@ -73,11 +73,18 @@ test("terminal delivery retry keeps original identity and records a new policy c
     .getByRole("button", { name: "Retry delivery", exact: true })
     .click();
   await expect(page.getByRole("dialog")).toContainText("duplicate");
+  const submitted = page.waitForRequest(req => req.method() === "POST" && req.url().includes("/retry?expectedCycle="));
   await page
     .getByRole("button", { name: "Retry original notification" })
     .click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
   await expect(page.getByText("new delivery policy cycle")).toBeVisible();
+  await expect.poll(async () => (await call(daemon, `/deliveries/${original.id}`)).intent.status).toBe("permanent");
+  const stale = await fetch((await submitted).url(), {
+    method: "POST", headers: {Authorization: "Bearer " + daemon.token, "Content-Type": "application/json"}, body: "{}",
+  });
+  expect(stale.status).toBe(409);
+  expect((await stale.json()).error.code).toBe("retry_cycle_changed");
   const current = await call(daemon, `/deliveries/${original.id}`);
   expect(current.intent.eventId).toBe(original.eventId);
   expect(current.intent.destinationRevision).toBe(original.destinationRevision);

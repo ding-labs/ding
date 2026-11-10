@@ -303,20 +303,23 @@ export function WatchActions({ watch, lifecycle }: { watch: StoreWatchRecord; li
   );
 }
 export function RetryAction({ intent }: { intent: StoreIntent }) {
- const allowed = useCapability("retry");
-  const [open, setOpen] = useState(false);
+  const allowed = useCapability("retry");
+  const [reviewed, setReviewed] = useState<StoreIntent>();
+  const open = Boolean(reviewed);
+  const terminal = ["permanent", "exhausted", "canceled"].includes(intent.status);
+  const changed = !terminal || reviewed?.id !== intent.id || reviewed.cycleStartedAt !== intent.cycleStartedAt;
   const client = useQueryClient();
   const connected = useConnection();
   const retry = useMutation({
     mutationFn: () =>
-      api(`/deliveries/${intent.id}/retry`, { method: "POST", body: {} }),
+      api(`/deliveries/${intent.id}/retry?expectedCycle=${encodeURIComponent(reviewed!.cycleStartedAt)}`, { method: "POST", body: {} }),
     onSuccess: async () => {
       await client.invalidateQueries();
-      setOpen(false);
+      setReviewed(undefined);
     },
   });
   if (!allowed) return null;
-  if (!["permanent", "exhausted", "canceled"].includes(intent.status) && !open)
+  if (!terminal && !open)
     return null;
   return (
     <>
@@ -325,7 +328,7 @@ export function RetryAction({ intent }: { intent: StoreIntent }) {
         disabled={!connected}
         onClick={() => {
           retry.reset();
-          setOpen(true);
+          setReviewed(intent);
         }}
       >
         <RotateCcw size={15} />
@@ -335,7 +338,7 @@ export function RetryAction({ intent }: { intent: StoreIntent }) {
         title={`Retry delivery #${intent.id}?`}
         description="This starts a new policy cycle for the original notification. An earlier attempt may have been received, so retrying can produce a duplicate."
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => setReviewed(undefined)}
         busy={retry.isPending}
       >
         <dl className="facts">
@@ -357,6 +360,7 @@ export function RetryAction({ intent }: { intent: StoreIntent }) {
           </div>
         </dl>
         <ErrorBox error={retry.error} />
+        {changed && <p className="notice">This delivery has changed. Close this confirmation and inspect its latest attempts.</p>}
         {retry.isError && unknownOutcome(retry.error) && (
           <div className="notice">
             <strong>The outcome is unknown.</strong>
@@ -370,7 +374,7 @@ export function RetryAction({ intent }: { intent: StoreIntent }) {
                 try {
                   await api(`/deliveries/${intent.id}`);
                   await client.invalidateQueries();
-                  setOpen(false);
+                  setReviewed(undefined);
                 } catch {
                   /* Retain the uncertain state. */
                 }
@@ -384,14 +388,15 @@ export function RetryAction({ intent }: { intent: StoreIntent }) {
           <button
             className="button"
             disabled={retry.isPending}
-            onClick={() => setOpen(false)}
+            onClick={() => setReviewed(undefined)}
           >
             Cancel
           </button>
           <button
             className="button primary"
             disabled={
-              retry.isPending ||
+              retry.isPending || changed ||
+              (retry.error instanceof APIError && retry.error.status === 409) ||
               !connected ||
               (retry.isError && unknownOutcome(retry.error))
             }

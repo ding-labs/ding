@@ -122,10 +122,17 @@ func exportWatch(tx *store.Tx, id string) (string, error) {
 	return out.String(), nil
 }
 func (a *App) Retry(ctx context.Context, id int64) error {
-	return a.retry(ctx, id, nil)
+	return a.retry(ctx, id, nil, nil)
 }
 
-func (a *App) retry(ctx context.Context, id int64, mutation *integrationMutation) error {
+var ErrRetryCycleChanged = errors.New("delivery retry cycle changed")
+
+// RetryCycle binds a confirmation to the policy cycle shown during inspection.
+func (a *App) RetryCycle(ctx context.Context, id int64, expected time.Time) error {
+	return a.retry(ctx, id, &expected, nil)
+}
+
+func (a *App) retry(ctx context.Context, id int64, expected *time.Time, mutation *integrationMutation) error {
 	if err := access.Require(ctx, access.Retry); err != nil {
 		return err
 	}
@@ -140,6 +147,9 @@ func (a *App) retry(ctx context.Context, id int64, mutation *integrationMutation
 		intent, err := tx.Intent(id)
 		if err != nil {
 			return err
+		}
+		if expected != nil && !expected.Equal(intent.CycleStartedAt) {
+			return ErrRetryCycleChanged
 		}
 		if err := checkHandoffHold(tx, intent.WatchID, mutation); err != nil {
 			return err

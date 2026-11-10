@@ -99,7 +99,7 @@ test("an unacknowledged retry is inspected before another cycle is allowed", asy
   await expect(page.getByRole("link", { name: "Watches", exact: true })).toBeVisible();
   await page.goto(`${daemon.url}/ui/deliveries/${d.id}`);
   let writes = 0;
-  await page.route(`**/v1/deliveries/${d.id}/retry`, async (r) => {
+  await page.route(`**/v1/deliveries/${d.id}/retry*`, async (r) => {
     writes++;
     await r.fetch();
     await r.abort("connectionreset");
