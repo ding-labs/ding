@@ -54,6 +54,14 @@ func TestLocalHandoffTestPreservesUncertainDelivery(t *testing.T) {
 	if err != nil || !h.Held || h.Phase != "prepared" || h.ProbeOutcome != "pending" || sends != 1 {
 		t.Fatalf("handoff %+v, sends %d, err %v", h, sends, err)
 	}
+	if _, err := target.TestHandoff(ctx, prepared.ID, "deliberately-new-key"); err != nil {
+		t.Fatal(err)
+	}
+	reopened := New(target.Store)
+	reopened.Lookup, reopened.HTTP = target.Lookup, target.HTTP
+	if _, err := reopened.TestHandoff(ctx, prepared.ID, "local-lost-test-reply"); err == nil || sends != 2 {
+		t.Fatalf("superseded test was sent again: sends=%d err=%v", sends, err)
+	}
 }
 
 func TestHandoffLostRepliesRestartAndNoDuplicateExecution(t *testing.T) {

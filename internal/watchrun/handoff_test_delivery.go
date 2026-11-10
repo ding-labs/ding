@@ -85,7 +85,9 @@ func (a *App) TestHandoff(ctx context.Context, id, key string) (HandoffTestResul
 			out.Outcome = h.ProbeOutcome
 			return nil
 		}
-		h.ProbeKey = key
+		if err := h.ReplaceProbeKey(key); err != nil {
+			return err
+		}
 		h.ProbeDigest = digest
 		h.ProbeAt = a.Now()
 		h.ProbeOutcome = "pending"
