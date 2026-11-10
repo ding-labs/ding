@@ -46,3 +46,11 @@ test("does not claim monitoring continues after a pause or unavailable status", 
   expect(screen.getByText(/Saving the watch does not confirm a successful check/)).toBeVisible();
   expect(screen.queryByRole("link", { name: "Create another watch" })).toBeNull();
 });
+
+test("a deleted watch points to retained history without suggesting resume", () => {
+  render(<MemoryRouter><FirstWatchProgress watch={fixture({ status: "deleted" })} /></MemoryRouter>);
+  expect(screen.getByRole("status")).toHaveTextContent("Watch deleted");
+  expect(screen.queryByText(/resume/i)).toBeNull();
+  expect(screen.getByRole("link", { name: "Inspect evidence" })).toHaveAttribute("href", "/watches/api?tab=Events");
+  expect(screen.getByRole("link", { name: "Inspect deliveries" })).toHaveAttribute("href", "/watches/api?tab=Deliveries");
+});

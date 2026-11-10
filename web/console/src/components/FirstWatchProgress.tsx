@@ -8,6 +8,7 @@ export function FirstWatchProgress({ watch }: { watch?: StoreConsoleWatch }) {
   const observed = received && Boolean(watch?.entities) && !sourceError;
   const running = watch?.status === "running";
   const title = !watch ? "Checking monitoring status…"
+    : watch.status === "deleted" ? "Watch deleted"
     : !running ? "Monitoring is stopped"
     : sourceError ? "Monitoring needs attention"
     : observed ? "Monitoring input received"
@@ -17,6 +18,7 @@ export function FirstWatchProgress({ watch }: { watch?: StoreConsoleWatch }) {
     <p className="eyebrow">Your watch is saved</p>
     <h2 id="first-observation-title" role="status">{title}</h2>
     {!watch ? <p>Current monitoring status is unavailable. Saving the watch does not confirm a successful check.</p>
+      : watch.status === "deleted" ? <p>You can still inspect this watch’s recorded evidence and deliveries.</p>
       : !running ? <p>Resume the watch to continue checking its source.</p>
       : sourceError ? <p>Check the source and credentials below. A source error does not prove your service is healthy or clear an open incident.</p>
       : observed ? <p>Ding received an observation at <Time value={watch.lastInputAt} />. This confirms monitoring input, not service health or notification delivery.</p>
