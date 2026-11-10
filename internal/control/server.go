@@ -59,26 +59,7 @@ func Handler(app *watchrun.App, c Credentials) http.Handler {
 		write(w, 200, result, nil)
 	})
 	mux.HandleFunc("GET /v1/watches/{id}", func(w http.ResponseWriter, r *http.Request) {
-		before, err := nonnegative(r.URL.Query().Get("deliveriesBefore"))
-		if err != nil {
-			fail(w, 400, "invalid_request", "invalid delivery cursor")
-			return
-		}
-		var result store.WatchSummary
-		err = app.Store.View(r.Context(), func(tx *store.Tx) error {
-			var err error
-			result, err = tx.InspectSummary(r.PathValue("id"), r.URL.Query().Get("entitiesAfter"), before)
-			return err
-		})
-		if errors.Is(err, store.ErrNotFound) {
-			fail(w, 404, "not_found", "watch not found")
-			return
-		}
-		if err != nil {
-			fail(w, 503, "store_unavailable", "cannot read store")
-			return
-		}
-		write(w, 200, result, nil)
+		watchDetail(w, r, app, nil)
 	})
 	mux.HandleFunc("POST /v1/watches/{id}/lifecycle", func(w http.ResponseWriter, r *http.Request) {
 		var request watchrun.LifecycleRequest
@@ -228,4 +209,22 @@ func decode(w http.ResponseWriter, r *http.Request, target any) error {
 		return errors.New("extra input")
 	}
 	return nil
+}
+
+func watchDetail(w http.ResponseWriter, r *http.Request, app *watchrun.App, grant *store.IntegrationGrant) {
+	before, err := nonnegative(r.URL.Query().Get("deliveriesBefore"))
+	if err != nil {
+		fail(w, 400, "invalid_request", "invalid delivery cursor")
+		return
+	}
+	result, err := app.WatchDetail(r.Context(), r.PathValue("id"), r.URL.Query().Get("entitiesAfter"), before, grant)
+	if errors.Is(err, store.ErrNotFound) {
+		fail(w, 404, "not_found", "watch not found")
+		return
+	}
+	if err != nil {
+		fail(w, 503, "store_unavailable", "cannot read store")
+		return
+	}
+	write(w, 200, result, nil)
 }

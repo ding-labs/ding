@@ -37,6 +37,13 @@ func TestHTTPIdentityIsolationScopesProtocolsAndGuards(t *testing.T) {
 	var daemonCalls atomic.Int32
 	daemon := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		daemonCalls.Add(1)
+		if r.URL.Path == "/v1/integrations/watches/api" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"apiVersion": "ding.ing/v1alpha1", "data": map[string]any{
+				"watch":     map[string]any{"status": "running", "generation": 1, "plan": map[string]any{}},
+				"lifecycle": map[string]any{"actions": []string{"pause", "delete"}},
+			}})
+			return
+		}
 		token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ding_mcp_")
 		who := "alice"
 		if token == strings.Repeat("b", 64) {
@@ -114,6 +121,13 @@ func TestHTTPIdentityIsolationScopesProtocolsAndGuards(t *testing.T) {
 			}
 		}
 		wg.Wait()
+	}
+	for _, scopes := range []string{"ding:inspect", "ding:inspect ding:manage"} {
+		w := request(token("alice", scopes), "ding_get_watch", "2026-07-28", "", "ding.example", map[string]any{"watch_id": "api"})
+		body := w.Body.String()
+		if w.Code != 200 || !strings.Contains(body, `"lifecycle"`) || strings.Contains(body, "pause") != strings.Contains(scopes, "manage") {
+			t.Fatal("watch inspection exceeds effective OAuth scope", scopes, w.Code, body)
+		}
 	}
 	before := daemonCalls.Load()
 	for _, row := range []struct {

@@ -91,6 +91,16 @@ func TestIntegrationRouteBoundaryAndFullReview(t *testing.T) {
 				t.Fatal("read", path, code)
 			}
 		}
+		status, raw = request("POST", "/v1/integrations/grants", c.Admin, watchrun.GrantRequest{Name: "inspector", Scopes: []string{"inspect"}, Days: 1}, "")
+		var inspector watchrun.GrantPairing
+		if status != 201 || json.Unmarshal(raw, &inspector) != nil {
+			t.Fatal("inspect grant", status)
+		}
+		status, raw = request("GET", "/v1/integrations/watches/api", inspector.Token, nil, "")
+		var detail store.WatchSummary
+		if status != 200 || json.Unmarshal(raw, &detail) != nil || detail.Lifecycle == nil || detail.Lifecycle.Reason != "manage_unavailable" || len(detail.Lifecycle.Actions) != 0 {
+			t.Fatal("inspect-only tool advertised mutations", status, string(raw))
+		}
 		code, _ = request("DELETE", "/v1/integrations/grants/"+paired.Grant.ID, c.Admin, nil, "")
 		if code != 200 {
 			t.Fatal(code)
