@@ -19,18 +19,14 @@ func (a *App) WatchDetail(ctx context.Context, id, after string, before int64, g
 		if err != nil {
 			return err
 		}
-		out.Lifecycle, err = a.lifecycleGuidance(ctx, tx, out.Watch, grant)
+		out.Lifecycle, err = a.lifecycleGuidance(ctx, tx, out.Watch, out.HeldTransferID, grant)
 		return err
 	})
 	return out, err
 }
 
-func (a *App) lifecycleGuidance(ctx context.Context, tx *store.Tx, record store.WatchRecord, grant *store.IntegrationGrant) (*store.LifecycleGuidance, error) {
+func (a *App) lifecycleGuidance(ctx context.Context, tx *store.Tx, record store.WatchRecord, held string, grant *store.IntegrationGrant) (*store.LifecycleGuidance, error) {
 	out := &store.LifecycleGuidance{Actions: []string{}}
-	held, err := tx.HandoffHold(record.Plan.Definition.Metadata.ID)
-	if err != nil {
-		return nil, err
-	}
 	if held != "" {
 		out.TransferID, out.Reason = held, "transfer_held"
 		return out, nil

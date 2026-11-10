@@ -283,6 +283,7 @@ type LifecycleGuidance struct {
 }
 
 type WatchSummary struct {
+	HeldTransferID   string             `json:"-"`
 	Lifecycle        *LifecycleGuidance `json:"lifecycle,omitempty"`
 	LogObservation   *watch.Observation `json:"logObservation,omitempty"`
 	Watch            WatchRecord        `json:"watch"`
@@ -297,7 +298,7 @@ type WatchSummary struct {
 func (t *Tx) InspectSummary(id, after string, before int64) (WatchSummary, error) {
 	out := WatchSummary{Entities: []EntitySummary{}, Deliveries: []DeliverySummary{}}
 	var err error
-	out.Watch, err = t.Watch(id)
+	out.Watch, err = scanWatch(t.sql.QueryRowContext(t.ctx, t.query(qWatchWithHold), id), &out.HeldTransferID)
 	if err != nil {
 		return out, err
 	}

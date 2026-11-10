@@ -47,11 +47,12 @@ func (t *Tx) Watch(id string) (WatchRecord, error) {
 	return scanWatch(t.sql.QueryRowContext(t.ctx, t.query(qWatch), id))
 }
 
-func scanWatch(row interface{ Scan(...any) error }) (WatchRecord, error) {
+func scanWatch(row interface{ Scan(...any) error }, extra ...any) (WatchRecord, error) {
 	var r WatchRecord
 	var data []byte
 	var next, last int64
-	err := row.Scan(&data, &r.Plan.Revision, &r.Plan.Fingerprint, &r.Generation, &r.Status, &next, &r.Cursor, &last, &r.LastError, &r.Lifetime)
+	fields := []any{&data, &r.Plan.Revision, &r.Plan.Fingerprint, &r.Generation, &r.Status, &next, &r.Cursor, &last, &r.LastError, &r.Lifetime}
+	err := row.Scan(append(fields, extra...)...)
 	if err != nil {
 		return r, missing(err)
 	}
