@@ -9,6 +9,30 @@ import (
 	"github.com/ding-labs/ding/internal/watch"
 )
 
+// LifecycleTarget returns the status after a valid action. Purge removes the row.
+// A matching status is an idempotent request and keeps the current generation.
+func (r WatchRecord) LifecycleTarget(action string) (string, error) {
+	switch action {
+	case "purge":
+		if r.Status != "deleted" {
+			return "", fmt.Errorf("only deleted watches can be permanently deleted")
+		}
+		return "", nil
+	case "delete":
+		return "deleted", nil
+	case "pause", "resume":
+		if r.Status == "deleted" {
+			return "", fmt.Errorf("deleted watches cannot resume; use a new watch ID")
+		}
+		if action == "pause" {
+			return "paused", nil
+		}
+		return "running", nil
+	default:
+		return "", fmt.Errorf("unknown lifecycle action")
+	}
+}
+
 func (t *Tx) ResetState(id string) error {
 	for _, q := range []statement{qResetEntities, qResetTimers, qResetReceipts} {
 		if _, err := t.exec(q, id); err != nil {

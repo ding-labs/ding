@@ -10,8 +10,8 @@ func (t *Tx) PurgeWatch(id string) error {
 	if err != nil {
 		return err
 	}
-	if r.Status != "deleted" {
-		return fmt.Errorf("only deleted watches can be permanently deleted")
+	if _, err := r.LifecycleTarget("purge"); err != nil {
+		return err
 	}
 	if hold, err := t.HandoffHold(id); err != nil {
 		return err
