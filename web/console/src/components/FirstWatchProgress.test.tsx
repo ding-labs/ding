@@ -55,6 +55,12 @@ test("a deleted watch points to retained history without suggesting resume", () 
   expect(screen.getByRole("link", { name: "Inspect deliveries" })).toHaveAttribute("href", "/watches/api?tab=Deliveries");
 });
 
+test("retained history remains available when only the detail read succeeds", () => {
+  render(<MemoryRouter><FirstWatchProgress watchID="api" status="deleted" /></MemoryRouter>);
+  expect(screen.getByRole("status")).toHaveTextContent("Watch deleted");
+  expect(screen.getByRole("link", {name: "Inspect evidence"})).toHaveAttribute("href", "/watches/api?tab=Events");
+});
+
 test("the current detail hold takes precedence over a stale running summary", () => {
   render(<MemoryRouter><FirstWatchProgress watch={fixture()} status="paused" lifecycle={{actions: [], reason:"transfer_held", transferId:"t"}} /></MemoryRouter>);
   expect(screen.getByText(/inspect the transfer/i)).toBeVisible();

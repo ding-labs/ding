@@ -139,7 +139,7 @@ export function WatchStatus({
 
   return (
     <div className="watch-status-stack">
-      {location.state?.firstWatch === id && <FirstWatchProgress watch={current} status={w.status} lifecycle={detail.lifecycle} />}
+      {location.state?.firstWatch === id && <FirstWatchProgress watch={current} watchID={id} status={w.status} lifecycle={detail.lifecycle} />}
       <section
         className={`panel watch-status-hero ${stopped ? "is-stopped" : needsAttention ? "needs-attention" : clear ? "is-clear" : ""}`}
         aria-labelledby="watch-condition-title"
@@ -185,7 +185,7 @@ export function WatchStatus({
             </dt>
             <dd>
               {stopped ? (
-                "Checks stopped"
+                w.status === "paused" || w.status === "deleted" ? "Checks stopped" : "Schedule unavailable"
               ) : source.type === "push" ? (
                 "When your source sends an input"
               ) : source.type === "logs" ? (
