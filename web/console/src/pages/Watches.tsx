@@ -354,7 +354,7 @@ export function WatchDetail() {
         <button className="button" onClick={() => void exportIt(true)}>
           <Pencil size={15} /> Edit in Workbench
         </button>
-        <WatchActions watch={w} />
+        <WatchActions watch={w} lifecycle={query.data.lifecycle} />
       </Heading>
       <ErrorBox error={query.error || exportError} />
       <Tabs
@@ -398,7 +398,7 @@ export function WatchDetail() {
           />
         </>
       )}
-      {tab === "Overview" && <Availability watchID={id} sourceType={d.spec.source.type} />}
+      {tab === "Overview" && <Availability watchID={id} sourceType={d.spec.source.type} lifecycle={query.data.lifecycle} />}
       {tab === "Events" && <Events watch={id} />}
       {tab === "Deliveries" && <Deliveries watch={id} />}
       {tab === "Entities" && (

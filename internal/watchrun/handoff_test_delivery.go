@@ -85,7 +85,9 @@ func (a *App) TestHandoff(ctx context.Context, id, key string) (HandoffTestResul
 			out.Outcome = h.ProbeOutcome
 			return nil
 		}
-		h.ProbeKey = key
+		if err := h.ReplaceProbeKey(key); err != nil {
+			return err
+		}
 		h.ProbeDigest = digest
 		h.ProbeAt = a.Now()
 		h.ProbeOutcome = "pending"
@@ -123,6 +125,9 @@ func (a *App) TestHandoff(ctx context.Context, id, key string) (HandoffTestResul
 				break
 			}
 			result := delivery.HTTP(ctx, a.HTTP.Client, delivery.Request{URL: endpoint, Body: payload, Header: headers, Provider: d.Definition.Spec.Type}, a.Now())
+			if result.ProbeOutcome() == "pending" {
+				return out, nil
+			}
 			if result.Outcome != delivery.Delivered {
 				accepted = false
 				break

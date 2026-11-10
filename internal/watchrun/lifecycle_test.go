@@ -409,3 +409,24 @@ func TestDedupHorizonAndWindowRetention(t *testing.T) {
 		t.Fatal("expired idempotency identity cannot be reused", again, err)
 	}
 }
+
+func TestMatchingLifecycleRequestKeepsGeneration(t *testing.T) {
+	a, _ := setup(t)
+	record := apply(t, a, "https://example.com")
+	for _, step := range []struct {
+		action  string
+		advance bool
+	}{{"resume", false}, {"pause", true}, {"pause", false}, {"resume", true}, {"delete", true}, {"delete", false}} {
+		next, err := a.Lifecycle(ctx, "api", LifecycleRequest{
+			Action: step.action, Expected: record.Plan.Revision, ExpectedGeneration: &record.Generation,
+		})
+		want := record.Generation
+		if step.advance {
+			want++
+		}
+		if err != nil || next.Generation != want {
+			t.Fatalf("%s from %s: generation %d, want %d, err %v", step.action, record.Status, next.Generation, want, err)
+		}
+		record = next
+	}
+}

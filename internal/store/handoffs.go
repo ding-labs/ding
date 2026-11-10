@@ -6,27 +6,54 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"time"
 )
 
 type Handoff struct {
-	ReturnOf     string            `json:"returnOf,omitempty"`
-	ProbeKey     string            `json:"probeKey,omitempty"`
-	ProbeDigest  string            `json:"probeDigest,omitempty"`
-	ProbeOutcome string            `json:"probeOutcome,omitempty"`
-	ProbeAt      time.Time         `json:"probeAt,omitempty"`
-	Instance     string            `json:"instance"`
-	ID           string            `json:"id"`
-	WatchID      string            `json:"watchId"`
-	Role         string            `json:"role"`
-	Phase        string            `json:"phase"`
-	Peer         string            `json:"peer"`
-	Digest       string            `json:"digest"`
-	Revision     string            `json:"revision"`
-	Generation   int64             `json:"generation"`
-	Destinations map[string]string `json:"destinations"`
-	Held         bool              `json:"held"`
-	At           time.Time         `json:"at"`
+	supersededProbeKeys []string
+	ReturnOf            string            `json:"returnOf,omitempty"`
+	ProbeKey            string            `json:"probeKey,omitempty"`
+	ProbeDigest         string            `json:"probeDigest,omitempty"`
+	ProbeOutcome        string            `json:"probeOutcome,omitempty"`
+	ProbeAt             time.Time         `json:"probeAt,omitempty"`
+	Instance            string            `json:"instance"`
+	ID                  string            `json:"id"`
+	WatchID             string            `json:"watchId"`
+	Role                string            `json:"role"`
+	Phase               string            `json:"phase"`
+	Peer                string            `json:"peer"`
+	Digest              string            `json:"digest"`
+	Revision            string            `json:"revision"`
+	Generation          int64             `json:"generation"`
+	Destinations        map[string]string `json:"destinations"`
+	Held                bool              `json:"held"`
+	At                  time.Time         `json:"at"`
+}
+
+// Previous keys stay inside the bounded store record. A delayed request for an
+// older test must never become a fresh notification after the active key changes.
+type storedHandoff struct {
+	Handoff
+	SupersededProbeKeys []string `json:"supersededProbeKeys,omitempty"`
+}
+
+func decodeHandoff(b []byte) (Handoff, error) {
+	var row storedHandoff
+	err := json.Unmarshal(b, &row)
+	row.Handoff.supersededProbeKeys = row.SupersededProbeKeys
+	return row.Handoff, err
+}
+
+func (h *Handoff) ReplaceProbeKey(key string) error {
+	if slices.Contains(h.supersededProbeKeys, key) {
+		return fmt.Errorf("test was superseded; inspect the current transfer test")
+	}
+	if h.ProbeKey != "" && h.ProbeKey != key {
+		h.supersededProbeKeys = append(h.supersededProbeKeys, h.ProbeKey)
+	}
+	h.ProbeKey = key
+	return nil
 }
 
 var handoffID = regexp.MustCompile(`^[a-f0-9]{64}$`)
@@ -41,7 +68,7 @@ func (t *Tx) Handoff(id string) (Handoff, error) {
 	if err != nil {
 		return h, err
 	}
-	return h, json.Unmarshal(b, &h)
+	return decodeHandoff(b)
 }
 func (t *Tx) Handoffs() ([]Handoff, error) {
 	rows, err := t.sql.QueryContext(t.ctx, t.query(qHandoffs1))
@@ -52,11 +79,11 @@ func (t *Tx) Handoffs() ([]Handoff, error) {
 	list := []Handoff{}
 	for rows.Next() {
 		var b []byte
-		var h Handoff
 		if err := rows.Scan(&b); err != nil {
 			return nil, err
 		}
-		if err := json.Unmarshal(b, &h); err != nil {
+		h, err := decodeHandoff(b)
+		if err != nil {
 			return nil, err
 		}
 		list = append(list, h)
@@ -75,7 +102,7 @@ func (t *Tx) SaveHandoff(h Handoff) error {
 	if !handoffID.MatchString(h.ID) || h.WatchID == "" || len(h.Peer) > 1024 || len(h.Destinations) > 100 {
 		return fmt.Errorf("invalid handoff")
 	}
-	b, err := json.Marshal(h)
+	b, err := json.Marshal(storedHandoff{Handoff: h, SupersededProbeKeys: h.supersededProbeKeys})
 	if err != nil {
 		return err
 	}

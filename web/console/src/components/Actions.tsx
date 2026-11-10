@@ -11,10 +11,11 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { watchActions } from "../app/watchLifecycle";
 import { useCapability } from "../app/execution";
 import { useConnection } from "../api/connection";
 import { api, APIError, unknownOutcome } from "../api/client";
-import type { StoreWatchRecord, StoreIntent } from "../api/contracts";
+import type { StoreWatchRecord, StoreLifecycleGuidance, StoreIntent } from "../api/contracts";
 import { ErrorBox } from "./common";
 function Confirm({
   title,
@@ -63,7 +64,7 @@ function Confirm({
     </Dialog.Root>
   );
 }
-export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
+export function WatchActions({ watch, lifecycle }: { watch: StoreWatchRecord; lifecycle?: StoreLifecycleGuidance | null }) {
   const allowed = useCapability("manage");
   const [action, setAction] = useState("");
   const [expected, setExpected] = useState("");
@@ -113,6 +114,8 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
     change.reset();
   };
   if (!allowed) return null;
+  const actions = watchActions(watch.status, lifecycle);
+  const toggle = actions.find(a => a === "pause" || a === "resume");
   const destructive = action === "delete" || action === "purge";
   const title =
     action === "purge"
@@ -124,7 +127,7 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
           : `Resume ${id}?`;
   return (
     <>
-      {watch.status === "deleted" ? (
+      {actions.includes("purge") && (
         <button
           className="button danger"
           disabled={!connected}
@@ -132,44 +135,35 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
         >
           <Trash2 size={15} /> Permanently delete…
         </button>
-      ) : (
-        <>
-          <button
-            className="button"
-            disabled={!connected}
-            onClick={() =>
-              start(watch.status === "paused" ? "resume" : "pause")
-            }
-          >
-            {watch.status === "paused" ? (
-              <Play size={15} />
-            ) : (
-              <Pause size={15} />
-            )}{" "}
-            {watch.status === "paused" ? "Resume watch" : "Pause watch"}
-          </button>
-          <Menu.Root>
-            <Menu.Trigger asChild>
-              <button
-                className="icon-button"
-                aria-label="More watch actions"
-                disabled={!connected}
+      )}
+      {toggle && (
+        <button className="button" disabled={!connected} onClick={() => start(toggle)}>
+          {toggle === "resume" ? <Play size={15} /> : <Pause size={15} />}{" "}
+          {toggle === "resume" ? "Resume watch" : "Pause watch"}
+        </button>
+      )}
+      {actions.includes("delete") && (
+        <Menu.Root>
+          <Menu.Trigger asChild>
+            <button
+              className="icon-button"
+              aria-label="More watch actions"
+              disabled={!connected}
+            >
+              <MoreHorizontal size={18} />
+            </button>
+          </Menu.Trigger>
+          <Menu.Portal>
+            <Menu.Content className="dropdown" align="end" sideOffset={6}>
+              <Menu.Item
+                className="danger-text"
+                onSelect={() => start("delete")}
               >
-                <MoreHorizontal size={18} />
-              </button>
-            </Menu.Trigger>
-            <Menu.Portal>
-              <Menu.Content className="dropdown" align="end" sideOffset={6}>
-                <Menu.Item
-                  className="danger-text"
-                  onSelect={() => start("delete")}
-                >
-                  <Trash2 size={14} /> Delete watch…
-                </Menu.Item>
-              </Menu.Content>
-            </Menu.Portal>
-          </Menu.Root>
-        </>
+                <Trash2 size={14} /> Delete watch…
+              </Menu.Item>
+            </Menu.Content>
+          </Menu.Portal>
+        </Menu.Root>
       )}
       <Confirm
         title={title}
@@ -285,6 +279,7 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
           <button
             className={`button ${destructive ? "danger" : "primary"}`}
             disabled={
+              !actions.includes(action) ||
               change.isPending ||
               !connected ||
               (change.isError && unknownOutcome(change.error)) ||
@@ -308,20 +303,23 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
   );
 }
 export function RetryAction({ intent }: { intent: StoreIntent }) {
- const allowed = useCapability("retry");
-  const [open, setOpen] = useState(false);
+  const allowed = useCapability("retry");
+  const [reviewed, setReviewed] = useState<StoreIntent>();
+  const open = Boolean(reviewed);
+  const terminal = ["permanent", "exhausted", "canceled"].includes(intent.status);
+  const changed = !terminal || reviewed?.id !== intent.id || reviewed.cycleStartedAt !== intent.cycleStartedAt;
   const client = useQueryClient();
   const connected = useConnection();
   const retry = useMutation({
     mutationFn: () =>
-      api(`/deliveries/${intent.id}/retry`, { method: "POST", body: {} }),
+      api(`/deliveries/${intent.id}/retry?expectedCycle=${encodeURIComponent(reviewed!.cycleStartedAt)}`, { method: "POST", body: {} }),
     onSuccess: async () => {
       await client.invalidateQueries();
-      setOpen(false);
+      setReviewed(undefined);
     },
   });
   if (!allowed) return null;
-  if (!["permanent", "exhausted", "canceled"].includes(intent.status) && !open)
+  if (!terminal && !open)
     return null;
   return (
     <>
@@ -330,7 +328,7 @@ export function RetryAction({ intent }: { intent: StoreIntent }) {
         disabled={!connected}
         onClick={() => {
           retry.reset();
-          setOpen(true);
+          setReviewed(intent);
         }}
       >
         <RotateCcw size={15} />
@@ -340,7 +338,7 @@ export function RetryAction({ intent }: { intent: StoreIntent }) {
         title={`Retry delivery #${intent.id}?`}
         description="This starts a new policy cycle for the original notification. An earlier attempt may have been received, so retrying can produce a duplicate."
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => setReviewed(undefined)}
         busy={retry.isPending}
       >
         <dl className="facts">
@@ -362,6 +360,7 @@ export function RetryAction({ intent }: { intent: StoreIntent }) {
           </div>
         </dl>
         <ErrorBox error={retry.error} />
+        {changed && <p className="notice">This delivery has changed. Close this confirmation and inspect its latest attempts.</p>}
         {retry.isError && unknownOutcome(retry.error) && (
           <div className="notice">
             <strong>The outcome is unknown.</strong>
@@ -375,7 +374,7 @@ export function RetryAction({ intent }: { intent: StoreIntent }) {
                 try {
                   await api(`/deliveries/${intent.id}`);
                   await client.invalidateQueries();
-                  setOpen(false);
+                  setReviewed(undefined);
                 } catch {
                   /* Retain the uncertain state. */
                 }
@@ -389,14 +388,15 @@ export function RetryAction({ intent }: { intent: StoreIntent }) {
           <button
             className="button"
             disabled={retry.isPending}
-            onClick={() => setOpen(false)}
+            onClick={() => setReviewed(undefined)}
           >
             Cancel
           </button>
           <button
             className="button primary"
             disabled={
-              retry.isPending ||
+              retry.isPending || changed ||
+              (retry.error instanceof APIError && retry.error.status === 409) ||
               !connected ||
               (retry.isError && unknownOutcome(retry.error))
             }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { StoreLifecycleGuidance } from "../api/contracts";
 import { api } from "../api/client";
 import { useExecution } from "../app/execution";
 import { preference, savePreference } from "../app/preferences";
@@ -6,13 +7,16 @@ import { ErrorBox, useRead } from "../components/common";
 
 type Handoff = { id: string; watchId: string; role: string; phase: string; held: boolean };
 type Preflight = { ready: boolean; reason?: string; manifest: string };
-export function Availability({ watchID,sourceType }: { watchID: string;sourceType?:string }) {
+export function Availability({ watchID, sourceType, lifecycle }: { watchID: string; sourceType?: string; lifecycle?: StoreLifecycleGuidance | null }) {
   const { mode } = useExecution();
   const [choice, setChoice] = useState(() => preference("ding.execution.preference", "local"));
   const [preflight, setPreflight] = useState<Preflight>();
   const [error, setError] = useState<unknown>(); const [busy, setBusy] = useState(false);
-  const handoffs = useRead<Handoff[]>("/handoffs", 15000);
-  const held = handoffs.data?.find(h => h.watchId === watchID && h.held);
+  const transferID = lifecycle?.reason === "transfer_held" ? lifecycle.transferId : undefined;
+  const receipt = useRead<Handoff>(`/handoffs/${encodeURIComponent(transferID || "")}`, 15000, Boolean(transferID));
+  const legacy = useRead<Handoff[]>("/handoffs", 15000, !lifecycle);
+  const held = lifecycle ? receipt.data : legacy.data?.find(h => h.watchId === watchID && h.held);
+  const heldID = transferID || (!lifecycle && held?.id);
   const arg = `'${watchID.replaceAll("'", "'\\''")}'`;
   function choose(value: string) { setChoice(value); savePreference("ding.execution.preference", value); }
   async function check() {
@@ -21,8 +25,8 @@ export function Availability({ watchID,sourceType }: { watchID: string;sourceTyp
     catch (e) { setError(e); } finally { setBusy(false); }
   }
   return <>
-    {held ? <div className="notice" role="status"><strong>Execution is held by a transfer.</strong><p>Transfer <code>{held.id}</code> is {held.phase} on this {held.role}. Inspect both sides before resuming. An unreachable target does not prove it stopped.</p><code>ding cloud move status {held.id}</code></div> : null}
-    <ErrorBox error={error || handoffs.error} />
+    {heldID ? <div id="watch-transfer" className="notice" role="status"><strong>Execution is held by a transfer.</strong><p>Transfer <code>{heldID}</code>{held?.id === heldID && <> is {held.phase} on this {held.role}</>}. Inspect both sides before resuming.</p><code>ding cloud move status {heldID}</code></div> : null}
+    <ErrorBox error={error || (lifecycle ? transferID && receipt.error : legacy.error)} />
     <details className="watch-disclosure watch-hosting">
     <summary>Execution and hosting</summary>
     <section className="panel">
@@ -37,7 +41,7 @@ export function Availability({ watchID,sourceType }: { watchID: string;sourceTyp
       {choice === "server" ? <p>Use an always-on Mac mini or Linux host. Install Ding there, rebind credentials, and configure background startup. Test the destination before pausing this copy. The self-hosting guide covers boot startup, sleep settings, backups, and safe handoff. This choice stays saved; no account is needed.</p> : null}
       {choice === "cloud" ? <>
         <p>First check eligibility on this computer. No account is created and no configuration is uploaded. Cloud supports public HTTP and authenticated JSON push watches with remote notification delivery. Automatic transfer currently supports HTTP watches; push producers need a new credential and endpoint configuration.</p>
-        <button className="button" disabled={busy || Boolean(held)} onClick={() => void check()}>{busy ? "Checking locally…" : "Check eligibility locally"}</button>
+        <button className="button" disabled={busy || Boolean(heldID)} onClick={() => void check()}>{busy ? "Checking locally…" : "Check eligibility locally"}</button>
         {preflight ? <div className="notice"><strong>{preflight.ready ? "Eligible for the cloud preview" : "Keep running locally"}</strong><p>{preflight.reason || "Moving uploads this watch’s definition and explicitly rebound credentials. It starts fresh evaluation state and may briefly interrupt monitoring. Local history remains here."}</p>
           {preflight.ready ? <><details><summary>Review the exact configuration</summary><pre>{preflight.manifest}</pre></details><p>Connect your chosen cloud service with <code>ding cloud login --url HTTPS_ORIGIN</code>. Rebind credentials in its Console, then prepare the move:</p><pre>ding cloud move prepare {arg} --yes</pre><p>The command prints a transfer ID and waits for a separate delivery-confirmation step before pausing local execution. Public cloud enrollment and marketplace availability are still being qualified.</p></> : null}
         </div> : null}

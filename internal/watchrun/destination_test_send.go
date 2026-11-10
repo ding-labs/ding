@@ -100,12 +100,9 @@ func (a *App) TestDestination(ctx context.Context, request DestinationTestReques
 	}
 	// Transport loss may follow acceptance. Preserve uncertainty instead of
 	// automatically resending a notification that somebody may already have seen.
-	if result.Outcome == delivery.Retryable {
+	outcome := result.ProbeOutcome()
+	if outcome == "pending" {
 		return probe, nil
-	}
-	outcome := "failed"
-	if result.Outcome == delivery.Delivered {
-		outcome = "accepted"
 	}
 	finishCtx, finishCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer finishCancel()

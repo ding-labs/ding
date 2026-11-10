@@ -1,5 +1,5 @@
 import { setConnection } from "./connection";
-import type { ControlBrowserSession } from "./contracts";
+import type { ControlBrowserSession, WatchrunApplyRequest, WatchrunApplyResult } from "./contracts";
 export class APIError extends Error {
   constructor(
     public code: string,
@@ -108,6 +108,8 @@ export async function api<T>(
     );
   }
   current(requestGeneration);
+  if (result === null || typeof result !== "object")
+    throw new APIError("invalid_response", "Ding returned an unreadable response.", res.status);
   if (!res.ok || result.error) {
     if (
       res.status === 401 ||
@@ -129,9 +131,22 @@ export async function api<T>(
       "This console and daemon use different API versions.",
       res.status,
     );
+  if (!("data" in result))
+    throw new APIError("invalid_response", "Ding returned a response without a result.", res.status);
   setConnection(true);
   return result.data as T;
 }
+export async function reviewedApply(request: WatchrunApplyRequest) {
+  if (!request.dryRun && !request.review?.manifestHash)
+    throw new APIError("review_required", "Review the current definitions before applying.", 409);
+  const result = await api<WatchrunApplyResult>("/apply", { method: "POST", body: request });
+  if (result?.dryRun !== request.dryRun || !Array.isArray(result.changes) ||
+      !Array.isArray(result.destinationChanges) || !Array.isArray(result.credentials) ||
+      (request.dryRun && !result.review?.manifestHash))
+    throw new Error("Ding returned an incomplete apply result.");
+  return result;
+}
+
 export async function connect(): Promise<ControlBrowserSession> {
   const hash = new URLSearchParams(location.hash.slice(1));
   const token = hash.get("handoff");
@@ -166,6 +181,7 @@ export function unknownOutcome(error: unknown) {
   return (
     !(error instanceof APIError) ||
     error.status >= 500 ||
-    error.code === "invalid_response"
+    error.code === "invalid_response" ||
+    (error.code === "version_mismatch" && error.status >= 200 && error.status < 300)
   );
 }

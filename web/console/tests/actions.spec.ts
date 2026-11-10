@@ -73,11 +73,18 @@ test("terminal delivery retry keeps original identity and records a new policy c
     .getByRole("button", { name: "Retry delivery", exact: true })
     .click();
   await expect(page.getByRole("dialog")).toContainText("duplicate");
+  const submitted = page.waitForRequest(req => req.method() === "POST" && req.url().includes("/retry?expectedCycle="));
   await page
     .getByRole("button", { name: "Retry original notification" })
     .click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
   await expect(page.getByText("new delivery policy cycle")).toBeVisible();
+  await expect.poll(async () => (await call(daemon, `/deliveries/${original.id}`)).intent.status).toBe("permanent");
+  const stale = await fetch((await submitted).url(), {
+    method: "POST", headers: {Authorization: "Bearer " + daemon.token, "Content-Type": "application/json"}, body: "{}",
+  });
+  expect(stale.status).toBe(409);
+  expect((await stale.json()).error.code).toBe("retry_cycle_changed");
   const current = await call(daemon, `/deliveries/${original.id}`);
   expect(current.intent.eventId).toBe(original.eventId);
   expect(current.intent.destinationRevision).toBe(original.destinationRevision);
@@ -86,4 +93,23 @@ test("terminal delivery retry keeps original identity and records a new policy c
       (a: { outcome: string }) => a.outcome === "manual_retry",
     ),
   ).toHaveLength(1);
+});
+
+test("a new transfer hold disables an already open resume confirmation", async ({ page, daemon }) => {
+  await call(daemon, "/apply", { manifest });
+  await call(daemon, "/watches/api-health/lifecycle", { action: "pause" });
+  let held = false;
+  await page.route(/\/v1\/watches\/api-health\?/, async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    if (held) body.data.lifecycle = { actions: [], reason: "transfer_held", transferId: "test-transfer" };
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto(await daemon.launch());
+  await page.getByRole("link", { name: "API health" }).click();
+  await page.getByRole("button", { name: "Resume watch", exact: true }).click();
+  const confirm = page.getByRole("dialog").getByRole("button", { name: "Resume watch", exact: true });
+  await expect(confirm).toBeEnabled();
+  held = true;
+  await expect(confirm).toBeDisabled({ timeout: 12000 });
 });

@@ -14,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { useConnection } from "../api/connection";
-import { api, download, APIError, unknownOutcome } from "../api/client";
+import { api, download, APIError, reviewedApply, unknownOutcome } from "../api/client";
 import type {
   ControlCompileResult,
   ControlVerification,
@@ -213,23 +213,18 @@ export function Workbench() {
   };
   const preview = useMutation({
     mutationFn: (manifest: string) =>
-      api<WatchrunApplyResult>("/apply", {
-        method: "POST",
-        body: { manifest, dryRun: true },
-      }),
+      reviewedApply({ manifest, dryRun: true }),
     onSuccess: (d, manifest) => {
       setReview(d);
       setReviewText(manifest);
+      commit.reset();
       setError(undefined);
     },
     onError: setError,
   });
   const commit = useMutation({
     mutationFn: () =>
-      api<WatchrunApplyResult>("/apply", {
-        method: "POST",
-        body: { manifest: reviewText, dryRun: false, review: review?.review },
-      }),
+      reviewedApply({ manifest: reviewText, dryRun: false, review: review?.review }),
     onSuccess: (d) => {
       setDraft({ dirty: false });
       setReview(undefined);
@@ -242,6 +237,7 @@ export function Workbench() {
     },
     onError: setError,
   });
+  const staleReview = commit.error instanceof APIError && commit.error.status === 409;
   const discard = () => {
     if (
       !window.confirm(
@@ -325,7 +321,7 @@ export function Workbench() {
               commit.isPending ||
               preview.isPending ||
               !connected ||
-              (commit.isError && unknownOutcome(commit.error))
+              (commit.isError && unknownOutcome(commit.error)) || staleReview
             }
             onClick={() => commit.mutate()}
           >
@@ -344,16 +340,13 @@ export function Workbench() {
             <button
               className="button"
               disabled={preview.isPending}
-              onClick={() => {
-                commit.reset();
-                preview.mutate(draft.manifest);
-              }}
+              onClick={() => preview.mutate(draft.manifest)}
             >
               Reconcile current definitions
             </button>
           </div>
         )}
-        {error instanceof APIError && error.status === 409 && (
+        {staleReview && (
           <div className="notice">
             <p>
               The draft is preserved. Compare with the latest definitions and

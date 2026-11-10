@@ -58,7 +58,18 @@ func (b *Bridge) transfer(ctx context.Context, name string, args map[string]any)
 			if err != nil {
 				return view, err
 			}
-			return transferView(t, map[string]any{"phase": "tested", "outcome": out["outcome"], "note": "Confirm that you received this labeled test before authorizing finish. Testing does not pause the source."}), nil
+			result := map[string]any{"phase": "prepared", "outcome": out["outcome"]}
+			switch out["outcome"] {
+			case "accepted":
+				result["phase"] = "tested"
+				result["note"] = "Confirm that you received this labeled test before authorizing finish."
+			case "failed":
+				result["note"] = "Inspect the target configuration before explicitly starting another labeled test."
+			default:
+				result["note"] = "Inspect the destination and check the saved test again with the same operation key."
+				result["operationKey"] = key
+			}
+			return transferView(t, result), nil
 		case "ding_finish_transfer":
 			if args["delivery_confirmed"] != true {
 				return view, mcpclient.Fail("delivery_confirmation_required", "the user must confirm the labeled target delivery and authorize the handoff")

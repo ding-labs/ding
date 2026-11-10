@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 
 	"github.com/ding-labs/ding/internal/mcpclient"
 	"github.com/ding-labs/ding/internal/mcpcontract"
@@ -45,7 +46,7 @@ func New(options Options) (*mcp.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	catalog = mcpcontract.DestinationSetup(mcpcontract.ServicePreview(catalog))
+	catalog = mcpcontract.DestinationSetup(mcpcontract.ServicePreview(mcpcontract.WatchInspection(catalog)))
 	if options.TransferTransport {
 		catalog = mcpcontract.TransferTransport(catalog)
 	}
@@ -132,6 +133,16 @@ func New(options Options) (*mcp.Server, error) {
 			}
 			if err != nil {
 				return nil, mcpcontract.View{}, err
+			}
+			if r.view == "watch" && identity != nil && !slices.Contains(identity.Scopes, "ding:manage") {
+				// A self-hosted OAuth token can be narrower than the daemon grant.
+				detail, _ := data.(map[string]any)
+				if guidance, ok := detail["lifecycle"].(map[string]any); ok {
+					guidance["actions"] = []string{}
+					if guidance["reason"] != "transfer_held" {
+						guidance["reason"] = "manage_unavailable"
+					}
+				}
 			}
 			if r.view == "capabilities" {
 				data = tokenCapabilities(data, identity)

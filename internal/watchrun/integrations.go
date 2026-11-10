@@ -328,7 +328,7 @@ func (a *App) RetryIntegration(ctx context.Context, grant string, id int64, key 
 	if err != nil {
 		return err
 	}
-	return a.retry(ctx, id, m)
+	return a.retry(ctx, id, nil, m)
 }
 func (a *App) GetIntegrationOperation(ctx context.Context, grant, key string) (store.IntegrationOperation, error) {
 	var out store.IntegrationOperation

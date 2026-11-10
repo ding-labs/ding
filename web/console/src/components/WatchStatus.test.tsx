@@ -120,6 +120,14 @@ describe("watch status overview", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Connection lost");
   });
 
+  it("keeps the schedule unknown for an unfamiliar lifecycle status", () => {
+    const data = fixture();
+    data.detail.watch.status = "future";
+    show(data);
+    expect(screen.getByText("Schedule unavailable")).toBeVisible();
+    expect(screen.queryByText("Checks stopped")).toBeNull();
+  });
+
   it("keeps open incidents visible while suppressing a paused watch's old schedule", () => {
     const data = fixture();
     data.detail.watch.status = "paused";

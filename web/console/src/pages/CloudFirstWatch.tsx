@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { api, APIError } from "../api/client";
+import { api, APIError, reviewedApply, unknownOutcome } from "../api/client";
 import type { ControlFirstWatchPreview, StoreConsoleDestination } from "../api/contracts";
 import { Heading, ErrorBox, useRead } from "../components/common";
 import { FirstWatchRule } from "../components/FirstWatchRule";
@@ -53,9 +53,9 @@ export function CloudFirstWatch() {
     if (!preview?.review.review || !(savedDestination ? savedConfirmed : sawTest)) return;
     setBusy(true); setError(undefined);
     try {
-      await api("/apply", { method: "POST", body: { manifest: preview.manifest, review: preview.review.review, dryRun: false } });
+      await reviewedApply({ manifest: preview.manifest, review: preview.review.review, dryRun: false });
       await client.invalidateQueries(); navigate(`/watches/${encodeURIComponent(id)}`, { state: { firstWatch: id } });
-    } catch (e) { setError(e); if (e instanceof APIError && e.status === 409) setPreview(undefined); else if (!(e instanceof APIError) || e.status >= 500) setUncertain(true); }
+    } catch (e) { setError(e); if (unknownOutcome(e)) setUncertain(true); else if (e instanceof APIError && e.status === 409) setPreview(undefined); }
     finally { setBusy(false); }
   }
 

@@ -154,19 +154,9 @@ func (a *App) lifecycle(ctx context.Context, id string, request LifecycleRequest
 			}
 			return mutation.finish(tx, record, a.Now())
 		}
-		status := ""
-		switch request.Action {
-		case "pause":
-			status = "paused"
-		case "resume":
-			status = "running"
-		case "delete":
-			status = "deleted"
-		default:
-			return fmt.Errorf("unknown lifecycle action")
-		}
-		if record.Status == "deleted" && status != "deleted" {
-			return fmt.Errorf("deleted watches cannot resume; use a new watch ID")
+		status, err := record.LifecycleTarget(request.Action)
+		if err != nil {
+			return err
 		}
 		if request.CancelPending {
 			if err := tx.CancelDeliveries(id, now); err != nil {

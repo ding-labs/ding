@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/ding-labs/ding/internal/access"
 	"github.com/ding-labs/ding/internal/store"
@@ -21,6 +22,8 @@ func inspectionError(w http.ResponseWriter, err error) {
 		fail(w, 410, "cursor_expired", "retained history has a gap; restart without a cursor to read available events")
 	case errors.Is(err, store.ErrNotFound):
 		fail(w, 404, "not_found", "record not found")
+	case errors.Is(err, watchrun.ErrRetryCycleChanged):
+		fail(w, 409, "retry_cycle_changed", "This delivery has started a new retry cycle. Inspect the current attempt history.")
 	case errors.Is(err, store.ErrConflict):
 		fail(w, 409, "delivery_not_terminal", "only failed or canceled deliveries can be retried")
 	case errors.Is(err, watchrun.ErrQuota):
@@ -144,7 +147,17 @@ func inspectionRoutes(mux *http.ServeMux, app *watchrun.App) {
 			fail(w, 400, "invalid_request", "invalid delivery ID")
 			return
 		}
-		if err := app.Retry(r.Context(), id); err != nil {
+		if r.URL.Query().Has("expectedCycle") {
+			expected, parseErr := time.Parse(time.RFC3339Nano, r.URL.Query().Get("expectedCycle"))
+			if parseErr != nil {
+				fail(w, 400, "invalid_request", "invalid expected delivery cycle")
+				return
+			}
+			err = app.RetryCycle(r.Context(), id, expected)
+		} else {
+			err = app.Retry(r.Context(), id)
+		}
+		if err != nil {
 			inspectionError(w, err)
 			return
 		}

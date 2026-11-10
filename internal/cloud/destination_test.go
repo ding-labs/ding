@@ -19,8 +19,12 @@ func TestDestinationTestReconcilesWithoutSendingTwice(t *testing.T) {
 		t.Fatal(err)
 	}
 	var sent atomic.Int64
+	var loseReply atomic.Bool
 	tenant.App.HTTP.Client = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
 		sent.Add(1)
+		if loseReply.Load() {
+			return nil, io.ErrUnexpectedEOF
+		}
 		body, _ := io.ReadAll(r.Body)
 		if !strings.Contains(string(body), "not an incident") {
 			t.Error("test was not labeled")
@@ -39,6 +43,17 @@ func TestDestinationTestReconcilesWithoutSendingTwice(t *testing.T) {
 	}
 	if sent.Load() != 1 {
 		t.Fatal("test notification duplicated")
+	}
+	loseReply.Store(true)
+	uncertain := strings.Replace(body, "a-stable-test-operation", "lost-delivery-response", 1)
+	for range 2 {
+		w := cloudRequest(h, "POST", "/v1/cloud/destination-test", uncertain, sessions[0], true)
+		if w.Code != 200 || !strings.Contains(w.Body.String(), `"outcome":"pending"`) {
+			t.Fatal(w.Code, w.Body.String())
+		}
+	}
+	if sent.Load() != 2 {
+		t.Fatal("uncertain test was sent twice")
 	}
 	if err := s.Vault.Put(context.Background(), tenant.Workspace.ID, "WEBHOOK", "https://example.com/changed"); err != nil {
 		t.Fatal(err)

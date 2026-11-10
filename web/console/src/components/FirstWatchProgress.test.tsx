@@ -46,3 +46,30 @@ test("does not claim monitoring continues after a pause or unavailable status", 
   expect(screen.getByText(/Saving the watch does not confirm a successful check/)).toBeVisible();
   expect(screen.queryByRole("link", { name: "Create another watch" })).toBeNull();
 });
+
+test("a deleted watch points to retained history without suggesting resume", () => {
+  render(<MemoryRouter><FirstWatchProgress watch={fixture({ status: "deleted" })} /></MemoryRouter>);
+  expect(screen.getByRole("status")).toHaveTextContent("Watch deleted");
+  expect(screen.queryByText(/resume/i)).toBeNull();
+  expect(screen.getByRole("link", { name: "Inspect evidence" })).toHaveAttribute("href", "/watches/api?tab=Events");
+  expect(screen.getByRole("link", { name: "Inspect deliveries" })).toHaveAttribute("href", "/watches/api?tab=Deliveries");
+});
+
+test("retained history remains available when only the detail read succeeds", () => {
+  render(<MemoryRouter><FirstWatchProgress watchID="api" status="deleted" /></MemoryRouter>);
+  expect(screen.getByRole("status")).toHaveTextContent("Watch deleted");
+  expect(screen.getByRole("link", {name: "Inspect evidence"})).toHaveAttribute("href", "/watches/api?tab=Events");
+});
+
+test("the current detail hold takes precedence over a stale running summary", () => {
+  render(<MemoryRouter><FirstWatchProgress watch={fixture()} status="paused" lifecycle={{actions: [], reason:"transfer_held", transferId:"t"}} /></MemoryRouter>);
+  expect(screen.getByText(/inspect the transfer/i)).toBeVisible();
+  expect(screen.queryByText(/resume/i)).toBeNull();
+});
+
+test("an unfamiliar lifecycle status offers inspection", () => {
+  render(<MemoryRouter><FirstWatchProgress watch={fixture({status:"future"})} /></MemoryRouter>);
+  expect(screen.getByRole("status")).toHaveTextContent("Monitoring status unavailable");
+  expect(screen.queryByText(/resume/i)).toBeNull();
+  expect(screen.getByRole("link", {name:"Inspect evidence"})).toBeVisible();
+});

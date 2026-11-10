@@ -143,13 +143,18 @@ func integrationHandler(app *watchrun.App, c Credentials, base http.Handler) htt
 	}
 	for _, kind := range []string{"watches", "events", "deliveries"} {
 		mux.HandleFunc("GET /v1/integrations/"+kind+"/{id}", func(w http.ResponseWriter, r *http.Request) {
-			if _, ok := access(w, r, "inspect"); !ok {
+			g, ok := access(w, r, "inspect")
+			if !ok {
 				return
 			}
 			forwarded := r.Clone(r.Context())
 			id := r.PathValue("id")
 			if id == "." || id == ".." || strings.ContainsAny(id, "/\\\x00") {
 				fail(w, 400, "invalid_request", "invalid record ID")
+				return
+			}
+			if kind == "watches" {
+				watchDetail(w, r, app, &g)
 				return
 			}
 			forwarded.URL.Path = "/v1/" + kind + "/" + id
