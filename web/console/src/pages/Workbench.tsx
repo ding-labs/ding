@@ -220,6 +220,7 @@ export function Workbench() {
     onSuccess: (d, manifest) => {
       setReview(d);
       setReviewText(manifest);
+      commit.reset();
       setError(undefined);
     },
     onError: setError,
@@ -242,6 +243,7 @@ export function Workbench() {
     },
     onError: setError,
   });
+  const staleReview = commit.error instanceof APIError && commit.error.status === 409;
   const discard = () => {
     if (
       !window.confirm(
@@ -325,7 +327,7 @@ export function Workbench() {
               commit.isPending ||
               preview.isPending ||
               !connected ||
-              (commit.isError && unknownOutcome(commit.error))
+              (commit.isError && unknownOutcome(commit.error)) || staleReview
             }
             onClick={() => commit.mutate()}
           >
@@ -344,16 +346,13 @@ export function Workbench() {
             <button
               className="button"
               disabled={preview.isPending}
-              onClick={() => {
-                commit.reset();
-                preview.mutate(draft.manifest);
-              }}
+              onClick={() => preview.mutate(draft.manifest)}
             >
               Reconcile current definitions
             </button>
           </div>
         )}
-        {error instanceof APIError && error.status === 409 && (
+        {staleReview && (
           <div className="notice">
             <p>
               The draft is preserved. Compare with the latest definitions and

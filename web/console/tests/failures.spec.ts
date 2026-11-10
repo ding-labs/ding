@@ -137,8 +137,13 @@ test("an unacknowledged apply compares committed revisions before resubmission",
     .getByRole("button", { name: "Review changes", exact: true })
     .click();
   let commits = 0;
+  let comparisons = 0;
   await page.route("**/v1/apply", async (r) => {
     if (r.request().postDataJSON().dryRun) {
+      if (++comparisons === 1) {
+        await r.fulfill({status: 503, json: {error: {code: "read_failed", message: "Comparison unavailable"}}});
+        return;
+      }
       await r.continue();
       return;
     }
@@ -154,6 +159,9 @@ test("an unacknowledged apply compares committed revisions before resubmission",
   await page
     .getByRole("button", { name: "Reconcile current definitions" })
     .click();
+  await expect(page.getByText("Comparison unavailable", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Apply reviewed changes" })).toBeDisabled();
+  await page.getByRole("button", { name: "Reconcile current definitions" }).click();
   await expect(
     page.getByText("Existing condition state is preserved."),
   ).toBeVisible();
