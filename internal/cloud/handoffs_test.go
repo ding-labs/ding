@@ -25,10 +25,14 @@ func TestCloudHandoffRequiresTestsAndRejectsCredentialChanges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var loseReply atomic.Bool
 	var deliveries atomic.Int64
 	tenant.App.HTTP.Client = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
 		if r.Method == "POST" {
 			deliveries.Add(1)
+			if loseReply.Load() {
+				return nil, io.ErrUnexpectedEOF
+			}
 		}
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("ok"))}, nil
 	})}
@@ -79,6 +83,18 @@ func TestCloudHandoffRequiresTestsAndRejectsCredentialChanges(t *testing.T) {
 	if code, _ := call("/v1/handoffs/"+id+"/test", map[string]string{"operationKey": state.ID()}, 1); code != 409 {
 		t.Fatal("cross-tenant transfer test accepted")
 	}
+	loseReply.Store(true)
+	lost := state.ID()
+	for range 2 {
+		code, raw = call("/v1/handoffs/"+id+"/test", map[string]string{"operationKey": lost}, 0)
+		if code != 200 || !strings.Contains(string(raw), `"outcome":"pending"`) {
+			t.Fatal(code, string(raw))
+		}
+	}
+	if deliveries.Load() != 1 || s.verifyHandoffProof(ctx, tenant.Workspace.ID, prepared.Data) == nil {
+		t.Fatal("uncertain delivery duplicated or accepted as proof")
+	}
+	loseReply.Store(false)
 	key := state.ID()
 	for i := 0; i < 2; i++ {
 		code, raw = call("/v1/handoffs/"+id+"/test", map[string]string{"operationKey": key}, 0)
@@ -86,7 +102,7 @@ func TestCloudHandoffRequiresTestsAndRejectsCredentialChanges(t *testing.T) {
 			t.Fatal(code, string(raw))
 		}
 	}
-	if deliveries.Load() != 1 {
+	if deliveries.Load() != 2 {
 		t.Fatal("transfer test sent twice")
 	}
 	proof, err := local.PauseForHandoff(ctx, watchrun.HandoffPause{ID: id, WatchID: "health", Peer: prepared.Data.Instance, Revision: record.Plan.Revision, Generation: record.Generation, Destinations: preflight.Destinations})

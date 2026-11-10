@@ -165,6 +165,10 @@ func (s *Server) testHandoff(w http.ResponseWriter, r *http.Request, t *Tenant, 
 				break
 			}
 			result := delivery.HTTP(r.Context(), t.App.HTTP.Client, delivery.Request{URL: endpoint, Body: payload, Header: headers, Provider: d.Definition.Spec.Type}, now)
+			if result.ProbeOutcome() == "pending" {
+				cloudWrite(w, 200, probe)
+				return
+			}
 			if result.Outcome != delivery.Delivered {
 				accepted = false
 				break

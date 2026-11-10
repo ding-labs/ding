@@ -2,6 +2,8 @@ package watchrun
 
 import (
 	"github.com/ding-labs/ding/internal/store"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -31,6 +33,29 @@ func transferFixture(t *testing.T) (*App, *App, HandoffPrepare, HandoffPause) {
 	}
 	return source, target, prepare, HandoffPause{ID: h.ID, WatchID: "api", Peer: h.Instance, Revision: record.Plan.Revision, Generation: record.Generation, Destinations: h.Destinations}
 }
+func TestLocalHandoffTestPreservesUncertainDelivery(t *testing.T) {
+	_, target, prepared, _ := transferFixture(t)
+	target.Lookup = func(name string) (string, bool) { return "https://example.com/hook", name == "WEBHOOK_URL" }
+	sends := 0
+	target.HTTP.Client = &http.Client{Transport: readinessTransport(func(req *http.Request) (*http.Response, error) {
+		if req.Method == http.MethodPost {
+			sends++
+			return nil, io.ErrUnexpectedEOF
+		}
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("ok")), Header: http.Header{}}, nil
+	})}
+	for range 2 {
+		result, err := target.TestHandoff(ctx, prepared.ID, "local-lost-test-reply")
+		if err != nil || result.Outcome != "pending" {
+			t.Fatal(result, err)
+		}
+	}
+	h, err := target.Handoff(ctx, prepared.ID)
+	if err != nil || !h.Held || h.Phase != "prepared" || h.ProbeOutcome != "pending" || sends != 1 {
+		t.Fatalf("handoff %+v, sends %d, err %v", h, sends, err)
+	}
+}
+
 func TestHandoffLostRepliesRestartAndNoDuplicateExecution(t *testing.T) {
 	source, target, prepare, pause := transferFixture(t)
 	record, _ := target.Record(ctx, "api")

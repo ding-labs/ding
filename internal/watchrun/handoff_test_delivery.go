@@ -123,6 +123,9 @@ func (a *App) TestHandoff(ctx context.Context, id, key string) (HandoffTestResul
 				break
 			}
 			result := delivery.HTTP(ctx, a.HTTP.Client, delivery.Request{URL: endpoint, Body: payload, Header: headers, Provider: d.Definition.Spec.Type}, a.Now())
+			if result.ProbeOutcome() == "pending" {
+				return out, nil
+			}
 			if result.Outcome != delivery.Delivered {
 				accepted = false
 				break
