@@ -354,7 +354,7 @@ export function WatchDetail() {
         <button className="button" onClick={() => void exportIt(true)}>
           <Pencil size={15} /> Edit in Workbench
         </button>
-        <WatchActions watch={w} />
+        <WatchActions watch={w} lifecycle={query.data.lifecycle} />
       </Heading>
       <ErrorBox error={query.error || exportError} />
       <Tabs

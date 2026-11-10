@@ -87,3 +87,22 @@ test("terminal delivery retry keeps original identity and records a new policy c
     ),
   ).toHaveLength(1);
 });
+
+test("a new transfer hold disables an already open resume confirmation", async ({ page, daemon }) => {
+  await call(daemon, "/apply", { manifest });
+  await call(daemon, "/watches/api-health/lifecycle", { action: "pause" });
+  let held = false;
+  await page.route(/\/v1\/watches\/api-health\?/, async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    if (held) body.data.lifecycle = { actions: [], reason: "transfer_held", transferId: "test-transfer" };
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto(await daemon.launch());
+  await page.getByRole("link", { name: "API health" }).click();
+  await page.getByRole("button", { name: "Resume watch", exact: true }).click();
+  const confirm = page.getByRole("dialog").getByRole("button", { name: "Resume watch", exact: true });
+  await expect(confirm).toBeEnabled();
+  held = true;
+  await expect(confirm).toBeDisabled({ timeout: 12000 });
+});

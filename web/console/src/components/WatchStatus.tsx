@@ -108,7 +108,7 @@ export function WatchStatus({
   const title = stopped
     ? w.status === "paused"
       ? "Watch paused"
-      : "Watch deleted"
+      : w.status === "deleted" ? "Watch deleted" : "Watch status unavailable"
     : !current
       ? loading
         ? "Loading current condition…"
@@ -139,7 +139,7 @@ export function WatchStatus({
 
   return (
     <div className="watch-status-stack">
-      {location.state?.firstWatch === id && <FirstWatchProgress watch={current} />}
+      {location.state?.firstWatch === id && <FirstWatchProgress watch={current} status={w.status} lifecycle={detail.lifecycle} />}
       <section
         className={`panel watch-status-hero ${stopped ? "is-stopped" : needsAttention ? "needs-attention" : clear ? "is-clear" : ""}`}
         aria-labelledby="watch-condition-title"

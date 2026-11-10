@@ -11,10 +11,11 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { watchActions } from "../app/watchLifecycle";
 import { useCapability } from "../app/execution";
 import { useConnection } from "../api/connection";
 import { api, APIError, unknownOutcome } from "../api/client";
-import type { StoreWatchRecord, StoreIntent } from "../api/contracts";
+import type { StoreWatchRecord, StoreLifecycleGuidance, StoreIntent } from "../api/contracts";
 import { ErrorBox } from "./common";
 function Confirm({
   title,
@@ -63,7 +64,7 @@ function Confirm({
     </Dialog.Root>
   );
 }
-export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
+export function WatchActions({ watch, lifecycle }: { watch: StoreWatchRecord; lifecycle?: StoreLifecycleGuidance | null }) {
   const allowed = useCapability("manage");
   const [action, setAction] = useState("");
   const [expected, setExpected] = useState("");
@@ -113,6 +114,8 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
     change.reset();
   };
   if (!allowed) return null;
+  const actions = watchActions(watch.status, lifecycle);
+  const toggle = actions.find(a => a === "pause" || a === "resume");
   const destructive = action === "delete" || action === "purge";
   const title =
     action === "purge"
@@ -124,7 +127,7 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
           : `Resume ${id}?`;
   return (
     <>
-      {watch.status === "deleted" ? (
+      {actions.includes("purge") && (
         <button
           className="button danger"
           disabled={!connected}
@@ -132,44 +135,35 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
         >
           <Trash2 size={15} /> Permanently delete…
         </button>
-      ) : (
-        <>
-          <button
-            className="button"
-            disabled={!connected}
-            onClick={() =>
-              start(watch.status === "paused" ? "resume" : "pause")
-            }
-          >
-            {watch.status === "paused" ? (
-              <Play size={15} />
-            ) : (
-              <Pause size={15} />
-            )}{" "}
-            {watch.status === "paused" ? "Resume watch" : "Pause watch"}
-          </button>
-          <Menu.Root>
-            <Menu.Trigger asChild>
-              <button
-                className="icon-button"
-                aria-label="More watch actions"
-                disabled={!connected}
+      )}
+      {toggle && (
+        <button className="button" disabled={!connected} onClick={() => start(toggle)}>
+          {toggle === "resume" ? <Play size={15} /> : <Pause size={15} />}{" "}
+          {toggle === "resume" ? "Resume watch" : "Pause watch"}
+        </button>
+      )}
+      {actions.includes("delete") && (
+        <Menu.Root>
+          <Menu.Trigger asChild>
+            <button
+              className="icon-button"
+              aria-label="More watch actions"
+              disabled={!connected}
+            >
+              <MoreHorizontal size={18} />
+            </button>
+          </Menu.Trigger>
+          <Menu.Portal>
+            <Menu.Content className="dropdown" align="end" sideOffset={6}>
+              <Menu.Item
+                className="danger-text"
+                onSelect={() => start("delete")}
               >
-                <MoreHorizontal size={18} />
-              </button>
-            </Menu.Trigger>
-            <Menu.Portal>
-              <Menu.Content className="dropdown" align="end" sideOffset={6}>
-                <Menu.Item
-                  className="danger-text"
-                  onSelect={() => start("delete")}
-                >
-                  <Trash2 size={14} /> Delete watch…
-                </Menu.Item>
-              </Menu.Content>
-            </Menu.Portal>
-          </Menu.Root>
-        </>
+                <Trash2 size={14} /> Delete watch…
+              </Menu.Item>
+            </Menu.Content>
+          </Menu.Portal>
+        </Menu.Root>
       )}
       <Confirm
         title={title}
@@ -285,6 +279,7 @@ export function WatchActions({ watch }: { watch: StoreWatchRecord }) {
           <button
             className={`button ${destructive ? "danger" : "primary"}`}
             disabled={
+              !actions.includes(action) ||
               change.isPending ||
               !connected ||
               (change.isError && unknownOutcome(change.error)) ||

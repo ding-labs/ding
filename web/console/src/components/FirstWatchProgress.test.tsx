@@ -54,3 +54,16 @@ test("a deleted watch points to retained history without suggesting resume", () 
   expect(screen.getByRole("link", { name: "Inspect evidence" })).toHaveAttribute("href", "/watches/api?tab=Events");
   expect(screen.getByRole("link", { name: "Inspect deliveries" })).toHaveAttribute("href", "/watches/api?tab=Deliveries");
 });
+
+test("the current detail hold takes precedence over a stale running summary", () => {
+  render(<MemoryRouter><FirstWatchProgress watch={fixture()} status="paused" lifecycle={{actions: [], reason:"transfer_held", transferId:"t"}} /></MemoryRouter>);
+  expect(screen.getByText(/inspect the transfer/i)).toBeVisible();
+  expect(screen.queryByText(/resume/i)).toBeNull();
+});
+
+test("an unfamiliar lifecycle status offers inspection", () => {
+  render(<MemoryRouter><FirstWatchProgress watch={fixture({status:"future"})} /></MemoryRouter>);
+  expect(screen.getByRole("status")).toHaveTextContent("Monitoring status unavailable");
+  expect(screen.queryByText(/resume/i)).toBeNull();
+  expect(screen.getByRole("link", {name:"Inspect evidence"})).toBeVisible();
+});

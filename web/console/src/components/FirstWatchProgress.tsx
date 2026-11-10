@@ -1,15 +1,24 @@
 import { Link } from "react-router-dom";
-import type { StoreConsoleWatch } from "../api/contracts";
+import type { StoreConsoleWatch, StoreLifecycleGuidance } from "../api/contracts";
+import { watchActions } from "../app/watchLifecycle";
+import { useCapability } from "../app/execution";
 import { Time } from "./common";
 
-export function FirstWatchProgress({ watch }: { watch?: StoreConsoleWatch }) {
+export function FirstWatchProgress({ watch, status = watch?.status, lifecycle }: {
+  watch?: StoreConsoleWatch;
+  status?: string;
+  lifecycle?: StoreLifecycleGuidance | null;
+}) {
+  const manage = useCapability("manage");
+  const resume = manage && watchActions(status ?? "", lifecycle).includes("resume");
   const received = Boolean(watch?.lastInputAt && !watch.lastInputAt.startsWith("0001"));
   const sourceError = Boolean(watch?.lastError || watch?.unhealthy || watch?.missing.length);
   const observed = received && Boolean(watch?.entities) && !sourceError;
-  const running = watch?.status === "running";
+  const running = status === "running";
   const title = !watch ? "Checking monitoring status…"
-    : watch.status === "deleted" ? "Watch deleted"
-    : !running ? "Monitoring is stopped"
+    : status === "deleted" ? "Watch deleted"
+    : status === "paused" ? "Monitoring is stopped"
+    : !running ? "Monitoring status unavailable"
     : sourceError ? "Monitoring needs attention"
     : observed ? "Monitoring input received"
     : "Waiting for the first observation";
@@ -18,8 +27,10 @@ export function FirstWatchProgress({ watch }: { watch?: StoreConsoleWatch }) {
     <p className="eyebrow">Your watch is saved</p>
     <h2 id="first-observation-title" role="status">{title}</h2>
     {!watch ? <p>Current monitoring status is unavailable. Saving the watch does not confirm a successful check.</p>
-      : watch.status === "deleted" ? <p>You can still inspect this watch’s recorded evidence and deliveries.</p>
-      : !running ? <p>Resume the watch to continue checking its source.</p>
+      : status === "deleted" ? <p>You can still inspect this watch’s recorded evidence and deliveries.</p>
+      : lifecycle?.reason === "transfer_held" ? <p>Inspect the transfer under Execution and hosting before changing this watch.</p>
+      : resume ? <p>Resume the watch to continue checking its source.</p>
+      : !running ? <p>Inspect the watch details and retained history below.</p>
       : sourceError ? <p>Check the source and credentials below. A source error does not prove your service is healthy or clear an open incident.</p>
       : observed ? <p>Ding received an observation at <Time value={watch.lastInputAt} />. This confirms monitoring input, not service health or notification delivery.</p>
       : <p>Ding has not confirmed monitoring input yet. Next scheduled check: <Time value={watch.nextAt} />. This view updates automatically.</p>}
