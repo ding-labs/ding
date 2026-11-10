@@ -446,16 +446,18 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
           </button>
         )}
       </nav>
-      {error && (
-        <div className="error" role="alert">
-          <strong>Something needs attention.</strong>
-          <p>{error}</p>
+      {(error || (pending && !busy)) && (
+        <div className="error" role={error ? "alert" : "status"}>
+          <strong>{error ? "Something needs attention." : "Check the outcome of your last change."}</strong>
+          {error && <p>{error}</p>}
           {pending && (
             <div className="actions">
               <button
                 disabled={busy}
                 onClick={() =>
                   void call("ding_get_operation", {
+                    ...(pending.args.connection_id ? {connection_id: pending.args.connection_id} : {}),
+                    ...(pending.args.workspace_id ? {workspace_id: pending.args.workspace_id} : {}),
                     operation_key: pending.args.operation_key,
                   })
                 }

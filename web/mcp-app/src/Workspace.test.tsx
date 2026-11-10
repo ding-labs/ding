@@ -343,6 +343,13 @@ test("bridge requires a connection and pins pending changes to it", async () => 
   expect(calls[0][1].connection_id).toBe("local");
   expect(calls[0][1].workspace_id).toBe(workspace);
   expect(calls[1][1]).toEqual(calls[0][1]);
+  fireEvent.click(screen.getByRole("button", {name: "Watches"}));
+  await screen.findByText("Check the outcome of your last change.");
+  fireEvent.click(screen.getByRole("button", {name: "Check saved result"}));
+  await waitFor(() => expect(bridge.call).toHaveBeenCalledWith("ding_get_operation", {
+    connection_id: "local", workspace_id: workspace, operation_key: calls[0][1].operation_key,
+  }));
+  expect(vi.mocked(bridge.call).mock.calls.filter(([name]) => name === "ding_apply_changes")).toHaveLength(2);
 });
 
 test("a held watch offers transfer inspection on the original workspace", async () => {
