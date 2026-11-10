@@ -108,6 +108,8 @@ export async function api<T>(
     );
   }
   current(requestGeneration);
+  if (result === null || typeof result !== "object")
+    throw new APIError("invalid_response", "Ding returned an unreadable response.", res.status);
   if (!res.ok || result.error) {
     if (
       res.status === 401 ||
@@ -129,6 +131,8 @@ export async function api<T>(
       "This console and daemon use different API versions.",
       res.status,
     );
+  if (!("data" in result))
+    throw new APIError("invalid_response", "Ding returned a response without a result.", res.status);
   setConnection(true);
   return result.data as T;
 }
@@ -166,6 +170,7 @@ export function unknownOutcome(error: unknown) {
   return (
     !(error instanceof APIError) ||
     error.status >= 500 ||
-    error.code === "invalid_response"
+    error.code === "invalid_response" ||
+    (error.code === "version_mismatch" && error.status >= 200 && error.status < 300)
   );
 }

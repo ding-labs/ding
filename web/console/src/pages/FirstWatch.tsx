@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { api, APIError } from "../api/client";
+import { api, APIError, unknownOutcome } from "../api/client";
 import type { ControlFirstWatchPreview, StoreConsoleDestination } from "../api/contracts";
 import { Heading, ErrorBox } from "../components/common";
 import { NotificationSetup } from "../components/NotificationSetup";
@@ -48,8 +48,8 @@ export function FirstWatch() {
       navigate(`/watches/${encodeURIComponent(id)}`, { state: { firstWatch: id } });
     } catch (e) {
       setError(e);
-      if (e instanceof APIError && e.status === 409) setPreview(undefined);
-      else if (!(e instanceof APIError) || e.status >= 500) setUncertain(true);
+      if (unknownOutcome(e)) setUncertain(true);
+      else if (e instanceof APIError && e.status === 409) setPreview(undefined);
     } finally { setBusy(false); }
   }
 
