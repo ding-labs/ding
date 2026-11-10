@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import bell from "../../../design/assets/mark.svg?raw";
 import type { Bridge, DingView, ToolResult } from "./bridge";
+import { watchActions } from "../../console/src/app/watchLifecycle";
 import { parseResult } from "./bridge";
 import type {
   StoreConsoleWatch,
@@ -340,6 +341,7 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
   const preview = data as Preview | undefined;
   const watch =
     view?.view === "watch" ? (data as unknown as StoreWatchSummary) : undefined;
+  const toggle = watch && watchActions(watch.watch.status, watch.lifecycle).find(a => a === "pause" || a === "resume");
   const evidence =
     view?.view === "evidence" ? (data as unknown as ReplayEvidence) : undefined;
   const changes =
@@ -634,13 +636,13 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
                 </div>
                 <p>Source: {watch.watch.plan.definition.spec.source.type}</p>
                 <div className="actions">
-                  {watch.watch.status !== "deleted" && (
+                  {toggle && canManage && (
                     <button
                       className="primary"
                       disabled={!canManage || busy}
                       onClick={() =>
                         void call(
-                          watch.watch.status === "paused"
+                          toggle === "resume"
                             ? "ding_resume_watch"
                             : "ding_pause_watch",
                           {
@@ -652,7 +654,7 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
                         )
                       }
                     >
-                      {watch.watch.status === "paused"
+                      {toggle === "resume"
                         ? "Resume watch"
                         : "Pause watch"}
                     </button>
@@ -670,6 +672,16 @@ export function Workspace({ bridge }: { bridge: Bridge }) {
                     See events
                   </button>
                 </div>
+                {watch.lifecycle?.reason === "transfer_held" && watch.lifecycle.transferId && (
+                  <p>Execution is held by a transfer.{" "}
+                    <button disabled={busy || !ready} onClick={() => void call("ding_get_transfer", { transfer_id: watch.lifecycle?.transferId })}>
+                      Inspect transfer
+                    </button>
+                  </p>
+                )}
+                {watch.lifecycle?.reason === "resume_requires_grant" && (
+                  <p>Resuming this watch requires approval for its source on the connected instance.</p>
+                )}
                 {!canManage && (
                   <p className="muted">
                     This connection has view access. Review management

@@ -344,3 +344,21 @@ test("bridge requires a connection and pins pending changes to it", async () => 
   expect(calls[0][1].workspace_id).toBe(workspace);
   expect(calls[1][1]).toEqual(calls[0][1]);
 });
+
+test("a held watch offers transfer inspection on the original workspace", async () => {
+  const detail = result("watch", {
+    watch: { status: "paused", generation: 4, plan: { revision: "r", definition: { metadata: { id: "api" }, spec: { source: {type:"http"} } } } },
+    lifecycle: {actions: [], reason: "transfer_held", transferId: "transfer-a"},
+  });
+  Object.assign(detail.structuredContent as object, {target:{instance:"local-ding",workspace:"local-id",execution:"local"}});
+  const bridge = mockBridge(detail);
+  bridge.call = vi.fn(async name => name === "ding_get_capabilities"
+    ? result("capabilities", {execution:"local",grant:{scopes:["inspect","manage"]}})
+    : result("transfer", {id:"transfer-a"}));
+  render(<Workspace bridge={bridge} />);
+  const inspect = await screen.findByRole("button", {name: "Inspect transfer"});
+  await waitFor(() => expect((inspect as HTMLButtonElement).disabled).toBe(false));
+  expect(screen.queryByRole("button", {name:"Resume watch"})).toBeNull();
+  fireEvent.click(inspect);
+  await waitFor(() => expect(bridge.call).toHaveBeenCalledWith("ding_get_transfer", {workspace_id:"local-id", transfer_id:"transfer-a"}));
+});
