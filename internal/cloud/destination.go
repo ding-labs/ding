@@ -64,9 +64,10 @@ func (s *Server) testDestination(w http.ResponseWriter, r *http.Request, t *Tena
 			return
 		}
 		result := delivery.HTTP(r.Context(), t.App.HTTP.Client, delivery.Request{URL: endpoint, Body: payload, Header: http.Header{"Idempotency-Key": []string{id}}, Provider: req.Destination}, time.Now())
-		outcome := "failed"
-		if result.Outcome == delivery.Delivered {
-			outcome = "accepted"
+		outcome := result.ProbeOutcome()
+		if outcome == "pending" {
+			cloudWrite(w, 200, probe)
+			return
 		}
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 5*time.Second)
 		defer cancel()

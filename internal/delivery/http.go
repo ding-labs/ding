@@ -30,6 +30,20 @@ type Result struct {
 	RetryAt time.Time
 	Detail  string
 }
+
+// ProbeOutcome classifies a single labeled setup attempt. A retryable result
+// leaves its saved receipt pending because the receiver may have accepted it.
+func (r Result) ProbeOutcome() string {
+	switch r.Outcome {
+	case Delivered:
+		return "accepted"
+	case Retryable:
+		return "pending"
+	default:
+		return "failed"
+	}
+}
+
 type Request struct {
 	URL      string
 	Body     []byte
