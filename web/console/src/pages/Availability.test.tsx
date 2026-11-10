@@ -23,6 +23,17 @@ describe("execution disclosure", () => {
       }),
     ).not.toBeVisible();
   });
+  it("uses the receipt from the detail snapshot and skips the workspace transfer list", () => {
+    read.mockReturnValue({ data: undefined });
+    const {rerender} = render(<Availability watchID="extraction" lifecycle={{actions: [], reason: "transfer_held", transferId: "held-id"}} />);
+    expect(screen.getByRole("status")).toHaveTextContent("ding cloud move status held-id");
+    expect(read).toHaveBeenCalledWith("/handoffs/held-id", 15000, true);
+    expect(read).toHaveBeenCalledWith("/handoffs", 15000, false);
+    read.mockClear();
+    rerender(<Availability watchID="extraction" lifecycle={{actions: ["pause"]}} />);
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(read.mock.calls.every(([, , enabled]) => enabled === false)).toBe(true);
+  });
   it("keeps transfer holds visible even while hosting instructions are collapsed", () => {
     read.mockReturnValue({
       data: [

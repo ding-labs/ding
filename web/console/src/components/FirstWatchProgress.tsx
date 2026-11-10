@@ -28,7 +28,7 @@ export function FirstWatchProgress({ watch, status = watch?.status, lifecycle }:
     <h2 id="first-observation-title" role="status">{title}</h2>
     {!watch ? <p>Current monitoring status is unavailable. Saving the watch does not confirm a successful check.</p>
       : status === "deleted" ? <p>You can still inspect this watch’s recorded evidence and deliveries.</p>
-      : lifecycle?.reason === "transfer_held" ? <p>Inspect the transfer under Execution and hosting before changing this watch.</p>
+      : lifecycle?.reason === "transfer_held" ? <p><a href="#watch-transfer">Inspect the transfer</a> before changing this watch.</p>
       : resume ? <p>Resume the watch to continue checking its source.</p>
       : !running ? <p>Inspect the watch details and retained history below.</p>
       : sourceError ? <p>Check the source and credentials below. A source error does not prove your service is healthy or clear an open incident.</p>

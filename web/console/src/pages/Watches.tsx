@@ -398,7 +398,7 @@ export function WatchDetail() {
           />
         </>
       )}
-      {tab === "Overview" && <Availability watchID={id} sourceType={d.spec.source.type} />}
+      {tab === "Overview" && <Availability watchID={id} sourceType={d.spec.source.type} lifecycle={query.data.lifecycle} />}
       {tab === "Events" && <Events watch={id} />}
       {tab === "Deliveries" && <Deliveries watch={id} />}
       {tab === "Entities" && (
