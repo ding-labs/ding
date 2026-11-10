@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -160,6 +161,17 @@ spec:
 	}
 	if _, err = a.ApplyIntegration(ctx, allowed.Grant.ID, p.Handle, "command_apply_000001"); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := a.Lifecycle(ctx, "command", LifecycleRequest{Action: "pause"}); err != nil {
+		t.Fatal(err)
+	}
+	detail, err := a.WatchDetail(ctx, "command", "", 0, &g.Grant)
+	if err != nil || detail.Lifecycle.Reason != "resume_requires_grant" || !slices.Equal(detail.Lifecycle.Actions, []string{"delete"}) {
+		t.Fatalf("command guidance: %+v, %v", detail.Lifecycle, err)
+	}
+	detail, err = a.WatchDetail(ctx, "command", "", 0, &allowed.Grant)
+	if err != nil || !slices.Contains(detail.Lifecycle.Actions, "resume") {
+		t.Fatalf("approved command: %+v, %v", detail.Lifecycle, err)
 	}
 	if _, err = a.PreviewIntegration(ctx, allowed.Grant.ID, strings.Replace(manifest, "echo", "env", 1)); !errors.Is(err, store.ErrIntegrationDenied) {
 		t.Fatal("changed command accepted", err)

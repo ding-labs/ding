@@ -361,6 +361,12 @@ export interface StoreIntent {
   createdAt: string;
 }
 
+export interface StoreLifecycleGuidance {
+  actions: Array<string>;
+  reason?: string;
+  transferId?: string;
+}
+
 export interface StoreObservationPage {
   observations: Array<WatchObservation>;
   after: number;
@@ -400,6 +406,7 @@ export interface StoreWatchRecord {
 }
 
 export interface StoreWatchSummary {
+  lifecycle?: StoreLifecycleGuidance | null;
   logObservation?: WatchObservation | null;
   watch: StoreWatchRecord;
   entities: Array<StoreEntitySummary>;

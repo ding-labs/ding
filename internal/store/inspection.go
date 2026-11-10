@@ -273,7 +273,17 @@ type DeliverySummary struct {
 	NextAt              time.Time `json:"nextAt"`
 	LastError           string    `json:"lastError,omitempty"`
 }
+
+// LifecycleGuidance describes meaningful changes on this read surface.
+// The write still evaluates permissions and preconditions at commit time.
+type LifecycleGuidance struct {
+	Actions    []string `json:"actions"`
+	Reason     string   `json:"reason,omitempty"`
+	TransferID string   `json:"transferId,omitempty"`
+}
+
 type WatchSummary struct {
+	Lifecycle        *LifecycleGuidance `json:"lifecycle,omitempty"`
 	LogObservation   *watch.Observation `json:"logObservation,omitempty"`
 	Watch            WatchRecord        `json:"watch"`
 	Entities         []EntitySummary    `json:"entities"`
