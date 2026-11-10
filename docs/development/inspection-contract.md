@@ -18,7 +18,7 @@ is an unauthenticated liveness check; `/v1/doctor` is diagnostic readiness data.
 | `events --watch ID --cursor TOKEN --limit 100 --json` | `GET /v1/events?watch=ID&cursor=TOKEN&limit=100` | `events`, `cursor`, `more` |
 | `events inspect EVENT_ID --json` | `GET /v1/events/EVENT_ID` | immutable `definition`, `event`, optional `checkpoint`, `replayStatus` |
 | `events observations EVENT_ID --after 123 --json` | `GET /v1/events/EVENT_ID/observations?after=123` | `observations`, `after`, `more` |
-| `watch inspect ID --entities-after KEY --deliveries-before 123 --json` | `GET /v1/watches/ID?entitiesAfter=KEY&deliveriesBefore=123` | `watch`, entity/delivery summaries and pagination fields |
+| `watch inspect ID --entities-after KEY --deliveries-before 123 --json` | `GET /v1/watches/ID?entitiesAfter=KEY&deliveriesBefore=123` | `watch`, entity/delivery summaries, pagination fields and optional `lifecycle` |
 | `doctor --json` | `GET /v1/doctor` | store, usage, limits, workers, source state, credential presence, delivery counts |
 | `export --watch ID` | `GET /v1/watches/ID/export` | API: `manifest`; default CLI: reusable multi-document YAML |
 | `backup --out /absolute/new.db --json` | `POST /v1/backup`, `{"path":"/absolute/new.db"}` | `path`, `verified` |
@@ -34,6 +34,16 @@ Delivery detail includes the single pinned payload (base64 in JSON), not secrets
 resolved at send time. Attempt pages are newest first; request the next `before`
 until an empty page. Observation evidence pages stop at 100 records or 4 MiB.
 Every exported observation has its actual committed sequence number.
+
+## Watch and delivery actions
+
+Watch detail and `ding_get_watch` can return `lifecycle` alongside `watch`. For example, a manageable paused watch can return `{"actions":["resume","delete"]}`. A transfer hold returns an empty action list, `reason: transfer_held` and the owning `transferId`. Read that receipt on the same workspace and connection.
+
+`actions` names meaningful transitions on the inspecting surface. The other reason codes are `manage_unavailable`, `resume_requires_grant`, `shutting_down` and `unknown_status`. Use the actions and reason together. A caller lacking the grant to resume can still have another permitted action. Older servers may omit guidance. For an unfamiliar status, offer inspection. Submit a lifecycle change with the revision and generation the caller reviewed. A conflicting write needs a fresh detail read.
+
+A client confirming a manual delivery retry can pass the inspected intent's `cycleStartedAt` as the URL-encoded `expectedCycle` query parameter. The server checks it in the retry transaction. On `409 retry_cycle_changed`, inspect the delivery and its attempts again. Existing callers can omit the parameter. MCP retries bind the operation key to the original request.
+
+The application-wide inventory records the owner, recovery path and regression for each related workflow. [State-machine audit](state-machine-audit.md)
 
 ## Resuming history
 
