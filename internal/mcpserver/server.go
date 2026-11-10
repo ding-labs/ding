@@ -46,7 +46,7 @@ func New(options Options) (*mcp.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	catalog = mcpcontract.DestinationSetup(mcpcontract.ServicePreview(catalog))
+	catalog = mcpcontract.DestinationSetup(mcpcontract.ServicePreview(mcpcontract.WatchInspection(catalog)))
 	if options.TransferTransport {
 		catalog = mcpcontract.TransferTransport(catalog)
 	}

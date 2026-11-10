@@ -84,3 +84,35 @@ func TestCapturedContractAndSDK(t *testing.T) {
 		t.Fatal("invalid bound accepted")
 	}
 }
+
+func TestWatchLifecycleCompatibility(t *testing.T) {
+	old, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, catalog := range []Catalog{old, WatchInspection(current)} {
+		for _, tool := range catalog.Tools {
+			if tool.Name != "ding_get_watch" {
+				continue
+			}
+			schema, err := Resolve(tool.OutputSchema)
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := map[string]any{"watch": map[string]any{"plan": map[string]any{}, "status": "paused", "generation": 1}}
+			for _, withGuidance := range []bool{false, true} {
+				if withGuidance {
+					data["lifecycle"] = map[string]any{"actions": []any{}, "reason": "transfer_held", "transferId": "id"}
+				}
+				view, err := Normalize(schema, View{View: "watch", Data: data, Query: map[string]any{}})
+				if err != nil || !reflect.DeepEqual(view.Data.(map[string]any)["lifecycle"], data["lifecycle"]) {
+					t.Fatalf("guidance present=%v: %v, %v", withGuidance, view, err)
+				}
+			}
+		}
+	}
+}

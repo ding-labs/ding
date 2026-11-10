@@ -69,7 +69,7 @@ func (b *Bridge) server(version, html string) (*mcp.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	catalog = mcpcontract.Cloud(mcpcontract.TransferInspection(mcpcontract.DestinationSetup(mcpcontract.ServicePreview(catalog))))
+	catalog = mcpcontract.Cloud(mcpcontract.TransferInspection(mcpcontract.DestinationSetup(mcpcontract.ServicePreview(mcpcontract.WatchInspection(catalog)))))
 	catalog = mcpcontract.BindUI(catalog, html)
 	s := mcp.NewServer(&mcp.Implementation{Name: "Ding", Version: version}, &mcp.ServerOptions{Instructions: mcpcontract.Instructions + " This adapter has separate local and cloud connections. Always supply connection_id. A cloud error never selects the local instance. Discover connections before choosing where a watch should run."})
 	s.AddReceivingMiddleware(func(next mcp.MethodHandler) mcp.MethodHandler {
