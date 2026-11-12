@@ -78,6 +78,7 @@ try {
     ["tell-tail-docs", docs + "/tell-tail/"],
     ["tell-tail-dashboard-docs", docs + "/tell-tail/dashboard/"],
     ["tell-tail-preview-docs", docs + "/tell-tail/next/"],
+    ["tell-tail-mcp-docs", docs + "/tell-tail/next/mcp/"],
     ["quickstart", docs + product.quickstartPath],
     ["reference", docs + "/reference/manifest/"],
     ["console-help", docs + "/console/"],

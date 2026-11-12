@@ -22,6 +22,7 @@ PAGES = {
     'docs/OUTPUT.md': ('output.md', 'Output and backpressure'),
 }
 PREVIEW_PAGES = {
+    'docs/MCP.md': ('mcp.md', 'MCP diagnostics'),
     'docs/README.md': ('index.md', 'Preview overview'),
     'docs/DEMO.md': ('demo.md', 'Built-in demo'),
     'docs/LOG-FORMATS.md': ('log-formats.md', 'Log format recognition'),
