@@ -13,6 +13,7 @@ const root = new URL("../../../", import.meta.url);
 const base = new URL("../", import.meta.url);
 const out = new URL("dist/", base);
 const product = loadProduct(root);
+const tellTail = JSON.parse(readFileSync(new URL("content/tell-tail.json", root), "utf8"));
 const preview = process.argv.includes("--preview");
 const websiteUrl = product.websiteUrl;
 const cloudUrl = "https://cloud.ding.ing/";
@@ -28,6 +29,7 @@ const availability =
     ? "Watch runtime: source preview. Published v0.14.0 is legacy."
     : `Watch runtime: ${product.runtime.version}.`;
 const pages = [
+  ["tell-tail/index.html", "tell-tail/", "Tell-Tail — A live view from your logs", "See log throughput, warnings, and errors in your terminal or browser. Free, open-source, local log monitoring from Ding Labs."],
   ["index.html", "", "Know what happened. See why.", product.description],
   [
     "console/index.html",
@@ -70,6 +72,9 @@ const manifest = readFileSync(
   "utf8",
 ).split("---\n")[1];
 const values = {
+  tellTailDocsUrl: docsUrl + "tell-tail/",
+  tellTailVersion: e(tellTail.version),
+  tellTailRepositoryUrl: tellTail.repositoryUrl,
   docsUrl,
   installUrl: docsOrigin + product.installPath,
   quickstartUrl: docsOrigin + product.quickstartPath,
@@ -111,20 +116,30 @@ for (const [filename, path, title, description] of pages) {
       return values[key];
     },
   );
+  const isTellTail = path === "tell-tail/";
+  const pageDocsUrl = isTellTail ? docsUrl + "tell-tail/" : docsUrl;
+  const repositoryUrl = isTellTail ? tellTail.repositoryUrl : product.repositoryUrl;
+  const accountActions = isTellTail
+    ? `<a class="button primary" href="#install">Install Tell-Tail</a>`
+    : `<a class="text-link" href="${cloudAuthUrl}">Sign in</a><a class="button primary" href="${cloudAuthUrl}">Create account</a>`;
+  const footerLinks = isTellTail
+    ? `<a href="/">Ding</a><a href="${pageDocsUrl}">Tell-Tail docs</a><a href="${repositoryUrl}">GitHub</a><a href="${repositoryUrl}/blob/${tellTail.releaseRef}/LICENSE">MIT license</a>`
+    : `<a href="${cloudUrl}">Ding Cloud</a><a href="${cloudAuthUrl}">Sign in</a><a href="${cloudAuthUrl}">Create account</a><a href="${docsUrl}">Documentation</a><a href="${product.repositoryUrl}">GitHub</a><a href="${product.repositoryUrl}/blob/main/LICENSE">Apache-2.0</a>`;
   const nav = [
-    ["/", "Product"],
+    ["/", "Ding"],
+    ["/tell-tail/", "Tell-Tail"],
     [cloudUrl, "Cloud"],
     ["/console/", "Local Console"],
     ["/examples/", "Examples"],
-    [docsUrl, "Docs"],
-    [product.repositoryUrl, "GitHub"],
+    [pageDocsUrl, "Docs"],
+    [repositoryUrl, "GitHub"],
   ]
     .map(
       ([href, label]) =>
         `<a href="${e(href)}"${href === "/" + path ? ' aria-current="page"' : ""}>${label}</a>`,
     )
     .join("");
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>${e(title)} — Ding</title><meta name="description" content="${e(description)}"><link rel="canonical" href="${websiteUrl}/${path}"><meta property="og:title" content="${e(title)} — Ding"><meta property="og:description" content="${e(description)}"><meta property="og:type" content="website"><meta property="og:url" content="${websiteUrl}/${path}"><meta property="og:image" content="${websiteUrl}/assets/social.png"><meta property="og:image:alt" content="Ding. Know what happened. See why."><meta name="twitter:card" content="summary_large_image">${preview || path === "404.html" || path === "console/" ? '<meta name="robots" content="noindex,follow">' : ""}<link rel="icon" href="/assets/mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/assets/tokens.css"><link rel="stylesheet" href="/assets/style.css"><script src="/assets/site.js" defer></script></head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><a class="wordmark" href="/" aria-label="Ding home"><img src="/assets/mark.svg" width="34" height="34" alt=""><span>Ding<span class="wordmark-dot">.</span></span></a><nav aria-label="Main navigation">${nav}</nav><div class="account-actions"><a class="text-link" href="${cloudAuthUrl}">Sign in</a><a class="button primary" href="${cloudAuthUrl}">Create account</a></div><button class="theme-toggle" type="button" hidden aria-label="Change color theme">Theme: system</button></header><main id="main">${content}</main><footer><a class="wordmark" href="/"><img src="/assets/mark.svg" width="28" height="28" alt="">Ding.</a><p>Persistent watches. Durable alerts.</p><div><a href="${cloudUrl}">Ding Cloud</a><a href="${cloudAuthUrl}">Sign in</a><a href="${cloudAuthUrl}">Create account</a><a href="${docsUrl}">Documentation</a><a href="${product.repositoryUrl}">GitHub</a><a href="${product.repositoryUrl}/blob/main/LICENSE">Apache-2.0</a></div></footer></body></html>`;
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>${e(title)} — Ding</title><meta name="description" content="${e(description)}"><link rel="canonical" href="${websiteUrl}/${path}"><meta property="og:title" content="${e(title)} — Ding"><meta property="og:description" content="${e(description)}"><meta property="og:type" content="website"><meta property="og:url" content="${websiteUrl}/${path}"><meta property="og:image" content="${websiteUrl}/assets/${isTellTail ? "tell-tail/dashboard.png" : "social.png"}"><meta property="og:image:alt" content="${isTellTail ? "Tell-Tail dashboard with synthetic sample logs" : "Ding. Know what happened. See why."}"><meta name="twitter:card" content="summary_large_image">${preview || path === "404.html" || path === "console/" ? '<meta name="robots" content="noindex,follow">' : ""}<link rel="icon" href="/assets/mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/assets/tokens.css"><link rel="stylesheet" href="/assets/style.css"><script src="/assets/site.js" defer></script></head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header"><a class="wordmark" href="/" aria-label="Ding home"><img src="/assets/mark.svg" width="34" height="34" alt=""><span>Ding<span class="wordmark-dot">.</span></span></a><nav aria-label="Main navigation">${nav}</nav><div class="account-actions">${accountActions}</div><button class="theme-toggle" type="button" hidden aria-label="Change color theme">Theme: system</button></header><main id="main">${content}</main><footer><a class="wordmark" href="/"><img src="/assets/mark.svg" width="28" height="28" alt="">Ding.</a><p>${isTellTail ? "Tell-Tail · A Ding Labs product." : "Persistent watches. Durable alerts."}</p><div>${footerLinks}</div></footer></body></html>`;
   const dest = new URL(filename, out);
   mkdirSync(new URL("./", dest), { recursive: true });
   writeFileSync(dest, html);
