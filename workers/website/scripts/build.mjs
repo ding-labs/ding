@@ -164,7 +164,7 @@ writeFileSync(
 writeFileSync(
   new URL("build-info.json", out),
   JSON.stringify(
-    { source, runtime: product.runtime, console: product.console, preview },
+    { source, runtime: product.runtime, console: product.console, tellTail, preview },
     null,
     2,
   ) + "\n",
