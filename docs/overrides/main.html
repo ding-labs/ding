@@ -3,10 +3,18 @@
 <div class="ding-channels">
   <strong class="ding-channels__label">{{ config.extra.channel_label }}</strong>
   <nav class="ding-channels__links" aria-label="Documentation channels and related sites">
+    {% if config.extra.docs_channel == 'tell-tail' %}
+    <a href="https://docs.ding.ing/tell-tail/">Released v{{ config.extra.tell_tail_version }}</a>
+    <a href="https://docs.ding.ing/tell-tail/next/">Unreleased preview</a>
+    <a href="https://docs.ding.ing/">Ding docs</a>
+    <a href="https://ding.ing/tell-tail/">Tell-Tail home ↗</a>
+    {% else %}
+    <a href="https://docs.ding.ing/tell-tail/">Tell-Tail docs</a>
     {% if config.extra.docs_channel != 'current' %}<a href="{{ config.extra.public_docs_url }}">Current docs</a>{% endif %}
     {% if config.extra.docs_channel != 'preview' %}<a href="{{ config.extra.public_docs_url }}preview/">Unreleased preview</a>{% endif %}
     {% if config.extra.docs_channel != 'legacy' %}<a href="{{ config.extra.public_docs_url }}legacy/v0.14.0/">Legacy v0.14.0</a>{% endif %}
     <a href="https://ding.ing">Website ↗</a>
+    {% endif %}
     <a href="{{ config.extra.repository_url }}">GitHub ↗</a>
   </nav>
 </div>
@@ -14,7 +22,7 @@
 {% block extrahead %}
 {{ super() }}
 {% if config.extra.noindex or page and (page.url.startswith('development/') or page.url.startswith('console/')) %}<meta name="robots" content="noindex,follow">{% endif %}
-<meta property="og:title" content="{{ page.title | default(config.site_name, true) }} — Ding docs">
+<meta property="og:title" content="{{ page.title | default(config.site_name, true) }} — {{ config.site_name }} docs">
 <meta property="og:description" content="{{ config.site_description }}">
 <meta property="og:image" content="https://ding.ing/assets/social.png">
 {% endblock %}
