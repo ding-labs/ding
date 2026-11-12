@@ -8,6 +8,7 @@ for (const path of [
   "/tell-tail/",
   "/tell-tail/dashboard/",
   "/tell-tail/next/",
+  "/tell-tail/next/mcp/",
 ]) {
   const response = await fetch(product.docsUrl + path, {
     signal: AbortSignal.timeout(15000),

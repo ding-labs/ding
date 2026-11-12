@@ -16,6 +16,7 @@ for (const path of [
   "tell-tail/index.html",
   "tell-tail/search/search_index.json",
   "tell-tail/next/index.html",
+  "tell-tail/next/mcp/index.html",
   "preview/index.html",
   "search/search_index.json",
   ...expected.map((a) => a.path + "/index.html"),
