@@ -1,0 +1,42 @@
+<section class="tell-tail-hero" aria-labelledby="tell-tail-title">
+  <div>
+    <p class="eyebrow">Tell-Tail / A Ding Labs product</p>
+    <h1 id="tell-tail-title">A live view.<br /><em>From your logs.</em></h1>
+    <p class="lede">Follow a log file or pipe in a process. See throughput, warnings, and errors in your terminal or browser, with a small sample of recent errors close at hand.</p>
+    <div class="actions">
+      <a class="button primary" href="#install">Install Tell-Tail <span aria-hidden="true">↓</span></a>
+      <a class="text-link" href="{{tellTailDocsUrl}}">Read the docs <span aria-hidden="true">→</span></a>
+    </div>
+    <p class="availability">Free and open source · MIT · v{{tellTailVersion}}<br />Runs locally. No account needed.</p>
+  </div>
+  <div class="tell-tail-start code-panel">
+    <div class="code-title">One file. Two views.</div>
+    <div class="tell-tail-command"><span class="eyebrow">In your terminal</span><pre tabindex="0" aria-label="Run Tell-Tail in the terminal"><code>tell-tail app.log</code></pre></div>
+    <div class="tell-tail-command"><span class="eyebrow">In your browser</span><pre tabindex="0" aria-label="Open Tell-Tail in the browser"><code>tell-tail app.log --output web --open</code></pre></div>
+    <p>Following starts at the end of the file. Add <code>--from start</code> to include existing lines.</p>
+  </div>
+</section>
+<figure class="tell-tail-dashboard">
+  <a href="/assets/tell-tail/dashboard.png" aria-label="View the full Tell-Tail dashboard screenshot"><img src="/assets/tell-tail/dashboard.png" width="1200" height="1805" fetchpriority="high" alt="Tell-Tail browser dashboard showing log throughput, warning and error ratios, severity counts, and recent error previews from sample records." /></a>
+  <figcaption>Tell-Tail v{{tellTailVersion}} · Real browser dashboard with synthetic sample logs. Display frozen for this screenshot.</figcaption>
+</figure>
+<section class="section" aria-labelledby="workflows-title">
+  <div class="section-heading"><p class="eyebrow">From output to understanding</p><h2 id="workflows-title">Start where<br />your software runs.</h2></div>
+  <div class="tell-tail-workflows">
+    <article><span class="use-number">01 / Deploying</span><h3>Keep a service in view.</h3><p>Follow new log lines while you deploy. Watch the volume and severity of arriving records, then freeze the display to review recent errors.</p><pre tabindex="0" aria-label="Follow a service log"><code>tell-tail service.log --window 10</code></pre></article>
+    <article><span class="use-number">02 / Debugging</span><h3>Watch a worker’s output.</h3><p>Pipe stdout and stderr straight into a dashboard. Unbuffered output helps records arrive as the process writes them.</p><pre tabindex="0" aria-label="Pipe Python worker output"><code>python3 -u worker.py 2>&amp;1 | tell-tail</code></pre></article>
+    <article><span class="use-number">03 / Reviewing</span><h3>Count a completed capture.</h3><p>Scan a saved file for totals and severity counts. A fast scan measures processing throughput, rather than the original event rate.</p><pre tabindex="0" aria-label="Scan a completed capture"><code>tell-tail capture.ndjson --once</code></pre></article>
+  </div>
+</section>
+<section class="section definition" id="install" aria-labelledby="install-title">
+  <div><p class="eyebrow">Get started / v{{tellTailVersion}}</p><h2 id="install-title">Install once.<br />Bring your own logs.</h2><p>Native downloads support Apple Silicon on macOS 14+ and Linux on x86_64 or ARM64. The browser dashboard is built into the binary.</p><div class="actions"><a class="text-link" href="{{tellTailRepositoryUrl}}/releases/tag/v{{tellTailVersion}}">Download a binary <span aria-hidden="true">↗</span></a><a class="text-link" href="{{tellTailDocsUrl}}">Installation guide <span aria-hidden="true">→</span></a></div></div>
+  <div class="code-panel"><div class="code-title">Homebrew</div><pre tabindex="0" aria-label="Install Tell-Tail with Homebrew"><code>brew install ding-labs/tap/tell-tail</code></pre><div class="code-title">Cargo <span>Requires Rust 1.88 or later</span></div><pre tabindex="0" aria-label="Install Tell-Tail with Cargo"><code>cargo install tell-tail --version {{tellTailVersion}} --locked</code></pre></div>
+</section>
+<section class="section tell-tail-try" aria-labelledby="try-title">
+  <div><p class="eyebrow">No log file handy?</p><h2 id="try-title">Three lines.<br />Your first report.</h2><p>Paste this into your terminal after installing. The final report stays open in your browser until you press Ctrl+C.</p></div>
+  <pre tabindex="0" aria-label="Try Tell-Tail with sample logs"><code>printf 'INFO ready\nWARN upstream slow\nERROR upstream timeout\n' | tell-tail --output web --open</code></pre>
+</section>
+<section class="section tell-tail-boundaries" aria-labelledby="local-title">
+  <div><p class="eyebrow">Small, local, inspectable</p><h2 id="local-title">Keep the view<br />close to the source.</h2><p>Tell-Tail keeps counters, rolling statistics, and a bounded sample of recent errors in memory. Statistics reset on restart. It works offline, and webhook notifications are optional.</p><p>Log ratios describe the records received. They do not establish application health. For persistent watches, retained evidence, and durable notification retries, explore <a href="/">Ding</a>.</p></div>
+  <div class="plain-panel"><h3>Take the next step.</h3><ul class="tell-tail-guides"><li><a href="{{tellTailDocsUrl}}dashboard/">Explore the browser dashboard →</a></li><li><a href="{{tellTailDocsUrl}}usage/#webhook-alerts">Set up webhook alerts →</a></li><li><a href="{{tellTailDocsUrl}}operations/">Find answers and troubleshoot →</a></li><li><a href="{{tellTailRepositoryUrl}}">Read the source on GitHub ↗</a></li></ul><p class="availability">Building from source? The <a href="{{tellTailDocsUrl}}next/">unreleased preview docs</a> cover the built-in demo and newer parsing features.</p></div>
+</section>

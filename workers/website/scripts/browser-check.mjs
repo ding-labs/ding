@@ -71,9 +71,13 @@ try {
   });
   const routes = [
     ["home", website + "/"],
+    ["tell-tail", website + "/tell-tail/"],
     ["console", website + "/console/"],
     ["examples", website + "/examples/"],
     ["docs", docs + "/"],
+    ["tell-tail-docs", docs + "/tell-tail/"],
+    ["tell-tail-dashboard-docs", docs + "/tell-tail/dashboard/"],
+    ["tell-tail-preview-docs", docs + "/tell-tail/next/"],
     ["quickstart", docs + product.quickstartPath],
     ["reference", docs + "/reference/manifest/"],
     ["console-help", docs + "/console/"],
@@ -94,7 +98,7 @@ try {
         );
         const response = await page.goto(url, { waitUntil: "networkidle" });
         assert.equal(response.status(), 200);
-        if (!url.startsWith(docs)) {
+        if (!url.startsWith(docs) && name !== "tell-tail") {
           const account = page.locator(".account-actions").getByRole("link", { name: "Create account", exact: true });
           assert.ok(await account.isVisible(), `${name}/${theme}/${width}: account entry is visible`);
           assert.equal(await account.getAttribute("href"), "https://cloud.ding.ing/auth/login");

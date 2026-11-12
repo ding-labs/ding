@@ -112,3 +112,20 @@ new release links. Help links in the console should use the compatible snapshot.
 Future version snapshots must retain their own release metadata. When adding one,
 verify the channel banner, installation ref, and snippets against that tag. Do not
 silently relabel a legacy archive or publish development-only commands as stable.
+
+## Tell-Tail documentation
+
+The complete docs build also publishes `/tell-tail/` and `/tell-tail/next/`.
+`content/tell-tail.json` pins full commit SHAs in `ding-labs/tell-tail`; the build
+fetches those public revisions and renders the guides directly from that repository.
+It does not copy a second set of guide sources into Ding. The stable docs pin is
+the 0.2.0 publication update (runtime sources unchanged from the release tag).
+`content/tell-tail/index.md` is the short, website-owned installation entry point.
+
+To update the guides, change the relevant pin in `content/tell-tail.json`, review
+release compatibility, and run the complete public checks. Preview guides have a
+warning on every page and are excluded from indexing. Do not advance `docsRef`
+to unreleased runtime behavior; use `previewRef` for that work. A future release
+updates the version, release ref, stable source pin, quick start, and landing page
+examples together. Publish Docs before Website when adding or changing advertised
+Tell-Tail documentation links. Optional background soaks never gate publication.

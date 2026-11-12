@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import yaml
+from build_tell_tail_docs import build_tell_tail
 
 ROOT = Path(__file__).resolve().parents[2]
 PRODUCT = json.loads((ROOT / 'content/product.json').read_text())
@@ -81,7 +82,8 @@ def main():
                 archive_source.mkdir()
                 run(['git','--work-tree='+str(archive_source),'restore','--source='+archive['ref'],'--worktree','--','.'])
                 build_channel(archive_source, output/path, archive['channel'], archive['ref'], work, archive['path']+'/')
-        (output/'robots.txt').write_text(f"User-agent: *\nAllow: /\nDisallow: /preview/\nDisallow: /legacy/v0.14.0/\nDisallow: /development/\nDisallow: /console/\nSitemap: {PRODUCT['docsUrl']}/sitemap.xml\n")
+        build_tell_tail(output, work)
+        (output/'robots.txt').write_text(f"User-agent: *\nAllow: /\nDisallow: /preview/\nDisallow: /tell-tail/next/\nDisallow: /legacy/v0.14.0/\nDisallow: /development/\nDisallow: /console/\nSitemap: {PRODUCT['docsUrl']}/sitemap.xml\nSitemap: {PRODUCT['docsUrl']}/tell-tail/sitemap.xml\n")
         (output/'_headers').write_text("/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  X-Frame-Options: DENY\n/preview/*\n  X-Robots-Tag: noindex, follow\n/legacy/*\n  X-Robots-Tag: noindex, follow\n")
         (output/'channels.json').write_text(json.dumps({'complete':not args.current_only,'source':ref,'archives':json.loads((ROOT/'content/docs-versions.json').read_text())['archives']},indent=2)+'\n')
         OUT.parent.mkdir(exist_ok=True)
