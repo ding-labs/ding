@@ -1147,3 +1147,26 @@ footer > div {
   .tell-tail-workflows article { border-top: 1px solid var(--ding-border); padding-top: 24px; }
   .tell-tail-hero { padding-top: 48px; }
 }
+
+.tell-tail-feature {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 48px;
+  align-items: center;
+  margin-top: 48px;
+  padding: 40px;
+  background: var(--ding-subtle);
+  border: 1px solid var(--ding-border);
+  border-left: 3px solid var(--ding-brand);
+  border-radius: var(--ding-radius-panel);
+}
+.tell-tail-feature h2 { font-size: clamp(32px, 3.6vw, 46px); }
+.tell-tail-feature p { color: var(--ding-muted); font-size: 16px; }
+.tell-tail-feature .eyebrow { color: var(--ding-brand); font-size: 11px; }
+.tell-tail-feature-command { min-width: 0; }
+.tell-tail-feature-command pre { overflow-x: auto; padding: 24px 0; font-size: 13px; }
+.tell-tail-feature-command > p:not(.eyebrow) { font-size: 13px; }
+@media (max-width: 850px) {
+  .tell-tail-feature { grid-template-columns: 1fr; gap: 24px; padding: 28px; }
+  .tell-tail-feature-command { border-top: 1px solid var(--ding-border); padding-top: 24px; }
+}

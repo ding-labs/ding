@@ -23,3 +23,11 @@ test("Tell-Tail is discoverable and has product-specific share metadata", () => 
   const image = readFileSync(new URL("assets/tell-tail/dashboard.png", dist));
   assert.ok(html.includes(`width="${image.readUInt32BE(16)}" height="${image.readUInt32BE(20)}"`));
 });
+
+test("the homepage features Tell-Tail before the detailed Ding sections", () => {
+  const home = readFileSync(new URL("index.html", dist), "utf8");
+  const feature = home.indexOf('class="tell-tail-feature"');
+  assert.ok(feature > 0 && feature < home.indexOf('id="cloud"'));
+  assert.match(home, /href="\/tell-tail\/">Explore Tell-Tail/);
+  assert.ok(home.includes(`href="${docs}"`));
+});
