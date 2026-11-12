@@ -13,7 +13,7 @@ def on_config(config):
 def on_page_markdown(markdown, page, config, files):
     if config.extra['tell_tail_preview']:
         markdown = ('!!! warning "Unreleased preview"\n'
-                    '    These guides describe a source checkout. New features are not in the published 0.2.0 packages. '
+                    '    These guides describe a pinned source checkout and may include changes beyond the current release. '
                     '[Read the released documentation](https://docs.ding.ing/tell-tail/).\n\n' + markdown)
     return markdown
 

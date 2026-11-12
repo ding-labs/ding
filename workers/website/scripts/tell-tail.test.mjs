@@ -10,9 +10,9 @@ test("Tell-Tail has its own install flow, repository, and license", () => {
   assert.match(html, /href="#install">Install Tell-Tail/);
   assert.doesNotMatch(html, /Create account|>Apache-2.0</);
   assert.ok(html.includes(`href="${docs}"`));
-  assert.match(html, /github.com\/ding-labs\/tell-tail\/blob\/v0.2.0\/LICENSE/);
+  assert.match(html, /github.com\/ding-labs\/tell-tail\/blob\/v0.4.0\/LICENSE/);
   assert.match(html, /brew install ding-labs\/tap\/tell-tail/);
-  assert.match(html, /cargo install tell-tail --version 0.2.0 --locked/);
+  assert.match(html, /cargo install tell-tail --version 0.4.0 --locked/);
   assert.match(html, /synthetic sample logs/);
   assert.doesNotMatch(html, /\{\{\w+\}\}/);
 });
