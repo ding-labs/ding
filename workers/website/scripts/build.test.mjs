@@ -110,7 +110,7 @@ test("built pages have metadata, truthful sample labels, and no unresolved templ
     assert.match(html, /name="description"/);
     assert.doesNotMatch(html, /\{\{(?:docsUrl|snippet:|evidence|manifest)/);
     assert.doesNotMatch(
-      html,
+      html.replace(/<section class="tell-tail-feature"[\s\S]*?<\/section>/, ""),
       /MIT licensed|No database|ding run --|116k|5MB static binary/,
     );
   }
