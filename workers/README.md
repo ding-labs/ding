@@ -119,7 +119,7 @@ The complete docs build also publishes `/tell-tail/` and `/tell-tail/next/`.
 `content/tell-tail.json` pins full commit SHAs in `ding-labs/tell-tail`; the build
 fetches those public revisions and renders the guides directly from that repository.
 It does not copy a second set of guide sources into Ding. The stable docs pin is
-the 0.2.0 publication update (runtime sources unchanged from the release tag).
+the 0.4.0 candidate source, including installed MCP diagnostics and demos.
 `content/tell-tail/index.md` is the short, website-owned installation entry point.
 
 To update the guides, change the relevant pin in `content/tell-tail.json`, review

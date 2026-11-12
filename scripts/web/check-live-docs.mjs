@@ -8,6 +8,7 @@ for (const path of [
   "/tell-tail/",
   "/tell-tail/dashboard/",
   "/tell-tail/next/",
+  "/tell-tail/mcp/",
   "/tell-tail/next/mcp/",
 ]) {
   const response = await fetch(product.docsUrl + path, {

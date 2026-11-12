@@ -20,13 +20,13 @@ PAGES = {
     'docs/WEB-FRAMES.md': ('web-frames.md', 'Frame reference'),
     'docs/SNAPSHOTS.md': ('snapshots.md', 'Snapshot API'),
     'docs/OUTPUT.md': ('output.md', 'Output and backpressure'),
-}
-PREVIEW_PAGES = {
     'docs/MCP.md': ('mcp.md', 'MCP diagnostics'),
-    'docs/README.md': ('index.md', 'Preview overview'),
     'docs/DEMO.md': ('demo.md', 'Built-in demo'),
     'docs/LOG-FORMATS.md': ('log-formats.md', 'Log format recognition'),
     'docs/MONITORING.md': ('monitoring.md', 'Understanding a live log stream'),
+}
+PREVIEW_PAGES = {
+    'docs/README.md': ('index.md', 'Preview overview'),
 }
 
 
@@ -62,7 +62,7 @@ def build_tell_tail(output, workspace):
             markdown = (checkout / source).read_text()
             if not preview:
                 markdown = markdown.replace('git clone https://github.com/ding-labs/tell-tail.git',
-                                            'git clone --branch v0.2.0 https://github.com/ding-labs/tell-tail.git')
+                                            f'git clone --branch {PRODUCT["releaseRef"]} https://github.com/ding-labs/tell-tail.git')
             (docs / target).write_text(rewrite_links(markdown, source, pages, ref))
         if not preview:
             shutil.copy2(ROOT / 'content/tell-tail/index.md', docs / 'index.md')
