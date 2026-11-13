@@ -1128,6 +1128,9 @@ footer > div {
 .tell-tail-dashboard { margin: 0; }
 .tell-tail-dashboard img { display: block; width: 100%; height: auto; border: 1px solid var(--ding-border); border-radius: var(--ding-radius-panel); }
 .tell-tail-dashboard figcaption { color: var(--ding-muted); font-size: 12px; margin-top: 12px; }
+.tell-tail-mcp-intro { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 64px; align-items: center; margin-bottom: 36px; }
+.tell-tail-mcp-intro > div { min-width: 0; }
+.tell-tail-mcp-intro > div > p:not(.eyebrow) { color: var(--ding-muted); font-size: 16px; }
 .tell-tail-workflows { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px; }
 .tell-tail-workflows h3 { margin-top: 20px; }
 .tell-tail-workflows p, .tell-tail-try p, .tell-tail-boundaries p { color: var(--ding-muted); font-size: 16px; }
@@ -1143,6 +1146,7 @@ footer > div {
 }
 @media (max-width: 850px) {
   .tell-tail-hero, .tell-tail-try, .tell-tail-boundaries { grid-template-columns: 1fr; gap: 30px; }
+  .tell-tail-mcp-intro { grid-template-columns: 1fr; gap: 30px; }
   .tell-tail-workflows { grid-template-columns: 1fr; }
   .tell-tail-workflows article { border-top: 1px solid var(--ding-border); padding-top: 24px; }
   .tell-tail-hero { padding-top: 48px; }

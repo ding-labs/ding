@@ -6,6 +6,7 @@
     <div class="actions">
       <a class="button primary" href="#install">Install Tell-Tail <span aria-hidden="true">↓</span></a>
       <a class="text-link" href="{{tellTailDocsUrl}}">Read the docs <span aria-hidden="true">→</span></a>
+      <a class="text-link" href="#mcp">MCP diagnostics <span aria-hidden="true">↓</span></a>
     </div>
     <p class="availability">Free and open source · MIT · v{{tellTailVersion}}<br />Runs locally. No account needed.</p>
   </div>
@@ -20,6 +21,28 @@
   <a href="/assets/tell-tail/dashboard.png" aria-label="View the full Tell-Tail dashboard screenshot"><img src="/assets/tell-tail/dashboard.png" width="1200" height="1805" fetchpriority="high" alt="Tell-Tail browser dashboard showing log throughput, warning and error ratios, severity counts, and recent error previews from sample records." /></a>
   <figcaption>Browser dashboard with synthetic sample logs. Display frozen for this screenshot.</figcaption>
 </figure>
+<section class="section tell-tail-mcp" id="mcp" aria-labelledby="mcp-title">
+  <div class="tell-tail-mcp-intro">
+    <div>
+      <p class="eyebrow">MCP diagnostics / Included in v{{tellTailVersion}}</p>
+      <h2 id="mcp-title">Your MCP logs.<br />One local view.</h2>
+      <p>Open existing Codex Desktop and Claude Desktop logs on macOS in one command. See reported authentication failures, timeouts, and unexpected disconnects, with matching recovery alongside them.</p>
+      <p>Search the timeline by client or server and inspect diagnostic metadata. Tell-Tail reads existing log files, without client configuration changes or restarts.</p>
+      <a class="text-link" href="{{tellTailDocsUrl}}mcp/">Explore MCP diagnostics <span aria-hidden="true">→</span></a>
+    </div>
+    <div class="code-panel tell-tail-start">
+      <div class="code-title">Watch your MCP logs</div>
+      <pre tabindex="0" aria-label="Watch desktop MCP logs"><code>tell-tail mcp --open</code></pre>
+      <div class="code-title">Try the synthetic demo</div>
+      <pre tabindex="0" aria-label="Try the MCP dashboard with synthetic logs"><code>tell-tail mcp --demo --open</code></pre>
+      <p>Automatic discovery is available on macOS. On Linux, use an explicit directory of supported logs or try the demo. Collection stays local; tool arguments and results are omitted.</p>
+    </div>
+  </div>
+  <figure class="tell-tail-dashboard">
+    <a href="/assets/tell-tail/mcp-dashboard.png" aria-label="View the full MCP dashboard screenshot"><img src="/assets/tell-tail/mcp-dashboard.png" width="1440" height="1602" loading="lazy" decoding="async" alt="Tell-Tail MCP dashboard with synthetic Codex Desktop and Claude Desktop logs, showing recovered OAuth reauthentication, timeout and connection failure groups, and a timeline filtered to failures." /></a>
+    <figcaption>Tell-Tail 0.4.0 running the synthetic MCP demo. Display paused and timeline filtered to failures. Select the screenshot to view it full size.</figcaption>
+  </figure>
+</section>
 <section class="section" aria-labelledby="workflows-title">
   <div class="section-heading"><p class="eyebrow">From output to understanding</p><h2 id="workflows-title">Start where<br />your software runs.</h2></div>
   <div class="tell-tail-workflows">
