@@ -112,7 +112,7 @@ try {
         }
         await assertSharedDesign(
           page,
-          url.startsWith(docs) ? "docs" : "website",
+          url.startsWith(docs) ? "docs" : name === "tell-tail" ? "tell-tail" : "website",
         );
         const overflow = await page.evaluate(
           () => document.documentElement.scrollWidth > innerWidth + 1,

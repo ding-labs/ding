@@ -1174,3 +1174,7 @@ footer > div {
   .tell-tail-feature { grid-template-columns: 1fr; gap: 24px; padding: 28px; }
   .tell-tail-feature-command { border-top: 1px solid var(--ding-border); padding-top: 24px; }
 }
+
+/* Match the released Tell-Tail dashboard wordmark and upright-hook mark. */
+.tell-tail-wordmark { gap: 12px; font: 650 26px/1 var(--ding-font); letter-spacing: -.8px; }
+.tell-tail-wordmark img { width: 40px; height: 32px; padding: 0; background: #171c19; border-radius: 6px; flex: none; }

@@ -1,16 +1,25 @@
 # Tell-Tail dashboard images
 
-`dashboard.png` is an unmodified full-page browser screenshot of the published
-Tell-Tail 0.2.0 Apple Silicon binary. It uses synthetic INFO/WARN/ERROR records
-on stdin, a five-second rolling window, dark theme, a 1200 × 980 browser viewport,
-and the dashboard's Freeze display control. No real logs or customer data appear.
+## Logo and log dashboard
 
-Source: https://github.com/ding-labs/tell-tail/releases/tag/v0.2.0 (MIT).
-Archive SHA-256: `4b337ab47528246bd87501c7a8465e7c05e67cdfc0b730ba3bf5e8129913e252`.
+`logo.svg` is the current upright-hook mark copied unchanged from the published
+Tell-Tail 0.4.0 source (`web/logo.svg`). The website header pairs it with the
+same system-font family, 650 weight, 26px size and -.8px letter spacing as the
+released dashboard wordmark.
+
+`dashboard.png` is an unmodified full-page screenshot of the published 0.4.0
+Apple Silicon binary. Run `tell-tail --demo --window 5 --output web --open`,
+wait for the error phase (about twenty seconds), and select **Freeze display**.
+The capture uses dark theme and a 1200 × 980 viewport; the full image is
+1200 × 2129 pixels. Captured November 12, 2026 (Pacific). No real logs or
+customer data appear.
+
+Source: https://github.com/ding-labs/tell-tail/releases/tag/v0.4.0 (MIT).
+Source commit: `09df02f7c233b819b94c08c6229b2ea0934ec206`.
+Executable SHA-256: `f55527f573d5a5600967bebddf432a24be4be013f77133b84dc45c2d0a447c88`.
 
 Keep the visible sample-data caption when reusing it. Replace the screenshot when
 changing the advertised release; do not substitute an unreleased dashboard.
-
 
 ## MCP dashboard
 

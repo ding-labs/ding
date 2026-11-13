@@ -5,6 +5,10 @@ const mark = readFileSync(
   new URL("./assets/mark.svg", import.meta.url),
   "utf8",
 ).trim();
+const tellTailMark = readFileSync(
+  new URL("./assets/tell-tail/logo.svg", import.meta.url),
+  "utf8",
+).trim();
 
 // Run against built pages: this catches missing imports, stale copied assets and
 // theme overrides that a source-only token check would miss.
@@ -59,6 +63,7 @@ export async function assertSharedDesign(page, surface) {
       errors,
       green,
       logos: [...document.querySelectorAll(logoSelector)].map((img) => img.src),
+      tellTailLogo: document.querySelector("header .tell-tail-wordmark img")?.src,
       icon: document.querySelector('link[rel="icon"]')?.href,
     };
   }, surface);
@@ -74,16 +79,20 @@ export async function assertSharedDesign(page, surface) {
   );
   assert.ok(
     result.logos.length > 0,
-    `${surface} must display the original bell`,
+    `${surface} must display its brand logo`,
   );
+  if (surface === "tell-tail") {
+    assert.ok(result.tellTailLogo, "Tell-Tail must have its own header logo");
+    assert.equal(new URL(result.tellTailLogo).pathname, "/assets/tell-tail/logo.svg");
+  }
   assert.ok(result.icon, `${surface} must have a bell favicon`);
   for (const url of new Set([...result.logos, result.icon])) {
     const response = await page.request.get(url);
     assert.ok(response.ok(), `Missing brand asset: ${url}`);
     assert.equal(
       (await response.text()).trim(),
-      mark,
-      `Stale bell asset: ${url}`,
+      surface === "tell-tail" && url === result.tellTailLogo ? tellTailMark : mark,
+      `Stale brand asset: ${url}`,
     );
   }
 }
