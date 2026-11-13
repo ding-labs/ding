@@ -19,7 +19,7 @@ test("Tell-Tail has its own install flow, repository, and license", () => {
 test("Tell-Tail is discoverable and has product-specific share metadata", () => {
   assert.ok(readFileSync(new URL("sitemap.xml", dist), "utf8").includes("https://ding.ing/tell-tail/"));
   assert.match(html, /rel="canonical" href="https:\/\/ding.ing\/tell-tail\/"/);
-  assert.match(html, /property="og:image" content="https:\/\/ding.ing\/assets\/tell-tail\/dashboard.png"/);
+  assert.match(html, /property="og:image" content="https:\/\/ding.ing\/assets\/tell-tail\/dashboard.png\?v=[a-f0-9]{12}"/);
   const image = readFileSync(new URL("assets/tell-tail/dashboard.png", dist));
   assert.ok(html.includes(`width="${image.readUInt32BE(16)}" height="${image.readUInt32BE(20)}"`));
 });
