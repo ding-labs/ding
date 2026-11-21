@@ -4,6 +4,7 @@ main { width: 100%; }
   width: min(calc(100% - 88px), 1180px);
   margin-inline: auto;
 }
+footer p a { text-decoration: underline; }
 .site-header { min-height: 78px; gap: 24px; }
 .site-header .button {
   min-height: 36px;
