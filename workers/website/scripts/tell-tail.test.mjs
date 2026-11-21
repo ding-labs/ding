@@ -12,7 +12,9 @@ test("Tell-Tail has its own install flow, repository, and license", () => {
   assert.match(html, /href="#install">Install Tell-Tail/);
   assert.doesNotMatch(html, /Create account|>Apache-2.0</);
   assert.ok(html.includes('href="/docs/"'));
-  assert.match(html, /github.com\/ding-labs\/tell-tail\/blob\/v0.4.0\/LICENSE/);
+  assert.ok(html.includes('Created and maintained by <a href="https://github.com/zuchka">Matt Abrams</a>'));
+  assert.doesNotMatch(html, /Ding Labs|href="https:\/\/ding\.ing/);
+  assert.match(html, /github.com\/zuchka\/tell-tail\/blob\/v0.4.0\/LICENSE/);
   assert.match(html, /brew install ding-labs\/tap\/tell-tail/);
   assert.match(html, /cargo install tell-tail --version 0.4.0 --locked/);
   assert.match(html, /AI Activity source preview · Synthetic tool result/);
@@ -49,6 +51,7 @@ test("the responsive homepage screenshots ship at their declared dimensions", ()
 test("the homepage features Tell-Tail before the detailed Ding sections", () => {
   const home = readFileSync(new URL("index.html", dist), "utf8");
   const feature = home.indexOf('class="tell-tail-feature"');
+  assert.ok(home.includes("Tell-Tail by Matt Abrams"));
   assert.ok(feature > 0 && feature < home.indexOf('id="cloud"'));
   assert.ok(home.includes(`href="${homeUrl}">Explore Tell-Tail`));
   assert.ok(home.includes(`href="${docs}"`));

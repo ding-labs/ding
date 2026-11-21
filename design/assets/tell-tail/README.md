@@ -14,7 +14,7 @@ The capture uses dark theme and a 1200 × 980 viewport; the full image is
 1200 × 2129 pixels. Captured November 12, 2026 (Pacific). No real logs or
 customer data appear.
 
-Source: https://github.com/ding-labs/tell-tail/releases/tag/v0.4.0 (MIT).
+Source: https://github.com/zuchka/tell-tail/releases/tag/v0.4.0 (MIT).
 Source commit: `09df02f7c233b819b94c08c6229b2ea0934ec206`.
 Executable SHA-256: `f55527f573d5a5600967bebddf432a24be4be013f77133b84dc45c2d0a447c88`.
 
@@ -28,7 +28,7 @@ Tell-Tail 0.4.0 Apple Silicon binary running its synthetic MCP demo. No client
 logs or customer data are read. The visible demo banner and caption must be
 retained when reusing it.
 
-Source: https://github.com/ding-labs/tell-tail/releases/tag/v0.4.0 (MIT).
+Source: https://github.com/zuchka/tell-tail/releases/tag/v0.4.0 (MIT).
 Source commit: `09df02f7c233b819b94c08c6229b2ea0934ec206`.
 Executable SHA-256: `f55527f573d5a5600967bebddf432a24be4be013f77133b84dc45c2d0a447c88`.
 Captured November 12, 2026 (Pacific), Chromium, dark theme, 1440 × 1100 viewport.
@@ -54,7 +54,7 @@ Captured November 21, 2026 in Chromium at 1.5× pixel density, dark appearance, 
 
 ### AI Activity
 
-Build from [the captured source revision](https://github.com/ding-labs/tell-tail/tree/b1f381fcece43d36397b46f6c2b36e992fdddd0d) with Rust 1.88 or later. From that checkout, run the demo.
+Build from [the captured source revision](https://github.com/zuchka/tell-tail/tree/b1f381fcece43d36397b46f6c2b36e992fdddd0d) with Rust 1.88 or later. From that checkout, run the demo.
 
 ```sh
 cargo run --locked -- desktop --demo --open
@@ -64,7 +64,7 @@ The demo seeds the tool result with a 194 ms duration. Real Codex tool-result ca
 
 ### MCP and application logs
 
-Install the [published 0.4.0 binary](https://github.com/ding-labs/tell-tail/releases/tag/v0.4.0). The Homebrew Apple Silicon executable used here has SHA-256 `f55527f573d5a5600967bebddf432a24be4be013f77133b84dc45c2d0a447c88`. Run either demo.
+Install the [published 0.4.0 binary](https://github.com/zuchka/tell-tail/releases/tag/v0.4.0). The Homebrew Apple Silicon executable used here has SHA-256 `f55527f573d5a5600967bebddf432a24be4be013f77133b84dc45c2d0a447c88`. Run either demo.
 
 ```sh
 tell-tail mcp --demo --open

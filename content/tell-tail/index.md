@@ -22,7 +22,7 @@ Or with Cargo (Rust 1.88 or later):
 cargo install tell-tail --version 0.4.0 --locked
 ```
 
-[Download native binaries](https://github.com/ding-labs/tell-tail/releases/tag/v0.4.0)
+[Download native binaries](https://github.com/zuchka/tell-tail/releases/tag/v0.4.0)
 for Apple Silicon on macOS 14+ or Linux x86_64/ARM64. The browser dashboard is
 embedded in the binary; it needs no Node, Python, account, or hosted service.
 
@@ -80,5 +80,4 @@ at the end of a file; an empty display is expected until new lines arrive.
 
 Statistics and recent error previews live in memory and reset on restart.
 Log severity ratios describe received records; they do not establish application
-health. Webhook delivery is best effort. [Ding](https://ding.ing/) provides
-persistent watches, evidence, and durable notification retries.
+health. Webhook delivery is best effort.

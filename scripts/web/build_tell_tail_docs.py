@@ -64,9 +64,11 @@ def build_tell_tail(output, workspace):
             markdown = markdown.replace('[Ding docs](https://docs.ding.ing/tell-tail/', '[Tell-Tail docs](https://docs.ding.ing/tell-tail/')
             markdown = markdown.replace('https://docs.ding.ing/tell-tail/', PRODUCT['websiteUrl'] + '/docs/')
             markdown = markdown.replace('[Ding docs](https://docs.ding.ing/)', '[Tell-Tail home](' + PRODUCT['websiteUrl'] + '/)')
+            repository = PRODUCT['repositoryUrl']
+            markdown = markdown.replace('https://github.com/ding-labs/tell-tail', repository)
             if not preview:
-                markdown = markdown.replace('git clone https://github.com/ding-labs/tell-tail.git',
-                                            f'git clone --branch {PRODUCT["releaseRef"]} https://github.com/ding-labs/tell-tail.git')
+                markdown = markdown.replace(f'git clone {repository}.git',
+                                            f'git clone --branch {PRODUCT["releaseRef"]} {repository}.git')
             (docs / target).write_text(rewrite_links(markdown, source, pages, ref))
         if not preview:
             shutil.copy2(ROOT / 'content/tell-tail/index.md', docs / 'index.md')
@@ -79,7 +81,8 @@ def build_tell_tail(output, workspace):
         destination = output / path
         config.update(site_name='Tell-Tail', site_description='Live log throughput and severity in your terminal or browser',
                       site_url=PRODUCT['websiteUrl'] + '/' + path, repo_url=PRODUCT['repositoryUrl'],
-                      repo_name='ding-labs/tell-tail', copyright='Tell-Tail · MIT · Ding Labs',
+                      repo_name=urlsplit(PRODUCT['repositoryUrl']).path.strip('/'),
+                      copyright='Tell-Tail · MIT · Created and maintained by <a href="https://github.com/zuchka">Matt Abrams</a>',
                       docs_dir=str(docs), site_dir=str(destination),
                       hooks=[str(ROOT / 'scripts/web/tell_tail_docs_hooks.py')],
                       nav=[{'Start': [{'Overview and install': 'index.md'}, {'Commands and alerts': 'usage.md'}]},
