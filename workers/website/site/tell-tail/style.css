@@ -1,0 +1,116 @@
+/* This stylesheet is served only on the Tell-Tail landing page. */
+main { width: 100%; }
+.wrap, .site-header, footer {
+  width: min(calc(100% - 88px), 1180px);
+  margin-inline: auto;
+}
+.site-header { min-height: 78px; gap: 24px; }
+.site-header .button {
+  min-height: 36px;
+  padding: 7px 14px;
+  border: 1px solid var(--ding-border);
+  background: transparent;
+  color: var(--ding-text);
+}
+.site-header .button:hover { background: var(--ding-subtle); }
+main figure, main h1, main h2, main h3, main p { margin: 0; }
+main img { display: block; width: 100%; height: auto; }
+.tt-hero, .pair, .tt-heading, .preview-run {
+  display: grid;
+  align-items: center;
+  gap: clamp(32px, 6vw, 90px);
+}
+.tt-hero {
+  grid-template-columns: 1.18fr 1fr;
+  padding-block: clamp(42px, 5vw, 80px);
+}
+.tt-hero > *, .pair > *, .preview-run > * { min-width: 0; }
+.label {
+  font: 650 12px/1.4 var(--ding-mono);
+  letter-spacing: .085em;
+  text-transform: uppercase;
+  color: var(--ding-brand);
+}
+main h1, main h2 {
+  font-weight: 630;
+  letter-spacing: -.065em;
+  line-height: .99;
+  text-wrap: balance;
+}
+main h1 { font-size: clamp(63px, 7.6vw, 112px); margin: 18px 0 22px; }
+main h2 { font-size: clamp(36px, 4.6vw, 64px); margin: 12px 0 18px; }
+main h3 { font-size: 19px; letter-spacing: -.025em; }
+main .lede { max-width: 37ch; font-size: clamp(18px, 1.45vw, 22px); line-height: 1.48; color: var(--ding-text); }
+main .actions { gap: 18px 24px; margin: 25px 0 12px; }
+main .button, .link { font-size: 15px; font-weight: 650; }
+.link { color: inherit; text-underline-offset: .21em; }
+.qualifier, figcaption, .small { font-size: 13px; line-height: 1.5; color: var(--ding-muted); }
+.qualifier { max-width: 46ch; }
+figcaption { margin-top: 10px; }
+.inspector-frame {
+  display: grid;
+  place-items: center;
+  padding: clamp(16px, 2.4vw, 36px);
+  border: 1px solid light-dark(#bed3c0, #48624c);
+  border-radius: 12px;
+  background-color: light-dark(#e5ede1, #27392e);
+  background-image: radial-gradient(light-dark(#bacfbc, #48624c) .8px, transparent .8px);
+  background-size: 9px 9px;
+}
+.inspector-frame img { width: min(100%, 378px); border-radius: 7px; box-shadow: 0 9px 22px #19271f24; }
+.tt-heading, .preview-run { grid-template-columns: 1.05fr 1fr; }
+.tt-heading { align-items: end; margin-bottom: 26px; }
+.tt-heading h2 { margin-bottom: 0; }
+.tt-activity { background: light-dark(#18241e, #101a15); color: #f1f4ed; padding-block: clamp(42px, 5vw, 76px); }
+.tt-activity .label, .tt-activity a { color: #a2e4a3; }
+.tt-activity figcaption, .tt-heading > p, .preview-run p { color: #bfcec3; }
+.tt-activity :focus-visible { outline-color: #a2e4a3; }
+.shot { display: block; border-radius: 8px; }
+.shot img { border-radius: inherit; }
+.tt-activity .shot { border: 1px solid #485e50; }
+.preview-run { border-top: 1px solid #485e50; padding-top: 24px; margin-top: 30px; }
+.preview-run p { margin-top: 5px; max-width: 45ch; font-size: 15px; }
+main pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 12px 0;
+  padding: 14px 16px;
+  border-radius: 6px;
+  background: var(--ding-subtle);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.preview-run pre { background: #27392e; color: #f2f4ef; margin-top: 0; }
+.pair { grid-template-columns: 1.05fr .95fr; padding-block: clamp(44px, 5.8vw, 82px); }
+.pair p + p { margin-top: 12px; }
+.pair .small { margin-bottom: 8px; }
+#install { margin-top: 25px; }
+#install .link + .link { margin-left: 12px; }
+.install-options { margin-top: 14px; font-size: 15px; }
+.install-options summary { cursor: pointer; width: fit-content; }
+.tt-logs { border-block: 1px solid var(--ding-border); background: light-dark(#e9ede5, #233127); }
+.tt-logs .pair { grid-template-columns: 1.35fr .75fr; }
+.tt-logs pre { padding-left: 0; margin-bottom: 4px; background: transparent; }
+
+@media (max-width: 1100px) {
+  .site-header { gap: 14px; }
+  .site-header nav { order: 0; flex-basis: auto; margin-left: auto; }
+  .site-header .account-actions { margin: 0; width: auto; order: 0; }
+}
+@media (max-width: 800px) {
+  .wrap, .site-header, footer { width: calc(100% - 44px); }
+  .tt-hero, .pair, .tt-logs .pair, .tt-heading, .preview-run { grid-template-columns: 1fr; gap: 24px; }
+  .hero-figure { max-width: 560px; }
+  .inspector-frame img { max-width: 350px; }
+  .pair figure { max-width: 480px; }
+  .tt-heading p { max-width: 55ch; }
+}
+@media (max-width: 560px) {
+  .wrap, .site-header, footer { width: calc(100% - 36px); }
+  .site-header { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; padding-block: 12px; }
+  .site-header .theme-toggle { grid-column: 2; grid-row: 1; justify-self: end; }
+  .site-header nav { margin: 0; justify-content: flex-start; }
+  .site-header .account-actions { justify-self: end; }
+  main .actions { gap: 12px; }
+  main .button, .link { font-size: 14px; }
+}
