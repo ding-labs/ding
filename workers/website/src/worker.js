@@ -1,4 +1,5 @@
 import redirects from '../../../content/redirects.json' with { type: 'json' };
+import tellTail from '../../../content/tell-tail.json' with { type: 'json' };
 import product from '../../../content/product.json' with { type: 'json' };
 
 import { homepageFunnel, expireFunnel } from './funnel.js';
@@ -9,6 +10,12 @@ export default {
   },
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (['/tell-tail', '/tell-tail/', '/tell-tail/index.html'].includes(url.pathname) || url.pathname.startsWith('/assets/tell-tail/')) {
+      const target = new URL(env.PREVIEW === 'true' ? tellTail.previewWebsiteUrl : tellTail.websiteUrl);
+      if (url.pathname.startsWith('/assets/')) target.pathname = url.pathname;
+      target.search = url.search;
+      return Response.redirect(target, 301);
+    }
     if (url.hostname === 'www.ding.ing') {
       url.hostname = 'ding.ing';
       url.protocol = 'https:';

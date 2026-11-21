@@ -115,7 +115,7 @@ silently relabel a legacy archive or publish development-only commands as stable
 
 ## Tell-Tail documentation
 
-The complete docs build also publishes `/tell-tail/` and `/tell-tail/next/`.
+The complete docs build also publishes `https://tell-tail.dev/docs/` and `https://tell-tail.dev/docs/next/`.
 `content/tell-tail.json` pins full commit SHAs in `ding-labs/tell-tail`; the build
 fetches those public revisions and renders the guides directly from that repository.
 It does not copy a second set of guide sources into Ding. The stable docs pin is
@@ -127,5 +127,5 @@ release compatibility, and run the complete public checks. Preview guides have a
 warning on every page and are excluded from indexing. Do not advance `docsRef`
 to unreleased runtime behavior; use `previewRef` for that work. A future release
 updates the version, release ref, stable source pin, quick start, and landing page
-examples together. Publish Docs before Website when adding or changing advertised
-Tell-Tail documentation links. Optional background soaks never gate publication.
+examples together. The Website workflow publishes the landing page and both guide channels together
+to the `tell-tail-site` Worker before updating the Ding homepage. Optional background soaks never gate publication.

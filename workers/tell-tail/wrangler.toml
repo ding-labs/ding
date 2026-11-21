@@ -1,0 +1,39 @@
+name = "tell-tail-site"
+main = "worker.mjs"
+account_id = "b5a19010c0fa72255f749f63b2ec0962"
+# Latest date supported by the repository-pinned workerd for local checks.
+compatibility_date = "2026-10-13"
+workers_dev = false
+preview_urls = false
+routes = [
+  { pattern = "tell-tail.dev", custom_domain = true },
+  { pattern = "www.tell-tail.dev", custom_domain = true },
+]
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+run_worker_first = true
+html_handling = "auto-trailing-slash"
+not_found_handling = "404-page"
+
+[observability]
+enabled = true
+
+[observability.traces]
+enabled = true
+
+[env.preview]
+name = "tell-tail-site-preview"
+routes = []
+workers_dev = true
+
+[env.preview.vars]
+PREVIEW = "true"
+
+[env.preview.assets]
+directory = "./dist"
+binding = "ASSETS"
+run_worker_first = true
+html_handling = "auto-trailing-slash"
+not_found_handling = "404-page"

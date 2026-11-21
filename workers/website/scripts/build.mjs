@@ -15,7 +15,9 @@ const base = new URL("../", import.meta.url);
 const out = new URL("dist/", base);
 const product = loadProduct(root);
 const tellTail = JSON.parse(readFileSync(new URL("content/tell-tail.json", root), "utf8"));
+const tellTailOut = new URL("workers/tell-tail/dist/", root);
 const preview = process.argv.includes("--preview");
+const tellTailHome = (preview ? tellTail.previewWebsiteUrl : tellTail.websiteUrl) + "/";
 const websiteUrl = product.websiteUrl;
 const cloudUrl = "https://cloud.ding.ing/";
 const cloudAuthUrl = new URL("auth/login", cloudUrl).href;
@@ -77,7 +79,8 @@ const tellTailDashboardUrl = "/assets/tell-tail/dashboard.png?v=" + assetVersion
 const styleVersion = assetVersion(new URL("site/style.css", base));
 const values = {
   tellTailDashboardUrl,
-  tellTailDocsUrl: docsUrl + "tell-tail/",
+  tellTailHome,
+  tellTailDocsUrl: tellTailHome + "docs/",
   tellTailVersion: e(tellTail.version),
   tellTailRepositoryUrl: tellTail.repositoryUrl,
   docsUrl,
@@ -106,6 +109,12 @@ for (const [name, asset] of [
 }
 for (const name of ["style.css", "site.js"])
   cpSync(new URL(`site/${name}`, base), new URL(`assets/${name}`, out));
+// The landing build owns these assets; the docs build owns dist/docs independently.
+const tellTailAssets = new URL("assets/", tellTailOut);
+rmSync(tellTailAssets, { recursive: true, force: true });
+mkdirSync(tellTailAssets, { recursive: true });
+for (const name of ["style.css", "site.js", "tokens.css", "mark.svg", "tell-tail"])
+  cpSync(new URL("assets/" + name, out), new URL(name, tellTailAssets), { recursive: true });
 const scriptBytes = gzipSync(
   readFileSync(new URL("assets/site.js", out)),
 ).length;
@@ -114,48 +123,52 @@ if (scriptBytes > 50 * 1024)
     `Website JavaScript exceeds the 50 KiB gzip budget: ${scriptBytes} bytes`,
   );
 for (const [filename, path, title, description] of pages) {
-  let content = readFileSync(new URL(`site/${filename}`, base), "utf8").replace(
+  const isTellTail = path === "tell-tail/";
+  const pageDocsUrl = isTellTail ? "/docs/" : docsUrl;
+  const pageValues = isTellTail ? { ...values, tellTailDocsUrl: pageDocsUrl } : values;
+  const content = readFileSync(new URL(`site/${filename}`, base), "utf8").replace(
     /\{\{(\w+)\}\}/g,
     (_, key) => {
-      if (!(key in values)) throw new Error(`Unknown template value ${key}`);
-      return values[key];
+      if (!(key in pageValues)) throw new Error(`Unknown template value ${key}`);
+      return pageValues[key];
     },
   );
-  const isTellTail = path === "tell-tail/";
-  const pageDocsUrl = isTellTail ? docsUrl + "tell-tail/" : docsUrl;
+  const canonical = isTellTail ? tellTail.websiteUrl + "/" : websiteUrl + "/" + path;
+  const pageTitle = isTellTail ? e(title) : e(title) + " — Ding";
+  const icon = isTellTail ? "/assets/tell-tail/logo.svg" : "/assets/mark.svg";
   const repositoryUrl = isTellTail ? tellTail.repositoryUrl : product.repositoryUrl;
   const accountActions = isTellTail
     ? `<a class="button primary" href="#install">Install Tell-Tail</a>`
     : `<a class="text-link" href="${cloudAuthUrl}">Sign in</a><a class="button primary" href="${cloudAuthUrl}">Create account</a>`;
   const footerLinks = isTellTail
-    ? `<a href="/">Ding</a><a href="${pageDocsUrl}">Tell-Tail docs</a><a href="${repositoryUrl}">GitHub</a><a href="${repositoryUrl}/blob/${tellTail.releaseRef}/LICENSE">MIT license</a>`
+    ? `<a href="https://ding.ing/">Ding</a><a href="${pageDocsUrl}">Tell-Tail docs</a><a href="${repositoryUrl}">GitHub</a><a href="${repositoryUrl}/blob/${tellTail.releaseRef}/LICENSE">MIT license</a>`
     : `<a href="${cloudUrl}">Ding Cloud</a><a href="${cloudAuthUrl}">Sign in</a><a href="${cloudAuthUrl}">Create account</a><a href="${docsUrl}">Documentation</a><a href="${product.repositoryUrl}">GitHub</a><a href="${product.repositoryUrl}/blob/main/LICENSE">Apache-2.0</a>`;
   const headerBrand = isTellTail
-    ? '<a class="wordmark tell-tail-wordmark" href="/tell-tail/" aria-label="Tell-Tail home"><img src="/assets/tell-tail/logo.svg" width="40" height="32" alt=""><span>tell-tail</span></a>'
+    ? '<a class="wordmark tell-tail-wordmark" href="/" aria-label="Tell-Tail home"><img src="/assets/tell-tail/logo.svg" width="40" height="32" alt=""><span>tell-tail</span></a>'
     : '<a class="wordmark" href="/" aria-label="Ding home"><img src="/assets/mark.svg" width="34" height="34" alt=""><span>Ding<span class="wordmark-dot">.</span></span></a>';
-  const nav = [
+  const navLinks = isTellTail ? [[pageDocsUrl, "Docs"], [repositoryUrl, "GitHub"]] : [
     ["/", "Ding"],
-    ["/tell-tail/", "Tell-Tail"],
+    [tellTailHome, "Tell-Tail"],
     [cloudUrl, "Cloud"],
     ["/console/", "Local Console"],
     ["/examples/", "Examples"],
     [pageDocsUrl, "Docs"],
     [repositoryUrl, "GitHub"],
-  ]
-    .map(
+  ];
+  const nav = navLinks.map(
       ([href, label]) =>
         `<a href="${e(href)}"${href === "/" + path ? ' aria-current="page"' : ""}>${label}</a>`,
     )
     .join("");
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>${e(title)} — Ding</title><meta name="description" content="${e(description)}"><link rel="canonical" href="${websiteUrl}/${path}"><meta property="og:title" content="${e(title)} — Ding"><meta property="og:description" content="${e(description)}"><meta property="og:type" content="website"><meta property="og:url" content="${websiteUrl}/${path}"><meta property="og:image" content="${websiteUrl}${isTellTail ? tellTailDashboardUrl : "/assets/social.png"}"><meta property="og:image:alt" content="${isTellTail ? "Tell-Tail dashboard with synthetic sample logs" : "Ding. Know what happened. See why."}"><meta name="twitter:card" content="summary_large_image">${preview || path === "404.html" || path === "console/" ? '<meta name="robots" content="noindex,follow">' : ""}<link rel="icon" href="/assets/mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/assets/tokens.css"><link rel="stylesheet" href="/assets/style.css?v=${styleVersion}"><script src="/assets/site.js" defer></script></head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header">${headerBrand}<nav aria-label="Main navigation">${nav}</nav><div class="account-actions">${accountActions}</div><button class="theme-toggle" type="button" hidden aria-label="Change color theme">Theme: system</button></header><main id="main">${content}</main><footer><a class="wordmark" href="/"><img src="/assets/mark.svg" width="28" height="28" alt="">Ding.</a><p>${isTellTail ? "Tell-Tail · A Ding Labs product." : "Persistent watches. Durable alerts."}</p><div>${footerLinks}</div></footer></body></html>`;
-  const dest = new URL(filename, out);
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>${pageTitle}</title><meta name="description" content="${e(description)}"><link rel="canonical" href="${canonical}"><meta property="og:title" content="${pageTitle}"><meta property="og:description" content="${e(description)}"><meta property="og:type" content="website"><meta property="og:url" content="${canonical}"><meta property="og:image" content="${isTellTail ? tellTail.websiteUrl + tellTailDashboardUrl : websiteUrl + "/assets/social.png"}"><meta property="og:image:alt" content="${isTellTail ? "Tell-Tail dashboard with synthetic sample logs" : "Ding. Know what happened. See why."}"><meta name="twitter:card" content="summary_large_image">${preview || path === "404.html" || path === "console/" ? '<meta name="robots" content="noindex,follow">' : ""}<link rel="icon" href="${icon}" type="image/svg+xml"><link rel="stylesheet" href="/assets/tokens.css"><link rel="stylesheet" href="/assets/style.css?v=${styleVersion}"><script src="/assets/site.js" defer></script></head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header">${headerBrand}<nav aria-label="Main navigation">${nav}</nav><div class="account-actions">${accountActions}</div><button class="theme-toggle" type="button" hidden aria-label="Change color theme">Theme: system</button></header><main id="main">${content}</main><footer><a class="wordmark" href="${isTellTail ? product.websiteUrl + "/" : "/"}"><img src="/assets/mark.svg" width="28" height="28" alt="">Ding.</a><p>${isTellTail ? "Tell-Tail · A Ding Labs product." : "Persistent watches. Durable alerts."}</p><div>${footerLinks}</div></footer></body></html>`;
+  const dest = isTellTail ? new URL("index.html", tellTailOut) : new URL(filename, out);
   mkdirSync(new URL("./", dest), { recursive: true });
   writeFileSync(dest, html);
 }
 writeFileSync(
   new URL("sitemap.xml", out),
   `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages
-    .filter((p) => !["404.html", "console/"].includes(p[1]))
+    .filter((p) => !["404.html", "console/", "tell-tail/"].includes(p[1]))
     .map((p) => `<url><loc>${websiteUrl}/${p[1]}</loc></url>`)
     .join("")}</urlset>`,
 );
@@ -165,9 +178,10 @@ writeFileSync(
     ? "User-agent: *\nDisallow: /\n"
     : `User-agent: *\nAllow: /\nDisallow: /console/\nSitemap: ${websiteUrl}/sitemap.xml\n`,
 );
+const landingCsp = "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self' https://static.cloudflareinsights.com; object-src 'none'; frame-ancestors 'none'; base-uri 'none'";
 writeFileSync(
   new URL("_headers", out),
-  `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self' https://static.cloudflareinsights.com; object-src 'none'; frame-ancestors 'none'; base-uri 'none'\n/assets/*\n  Cache-Control: public, max-age=3600\n`,
+  `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Content-Security-Policy: ${landingCsp}\n/assets/*\n  Cache-Control: public, max-age=3600\n`,
 );
 writeFileSync(
   new URL("build-info.json", out),
@@ -177,4 +191,12 @@ writeFileSync(
     2,
   ) + "\n",
 );
+writeFileSync(new URL("sitemap.xml", tellTailOut),
+  `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${tellTailHome}</loc></url></urlset>\n`);
+writeFileSync(new URL("robots.txt", tellTailOut),
+  `User-agent: *\nAllow: /\nDisallow: /docs/next/\nSitemap: ${tellTailHome}sitemap.xml\nSitemap: ${tellTailHome}docs/sitemap.xml\n`);
+writeFileSync(new URL("_headers", tellTailOut),
+  `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  X-Frame-Options: DENY\n/\n  Content-Security-Policy: ${landingCsp}\n/assets/*\n  Cache-Control: public, max-age=3600\n/docs/next/*\n  X-Robots-Tag: noindex, follow\n`);
+writeFileSync(new URL("404.html", tellTailOut),
+  '<!doctype html><html lang="en"><meta charset="utf-8"><title>Page not found · Tell-Tail</title><h1>Page not found</h1><p><a href="/">Tell-Tail home</a> · <a href="/docs/">Documentation</a></p></html>');
 console.log(`Built website → ${fileURLToPath(out)}`);

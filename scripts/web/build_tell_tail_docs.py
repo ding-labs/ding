@@ -60,6 +60,10 @@ def build_tell_tail(output, workspace):
         pages = {**PAGES, **(PREVIEW_PAGES if preview else {})}
         for source, (target, _) in pages.items():
             markdown = (checkout / source).read_text()
+            # Release snapshots still contain links to the former publishing origin.
+            markdown = markdown.replace('[Ding docs](https://docs.ding.ing/tell-tail/', '[Tell-Tail docs](https://docs.ding.ing/tell-tail/')
+            markdown = markdown.replace('https://docs.ding.ing/tell-tail/', PRODUCT['websiteUrl'] + '/docs/')
+            markdown = markdown.replace('[Ding docs](https://docs.ding.ing/)', '[Tell-Tail home](' + PRODUCT['websiteUrl'] + '/)')
             if not preview:
                 markdown = markdown.replace('git clone https://github.com/ding-labs/tell-tail.git',
                                             f'git clone --branch {PRODUCT["releaseRef"]} https://github.com/ding-labs/tell-tail.git')
@@ -71,16 +75,17 @@ def build_tell_tail(output, workspace):
         shutil.copy2(ROOT / 'design/tokens.css', docs / 'stylesheets/tokens.css')
         shutil.copy2(ROOT / 'docs/stylesheets/extra.css', docs / 'stylesheets/extra.css')
         config = yaml.safe_load((ROOT / 'mkdocs.yml').read_text())
-        path = 'tell-tail/next/' if preview else 'tell-tail/'
+        path = 'docs/next/' if preview else 'docs/'
         destination = output / path
         config.update(site_name='Tell-Tail', site_description='Live log throughput and severity in your terminal or browser',
-                      site_url='https://docs.ding.ing/' + path, repo_url=PRODUCT['repositoryUrl'],
+                      site_url=PRODUCT['websiteUrl'] + '/' + path, repo_url=PRODUCT['repositoryUrl'],
                       repo_name='ding-labs/tell-tail', copyright='Tell-Tail · MIT · Ding Labs',
                       docs_dir=str(docs), site_dir=str(destination),
                       hooks=[str(ROOT / 'scripts/web/tell_tail_docs_hooks.py')],
                       nav=[{'Start': [{'Overview and install': 'index.md'}, {'Commands and alerts': 'usage.md'}]},
                            {'Guides and reference': [{title: file} for file, title in pages.values() if file not in ('index.md', 'usage.md')]}],
                       extra={'tell_tail_preview': preview, 'tell_tail_ref': ref, 'tell_tail_version': PRODUCT['version']})
+        config['theme']['logo'] = config['theme']['favicon'] = 'assets/tell-tail/logo.svg'
         config['theme']['custom_dir'] = str(ROOT / 'docs/overrides')
         config_file = stage / 'mkdocs.yml'
         config_file.write_text(yaml.safe_dump(config, sort_keys=False))
