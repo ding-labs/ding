@@ -14,10 +14,10 @@ test("Tell-Tail has its own install flow, repository, and license", () => {
   assert.ok(html.includes('href="/docs/"'));
   assert.ok(html.includes('Created and maintained by <a href="https://github.com/zuchka">Matt Abrams</a>'));
   assert.doesNotMatch(html, /Ding Labs|href="https:\/\/ding\.ing/);
-  assert.match(html, /github.com\/zuchka\/tell-tail\/blob\/v0.4.0\/LICENSE/);
+  assert.ok(html.includes(`href="${build.tellTail.repositoryUrl}/blob/${build.tellTail.releaseRef}/LICENSE"`));
   assert.match(html, /brew install ding-labs\/tap\/tell-tail/);
-  assert.match(html, /cargo install tell-tail --version 0.4.0 --locked/);
-  assert.match(html, /AI Activity source preview · Synthetic tool result/);
+  assert.ok(html.includes(`cargo install tell-tail --version ${build.tellTail.version} --locked`));
+  assert.match(html, /AI Activity · Synthetic tool result/);
   assert.doesNotMatch(html, /\{\{\w+\}\}/);
 });
 test("the optional Codex catalog follows both standalone install options", () => {
@@ -41,15 +41,16 @@ test("Tell-Tail is discoverable and has product-specific share metadata", () => 
   assert.deepEqual([image.readUInt32BE(16), image.readUInt32BE(20)], [1200, 630]);
   const version = createHash("sha256").update(image).digest("hex").slice(0, 12);
   assert.ok(html.includes(`property="og:image" content="https://tell-tail.dev/assets/tell-tail/ai-activity-social.png?v=${version}"`));
-  assert.match(html, /property="og:image:alt" content="Tell-Tail AI Activity source preview/);
+  assert.match(html, /property="og:image:alt" content="Tell-Tail AI Activity/);
 });
 
-test("the AI preview and the installed MCP demo have distinct entry points", () => {
+test("the installed AI Activity and MCP demos have distinct entry points", () => {
   assert.match(html, /id="hero-title".*id="activity".*id="mcp".*id="install".*id="logs-title"/s);
   assert.match(html, /href="#activity">Explore AI Activity/);
   assert.match(html, /href="#mcp">Try the MCP demo/);
-  assert.match(html, /cargo run --locked -- desktop --demo --open/);
+  assert.match(html, /tell-tail desktop --demo --open/);
   assert.match(html, /tell-tail mcp --demo --open/);
+  assert.ok(html.includes('href="/docs/plugin-tracing/#local-call-inspection"'));
 });
 
 test("the responsive homepage screenshots ship at their declared dimensions", () => {

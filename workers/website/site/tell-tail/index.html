@@ -7,19 +7,19 @@
       <a class="button primary" href="#activity">Explore AI Activity <span aria-hidden="true">↓</span></a>
       <a class="link" href="#mcp">Try the MCP demo <span aria-hidden="true">↓</span></a>
     </div>
-    <p class="qualifier">AI Activity is available from source. MCP diagnostics ship in v{{tellTailVersion}}.</p>
+    <p class="qualifier">AI Activity and MCP diagnostics ship in Tell-Tail {{tellTailVersion}}.</p>
   </div>
   <figure class="hero-figure">
     <a href="/assets/tell-tail/tool-result.png" class="inspector-frame" aria-label="Enlarge the synthetic failed tool result">
       <img src="/assets/tell-tail/tool-result.png" width="585" height="579" fetchpriority="high" alt="The inspector identifies demo-deploy’s status tool, an execution failure reported by the Codex exporter, and a duration of 194 ms.">
     </a>
-    <figcaption>AI Activity source preview · Synthetic tool result</figcaption>
+    <figcaption>AI Activity · Synthetic tool result</figcaption>
   </figure>
 </section>
 <section class="tt-activity" id="activity" aria-labelledby="activity-title">
   <div class="wrap">
     <div class="tt-heading">
-      <div><p class="label">AI Activity · Source preview</p><h2 id="activity-title">See the call in context.</h2></div>
+      <div><p class="label">AI Activity</p><h2 id="activity-title">See the call in context.</h2></div>
       <p>Filter the timeline by tool, server, or connection. Select a result to hold the timeline steady while new events arrive. Live tool results come from the opt-in Codex exporter.</p>
     </div>
     <figure>
@@ -32,8 +32,8 @@
       <figcaption>Synthetic Codex tool results in the AI Activity feed. <a href="/assets/tell-tail/activity.png">View full workspace ↗</a></figcaption>
     </figure>
     <div class="preview-run">
-      <div><h3>Try the timeline from source</h3><p>Run from the source checkout with Rust 1.88 or later. The demo supplies its own events.</p></div>
-      <div><pre aria-label="Run the AI Activity source demo"><code>cargo run --locked -- desktop --demo --open</code></pre><a class="link" href="{{tellTailRepositoryUrl}}/tree/b1f381fcece43d36397b46f6c2b36e992fdddd0d">Get the preview source ↗</a></div>
+      <div><h3>Try the AI Activity demo</h3><p>Install Tell-Tail and run the demo with synthetic events. To inspect your own commands and failure output, enable local call inspection separately.</p></div>
+      <div><pre aria-label="Run the AI Activity demo"><code>tell-tail desktop --demo --open</code></pre><a class="link" href="{{tellTailDocsUrl}}plugin-tracing/#local-call-inspection">Call inspection guide ↗</a></div>
     </div>
   </div>
 </section>
@@ -50,6 +50,7 @@ tell-tail mcp --demo --open</code></pre>
       <p class="small">For your own desktop logs, run <code>tell-tail mcp --open</code>.</p>
       <a class="link" href="{{tellTailDocsUrl}}mcp/">MCP guide ↗</a>
       <a class="link" href="{{tellTailRepositoryUrl}}/releases/tag/v{{tellTailVersion}}">Native downloads ↗</a>
+      <a class="link" href="{{tellTailDocsUrl}}plugin-tracing/#install-the-desktop-plugin">Install the Apple Silicon desktop plugin ↗</a>
       <details class="install-options">
         <summary>Install with Cargo</summary>
         <p>Requires Rust 1.88 or later.</p>
