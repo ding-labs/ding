@@ -16,8 +16,8 @@ const out = new URL("dist/", base);
 const product = loadProduct(root);
 const tellTail = JSON.parse(readFileSync(new URL("content/tell-tail.json", root), "utf8"));
 const tellTailOut = new URL("workers/tell-tail/dist/", root);
-const tellTailHome = tellTail.websiteUrl + "/";
 const preview = process.argv.includes("--preview");
+const tellTailHome = (preview ? tellTail.previewWebsiteUrl : tellTail.websiteUrl) + "/";
 const websiteUrl = product.websiteUrl;
 const cloudUrl = "https://cloud.ding.ing/";
 const cloudAuthUrl = new URL("auth/login", cloudUrl).href;
@@ -133,7 +133,7 @@ for (const [filename, path, title, description] of pages) {
       return pageValues[key];
     },
   );
-  const canonical = isTellTail ? tellTailHome : websiteUrl + "/" + path;
+  const canonical = isTellTail ? tellTail.websiteUrl + "/" : websiteUrl + "/" + path;
   const pageTitle = isTellTail ? e(title) : e(title) + " — Ding";
   const icon = isTellTail ? "/assets/tell-tail/logo.svg" : "/assets/mark.svg";
   const repositoryUrl = isTellTail ? tellTail.repositoryUrl : product.repositoryUrl;

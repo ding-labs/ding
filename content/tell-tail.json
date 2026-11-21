@@ -1,6 +1,7 @@
 {
   "name": "Tell-Tail",
   "websiteUrl": "https://tell-tail.dev",
+  "previewWebsiteUrl": "https://tell-tail-site-preview.zuchka.workers.dev",
   "version": "0.4.0",
   "repositoryUrl": "https://github.com/ding-labs/tell-tail",
   "releaseRef": "v0.4.0",
