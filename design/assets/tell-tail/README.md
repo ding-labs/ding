@@ -70,3 +70,5 @@ Install the [published 0.4.0 binary](https://github.com/ding-labs/tell-tail/rele
 tell-tail mcp --demo --open
 tell-tail --demo --window 5 --output web --open
 ```
+
+The 1200 × 630 social card, `ai-activity-social.png`, pairs the unchanged `tool-result.png` inspector crop with the Tell-Tail mark, headline, synthetic-data caption and source-preview label.

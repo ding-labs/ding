@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 const dist = new URL("../dist/", import.meta.url);
 const tellTailDist = new URL("../../tell-tail/dist/", import.meta.url);
@@ -20,7 +21,12 @@ test("Tell-Tail has its own install flow, repository, and license", () => {
 test("Tell-Tail is discoverable and has product-specific share metadata", () => {
   assert.ok(readFileSync(new URL("sitemap.xml", tellTailDist), "utf8").includes("https://tell-tail.dev/"));
   assert.match(html, /rel="canonical" href="https:\/\/tell-tail\.dev\/"/);
-  assert.match(html, /property="og:image" content="https:\/\/tell-tail\.dev\/assets\/tell-tail\/dashboard.png\?v=[a-f0-9]{12}"/);
+  assert.match(html, /<title>Tell-Tail — Local AI observability/);
+  const image = readFileSync(new URL("assets/tell-tail/ai-activity-social.png", tellTailDist));
+  assert.deepEqual([image.readUInt32BE(16), image.readUInt32BE(20)], [1200, 630]);
+  const version = createHash("sha256").update(image).digest("hex").slice(0, 12);
+  assert.ok(html.includes(`property="og:image" content="https://tell-tail.dev/assets/tell-tail/ai-activity-social.png?v=${version}"`));
+  assert.match(html, /property="og:image:alt" content="Tell-Tail AI Activity source preview/);
 });
 
 test("the AI preview and the installed MCP demo have distinct entry points", () => {
