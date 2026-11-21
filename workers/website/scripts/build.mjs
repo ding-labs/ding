@@ -178,9 +178,10 @@ writeFileSync(
     ? "User-agent: *\nDisallow: /\n"
     : `User-agent: *\nAllow: /\nDisallow: /console/\nSitemap: ${websiteUrl}/sitemap.xml\n`,
 );
+const landingCsp = "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self' https://static.cloudflareinsights.com; object-src 'none'; frame-ancestors 'none'; base-uri 'none'";
 writeFileSync(
   new URL("_headers", out),
-  `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self' https://static.cloudflareinsights.com; object-src 'none'; frame-ancestors 'none'; base-uri 'none'\n/assets/*\n  Cache-Control: public, max-age=3600\n`,
+  `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Content-Security-Policy: ${landingCsp}\n/assets/*\n  Cache-Control: public, max-age=3600\n`,
 );
 writeFileSync(
   new URL("build-info.json", out),
@@ -195,7 +196,7 @@ writeFileSync(new URL("sitemap.xml", tellTailOut),
 writeFileSync(new URL("robots.txt", tellTailOut),
   `User-agent: *\nAllow: /\nDisallow: /docs/next/\nSitemap: ${tellTailHome}sitemap.xml\nSitemap: ${tellTailHome}docs/sitemap.xml\n`);
 writeFileSync(new URL("_headers", tellTailOut),
-  "/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  X-Frame-Options: DENY\n/docs/next/*\n  X-Robots-Tag: noindex, follow\n");
+  `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  X-Frame-Options: DENY\n/\n  Content-Security-Policy: ${landingCsp}\n/assets/*\n  Cache-Control: public, max-age=3600\n/docs/next/*\n  X-Robots-Tag: noindex, follow\n`);
 writeFileSync(new URL("404.html", tellTailOut),
   '<!doctype html><html lang="en"><meta charset="utf-8"><title>Page not found · Tell-Tail</title><h1>Page not found</h1><p><a href="/">Tell-Tail home</a> · <a href="/docs/">Documentation</a></p></html>');
 console.log(`Built website → ${fileURLToPath(out)}`);
