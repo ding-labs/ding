@@ -24,7 +24,7 @@
 <header><a href="/"><img src="/assets/tell-tail/logo.svg" alt="" width="32" height="26">Tell-Tail</a></header>
 <main>
 <h1 id="tell-tail-desktop-plugin-privacy-policy">Tell-Tail desktop plugin privacy policy</h1>
-<p>This policy covers the Tell-Tail desktop plugin from Ding Labs. The bundled collector runs on your Mac. Installing the plugin puts the executable and setup instructions on your machine. Collection starts when you open a local session or enable persistent capture.</p>
+<p>This policy covers the Tell-Tail desktop plugin maintained by Matt Abrams. The bundled collector runs on your Mac. Installing the plugin puts the executable and setup instructions on your machine. Collection starts when you open a local session or enable persistent capture.</p>
 <h2 id="what-the-collector-reads">What the collector reads</h2>
 <ul>
 <li><strong>Desktop activity.</strong> Tell-Tail reads supported records from the Codex desktop logs and, if present, Claude Desktop MCP logs. It uses them to show connection health, errors, counts, and event times. Its activity history contains selected diagnostic fields such as server names and event types.</li>
@@ -32,7 +32,7 @@
 <li><strong>Application logs you add.</strong> Tell-Tail reads the files you select to calculate metrics and show recent errors. A preview can contain up to 512 bytes of original log text, including personal information or secrets written by the application. The path and name you assign to a source are visible in your local dashboard.</li>
 </ul>
 <h2 id="who-can-see-the-data">Who can see the data</h2>
-<p>The collector serves the dashboard on your Mac's loopback interface. It does not send logs, traces, or usage analytics to Ding Labs. No Tell-Tail account is required. Other processes on the Mac that can reach the dashboard can read its displayed data.</p>
+<p>The collector serves the dashboard on your Mac's loopback interface. It does not send logs, traces, or usage analytics to Matt Abrams or a Tell-Tail server. No Tell-Tail account is required. Other processes on the Mac that can reach the dashboard can read its displayed data.</p>
 <p>When you ask ChatGPT or Codex to inspect Tell-Tail, the results it reads for you can become part of that conversation and are handled under that service's data settings. Copying a diagnostic summary, sharing a screenshot, or posting a support request also shares the information you choose to include with its recipients.</p>
 <h2 id="retention-and-removal">Retention and removal</h2>
 <p>The collector keeps a limited history of observations, metrics, and previews in memory. Older entries expire as the buffers fill, and stopping the collector clears its memory. A later session can read records still present in the original logs.</p>
@@ -42,7 +42,7 @@
 <li>To remove the service, its owned exporter settings, credential, and setup backup, ask Tell-Tail to <strong>uninstall the collector</strong> before removing the plugin in the desktop app. Restart Codex to unload the exporter.</li>
 <li>To forget a saved log source, remove it in <strong>Logs → Manage sources</strong>. After uninstall, you can delete the saved <code>log-sources.json</code> file if it remains. Your original application and desktop logs stay under your control.</li>
 </ul>
-<p>For privacy questions, contact Ding Labs through <a href="https://github.com/ding-labs/tell-tail/issues">Tell-Tail support</a>. Issues are public. Describe the question without attaching logs, credentials, or configuration backups.</p>
+<p>For privacy questions, contact Matt Abrams through <a href="https://github.com/zuchka/tell-tail/issues">Tell-Tail support</a>. Issues are public. Describe the question without attaching logs, credentials, or configuration backups.</p>
 </main>
 </body>
 </html>
