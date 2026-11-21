@@ -123,15 +123,16 @@ if (scriptBytes > 50 * 1024)
     `Website JavaScript exceeds the 50 KiB gzip budget: ${scriptBytes} bytes`,
   );
 for (const [filename, path, title, description] of pages) {
-  let content = readFileSync(new URL(`site/${filename}`, base), "utf8").replace(
+  const isTellTail = path === "tell-tail/";
+  const pageDocsUrl = isTellTail ? "/docs/" : docsUrl;
+  const pageValues = isTellTail ? { ...values, tellTailDocsUrl: pageDocsUrl } : values;
+  const content = readFileSync(new URL(`site/${filename}`, base), "utf8").replace(
     /\{\{(\w+)\}\}/g,
     (_, key) => {
-      if (!(key in values)) throw new Error(`Unknown template value ${key}`);
-      return values[key];
+      if (!(key in pageValues)) throw new Error(`Unknown template value ${key}`);
+      return pageValues[key];
     },
   );
-  const isTellTail = path === "tell-tail/";
-  const pageDocsUrl = isTellTail ? values.tellTailDocsUrl : docsUrl;
   const canonical = isTellTail ? tellTailHome : websiteUrl + "/" + path;
   const pageTitle = isTellTail ? e(title) : e(title) + " — Ding";
   const icon = isTellTail ? "/assets/tell-tail/logo.svg" : "/assets/mark.svg";

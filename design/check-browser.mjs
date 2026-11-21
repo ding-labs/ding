@@ -14,6 +14,7 @@ const tellTailMark = readFileSync(
 // theme overrides that a source-only token check would miss.
 export async function assertSharedDesign(page, surface) {
   const result = await page.evaluate((surface) => {
+    const isDocs = surface === "docs" || surface === "tell-tail-docs";
     const probe = document.createElement("span");
     probe.hidden = true;
     document.body.append(probe);
@@ -36,12 +37,12 @@ export async function assertSharedDesign(page, surface) {
     check("body", "color", "--ding-text");
     check("body", "font-family", "--ding-font");
     check(
-      surface === "docs" ? ".md-typeset code" : "code",
+      isDocs ? ".md-typeset code" : "code",
       "font-family",
       "--ding-mono",
     );
     const action =
-      surface === "docs" ? ".md-button--primary" : ".button.primary";
+      isDocs ? ".md-button--primary" : ".button.primary";
     check(action, "background-color", "--ding-action");
     check(action, "color", "--ding-on-brand");
     check(action, "border-radius", "--ding-radius-control");
@@ -56,7 +57,7 @@ export async function assertSharedDesign(page, surface) {
     const logoSelector =
       surface === "console"
         ? ".brand-bell"
-        : surface === "docs"
+        : isDocs
           ? ".md-logo img"
           : ".wordmark img, .mini-brand img";
     return {
@@ -85,13 +86,13 @@ export async function assertSharedDesign(page, surface) {
     assert.ok(result.tellTailLogo, "Tell-Tail must have its own header logo");
     assert.equal(new URL(result.tellTailLogo).pathname, "/assets/tell-tail/logo.svg");
   }
-  assert.ok(result.icon, `${surface} must have a bell favicon`);
+  assert.ok(result.icon, `${surface} must have a favicon`);
   for (const url of new Set([...result.logos, result.icon])) {
     const response = await page.request.get(url);
     assert.ok(response.ok(), `Missing brand asset: ${url}`);
     assert.equal(
       (await response.text()).trim(),
-      surface === "tell-tail" && url === result.tellTailLogo ? tellTailMark : mark,
+      (surface === "tell-tail-docs" || (surface === "tell-tail" && (url === result.tellTailLogo || url === result.icon))) ? tellTailMark : mark,
       `Stale brand asset: ${url}`,
     );
   }

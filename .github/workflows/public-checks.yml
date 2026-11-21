@@ -46,6 +46,7 @@ jobs:
         with:
           name: public-surfaces
           path: |
+            workers/tell-tail/dist/
             workers/website/dist/
             workers/docs/site/
           include-hidden-files: true

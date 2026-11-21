@@ -26,7 +26,7 @@ async function serve(surface, existing) {
   const child = spawn(
     process.execPath,
     [
-      "node_modules/wrangler/bin/wrangler.js",
+      fileURLToPath(new URL("workers/website/node_modules/wrangler/bin/wrangler.js", root)),
       "dev",
       "--local",
       "--ip",
@@ -63,6 +63,7 @@ const report = { pages: [], errors: [], checks: [], performance: [] };
 try {
   const website = await serve("website", process.env.SITE_URL);
   const docs = await serve("docs", process.env.DOCS_URL);
+  const tellTail = await serve("tell-tail", process.env.TELL_TAIL_URL);
   browser = await chromium.launch({
     headless: true,
     ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
@@ -71,15 +72,15 @@ try {
   });
   const routes = [
     ["home", website + "/"],
-    ["tell-tail", website + "/tell-tail/"],
+    ["tell-tail", tellTail + "/"],
     ["console", website + "/console/"],
     ["examples", website + "/examples/"],
     ["docs", docs + "/"],
-    ["tell-tail-docs", docs + "/tell-tail/"],
-    ["tell-tail-dashboard-docs", docs + "/tell-tail/dashboard/"],
-    ["tell-tail-preview-docs", docs + "/tell-tail/next/"],
-    ["tell-tail-mcp-docs", docs + "/tell-tail/mcp/"],
-    ["tell-tail-preview-mcp-docs", docs + "/tell-tail/next/mcp/"],
+    ["tell-tail-docs", tellTail + "/docs/"],
+    ["tell-tail-dashboard-docs", tellTail + "/docs/dashboard/"],
+    ["tell-tail-preview-docs", tellTail + "/docs/next/"],
+    ["tell-tail-mcp-docs", tellTail + "/docs/mcp/"],
+    ["tell-tail-preview-mcp-docs", tellTail + "/docs/next/mcp/"],
     ["quickstart", docs + product.quickstartPath],
     ["reference", docs + "/reference/manifest/"],
     ["console-help", docs + "/console/"],
@@ -100,7 +101,7 @@ try {
         );
         const response = await page.goto(url, { waitUntil: "networkidle" });
         assert.equal(response.status(), 200);
-        if (!url.startsWith(docs) && name !== "tell-tail") {
+        if (url.startsWith(website)) {
           const account = page.locator(".account-actions").getByRole("link", { name: "Create account", exact: true });
           assert.ok(await account.isVisible(), `${name}/${theme}/${width}: account entry is visible`);
           assert.equal(await account.getAttribute("href"), "https://cloud.ding.ing/auth/login");
@@ -112,7 +113,7 @@ try {
         }
         await assertSharedDesign(
           page,
-          url.startsWith(docs) ? "docs" : name === "tell-tail" ? "tell-tail" : "website",
+          name.startsWith("tell-tail") ? (name === "tell-tail" ? "tell-tail" : "tell-tail-docs") : url.startsWith(docs) ? "docs" : "website",
         );
         const overflow = await page.evaluate(
           () => document.documentElement.scrollWidth > innerWidth + 1,
@@ -274,7 +275,7 @@ try {
       .isVisible(),
   );
   await noJS.close();
-  for (const base of [website, docs]) {
+  for (const base of [website, docs, tellTail]) {
     assert.equal((await fetch(base + "/missing-page")).status, 404);
     assert.equal((await fetch(base + "/missing-asset.js")).status, 404);
   }
