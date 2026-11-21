@@ -56,6 +56,15 @@ tell-tail mcp --demo --open</code></pre>
         <pre><code>cargo install tell-tail --version {{tellTailVersion}} --locked</code></pre>
       </details>
     </div>
+    <section id="use-in-codex" aria-labelledby="codex-install-title">
+      <h3 id="codex-install-title">Use in Codex</h3>
+      <p>On an Apple Silicon Mac, run these two commands in Terminal with the Codex CLI. The plugin includes Tell-Tail.</p>
+      <pre aria-label="Add the GitHub catalog and install Tell-Tail"><code>codex plugin marketplace add zuchka/tell-tail-plugins
+codex plugin add tell-tail@tell-tail-plugins</code></pre>
+      <p>Open a new local Codex chat and ask <strong>“Open my Codex logs.”</strong> The dashboard follows supported desktop logs immediately.</p>
+      <p class="small">For ongoing tool-call tracing, ask “Set up persistent tool-call tracing,” approve setup, and restart Codex once.</p>
+      <a class="link" href="https://github.com/zuchka/tell-tail-plugins">Plugin catalog on GitHub ↗</a>
+    </section>
   </div>
   <figure>
     <a class="shot" href="/assets/tell-tail/mcp-recovery.png" aria-label="Enlarge the calendar server recovery group"><img src="/assets/tell-tail/mcp-recovery.png" width="717" height="386" loading="lazy" alt="Codex Desktop calendar server needs OAuth reauthentication at startup and records recovery five seconds later in the same execution."></a>
