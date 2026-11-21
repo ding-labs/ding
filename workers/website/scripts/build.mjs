@@ -117,6 +117,7 @@ mkdirSync(tellTailAssets, { recursive: true });
 for (const name of ["style.css", "site.js", "tokens.css", "mark.svg", "tell-tail"])
   cpSync(new URL("assets/" + name, out), new URL(name, tellTailAssets), { recursive: true });
 cpSync(tellTailStyle, new URL("tell-tail/home.css", tellTailAssets));
+cpSync(new URL("site/tell-tail/privacy.html", base), new URL("privacy.html", tellTailOut));
 const scriptBytes = gzipSync(
   readFileSync(new URL("assets/site.js", out)),
 ).length;
@@ -143,7 +144,7 @@ for (const [filename, path, title, description] of pages) {
     ? `<a class="button" href="#install">Install Tell-Tail</a>`
     : `<a class="text-link" href="${cloudAuthUrl}">Sign in</a><a class="button primary" href="${cloudAuthUrl}">Create account</a>`;
   const footerLinks = isTellTail
-    ? `<a href="${pageDocsUrl}">Tell-Tail docs</a><a href="${repositoryUrl}">GitHub</a><a href="${repositoryUrl}/blob/${tellTail.releaseRef}/LICENSE">MIT license</a>`
+    ? `<a href="${pageDocsUrl}">Tell-Tail docs</a><a href="/privacy">Privacy</a><a href="${repositoryUrl}">GitHub</a><a href="${repositoryUrl}/blob/${tellTail.releaseRef}/LICENSE">MIT license</a>`
     : `<a href="${cloudUrl}">Ding Cloud</a><a href="${cloudAuthUrl}">Sign in</a><a href="${cloudAuthUrl}">Create account</a><a href="${docsUrl}">Documentation</a><a href="${product.repositoryUrl}">GitHub</a><a href="${product.repositoryUrl}/blob/main/LICENSE">Apache-2.0</a>`;
   const headerBrand = isTellTail
     ? '<a class="wordmark tell-tail-wordmark" href="/" aria-label="Tell-Tail home"><img src="/assets/tell-tail/logo.svg" width="40" height="32" alt=""><span>tell-tail</span></a>'
@@ -200,7 +201,7 @@ writeFileSync(
   ) + "\n",
 );
 writeFileSync(new URL("sitemap.xml", tellTailOut),
-  `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${tellTailHome}</loc></url></urlset>\n`);
+  `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${tellTailHome}</loc></url><url><loc>${tellTailHome}privacy</loc></url></urlset>\n`);
 writeFileSync(new URL("robots.txt", tellTailOut),
   `User-agent: *\nAllow: /\nDisallow: /docs/next/\nSitemap: ${tellTailHome}sitemap.xml\nSitemap: ${tellTailHome}docs/sitemap.xml\n`);
 writeFileSync(new URL("_headers", tellTailOut),
