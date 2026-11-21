@@ -13,6 +13,19 @@ function applyTheme() {
   button.setAttribute("aria-label", `Color theme: ${theme}. Change theme`);
 }
 applyTheme();
+const copyCatalog = document.getElementById("copy-catalog");
+if (copyCatalog && navigator.clipboard?.writeText) {
+  copyCatalog.hidden = false;
+  copyCatalog.addEventListener("click", async () => {
+    const status = document.getElementById("catalog-copy-status");
+    try {
+      await navigator.clipboard.writeText(document.getElementById("catalog-source").textContent);
+      status.textContent = "Copied.";
+    } catch {
+      status.textContent = "Select the catalog name and copy it manually.";
+    }
+  });
+}
 document.querySelector(".theme-toggle").addEventListener("click", () => {
   theme = ["system", "light", "dark"][
     (["system", "light", "dark"].indexOf(theme) + 1) % 3
