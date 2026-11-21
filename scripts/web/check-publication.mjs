@@ -13,11 +13,6 @@ if (JSON.stringify(channels.archives) !== JSON.stringify(expected))
   throw new Error("Archive catalog drift; rebuild docs");
 for (const path of [
   "index.html",
-  "tell-tail/index.html",
-  "tell-tail/search/search_index.json",
-  "tell-tail/next/index.html",
-  "tell-tail/mcp/index.html",
-  "tell-tail/next/mcp/index.html",
   "preview/index.html",
   "search/search_index.json",
   ...expected.map((a) => a.path + "/index.html"),
@@ -28,8 +23,12 @@ for (const path of [
 console.log("Complete documentation artifact verified");
 
 const tellTail = JSON.parse(readFileSync(new URL("content/tell-tail.json", root), "utf8"));
-for (const [path, ref] of [["tell-tail/", tellTail.docsRef], ["tell-tail/next/", tellTail.previewRef]]) {
-  const info = JSON.parse(readFileSync(new URL(path + "build-info.json", dir), "utf8"));
+const site = new URL("workers/tell-tail/dist/", root);
+for (const [path, ref] of [["docs/", tellTail.docsRef], ["docs/next/", tellTail.previewRef]]) {
+  for (const asset of ["index.html", "mcp/index.html", "search/search_index.json"]) {
+    if (!existsSync(new URL(path + asset, site))) throw new Error("Missing Tell-Tail asset: " + path + asset);
+  }
+  const info = JSON.parse(readFileSync(new URL(path + "build-info.json", site), "utf8"));
   if (info.source !== ref || info.version !== tellTail.version)
     throw new Error("Tell-Tail documentation source drift; rebuild docs");
 }

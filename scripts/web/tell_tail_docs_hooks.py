@@ -6,7 +6,7 @@ def on_config(config):
         channel_label=('Tell-Tail · Unreleased preview · build from source' if preview
                        else f"Tell-Tail docs · v{config.extra['tell_tail_version']}"),
         docs_channel='tell-tail', noindex=preview,
-        public_docs_url='https://docs.ding.ing/', repository_url=config.repo_url)
+        public_docs_url='https://tell-tail.dev/docs/', repository_url=config.repo_url)
     return config
 
 
@@ -14,7 +14,7 @@ def on_page_markdown(markdown, page, config, files):
     if config.extra['tell_tail_preview']:
         markdown = ('!!! warning "Unreleased preview"\n'
                     '    These guides describe a pinned source checkout and may include changes beyond the current release. '
-                    '[Read the released documentation](https://docs.ding.ing/tell-tail/).\n\n' + markdown)
+                    '[Read the released documentation](https://tell-tail.dev/docs/).\n\n' + markdown)
     return markdown
 
 

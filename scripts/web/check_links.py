@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check links and fragments across both generated origins, including archives."""
+"""Check links and fragments across generated origins, including archives."""
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit, unquote
@@ -7,7 +7,7 @@ import json
 import sys
 
 ROOT=Path(__file__).resolve().parents[2]
-ORIGINS={'ding.ing':ROOT/'workers/website/dist','docs.ding.ing':ROOT/'workers/docs/site'}
+ORIGINS={'ding.ing':ROOT/'workers/website/dist','docs.ding.ing':ROOT/'workers/docs/site','tell-tail.dev':ROOT/'workers/tell-tail/dist'}
 REDIRECTS=json.loads((ROOT/'content/redirects.json').read_text())
 class Page(HTMLParser):
     def __init__(self,path):
@@ -58,5 +58,5 @@ def main():
     if errors:
         print('\n'.join(sorted(set(errors))))
         raise SystemExit(f'{len(errors)} broken links')
-    print(f'Checked {count} internal links and fragment targets across both origins')
+    print(f'Checked {count} internal links and fragment targets across {len(ORIGINS)} origins')
 if __name__=='__main__':main()

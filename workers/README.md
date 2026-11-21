@@ -115,7 +115,7 @@ silently relabel a legacy archive or publish development-only commands as stable
 
 ## Tell-Tail documentation
 
-The complete docs build also publishes `/tell-tail/` and `/tell-tail/next/`.
+The complete docs build also publishes `https://tell-tail.dev/docs/` and `https://tell-tail.dev/docs/next/`.
 `content/tell-tail.json` pins full commit SHAs in `ding-labs/tell-tail`; the build
 fetches those public revisions and renders the guides directly from that repository.
 It does not copy a second set of guide sources into Ding. The stable docs pin is

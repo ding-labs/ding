@@ -82,8 +82,13 @@ def main():
                 archive_source.mkdir()
                 run(['git','--work-tree='+str(archive_source),'restore','--source='+archive['ref'],'--worktree','--','.'])
                 build_channel(archive_source, output/path, archive['channel'], archive['ref'], work, archive['path']+'/')
-        build_tell_tail(output, work)
-        (output/'robots.txt').write_text(f"User-agent: *\nAllow: /\nDisallow: /preview/\nDisallow: /tell-tail/next/\nDisallow: /legacy/v0.14.0/\nDisallow: /development/\nDisallow: /console/\nSitemap: {PRODUCT['docsUrl']}/sitemap.xml\nSitemap: {PRODUCT['docsUrl']}/tell-tail/sitemap.xml\n")
+        tell_tail_output = work / 'tell-tail-site'
+        build_tell_tail(tell_tail_output, work)
+        tell_tail_docs = ROOT / 'workers/tell-tail/dist/docs'
+        tell_tail_docs.parent.mkdir(parents=True, exist_ok=True)
+        shutil.rmtree(tell_tail_docs, ignore_errors=True)
+        shutil.copytree(tell_tail_output / 'docs', tell_tail_docs)
+        (output/'robots.txt').write_text(f"User-agent: *\nAllow: /\nDisallow: /preview/\nDisallow: /legacy/v0.14.0/\nDisallow: /development/\nDisallow: /console/\nSitemap: {PRODUCT['docsUrl']}/sitemap.xml\n")
         (output/'_headers').write_text("/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  X-Frame-Options: DENY\n/preview/*\n  X-Robots-Tag: noindex, follow\n/legacy/*\n  X-Robots-Tag: noindex, follow\n")
         (output/'channels.json').write_text(json.dumps({'complete':not args.current_only,'source':ref,'archives':json.loads((ROOT/'content/docs-versions.json').read_text())['archives']},indent=2)+'\n')
         OUT.parent.mkdir(exist_ok=True)
