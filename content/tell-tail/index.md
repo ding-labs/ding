@@ -4,9 +4,8 @@ Understand a live log stream in your terminal or browser. Tell-Tail follows one
 file or reads stdin, measures throughput and severity, and keeps a small sample
 of recent errors in memory.
 
-These guides cover **Tell-Tail 0.4.0**, the published release.
-MCP diagnostics, the built-in demos, expanded format recognition, parsing coverage,
-and severity histories are available in the installed binary.
+These guides cover **Tell-Tail 0.5.0**, the published release.
+The installed binary includes AI Activity, local call inspection, managed application log sources and MCP diagnostics.
 
 ## Install
 
@@ -19,12 +18,18 @@ brew install ding-labs/tap/tell-tail
 Or with Cargo (Rust 1.88 or later):
 
 ```sh
-cargo install tell-tail --version 0.4.0 --locked
+cargo install tell-tail --version 0.5.0 --locked
 ```
 
-[Download native binaries](https://github.com/zuchka/tell-tail/releases/tag/v0.4.0)
+[Download native binaries](https://github.com/zuchka/tell-tail/releases/tag/v0.5.0)
 for Apple Silicon on macOS 14+ or Linux x86_64/ARM64. The browser dashboard is
 embedded in the binary; it needs no Node, Python, account, or hosted service.
+
+## Explore AI Activity
+
+Run `tell-tail desktop --demo --open` for a synthetic example. On an Apple Silicon Mac, the [desktop plugin guide](plugin-tracing.md) covers installation and persistent tracing. Default tracing keeps diagnostic metadata. Enable [local call inspection](plugin-tracing.md#local-call-inspection) separately to view a selected command, the matching request and excerpts of failure output.
+
+See [desktop activity](desktop-activity.md), the [workspace guide](workspaces.md) and [application log sources](log-sources.md).
 
 ## Inspect desktop MCP logs
 

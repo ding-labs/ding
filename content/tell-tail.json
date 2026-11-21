@@ -2,9 +2,9 @@
   "name": "Tell-Tail",
   "websiteUrl": "https://tell-tail.dev",
   "previewWebsiteUrl": "https://tell-tail-site-preview.zuchka.workers.dev",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "repositoryUrl": "https://github.com/zuchka/tell-tail",
-  "releaseRef": "v0.4.0",
-  "docsRef": "09df02f7c233b819b94c08c6229b2ea0934ec206",
-  "previewRef": "09df02f7c233b819b94c08c6229b2ea0934ec206"
+  "releaseRef": "v0.5.0",
+  "docsRef": "2f2eb2c373e63d18b18272640ba63777d0ecf08b",
+  "previewRef": "2f2eb2c373e63d18b18272640ba63777d0ecf08b"
 }

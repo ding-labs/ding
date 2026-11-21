@@ -20,10 +20,17 @@ PAGES = {
     'docs/WEB-FRAMES.md': ('web-frames.md', 'Frame reference'),
     'docs/SNAPSHOTS.md': ('snapshots.md', 'Snapshot API'),
     'docs/OUTPUT.md': ('output.md', 'Output and backpressure'),
+    'docs/DESKTOP-ACTIVITY.md': ('desktop-activity.md', 'AI Activity'),
+    'docs/PLUGIN-TRACING.md': ('plugin-tracing.md', 'Desktop plugin and call inspection'),
+    'docs/LOG-SOURCES.md': ('log-sources.md', 'Application log sources'),
+    'docs/WORKSPACES.md': ('workspaces.md', 'Logs and AI Activity workspaces'),
     'docs/MCP.md': ('mcp.md', 'MCP diagnostics'),
     'docs/DEMO.md': ('demo.md', 'Built-in demo'),
     'docs/LOG-FORMATS.md': ('log-formats.md', 'Log format recognition'),
     'docs/MONITORING.md': ('monitoring.md', 'Understanding a live log stream'),
+}
+MEDIA = {
+    'docs/design/desktop-activity-implemented.png': 'assets/tell-tail/desktop-activity-implemented.png',
 }
 PREVIEW_PAGES = {
     'docs/README.md': ('index.md', 'Preview overview'),
@@ -39,6 +46,8 @@ def rewrite_links(markdown, source_path, pages, ref):
             return match[0]
         path = posixpath.normpath(posixpath.join(posixpath.dirname(source_path), parsed.path))
         fragment = '#' + parsed.fragment if parsed.fragment else ''
+        if path in MEDIA:
+            return '](' + MEDIA[path] + fragment + ')'
         if path in pages:
             return '](' + pages[path][0] + fragment + ')'
         return '](' + PRODUCT['repositoryUrl'] + '/blob/' + ref + '/' + path + fragment + ')'
@@ -73,6 +82,8 @@ def build_tell_tail(output, workspace):
         if not preview:
             shutil.copy2(ROOT / 'content/tell-tail/index.md', docs / 'index.md')
         shutil.copytree(ROOT / 'design/assets', docs / 'assets')
+        for source, target in MEDIA.items():
+            shutil.copy2(checkout / source, docs / target)
         (docs / 'stylesheets').mkdir()
         shutil.copy2(ROOT / 'design/tokens.css', docs / 'stylesheets/tokens.css')
         shutil.copy2(ROOT / 'docs/stylesheets/extra.css', docs / 'stylesheets/extra.css')
