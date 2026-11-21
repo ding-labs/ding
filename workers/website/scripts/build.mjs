@@ -77,6 +77,8 @@ const manifest = readFileSync(
 const assetVersion = path => createHash("sha256").update(readFileSync(path)).digest("hex").slice(0, 12);
 const tellTailDashboardUrl = "/assets/tell-tail/dashboard.png?v=" + assetVersion(new URL("design/assets/tell-tail/dashboard.png", root));
 const styleVersion = assetVersion(new URL("site/style.css", base));
+const tellTailStyle = new URL("site/tell-tail/style.css", base);
+const tellTailStyleUrl = "/assets/tell-tail/home.css?v=" + assetVersion(tellTailStyle);
 const values = {
   tellTailDashboardUrl,
   tellTailHome,
@@ -115,6 +117,7 @@ rmSync(tellTailAssets, { recursive: true, force: true });
 mkdirSync(tellTailAssets, { recursive: true });
 for (const name of ["style.css", "site.js", "tokens.css", "mark.svg", "tell-tail"])
   cpSync(new URL("assets/" + name, out), new URL(name, tellTailAssets), { recursive: true });
+cpSync(tellTailStyle, new URL("tell-tail/home.css", tellTailAssets));
 const scriptBytes = gzipSync(
   readFileSync(new URL("assets/site.js", out)),
 ).length;
@@ -138,7 +141,7 @@ for (const [filename, path, title, description] of pages) {
   const icon = isTellTail ? "/assets/tell-tail/logo.svg" : "/assets/mark.svg";
   const repositoryUrl = isTellTail ? tellTail.repositoryUrl : product.repositoryUrl;
   const accountActions = isTellTail
-    ? `<a class="button primary" href="#install">Install Tell-Tail</a>`
+    ? `<a class="button" href="#install">Install Tell-Tail</a>`
     : `<a class="text-link" href="${cloudAuthUrl}">Sign in</a><a class="button primary" href="${cloudAuthUrl}">Create account</a>`;
   const footerLinks = isTellTail
     ? `<a href="https://ding.ing/">Ding</a><a href="${pageDocsUrl}">Tell-Tail docs</a><a href="${repositoryUrl}">GitHub</a><a href="${repositoryUrl}/blob/${tellTail.releaseRef}/LICENSE">MIT license</a>`
@@ -160,7 +163,7 @@ for (const [filename, path, title, description] of pages) {
         `<a href="${e(href)}"${href === "/" + path ? ' aria-current="page"' : ""}>${label}</a>`,
     )
     .join("");
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>${pageTitle}</title><meta name="description" content="${e(description)}"><link rel="canonical" href="${canonical}"><meta property="og:title" content="${pageTitle}"><meta property="og:description" content="${e(description)}"><meta property="og:type" content="website"><meta property="og:url" content="${canonical}"><meta property="og:image" content="${isTellTail ? tellTail.websiteUrl + tellTailDashboardUrl : websiteUrl + "/assets/social.png"}"><meta property="og:image:alt" content="${isTellTail ? "Tell-Tail dashboard with synthetic sample logs" : "Ding. Know what happened. See why."}"><meta name="twitter:card" content="summary_large_image">${preview || path === "404.html" || path === "console/" ? '<meta name="robots" content="noindex,follow">' : ""}<link rel="icon" href="${icon}" type="image/svg+xml"><link rel="stylesheet" href="/assets/tokens.css"><link rel="stylesheet" href="/assets/style.css?v=${styleVersion}"><script src="/assets/site.js" defer></script></head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header">${headerBrand}<nav aria-label="Main navigation">${nav}</nav><div class="account-actions">${accountActions}</div><button class="theme-toggle" type="button" hidden aria-label="Change color theme">Theme: system</button></header><main id="main">${content}</main><footer><a class="wordmark" href="${isTellTail ? product.websiteUrl + "/" : "/"}"><img src="/assets/mark.svg" width="28" height="28" alt="">Ding.</a><p>${isTellTail ? "Tell-Tail · A Ding Labs product." : "Persistent watches. Durable alerts."}</p><div>${footerLinks}</div></footer></body></html>`;
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>${pageTitle}</title><meta name="description" content="${e(description)}"><link rel="canonical" href="${canonical}"><meta property="og:title" content="${pageTitle}"><meta property="og:description" content="${e(description)}"><meta property="og:type" content="website"><meta property="og:url" content="${canonical}"><meta property="og:image" content="${isTellTail ? tellTail.websiteUrl + tellTailDashboardUrl : websiteUrl + "/assets/social.png"}"><meta property="og:image:alt" content="${isTellTail ? "Tell-Tail dashboard with synthetic sample logs" : "Ding. Know what happened. See why."}"><meta name="twitter:card" content="summary_large_image">${preview || path === "404.html" || path === "console/" ? '<meta name="robots" content="noindex,follow">' : ""}<link rel="icon" href="${icon}" type="image/svg+xml"><link rel="stylesheet" href="/assets/tokens.css"><link rel="stylesheet" href="/assets/style.css?v=${styleVersion}">${isTellTail ? `<link rel="stylesheet" href="${tellTailStyleUrl}">` : ""}<script src="/assets/site.js" defer></script></head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header">${headerBrand}<nav aria-label="Main navigation">${nav}</nav><div class="account-actions">${accountActions}</div><button class="theme-toggle" type="button" hidden aria-label="Change color theme">Theme: system</button></header><main id="main">${content}</main><footer><a class="wordmark" href="${isTellTail ? product.websiteUrl + "/" : "/"}"><img src="/assets/mark.svg" width="28" height="28" alt="">Ding.</a><p>${isTellTail ? "Tell-Tail · A Ding Labs product." : "Persistent watches. Durable alerts."}</p><div>${footerLinks}</div></footer></body></html>`;
   const dest = isTellTail ? new URL("index.html", tellTailOut) : new URL(filename, out);
   mkdirSync(new URL("./", dest), { recursive: true });
   writeFileSync(dest, html);

@@ -1,65 +1,78 @@
-<section class="tell-tail-hero" aria-labelledby="tell-tail-title">
+<section class="tt-hero wrap" aria-labelledby="hero-title">
   <div>
-    <p class="eyebrow">Tell-Tail / A Ding Labs product</p>
-    <h1 id="tell-tail-title">A live view.<br /><em>From your logs.</em></h1>
-    <p class="lede">Follow a log file or pipe in a process. See throughput, warnings, and errors in your terminal or browser, with a small sample of recent errors close at hand.</p>
+    <p class="label">Local AI observability</p>
+    <h1 id="hero-title">Which tool<br>call <em>failed?</em></h1>
+    <p class="lede">Follow Codex tool results alongside desktop events and MCP logs. Open a call to see which tool ran, what it reported, and how long it took.</p>
     <div class="actions">
-      <a class="button primary" href="#install">Install Tell-Tail <span aria-hidden="true">↓</span></a>
-      <a class="text-link" href="{{tellTailDocsUrl}}">Read the docs <span aria-hidden="true">→</span></a>
-      <a class="text-link" href="#mcp">MCP diagnostics <span aria-hidden="true">↓</span></a>
+      <a class="button primary" href="#activity">Explore AI Activity <span aria-hidden="true">↓</span></a>
+      <a class="link" href="#mcp">Try the MCP demo <span aria-hidden="true">↓</span></a>
     </div>
-    <p class="availability">Free and open source · MIT · v{{tellTailVersion}}<br />Runs locally. No account needed.</p>
+    <p class="qualifier">AI Activity is available from source. MCP diagnostics ship in v{{tellTailVersion}}.</p>
   </div>
-  <div class="tell-tail-start code-panel">
-    <div class="code-title">One file. Two views.</div>
-    <div class="tell-tail-command"><span class="eyebrow">In your terminal</span><pre tabindex="0" aria-label="Run Tell-Tail in the terminal"><code>tell-tail app.log</code></pre></div>
-    <div class="tell-tail-command"><span class="eyebrow">In your browser</span><pre tabindex="0" aria-label="Open Tell-Tail in the browser"><code>tell-tail app.log --output web --open</code></pre></div>
-    <p>Following starts at the end of the file. Add <code>--from start</code> to include existing lines.</p>
-  </div>
-</section>
-<figure class="tell-tail-dashboard">
-  <a href="{{tellTailDashboardUrl}}" aria-label="View the full Tell-Tail dashboard screenshot"><img src="{{tellTailDashboardUrl}}" width="1200" height="2129" fetchpriority="high" alt="Tell-Tail browser dashboard showing log throughput, warning and error ratios, severity counts, and recent error previews from sample records." /></a>
-  <figcaption>Tell-Tail 0.4.0 browser dashboard with synthetic sample logs from the built-in demo. Display frozen for this screenshot.</figcaption>
-</figure>
-<section class="section tell-tail-mcp" id="mcp" aria-labelledby="mcp-title">
-  <div class="tell-tail-mcp-intro">
-    <div>
-      <p class="eyebrow">MCP diagnostics / Included in v{{tellTailVersion}}</p>
-      <h2 id="mcp-title">Your MCP logs.<br />One local view.</h2>
-      <p>Open existing Codex Desktop and Claude Desktop logs on macOS in one command. See reported authentication failures, timeouts, and unexpected disconnects, with matching recovery alongside them.</p>
-      <p>Search the timeline by client or server and inspect diagnostic metadata. Tell-Tail reads existing log files, without client configuration changes or restarts.</p>
-      <a class="text-link" href="{{tellTailDocsUrl}}mcp/">Explore MCP diagnostics <span aria-hidden="true">→</span></a>
-    </div>
-    <div class="code-panel tell-tail-start">
-      <div class="code-title">Watch your MCP logs</div>
-      <pre tabindex="0" aria-label="Watch desktop MCP logs"><code>tell-tail mcp --open</code></pre>
-      <div class="code-title">Try the synthetic demo</div>
-      <pre tabindex="0" aria-label="Try the MCP dashboard with synthetic logs"><code>tell-tail mcp --demo --open</code></pre>
-      <p>Automatic discovery is available on macOS. On Linux, use an explicit directory of supported logs or try the demo. Collection stays local; tool arguments and results are omitted.</p>
-    </div>
-  </div>
-  <figure class="tell-tail-dashboard">
-    <a href="/assets/tell-tail/mcp-dashboard.png" aria-label="View the full MCP dashboard screenshot"><img src="/assets/tell-tail/mcp-dashboard.png" width="1440" height="1602" loading="lazy" decoding="async" alt="Tell-Tail MCP dashboard with synthetic Codex Desktop and Claude Desktop logs, showing recovered OAuth reauthentication, timeout and connection failure groups, and a timeline filtered to failures." /></a>
-    <figcaption>Tell-Tail 0.4.0 running the synthetic MCP demo. Display paused and timeline filtered to failures. Select the screenshot to view it full size.</figcaption>
+  <figure class="hero-figure">
+    <a href="/assets/tell-tail/tool-result.png" class="inspector-frame" aria-label="Enlarge the synthetic failed tool result">
+      <img src="/assets/tell-tail/tool-result.png" width="585" height="579" fetchpriority="high" alt="The inspector identifies demo-deploy’s status tool, an execution failure reported by the Codex exporter, and a duration of 194 ms.">
+    </a>
+    <figcaption>AI Activity source preview · Synthetic tool result</figcaption>
   </figure>
 </section>
-<section class="section" aria-labelledby="workflows-title">
-  <div class="section-heading"><p class="eyebrow">From output to understanding</p><h2 id="workflows-title">Start where<br />your software runs.</h2></div>
-  <div class="tell-tail-workflows">
-    <article><span class="use-number">01 / Deploying</span><h3>Keep a service in view.</h3><p>Follow new log lines while you deploy. Watch the volume and severity of arriving records, then freeze the display to review recent errors.</p><pre tabindex="0" aria-label="Follow a service log"><code>tell-tail service.log --window 10</code></pre></article>
-    <article><span class="use-number">02 / Debugging</span><h3>Watch a worker’s output.</h3><p>Pipe stdout and stderr straight into a dashboard. Unbuffered output helps records arrive as the process writes them.</p><pre tabindex="0" aria-label="Pipe Python worker output"><code>python3 -u worker.py 2>&amp;1 | tell-tail</code></pre></article>
-    <article><span class="use-number">03 / MCP diagnostics</span><h3>Inspect desktop MCP logs.</h3><p>On macOS, discover existing Codex Desktop and Claude Desktop logs. Review reported failures, scoped recovery, and source freshness without changing client configuration.</p><pre tabindex="0" aria-label="Open MCP diagnostics"><code>tell-tail mcp --open</code></pre><a href="{{tellTailDocsUrl}}mcp/">Supported sources and limits →</a></article>
+<section class="tt-activity" id="activity" aria-labelledby="activity-title">
+  <div class="wrap">
+    <div class="tt-heading">
+      <div><p class="label">AI Activity · Source preview</p><h2 id="activity-title">See the call in context.</h2></div>
+      <p>Filter the timeline by tool, server, or connection. Select a result to hold the timeline steady while new events arrive. Live tool results come from the opt-in Codex exporter.</p>
+    </div>
+    <figure>
+      <a class="shot" href="/assets/tell-tail/activity.png" aria-label="View the full AI Activity workspace screenshot">
+        <picture>
+          <source media="(max-width: 700px)" srcset="/assets/tell-tail/activity-mobile.png" width="585" height="353">
+          <img src="/assets/tell-tail/activity.png" width="1860" height="1185" loading="lazy" alt="Activity feed showing a denied calendar operation, a completed file operation, and the selected failed deployment status call.">
+        </picture>
+      </a>
+      <figcaption>Synthetic Codex tool results in the AI Activity feed. <a href="/assets/tell-tail/activity.png">View full workspace ↗</a></figcaption>
+    </figure>
+    <div class="preview-run">
+      <div><h3>Try the timeline from source</h3><p>Run from the source checkout with Rust 1.88 or later. The demo supplies its own events.</p></div>
+      <div><pre aria-label="Run the AI Activity source demo"><code>cargo run --locked -- desktop --demo --open</code></pre><a class="link" href="{{tellTailRepositoryUrl}}/tree/b1f381fcece43d36397b46f6c2b36e992fdddd0d">Get the preview source ↗</a></div>
+    </div>
   </div>
 </section>
-<section class="section definition" id="install" aria-labelledby="install-title">
-  <div><p class="eyebrow">Get started / v{{tellTailVersion}}</p><h2 id="install-title">Install once.<br />Bring your own logs.</h2><p>Native downloads support Apple Silicon on macOS 14+ and Linux on x86_64 or ARM64. The browser dashboard is built into the binary.</p><div class="actions"><a class="text-link" href="{{tellTailRepositoryUrl}}/releases/tag/v{{tellTailVersion}}">Download a binary <span aria-hidden="true">↗</span></a><a class="text-link" href="{{tellTailDocsUrl}}">Installation guide <span aria-hidden="true">→</span></a></div></div>
-  <div class="code-panel"><div class="code-title">Homebrew</div><pre tabindex="0" aria-label="Install Tell-Tail with Homebrew"><code>brew install ding-labs/tap/tell-tail</code></pre><div class="code-title">Cargo <span>Requires Rust 1.88 or later</span></div><pre tabindex="0" aria-label="Install Tell-Tail with Cargo"><code>cargo install tell-tail --version {{tellTailVersion}} --locked</code></pre></div>
+<section class="wrap pair mcp" id="mcp" aria-labelledby="mcp-title">
+  <div>
+    <p class="label">MCP diagnostics · Released in v0.4.0</p>
+    <h2 id="mcp-title">Did the server recover?</h2>
+    <p>In this demo, the calendar server needed a fresh sign-in. Later, the same execution reported ready. Tell-Tail shows both observations together.</p>
+    <p>Watch existing Codex Desktop and Claude Desktop MCP logs on macOS, or try the synthetic demo on macOS or Linux.</p>
+    <div id="install">
+      <h3>Install and run the MCP demo</h3>
+      <pre aria-label="Install Tell-Tail and run the MCP demo"><code>brew install ding-labs/tap/tell-tail
+tell-tail mcp --demo --open</code></pre>
+      <p class="small">For your own desktop logs, run <code>tell-tail mcp --open</code>.</p>
+      <a class="link" href="{{tellTailDocsUrl}}mcp/">MCP guide ↗</a>
+      <a class="link" href="{{tellTailRepositoryUrl}}/releases/tag/v{{tellTailVersion}}">Native downloads ↗</a>
+      <details class="install-options">
+        <summary>Install with Cargo</summary>
+        <p>Requires Rust 1.88 or later.</p>
+        <pre><code>cargo install tell-tail --version {{tellTailVersion}} --locked</code></pre>
+      </details>
+    </div>
+  </div>
+  <figure>
+    <a class="shot" href="/assets/tell-tail/mcp-recovery.png" aria-label="Enlarge the calendar server recovery group"><img src="/assets/tell-tail/mcp-recovery.png" width="717" height="386" loading="lazy" alt="Codex Desktop calendar server needs OAuth reauthentication at startup and records recovery five seconds later in the same execution."></a>
+    <figcaption>v0.4.0 · Synthetic MCP logs · Reported failure and recovery</figcaption>
+  </figure>
 </section>
-<section class="section tell-tail-try" aria-labelledby="try-title">
-  <div><p class="eyebrow">No log file handy?</p><h2 id="try-title">One command.<br />A live demo.</h2><p>Run the offline synthetic demo after installing. Watch normal activity, warnings, errors, silence, and recovery. Ctrl+C stops it.</p></div>
-  <pre tabindex="0" aria-label="Try Tell-Tail with sample logs"><code>tell-tail --demo --window 5 --output web --open</code></pre>
-</section>
-<section class="section tell-tail-boundaries" aria-labelledby="local-title">
-  <div><p class="eyebrow">Small, local, inspectable</p><h2 id="local-title">Keep the view<br />close to the source.</h2><p>Tell-Tail keeps counters, rolling statistics, and a bounded sample of recent errors in memory. Statistics reset on restart. It works offline, and webhook notifications are optional.</p><p>Log ratios describe the records received. They do not establish application health. For persistent watches, retained evidence, and durable notification retries, explore <a href="https://ding.ing/">Ding</a>.</p></div>
-  <div class="plain-panel"><h3>Take the next step.</h3><ul class="tell-tail-guides"><li><a href="{{tellTailDocsUrl}}dashboard/">Explore the browser dashboard →</a></li><li><a href="{{tellTailDocsUrl}}usage/#webhook-alerts">Set up webhook alerts →</a></li><li><a href="{{tellTailDocsUrl}}operations/">Find answers and troubleshoot →</a></li><li><a href="{{tellTailRepositoryUrl}}">Read the source on GitHub ↗</a></li></ul><p class="availability">MCP diagnostics and demos are included in v{{tellTailVersion}}. <a href="{{tellTailDocsUrl}}mcp/">Open the MCP guide</a> for commands and supported sources.</p></div>
+<section class="tt-logs" aria-labelledby="logs-title">
+  <div class="wrap pair">
+    <div>
+      <p class="label">Application logs</p><h2 id="logs-title">Tail the rest of your stack.</h2>
+      <p>Tell-Tail is an open-source Rust binary. Follow a service log or pipe in a worker’s output to see throughput, warnings, and recent errors in your terminal or browser.</p>
+      <pre aria-label="Follow a service log in the terminal"><code>tell-tail service.log</code></pre>
+      <a class="link" href="{{tellTailDocsUrl}}dashboard/">Explore the log dashboard ↗</a>
+    </div>
+    <figure>
+      <a class="shot" href="/assets/tell-tail/log-throughput.png" aria-label="Enlarge the log throughput and severity charts"><img src="/assets/tell-tail/log-throughput.png" width="977" height="909" loading="lazy" alt="Log throughput drops to zero during a quiet interval, then resumes. Separate lines show warning and error counts."></a>
+      <figcaption>v0.4.0 · Synthetic application logs</figcaption>
+    </figure>
+  </div>
 </section>

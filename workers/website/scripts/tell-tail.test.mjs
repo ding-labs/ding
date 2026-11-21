@@ -14,15 +14,30 @@ test("Tell-Tail has its own install flow, repository, and license", () => {
   assert.match(html, /github.com\/ding-labs\/tell-tail\/blob\/v0.4.0\/LICENSE/);
   assert.match(html, /brew install ding-labs\/tap\/tell-tail/);
   assert.match(html, /cargo install tell-tail --version 0.4.0 --locked/);
-  assert.match(html, /synthetic sample logs/);
+  assert.match(html, /AI Activity source preview · Synthetic tool result/);
   assert.doesNotMatch(html, /\{\{\w+\}\}/);
 });
 test("Tell-Tail is discoverable and has product-specific share metadata", () => {
   assert.ok(readFileSync(new URL("sitemap.xml", tellTailDist), "utf8").includes("https://tell-tail.dev/"));
   assert.match(html, /rel="canonical" href="https:\/\/tell-tail\.dev\/"/);
   assert.match(html, /property="og:image" content="https:\/\/tell-tail\.dev\/assets\/tell-tail\/dashboard.png\?v=[a-f0-9]{12}"/);
-  const image = readFileSync(new URL("assets/tell-tail/dashboard.png", tellTailDist));
-  assert.ok(html.includes(`width="${image.readUInt32BE(16)}" height="${image.readUInt32BE(20)}"`));
+});
+
+test("the AI preview and the installed MCP demo have distinct entry points", () => {
+  assert.match(html, /id="hero-title".*id="activity".*id="mcp".*id="install".*id="logs-title"/s);
+  assert.match(html, /href="#activity">Explore AI Activity/);
+  assert.match(html, /href="#mcp">Try the MCP demo/);
+  assert.match(html, /cargo run --locked -- desktop --demo --open/);
+  assert.match(html, /tell-tail mcp --demo --open/);
+});
+
+test("the responsive homepage screenshots ship at their declared dimensions", () => {
+  for (const file of ["tool-result", "activity", "activity-mobile", "mcp-recovery", "log-throughput"]) {
+    const path = `/assets/tell-tail/${file}.png`;
+    const image = readFileSync(new URL("." + path, tellTailDist));
+    const dimensions = `width="${image.readUInt32BE(16)}" height="${image.readUInt32BE(20)}"`;
+    assert.ok(html.includes(`="${path}" ${dimensions}`), path);
+  }
 });
 
 test("the homepage features Tell-Tail before the detailed Ding sections", () => {
