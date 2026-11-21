@@ -92,6 +92,9 @@ main pre {
 #use-in-codex { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--ding-border); }
 #use-in-codex h3 { margin-bottom: 8px; }
 #use-in-codex .button { margin-block: 12px; }
+.catalog-source { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.catalog-source code { user-select: all; }
+.catalog-source button { padding: 3px 8px; border: 1px solid var(--ding-border); border-radius: var(--ding-radius-control); background: var(--ding-subtle); color: var(--ding-text); font-size: 14px; }
 .tt-logs { border-block: 1px solid var(--ding-border); background: light-dark(#e9ede5, #233127); }
 .tt-logs .pair { grid-template-columns: 1.35fr .75fr; }
 .tt-logs pre { padding-left: 0; margin-bottom: 4px; background: transparent; }

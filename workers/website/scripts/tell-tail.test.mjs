@@ -30,7 +30,8 @@ test("the optional Codex catalog follows both standalone install options", () =>
   assert.equal(button[1], "codex://plugins/install/tell-tail?marketplace=tell-tail-plugins");
   assert.ok(section.includes("Apple Silicon"));
   assert.ok(section.includes("Add a marketplace"));
-  assert.ok(section.includes("<code>zuchka/tell-tail-plugins</code>"));
+  assert.ok(section.includes('<code id="catalog-source">zuchka/tell-tail-plugins</code>'));
+  assert.ok(section.includes('id="copy-catalog" hidden>Copy catalog</button>'));
   assert.ok(section.includes('href="https://github.com/zuchka/tell-tail-plugins"'));
 });
 test("Tell-Tail is discoverable and has product-specific share metadata", () => {
