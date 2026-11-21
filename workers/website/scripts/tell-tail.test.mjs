@@ -20,6 +20,16 @@ test("Tell-Tail has its own install flow, repository, and license", () => {
   assert.match(html, /AI Activity source preview · Synthetic tool result/);
   assert.doesNotMatch(html, /\{\{\w+\}\}/);
 });
+test("the optional Codex catalog follows both standalone install options", () => {
+  const sectionStart = html.indexOf('<section id="use-in-codex"');
+  const cargo = html.indexOf("cargo install tell-tail");
+  assert.ok(html.indexOf("brew install ding-labs/tap/tell-tail") < cargo && cargo < sectionStart);
+  const section = html.slice(sectionStart, html.indexOf("</section>", sectionStart));
+  assert.ok(section.includes("Use in Codex"));
+  assert.ok(section.includes("Apple Silicon"));
+  assert.ok(section.includes("codex plugin marketplace add zuchka/tell-tail-plugins\ncodex plugin add tell-tail@tell-tail-plugins"));
+  assert.ok(section.includes('href="https://github.com/zuchka/tell-tail-plugins"'));
+});
 test("Tell-Tail is discoverable and has product-specific share metadata", () => {
   assert.ok(readFileSync(new URL("sitemap.xml", tellTailDist), "utf8").includes("https://tell-tail.dev/"));
   assert.match(html, /rel="canonical" href="https:\/\/tell-tail\.dev\/"/);
